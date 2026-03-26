@@ -17,10 +17,40 @@
             overflow-x: hidden;
             transition: background 0.5s ease;
         }
-        body.theme-summer { background: linear-gradient(135deg, #fbbf24, #f59e0b, #f97316); }
-        body.theme-autumn { background: linear-gradient(135deg, #b91c1c, #9b2c2c, #7c2d12); }
+        /* Стильные сезонные темы */
+        body.theme-summer { 
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #f97316 100%);
+            background-attachment: fixed;
+        }
+        body.theme-summer::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at 20% 40%, rgba(255,215,0,0.15) 0%, transparent 70%);
+            z-index: 0;
+        }
+        body.theme-autumn { 
+            background: linear-gradient(135deg, #dc2626 0%, #b91c1c 30%, #9b2c2c 70%, #7c2d12 100%);
+            background-attachment: fixed;
+        }
+        body.theme-autumn::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at 80% 30%, rgba(255,140,0,0.2) 0%, transparent 60%);
+            z-index: 0;
+        }
         body.theme-winter { 
-            background: linear-gradient(135deg, #1e293b, #0f172a, #0891b2);
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #0891b2 100%);
+            background-attachment: fixed;
             position: relative;
         }
         body.theme-winter::before {
@@ -31,16 +61,30 @@
             width: 100%;
             height: 100%;
             pointer-events: none;
-            background-image: radial-gradient(white 1.5px, transparent 1.5px);
-            background-size: 30px 30px;
-            animation: snow 20s linear infinite;
+            background-image: radial-gradient(white 2px, transparent 2px);
+            background-size: 40px 40px;
+            animation: snowfall 15s linear infinite;
             z-index: 0;
         }
-        @keyframes snow {
-            0% { background-position: 0 0; }
-            100% { background-position: 0 600px; }
+        @keyframes snowfall {
+            0% { background-position: 0 -40px; }
+            100% { background-position: 0 100%; }
         }
-        body.theme-spring { background: linear-gradient(135deg, #a3e635, #84cc16, #4ade80); }
+        body.theme-spring { 
+            background: linear-gradient(135deg, #a3e635 0%, #84cc16 30%, #4ade80 70%, #22c55e 100%);
+            background-attachment: fixed;
+        }
+        body.theme-spring::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: radial-gradient(circle at 30% 70%, rgba(250,204,21,0.2) 0%, transparent 70%);
+            z-index: 0;
+        }
         
         .container {
             max-width: 1400px;
@@ -505,7 +549,7 @@
     <span id="syncText">Подключение...</span>
 </div>
 
-<div class="container" id="mainContainer">
+<div class="container" id="mainContainer" style="display: none;">
     <div class="header">
         <div class="logo-area">
             <div class="logo-icon"><img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT"></div>
@@ -558,7 +602,7 @@
             <table class="tasks-table">
                 <thead><th>Дата</th><th>Задача</th><th>Постановщик</th><th>Исполнитель</th><th>Дедлайн</th><th>Статус</th><th></th></thead>
                 <tbody id="tasksTableBody"></tbody>
-             </table>
+              </table>
         </div>
     </div>
     
@@ -569,7 +613,7 @@
             <table class="tasks-table">
                 <thead><th>#</th><th>Сотрудник</th><th>Часы</th><th>Рейтинг</th><th>Монеты</th><th>Звание</th></thead>
                 <tbody id="ratingTableBody"></tbody>
-             </table>
+              </table>
         </div>
     </div>
     
@@ -582,7 +626,7 @@
             <table class="fines-table">
                 <thead><th>Дата</th><th>Событие</th><th>Сотрудник</th><th>Сумма штрафа</th><th></th></thead>
                 <tbody id="finesTableBody"></tbody>
-             </table>
+              </table>
         </div>
     </div>
     
@@ -622,9 +666,9 @@
 
 <div id="profileModal" class="profile-modal"><div class="profile-modal-content" id="profileModalContent"></div></div>
 <div id="sendGiftModal" class="profile-modal"><div class="modal-window" id="sendGiftWindow"></div></div>
-<div id="createEmployeeModal" class="profile-modal"><div class="modal-window"><h3>Создать сотрудника</h3><input type="text" id="newEmpName" class="edit-input" placeholder="Имя"><select id="newEmpRole" class="styled-select"></select><input type="password" id="newEmpPassword" class="edit-input" placeholder="Пароль"><button onclick="createEmployee()" class="btn-primary">Создать</button><button class="btn-secondary" onclick="closeCreateEmployeeModal()">Отмена</button></div></div>
+<div id="createEmployeeModal" class="profile-modal"><div class="modal-window"><h3>Создать сотрудника</h3><input type="text" id="newEmpName" class="edit-input" placeholder="Имя (логин)"><select id="newEmpRole" class="styled-select"></select><input type="password" id="newEmpPassword" class="edit-input" placeholder="Пароль"><button onclick="createEmployee()" class="btn-primary">Создать</button><button class="btn-secondary" onclick="closeCreateEmployeeModal()">Отмена</button></div></div>
 <div id="addTaskModal" class="profile-modal"><div class="modal-window"><h3>Добавить задачу</h3><input type="text" id="taskName" class="edit-input" placeholder="Название"><select id="taskAuthor" class="styled-select"></select><select id="taskExecutorRole" class="styled-select"></select><input type="date" id="taskDeadline" class="edit-input"><button onclick="addTask()" class="btn-primary">Добавить</button><button class="btn-secondary" onclick="closeAddTaskModal()">Отмена</button></div></div>
-<div id="addFineModal" class="profile-modal"><div class="modal-window"><h3>Добавить нарушение</h3><input type="date" id="fineDate" class="edit-input" value="2026-03-26"><input type="text" id="fineEvent" class="edit-input" placeholder="Описание нарушения"><select id="fineEmployee" class="styled-select"></select><input type="number" id="fineAmount" class="edit-input" placeholder="Сумма штрафа (0 если не назначен)"><button onclick="addFine()" class="btn-primary">Добавить</button><button class="btn-secondary" onclick="closeAddFineModal()">Отмена</button></div></div>
+<div id="addFineModal" class="profile-modal"><div class="modal-window"><h3>Добавить нарушение</h3><input type="date" id="fineDate" class="edit-input" value=""><input type="text" id="fineEvent" class="edit-input" placeholder="Описание нарушения"><select id="fineEmployee" class="styled-select"></select><input type="number" id="fineAmount" class="edit-input" placeholder="Сумма штрафа (0 если не назначен)"><button onclick="addFine()" class="btn-primary">Добавить</button><button class="btn-secondary" onclick="closeAddFineModal()">Отмена</button></div></div>
 
 <script>
 // ==================== КОНФИГУРАЦИЯ ====================
@@ -641,12 +685,14 @@ let wsConnected = false;
 // Данные
 let employees = [];
 let profiles = {};
-let passwords = {};
+let passwords = {}; // логин -> пароль (логин = имя при создании, НЕ изменяется)
+let loginMap = {};  // имя сотрудника -> логин (для входа)
 let tasks = [];
 let fines = [];
 let schedule = {};
 let messages = { general: [] };
 let currentUser = null;
+let currentUserLogin = null;
 let currentUserRole = null;
 let currentUserPermissions = null;
 let lastActivity = {};
@@ -702,6 +748,7 @@ async function loadData() {
         employees = data.employees || [];
         profiles = data.profiles || {};
         passwords = data.passwords || {};
+        loginMap = data.loginMap || {};
         tasks = data.tasks || [];
         fines = data.fines || [];
         schedule = data.schedule || {};
@@ -714,7 +761,7 @@ async function loadData() {
 }
 
 async function saveData() {
-    await apiCall('/data', 'POST', { employees, profiles, passwords, tasks, fines, schedule, messages });
+    await apiCall('/data', 'POST', { employees, profiles, passwords, loginMap, tasks, fines, schedule, messages });
 }
 
 // ==================== PUSHER ====================
@@ -728,8 +775,8 @@ function initPusher() {
         document.getElementById('syncText').innerHTML = '<i class="fas fa-check-circle"></i> Синхронизация активна';
     });
     
-    channel.bind('client-employee-add', (data) => { if(data.sessionId !== SESSION_ID && !employees.includes(data.employee)) { employees.push(data.employee); profiles[data.employee] = data.profile; passwords[data.employee] = data.password; renderAll(); } });
-    channel.bind('client-employee-delete', (data) => { if(data.sessionId !== SESSION_ID && employees.includes(data.employee)) { employees = employees.filter(e => e !== data.employee); delete profiles[data.employee]; delete passwords[data.employee]; renderAll(); } });
+    channel.bind('client-employee-add', (data) => { if(data.sessionId !== SESSION_ID && !employees.includes(data.employee)) { employees.push(data.employee); profiles[data.employee] = data.profile; passwords[data.login] = data.password; loginMap[data.employee] = data.login; renderAll(); } });
+    channel.bind('client-employee-delete', (data) => { if(data.sessionId !== SESSION_ID && employees.includes(data.employee)) { employees = employees.filter(e => e !== data.employee); delete profiles[data.employee]; delete passwords[data.login]; delete loginMap[data.employee]; renderAll(); } });
     channel.bind('client-profile-update', (data) => { if(data.sessionId !== SESSION_ID && profiles[data.employee]) { profiles[data.employee] = { ...profiles[data.employee], ...data.updates }; renderAll(); } });
     channel.bind('client-gift-send', (data) => { if(data.sessionId !== SESSION_ID && profiles[data.recipient]) { profiles[data.recipient].coins -= data.price; profiles[data.recipient].rating += data.ratingChange; if(!profiles[data.recipient].stickers) profiles[data.recipient].stickers = {}; if(!profiles[data.recipient].stickers[data.giftId]) profiles[data.recipient].stickers[data.giftId] = 0; profiles[data.recipient].stickers[data.giftId]++; renderAll(); } });
     channel.bind('client-task-add', (data) => { if(data.sessionId !== SESSION_ID) { tasks.push(data.task); renderAll(); } });
@@ -747,11 +794,37 @@ function sendSync(event, data) { if(wsConnected && channel) channel.trigger(even
 
 // ==================== АВТОРИЗАЦИЯ ====================
 function login() {
-    const name = document.getElementById('loginName').value.trim();
+    const loginName = document.getElementById('loginName').value.trim();
     const pass = document.getElementById('loginPassword').value;
-    if(passwords[name] && passwords[name] === pass) {
-        currentUser = name;
-        currentUserRole = profiles[name]?.role || 'operator';
+    
+    // Проверяем пароль
+    if(passwords[loginName] && passwords[loginName] === pass) {
+        // Находим сотрудника по логину
+        let employeeName = null;
+        for(let emp of employees) {
+            if(loginMap[emp] === loginName || emp === loginName) {
+                employeeName = emp;
+                break;
+            }
+        }
+        if(!employeeName) {
+            // Если сотрудник не найден, создаём директора
+            if(loginName === 'Директор') {
+                employeeName = 'Директор';
+                employees.push(employeeName);
+                profiles[employeeName] = { avatar: '👑', name: employeeName, status: '💼 Работаю', coins: 1000, rating: 100, background: 'bg_default', role: 'director', hours: 0, stickers: {} };
+                passwords[loginName] = pass;
+                loginMap[employeeName] = loginName;
+                saveData();
+            } else {
+                alert('Сотрудник не найден');
+                return;
+            }
+        }
+        
+        currentUser = employeeName;
+        currentUserLogin = loginName;
+        currentUserRole = profiles[employeeName]?.role || 'operator';
         currentUserPermissions = rolesMap[currentUserRole] || rolesMap.operator;
         document.getElementById('loginModal').classList.remove('active');
         document.getElementById('mainContainer').style.display = 'block';
@@ -763,6 +836,7 @@ function login() {
 
 function logout() {
     currentUser = null;
+    currentUserLogin = null;
     document.getElementById('mainContainer').style.display = 'none';
     document.getElementById('loginModal').classList.add('active');
     document.getElementById('loginName').value = '';
@@ -826,9 +900,6 @@ function renderEmployees() {
     document.getElementById('statTotalEmployees').textContent = employees.length;
     document.getElementById('statOnline').textContent = onlineCount;
     
-    const userSwitchSelect = document.getElementById('userSwitchSelect');
-    if(userSwitchSelect) userSwitchSelect.innerHTML = employees.map(e => `<option value="${profiles[e]?.role}_${e}" ${currentUser === e ? 'selected' : ''}>${profiles[e]?.avatar} ${e} (${roleNames[profiles[e]?.role]})</option>`).join('');
-    
     if(employees.length === 0) {
         grid.innerHTML = `<div class="empty-state"><div class="empty-state-icon">👥</div><h3>Пока нет сотрудников</h3><button class="btn-primary" onclick="openCreateEmployeeModal()">Создать первого сотрудника</button></div>`;
         return;
@@ -851,9 +922,9 @@ function renderTasks() {
     tasks.forEach(task => { if(task.deadline && task.deadline < today && task.status === 'В процессе') task.status = 'Не выполнено'; });
     tbody.innerHTML = tasks.map((t, idx) => {
         const statusClass = t.status === 'Выполнено' ? 'task-status-completed' : t.status === 'Не выполнено' ? 'task-status-failed' : 'task-status-progress';
-        return `<tr><td>${t.date||'—'}<td><strong>${t.name}</strong><td>${t.authorName || t.author}<td>${t.executorRole ? roleNames[t.executorRole]+' (все)' : t.executor}<td>${t.deadline||'—'}<td><span class="${statusClass}">${t.status}</span><td><button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'Выполнено')"><i class="fas fa-check"></i></button> <button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'В процессе')"><i class="fas fa-play"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteTask(${idx})"><i class="fas fa-trash"></i></button><tr`;
+        return `叭<td style="padding:12px;">${t.date||'—'}><td style="padding:12px;"><strong>${t.name}</strong>><td style="padding:12px;">${t.authorName || t.author}><td style="padding:12px;">${t.executorRole ? roleNames[t.executorRole]+' (все)' : t.executor}><td style="padding:12px;">${t.deadline||'—'}><td style="padding:12px;"><span class="${statusClass}">${t.status}</span>><td style="padding:12px;"><button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'Выполнено')"><i class="fas fa-check"></i></button> <button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'В процессе')"><i class="fas fa-play"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteTask(${idx})"><i class="fas fa-trash"></i></button><tr`;
     }).join('');
-    if(!tasks.length) tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📋</div><p>Нет задач</p></div>';
+    if(!tasks.length) tbody.innerHTML = '叭<td colspan="7"><div class="empty-state"><div class="empty-state-icon">📋</div><p>Нет задач</p></div>';
 }
 
 async function changeTaskStatus(idx, status) { await apiCall(`/tasks/${idx}`, 'PUT', { status }); sendSync('client-task-update', { index: idx, status }); await loadData(); renderTasks(); updateStats(); }
@@ -865,7 +936,7 @@ function renderFines() {
     const canEdit = currentUserPermissions?.canEditFines;
     const totalFines = fines.reduce((sum, f) => sum + (f.amount || 0), 0);
     document.getElementById('statFinesTotal').textContent = totalFines;
-    tbody.innerHTML = fines.map((f, idx) => `<tr><td>${f.date}<td>${f.event}<td>${f.employee}<td>${f.amount ? f.amount + ' ₽' : '—'}<td>${canEdit ? `<button class="btn-secondary" style="padding:4px 8px;" onclick="editFine(${idx})"><i class="fas fa-edit"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteFine(${idx})"><i class="fas fa-trash"></i></button>` : ''}<tr`).join('');
+    tbody.innerHTML = fines.map((f, idx) => `<tr><td style="padding:12px;">${f.date}<td style="padding:12px;">${f.event}<td style="padding:12px;">${f.employee}<td style="padding:12px;">${f.amount ? f.amount + ' ₽' : '—'}<td style="padding:12px;">${canEdit ? `<button class="btn-secondary" style="padding:4px 8px;" onclick="editFine(${idx})"><i class="fas fa-edit"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteFine(${idx})"><i class="fas fa-trash"></i></button>` : ''}<tr`).join('');
     if(!fines.length) tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Нарушений нет</p></div>';
 }
 
@@ -896,7 +967,7 @@ let selectedGift = null;
 function selectGift(id, price, rating) { selectedGift = { id, price, rating }; showNotif('Выберите способ отправки','info'); }
 async function sendGiftTo(target, anonymous) { if(!selectedGift) { showNotif('Сначала выберите подарок','error'); return; } let gift = gifts.find(g => g.id === selectedGift.id); if(profiles[currentUser].coins < selectedGift.price) { showNotif('Недостаточно монет','error'); return; } await apiCall('/gifts', 'POST', { recipient: target, giftId: gift.id, giftName: gift.name, price: selectedGift.price, ratingChange: selectedGift.rating, sender: anonymous ? '🕵️ Аноним' : currentUser }); sendSync('client-gift-send', { recipient: target, giftId: gift.id, giftName: gift.name, price: selectedGift.price, ratingChange: selectedGift.rating, sender: anonymous ? '🕵️ Аноним' : currentUser }); await loadData(); renderAll(); closeSendGiftModal(); closeProfileModal(); selectedGift = null; showNotif(`🎁 Подарок отправлен!`, 'success'); }
 
-function updateRatingTable() { let sorted = [...employees].sort((a,b)=>(profiles[b]?.rating||0)-(profiles[a]?.rating||0)); document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td>${i+1}<td>${p.avatar} ${p.name}<td>${p.hours}ч<td style="color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}<td>💰 ${p.coins}<td>${title}<tr`; }).join(''); }
+function updateRatingTable() { let sorted = [...employees].sort((a,b)=>(profiles[b]?.rating||0)-(profiles[a]?.rating||0)); document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}<td style="padding:12px;">${p.avatar} ${p.name}<td style="padding:12px;">${p.hours}ч<td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}<td style="padding:12px;">💰 ${p.coins}<td style="padding:12px;">${title}<tr`; }).join(''); }
 function updateStats() { document.getElementById('statTasksDone').textContent = tasks.filter(t=>t.status==='Выполнено').length; }
 
 // ==================== ГРАФИК ====================
@@ -913,15 +984,15 @@ async function sendMessage() { const input = document.getElementById('chatInput'
 // ==================== АДМИНИСТРИРОВАНИЕ ====================
 function renderAdminTools() { const isAdmin = currentUserPermissions?.canEditSite; if(!isAdmin) { document.getElementById('adminToolsContainer').innerHTML = '<div class="empty-state"><div class="empty-state-icon">🔒</div><h3>Доступ ограничен</h3><p>Только руководители</p></div>'; return; } document.getElementById('adminToolsContainer').innerHTML = `
     <div class="tool-card"><h4>🎨 Смена фона</h4>${themes.map(t => `<button class="btn-secondary" style="margin:4px;" onclick="setTheme('${t.id}')">${t.name}</button>`).join('')}</div>
-    <div class="tool-card"><h4>🔐 Управление паролями</h4><select id="passwordUserSelect" class="styled-select">${employees.map(e => `<option value="${e}">${e}</option>`).join('')}</select><input type="password" id="newPassword" class="edit-input" placeholder="Новый пароль"><button class="btn-primary" onclick="setPassword()">Установить пароль</button></div>
+    <div class="tool-card"><h4>🔐 Управление паролями</h4><select id="passwordUserSelect" class="styled-select">${employees.map(e => `<option value="${loginMap[e] || e}">${e} (логин: ${loginMap[e] || e})</option>`).join('')}</select><input type="password" id="newPassword" class="edit-input" placeholder="Новый пароль"><button class="btn-primary" onclick="setPassword()">Установить пароль</button></div>
     <div class="tool-card"><h4>🎁 Бонусы всем</h4><input type="number" id="bonusCoins" placeholder="Монеты"><input type="number" id="bonusRating" placeholder="Рейтинг"><button class="btn-primary" onclick="giveBonusToAll()">Выдать</button></div>
     <div class="tool-card"><h4>🗑️ Сброс данных</h4><button class="btn-secondary" style="background:#ef4444;" onclick="resetAllData()">Сбросить всё</button></div>`; }
-async function setPassword() { const user = document.getElementById('passwordUserSelect').value; const pass = document.getElementById('newPassword').value; if(!pass) { showNotif('Введите пароль','error'); return; } passwords[user] = pass; await apiCall('/passwords', 'POST', { user, password: pass }); sendSync('client-password-update', { user, password: pass }); showNotif(`✅ Пароль для ${user} установлен`, 'success'); }
+async function setPassword() { const userLogin = document.getElementById('passwordUserSelect').value; const pass = document.getElementById('newPassword').value; if(!pass) { showNotif('Введите пароль','error'); return; } passwords[userLogin] = pass; await apiCall('/passwords', 'POST', { userLogin, password: pass }); sendSync('client-password-update', { userLogin, password: pass }); showNotif(`✅ Пароль для ${userLogin} установлен`, 'success'); }
 function setTheme(themeId) { const theme = themes.find(t => t.id === themeId); if(theme) { document.body.className = theme.class; sendSync('client-theme-change', { theme: themeId }); showNotif(`🌄 Тема изменена на "${theme.name}"`, 'success'); } }
-async function giveBonusToAll() { let coins = parseInt(document.getElementById('bonusCoins').value) || 0, rating = parseInt(document.getElementById('bonusRating').value) || 0; employees.forEach(e => { profiles[e].coins += coins; profiles[e].rating += rating; }); await apiCall('/data', 'POST', { employees, profiles, passwords, tasks, fines, schedule, messages }); sendSync('client-admin-bonus', { coins, rating }); renderAll(); showNotif(`🎉 Бонусы выданы! +${coins} монет, +${rating} рейтинга`, 'success'); }
-async function resetAllData() { if(confirm('Удалить ВСЕ данные?')) { employees = []; profiles = {}; passwords = {}; tasks = []; fines = []; schedule = {}; messages = { general: [] }; await apiCall('/data', 'POST', { employees, profiles, passwords, tasks, fines, schedule, messages }); sendSync('client-reset-all-data', { confirm: 'yes' }); showNotif('✅ Все данные удалены!', 'success'); setTimeout(() => location.reload(), 1000); } }
+async function giveBonusToAll() { let coins = parseInt(document.getElementById('bonusCoins').value) || 0, rating = parseInt(document.getElementById('bonusRating').value) || 0; employees.forEach(e => { profiles[e].coins += coins; profiles[e].rating += rating; }); await apiCall('/data', 'POST', { employees, profiles, passwords, loginMap, tasks, fines, schedule, messages }); sendSync('client-admin-bonus', { coins, rating }); renderAll(); showNotif(`🎉 Бонусы выданы! +${coins} монет, +${rating} рейтинга`, 'success'); }
+async function resetAllData() { if(confirm('Удалить ВСЕ данные?')) { employees = []; profiles = {}; passwords = {}; loginMap = {}; tasks = []; fines = []; schedule = {}; messages = { general: [] }; await apiCall('/data', 'POST', { employees, profiles, passwords, loginMap, tasks, fines, schedule, messages }); sendSync('client-reset-all-data', { confirm: 'yes' }); showNotif('✅ Все данные удалены!', 'success'); setTimeout(() => location.reload(), 1000); } }
 
-async function createEmployee() { let name = document.getElementById('newEmpName').value.trim(); let role = document.getElementById('newEmpRole').value; let pass = document.getElementById('newEmpPassword').value; if(!name || !pass){ showNotif('Введите имя и пароль','error'); return; } if(employees.includes(name)){ showNotif('Сотрудник уже существует','error'); return; } const profile = { avatar: '👤', name, status: '💼 Работаю', coins: 100, rating: 0, background: 'bg_default', role, hours: 0, stickers: {} }; employees.push(name); profiles[name] = profile; passwords[name] = pass; await apiCall('/data', 'POST', { employees, profiles, passwords, tasks, fines, schedule, messages }); sendSync('client-employee-add', { employee: name, profile, password: pass }); renderAll(); closeCreateEmployeeModal(); showNotif(`✅ ${name} создан. Пароль: ${pass}`, 'success'); }
+async function createEmployee() { let name = document.getElementById('newEmpName').value.trim(); let role = document.getElementById('newEmpRole').value; let pass = document.getElementById('newEmpPassword').value; if(!name || !pass){ showNotif('Введите имя и пароль','error'); return; } if(employees.includes(name)){ showNotif('Сотрудник уже существует','error'); return; } const profile = { avatar: '👤', name, status: '💼 Работаю', coins: 100, rating: 0, background: 'bg_default', role, hours: 0, stickers: {} }; employees.push(name); profiles[name] = profile; passwords[name] = pass; // логин = имя при создании loginMap[name] = name; await apiCall('/data', 'POST', { employees, profiles, passwords, loginMap, tasks, fines, schedule, messages }); sendSync('client-employee-add', { employee: name, profile, login: name, password: pass }); renderAll(); closeCreateEmployeeModal(); showNotif(`✅ ${name} создан. Пароль: ${pass}`, 'success'); }
 
 function openCreateEmployeeModal() { populateRoleSelect(); document.getElementById('createEmployeeModal').classList.add('active'); }
 function closeCreateEmployeeModal() { document.getElementById('createEmployeeModal').classList.remove('active'); }
@@ -943,11 +1014,15 @@ document.getElementById('loginModal').classList.add('active');
 initPusher();
 loadData().then(() => {
     renderAll();
-    if(Object.keys(passwords).length === 0) {
-        passwords['Директор'] = 'admin123';
-        profiles['Директор'] = { avatar: '👑', name: 'Директор', status: '💼 Работаю', coins: 1000, rating: 100, background: 'bg_default', role: 'director', hours: 0, stickers: {} };
+    // Если нет директора, создаём автоматически
+    if(!employees.includes('Директор') && !passwords['Директор']) {
+        const directorPass = 'admin123';
         employees.push('Директор');
+        profiles['Директор'] = { avatar: '👑', name: 'Директор', status: '💼 Работаю', coins: 1000, rating: 100, background: 'bg_default', role: 'director', hours: 0, stickers: {} };
+        passwords['Директор'] = directorPass;
+        loginMap['Директор'] = 'Директор';
         saveData();
+        console.log('Директор создан. Пароль: admin123');
     }
 });
 </script>
