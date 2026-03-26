@@ -237,12 +237,13 @@
     </div>
 </div>
 
-<div id="loginModal" class="login-modal">
+<div id="loginModal" class="login-modal" style="display: flex;">
     <div class="modal-window">
         <h2 style="text-align:center; margin-bottom:20px;">🔐 Вход в WARPOINT</h2>
         <input type="text" id="loginName" class="edit-input" placeholder="Логин">
         <input type="password" id="loginPassword" class="edit-input" placeholder="Пароль">
         <button onclick="login()" class="btn-primary" style="width:100%;">Войти</button>
+        <p style="text-align:center; margin-top:16px; font-size:12px; opacity:0.7;">Первый вход: логин "Денис", пароль "admin101"</p>
     </div>
 </div>
 
@@ -332,11 +333,6 @@ async function loadData() {
             if(!profiles[emp].stickers) profiles[emp].stickers = {};
         }
     }
-    // Обновляем отображение имени в шапке
-    if(currentUser && profiles[currentUser]) {
-        document.getElementById('headerName').textContent = currentUser;
-        document.getElementById('headerAvatar').innerHTML = profiles[currentUser].avatar;
-    }
 }
 
 async function saveData() {
@@ -362,7 +358,7 @@ function initPusher() {
         document.getElementById('syncText').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Офлайн режим';
     });
     
-    // Обработчики событий — обновляют данные без перезагрузки
+    // Обработчики событий
     channel.bind('client-employee-add', (data) => {
         if(data.sessionId !== SESSION_ID && !employees.includes(data.employee)) {
             employees.push(data.employee);
@@ -513,10 +509,12 @@ function login() {
         currentUser = employeeName;
         currentUserRole = profiles[employeeName]?.role || 'operator';
         currentUserPermissions = rolesMap[currentUserRole] || rolesMap.operator;
-        document.getElementById('loginModal').classList.remove('active');
+        
+        // Скрываем окно входа и показываем основной контент
+        document.getElementById('loginModal').style.display = 'none';
         document.getElementById('mainContainer').style.display = 'block';
         
-        // Сразу обновляем имя в шапке
+        // Обновляем имя в шапке
         document.getElementById('headerName').textContent = currentUser;
         document.getElementById('headerAvatar').innerHTML = profiles[currentUser]?.avatar || '👤';
         
@@ -529,7 +527,7 @@ function login() {
 function logout() {
     currentUser = null;
     document.getElementById('mainContainer').style.display = 'none';
-    document.getElementById('loginModal').classList.add('active');
+    document.getElementById('loginModal').style.display = 'flex';
     document.getElementById('loginName').value = '';
     document.getElementById('loginPassword').value = '';
     document.getElementById('headerName').textContent = 'Гость';
@@ -557,7 +555,6 @@ function renderAll() {
     updateStats();
     updateRatingTable();
     renderMainMenu();
-    // Обновляем имя в шапке если оно изменилось
     if(currentUser && profiles[currentUser]) {
         document.getElementById('headerName').textContent = currentUser;
         document.getElementById('headerAvatar').innerHTML = profiles[currentUser].avatar;
@@ -620,9 +617,9 @@ function renderTasks() {
     tasks.forEach(task => { if(task.deadline && task.deadline < today && task.status === 'В процессе') task.status = 'Не выполнено'; });
     tbody.innerHTML = tasks.map((t, idx) => {
         const statusClass = t.status === 'Выполнено' ? 'task-status-completed' : t.status === 'Не выполнено' ? 'task-status-failed' : 'task-status-progress';
-        return `<tr><td style="padding:12px;">${t.date||'—'}<td style="padding:12px;"><strong>${t.name}</strong><td style="padding:12px;">${t.authorName || t.author}<td style="padding:12px;">${t.executorRole ? roleNames[t.executorRole]+' (все)' : t.executor}<td style="padding:12px;">${t.deadline||'—'}<td style="padding:12px;"><span class="${statusClass}">${t.status}</span><td style="padding:12px;"><button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'Выполнено')"><i class="fas fa-check"></i></button> <button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'В процессе')"><i class="fas fa-play"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteTask(${idx})"><i class="fas fa-trash"></i></button><tr`;
+        return `<tr><td style="padding:12px;">${t.date||'—'}</td><td style="padding:12px;"><strong>${t.name}</strong></td><td style="padding:12px;">${t.authorName || t.author}</td><td style="padding:12px;">${t.executorRole ? roleNames[t.executorRole]+' (все)' : t.executor}</td><td style="padding:12px;">${t.deadline||'—'}</td><td style="padding:12px;"><span class="${statusClass}">${t.status}</span></td><td style="padding:12px;"><button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'Выполнено')"><i class="fas fa-check"></i></button> <button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'В процессе')"><i class="fas fa-play"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteTask(${idx})"><i class="fas fa-trash"></i></button></td></tr>`;
     }).join('');
-    if(!tasks.length) tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📋</div><p>Нет задач</p></div><tr>';
+    if(!tasks.length) tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📋</div><p>Нет задач</p></div></td></tr>';
 }
 
 async function changeTaskStatus(idx, status) { await apiCall(`/tasks/${idx}`, 'PUT', { status }); sendSync('client-task-update', { index: idx, status }); await loadData(); renderTasks(); updateStats(); }
@@ -634,8 +631,8 @@ function renderFines() {
     const canEdit = currentUserPermissions?.canEditFines;
     const totalFines = fines.reduce((sum, f) => sum + (f.amount || 0), 0);
     document.getElementById('statFinesTotal').textContent = totalFines;
-    tbody.innerHTML = fines.map((f, idx) => `<tr><td style="padding:12px;">${f.date}<td style="padding:12px;">${f.event}<td style="padding:12px;">${f.employee}<td style="padding:12px;">${f.amount ? f.amount + ' ₽' : '—'}<td style="padding:12px;">${canEdit ? `<button class="btn-secondary" style="padding:4px 8px;" onclick="editFine(${idx})"><i class="fas fa-edit"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteFine(${idx})"><i class="fas fa-trash"></i></button>` : ''}<tr`).join('');
-    if(!fines.length) tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Нарушений нет</p></div><tr>';
+    tbody.innerHTML = fines.map((f, idx) => `<tr><td style="padding:12px;">${f.date}</td><td style="padding:12px;">${f.event}</td><td style="padding:12px;">${f.employee}</td><td style="padding:12px;">${f.amount ? f.amount + ' ₽' : '—'}</td><td style="padding:12px;">${canEdit ? `<button class="btn-secondary" style="padding:4px 8px;" onclick="editFine(${idx})"><i class="fas fa-edit"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteFine(${idx})"><i class="fas fa-trash"></i></button>` : ''}</td></tr>`).join('');
+    if(!fines.length) tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Нарушений нет</p></div></td></tr>';
 }
 
 async function addFine() { const date = document.getElementById('fineDate').value, event = document.getElementById('fineEvent').value.trim(), employee = document.getElementById('fineEmployee').value, amount = parseInt(document.getElementById('fineAmount').value) || 0; if(!date || !event || !employee) { showNotif('Заполните все поля','error'); return; } const fine = { date, event, employee, amount }; await apiCall('/fines', 'POST', { fine }); sendSync('client-fine-add', { fine }); await loadData(); renderFines(); closeAddFineModal(); showNotif('✅ Нарушение добавлено', 'success'); }
@@ -675,7 +672,7 @@ async function sendGiftTo(target, anonymous) { if(!selectedGift) { showNotif('С
 
 function updateRatingTable() { 
     let sorted = [...employees].sort((a,b)=>(profiles[b]?.rating||0)-(profiles[a]?.rating||0)); 
-    document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}<td style="padding:12px;">${p.avatar} ${p.name}<td style="padding:12px;">${p.hours}ч<td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}<td style="padding:12px;">💰 ${p.coins}<td style="padding:12px;">${title}<tr`; }).join(''); 
+    document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}</td><td style="padding:12px;">${p.avatar} ${p.name}</td><td style="padding:12px;">${p.hours}ч</td><td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}</td><td style="padding:12px;">💰 ${p.coins}</td><td style="padding:12px;">${title}</td></tr>`; }).join(''); 
 }
 function updateStats() { document.getElementById('statTasksDone').textContent = tasks.filter(t=>t.status==='Выполнено').length; }
 
@@ -718,8 +715,7 @@ function showNotif(msg, type) { let n = document.createElement('div'); n.classNa
 function startActivityTracking() { setInterval(() => { if(currentUser) { lastActivity[currentUser] = Date.now(); saveData(); renderEmployees(); } }, 30000); }
 
 // ==================== ЗАПУСК ====================
-document.getElementById('mainContainer').style.display = 'none';
-document.getElementById('loginModal').classList.add('active');
+// При загрузке страницы окно входа уже показано (style="display: flex;")
 initPusher();
 loadData().then(() => {
     renderAll();
