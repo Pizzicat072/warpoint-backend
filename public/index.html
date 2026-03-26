@@ -21,90 +21,18 @@
         body.theme-summer { 
             background: linear-gradient(135deg, #ffd966 0%, #ffb347 50%, #ff8c42 100%);
             background-attachment: fixed;
-            position: relative;
-        }
-        body.theme-summer::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            background: radial-gradient(circle at 20% 40%, rgba(255,215,0,0.3) 0%, transparent 70%),
-                        repeating-linear-gradient(45deg, rgba(255,200,100,0.05) 0px, rgba(255,200,100,0.05) 2px, transparent 2px, transparent 8px);
-            z-index: 0;
         }
         body.theme-autumn { 
             background: linear-gradient(135deg, #d97706 0%, #b91c1c 40%, #92400e 100%);
             background-attachment: fixed;
-            position: relative;
-        }
-        body.theme-autumn::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            background: radial-gradient(ellipse at 30% 80%, rgba(255,140,0,0.25) 0%, transparent 70%),
-                        url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><path fill="rgba(255,100,0,0.1)" d="M50,30 L60,50 L50,70 L40,50 Z M70,20 L80,40 L70,60 L60,40 Z M30,20 L40,40 L30,60 L20,40 Z"/></svg>');
-            background-repeat: repeat;
-            background-size: 80px;
-            opacity: 0.3;
-            z-index: 0;
         }
         body.theme-winter { 
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 30%, #0891b2 100%);
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #0891b2 100%);
             background-attachment: fixed;
-            position: relative;
-        }
-        body.theme-winter::before {
-            content: '';
-            position: fixed;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            pointer-events: none;
-            background-image: radial-gradient(white 2px, transparent 2px);
-            background-size: 50px 50px;
-            animation: snowfall 20s linear infinite;
-            z-index: 0;
-            opacity: 0.6;
-        }
-        @keyframes snowfall {
-            0% { transform: translateY(-20%) rotate(0deg); }
-            100% { transform: translateY(20%) rotate(360deg); }
-        }
-        body.theme-winter::after {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            background: linear-gradient(45deg, rgba(100,150,200,0.1) 0%, transparent 100%);
-            z-index: 0;
         }
         body.theme-spring { 
             background: linear-gradient(135deg, #86efac 0%, #4ade80 30%, #22c55e 70%, #16a34a 100%);
             background-attachment: fixed;
-            position: relative;
-        }
-        body.theme-spring::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            background: radial-gradient(circle at 70% 20%, rgba(250,204,21,0.2) 0%, transparent 60%),
-                        repeating-linear-gradient(0deg, rgba(255,200,150,0.1) 0px, rgba(255,200,150,0.1) 1px, transparent 1px, transparent 10px);
-            z-index: 0;
         }
         
         .container { max-width: 1400px; margin: 0 auto; padding: 24px; position: relative; z-index: 2; }
@@ -120,6 +48,7 @@
         .logo-badge { background: linear-gradient(135deg, #6366f1, #ec4899); padding: 4px 12px; border-radius: 40px; font-size: 10px; color: white; margin-left: 12px; }
         .user-card { display: flex; align-items: center; gap: 18px; background: rgba(20, 30, 55, 0.9); backdrop-filter: blur(12px); border-radius: 60px; padding: 6px 20px 6px 12px; border: 1px solid rgba(99, 102, 241, 0.4); }
         .user-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; }
+        .user-info { text-align: right; }
         .user-name { font-weight: 700; font-size: 15px; color: #fff; }
         .user-status { font-size: 11px; opacity: 0.8; }
         .logout-btn { background: rgba(239,68,68,0.2); border: 1px solid #ef4444; border-radius: 40px; padding: 6px 16px; color: #f87171; cursor: pointer; font-size: 12px; transition: 0.2s; }
@@ -269,7 +198,9 @@
             <table class="tasks-table">
                 <thead><th>Дата</th><th>Задача</th><th>Постановщик</th><th>Исполнитель</th><th>Дедлайн</th><th>Статус</th><th></th></thead>
                 <tbody id="tasksTableBody"></tbody>
-              </table>
+              –
+
+```html
         </div>
     </div>
     
@@ -280,7 +211,7 @@
             <table class="tasks-table">
                 <thead><th>#</th><th>Сотрудник</th><th>Часы</th><th>Рейтинг</th><th>Монеты</th><th>Звание</th></thead>
                 <tbody id="ratingTableBody"></tbody>
-              </table>
+              –
         </div>
     </div>
     
@@ -293,7 +224,7 @@
             <table class="fines-table">
                 <thead><th>Дата</th><th>Событие</th><th>Сотрудник</th><th>Сумма штрафа</th><th></th></thead>
                 <tbody id="finesTableBody"></tbody>
-              </table>
+              –
         </div>
     </div>
     
@@ -433,19 +364,144 @@ function initPusher() {
         document.getElementById('syncText').innerHTML = '<i class="fas fa-check-circle"></i> Синхронизация активна';
     });
     
-    channel.bind('client-employee-add', (data) => { if(data.sessionId !== SESSION_ID && !employees.includes(data.employee)) { employees.push(data.employee); profiles[data.employee] = data.profile; passwords[data.login] = data.password; renderAll(); } });
-    channel.bind('client-employee-delete', (data) => { if(data.sessionId !== SESSION_ID && employees.includes(data.employee)) { employees = employees.filter(e => e !== data.employee); delete profiles[data.employee]; delete passwords[data.login]; renderAll(); } });
-    channel.bind('client-profile-update', (data) => { if(data.sessionId !== SESSION_ID && profiles[data.employee]) { profiles[data.employee] = { ...profiles[data.employee], ...data.updates }; renderAll(); } });
-    channel.bind('client-gift-send', (data) => { if(data.sessionId !== SESSION_ID && profiles[data.recipient]) { profiles[data.recipient].coins -= data.price; profiles[data.recipient].rating += data.ratingChange; if(!profiles[data.recipient].stickers) profiles[data.recipient].stickers = {}; if(!profiles[data.recipient].stickers[data.giftId]) profiles[data.recipient].stickers[data.giftId] = 0; profiles[data.recipient].stickers[data.giftId]++; renderAll(); } });
-    channel.bind('client-task-add', (data) => { if(data.sessionId !== SESSION_ID) { tasks.push(data.task); renderAll(); } });
-    channel.bind('client-task-update', (data) => { if(data.sessionId !== SESSION_ID && tasks[data.index]) { tasks[data.index].status = data.status; renderAll(); } });
-    channel.bind('client-task-delete', (data) => { if(data.sessionId !== SESSION_ID && tasks[data.index]) { tasks.splice(data.index, 1); renderAll(); } });
-    channel.bind('client-fine-add', (data) => { if(data.sessionId !== SESSION_ID) { fines.push(data.fine); renderAll(); } });
-    channel.bind('client-fine-delete', (data) => { if(data.sessionId !== SESSION_ID && fines[data.index]) { fines.splice(data.index, 1); renderAll(); } });
-    channel.bind('client-fine-update', (data) => { if(data.sessionId !== SESSION_ID && fines[data.index]) { fines[data.index] = { ...fines[data.index], ...data.updates }; renderAll(); } });
-    channel.bind('client-chat-message', (data) => { if(data.sessionId !== SESSION_ID) { if(!messages[data.room]) messages[data.room] = []; messages[data.room].push(data.message); if(currentChatRoom === data.room) renderChat(); } });
-    channel.bind('client-schedule-update', (data) => { if(data.sessionId !== SESSION_ID) { schedule[data.date] = data.shifts; renderCalendar(); } });
-    channel.bind('client-theme-change', (data) => { if(data.sessionId !== SESSION_ID) { setTheme(data.theme); } });
+    // Обработчики событий
+    channel.bind('client-employee-add', (data) => {
+        if(data.sessionId !== SESSION_ID && !employees.includes(data.employee)) {
+            employees.push(data.employee);
+            profiles[data.employee] = data.profile;
+            passwords[data.login] = data.password;
+            renderEmployees();
+            updateStats();
+            updateRatingTable();
+            renderChatSidebar();
+            showNotif(`👥 Новый сотрудник: ${data.employee}`, 'info');
+        }
+    });
+    
+    channel.bind('client-employee-delete', (data) => {
+        if(data.sessionId !== SESSION_ID && employees.includes(data.employee)) {
+            employees = employees.filter(e => e !== data.employee);
+            delete profiles[data.employee];
+            delete passwords[data.login];
+            renderEmployees();
+            updateStats();
+            updateRatingTable();
+            renderChatSidebar();
+            showNotif(`👋 Сотрудник ${data.employee} удалён`, 'info');
+        }
+    });
+    
+    channel.bind('client-profile-update', (data) => {
+        if(data.sessionId !== SESSION_ID && profiles[data.employee]) {
+            profiles[data.employee] = { ...profiles[data.employee], ...data.updates };
+            renderEmployees();
+            if(currentUser === data.employee) {
+                document.getElementById('headerName').textContent = data.employee;
+                document.getElementById('headerAvatar').innerHTML = profiles[data.employee]?.avatar;
+                document.getElementById('welcomeCard').innerHTML = `<div style="display:flex; align-items:center; gap:16px;"><div style="font-size:48px;">${profiles[currentUser]?.avatar || '👤'}</div><div><h2>Добро пожаловать, ${currentUser}!</h2><p>Рейтинг: ${profiles[currentUser]?.rating || 0}, монет: ${profiles[currentUser]?.coins || 0}</p><p>Вы ${roleNames[currentUserRole]}</p></div></div>`;
+            }
+            showNotif(`🔄 ${data.user} обновил профиль ${data.employee}`, 'info');
+        }
+    });
+    
+    channel.bind('client-gift-send', (data) => {
+        if(data.sessionId !== SESSION_ID && profiles[data.recipient]) {
+            profiles[data.recipient].coins -= data.price;
+            profiles[data.recipient].rating += data.ratingChange;
+            if(!profiles[data.recipient].stickers) profiles[data.recipient].stickers = {};
+            if(!profiles[data.recipient].stickers[data.giftId]) profiles[data.recipient].stickers[data.giftId] = 0;
+            profiles[data.recipient].stickers[data.giftId]++;
+            renderEmployees();
+            updateRatingTable();
+            showNotif(`${data.sender} подарил ${data.giftName} ${data.recipient}`, data.ratingChange > 0 ? 'success' : 'info');
+        }
+    });
+    
+    channel.bind('client-task-add', (data) => {
+        if(data.sessionId !== SESSION_ID) {
+            tasks.push(data.task);
+            renderTasks();
+            updateStats();
+            showNotif(`📋 Новая задача: ${data.task.name}`, 'info');
+        }
+    });
+    
+    channel.bind('client-task-update', (data) => {
+        if(data.sessionId !== SESSION_ID && tasks[data.index]) {
+            tasks[data.index].status = data.status;
+            renderTasks();
+            updateStats();
+        }
+    });
+    
+    channel.bind('client-task-delete', (data) => {
+        if(data.sessionId !== SESSION_ID && tasks[data.index]) {
+            tasks.splice(data.index, 1);
+            renderTasks();
+            updateStats();
+        }
+    });
+    
+    channel.bind('client-fine-add', (data) => {
+        if(data.sessionId !== SESSION_ID) {
+            fines.push(data.fine);
+            renderFines();
+            updateStats();
+            showNotif(`⚠️ Новое нарушение: ${data.fine.event}`, 'warning');
+        }
+    });
+    
+    channel.bind('client-fine-delete', (data) => {
+        if(data.sessionId !== SESSION_ID && fines[data.index]) {
+            fines.splice(data.index, 1);
+            renderFines();
+            updateStats();
+        }
+    });
+    
+    channel.bind('client-fine-update', (data) => {
+        if(data.sessionId !== SESSION_ID && fines[data.index]) {
+            fines[data.index] = { ...fines[data.index], ...data.updates };
+            renderFines();
+            updateStats();
+        }
+    });
+    
+    channel.bind('client-chat-message', (data) => {
+        if(data.sessionId !== SESSION_ID) {
+            if(!messages[data.room]) messages[data.room] = [];
+            messages[data.room].push(data.message);
+            if(currentChatRoom === data.room) renderChat();
+            renderChatSidebar();
+        }
+    });
+    
+    channel.bind('client-schedule-update', (data) => {
+        if(data.sessionId !== SESSION_ID) {
+            schedule[data.date] = data.shifts;
+            renderCalendar();
+        }
+    });
+    
+    channel.bind('client-theme-change', (data) => {
+        if(data.sessionId !== SESSION_ID) {
+            setTheme(data.theme);
+        }
+    });
+    
+    channel.bind('client-admin-bonus', (data) => {
+        if(data.sessionId !== SESSION_ID) {
+            employees.forEach(e => {
+                if(profiles[e]) {
+                    profiles[e].coins += data.coins;
+                    profiles[e].rating += data.rating;
+                }
+            });
+            renderEmployees();
+            updateRatingTable();
+            showNotif(`🎉 Бонусы выданы всем! +${data.coins} монет, +${data.rating} рейтинга`, 'success');
+        }
+    });
 }
 
 function sendSync(event, data) { if(wsConnected && channel) channel.trigger(event, { ...data, sessionId: SESSION_ID }); }
@@ -455,15 +511,11 @@ function login() {
     const loginName = document.getElementById('loginName').value.trim();
     const pass = document.getElementById('loginPassword').value;
     
-    // Проверяем пароль
     if(passwords[loginName] && passwords[loginName] === pass) {
-        // Находим сотрудника
         let employeeName = employees.find(e => e === loginName);
         if(!employeeName) {
-            // Если сотрудник не найден, создаём нового (первый вход)
             employeeName = loginName;
             employees.push(employeeName);
-            // Если это первый вход и логин "Денис", делаем его директором
             const role = (loginName === 'Денис') ? 'director' : 'operator';
             const coins = (loginName === 'Денис') ? 1000 : 100;
             const rating = (loginName === 'Денис') ? 100 : 0;
@@ -499,6 +551,8 @@ function afterLogin() {
         renderCalendar();
         renderChatSidebar();
         if(currentChatRoom === 'general') renderChat();
+        document.getElementById('headerName').textContent = currentUser;
+        document.getElementById('headerAvatar').innerHTML = profiles[currentUser]?.avatar || '👤';
         document.getElementById('welcomeCard').innerHTML = `<div style="display:flex; align-items:center; gap:16px;"><div style="font-size:48px;">${profiles[currentUser]?.avatar || '👤'}</div><div><h2>Добро пожаловать, ${currentUser}!</h2><p>Рейтинг: ${profiles[currentUser]?.rating || 0}, монет: ${profiles[currentUser]?.coins || 0}</p><p>Вы ${roleNames[currentUserRole]}</p></div></div>`;
     });
 }
@@ -610,13 +664,24 @@ async function sendGiftWithQuantity() { let recipient = document.getElementById(
 async function setSelfAvatar(av) { await apiCall(`/profiles/${currentUser}`, 'PUT', { updates: { avatar: av }, user: currentUser }); sendSync('client-profile-update', { employee: currentUser, updates: { avatar: av }, user: currentUser }); await loadData(); renderEmployees(); showNotif('✅ Аватар обновлён','success'); }
 async function setSelfStatus(st) { await apiCall(`/profiles/${currentUser}`, 'PUT', { updates: { status: st }, user: currentUser }); sendSync('client-profile-update', { employee: currentUser, updates: { status: st }, user: currentUser }); await loadData(); renderEmployees(); showNotif('✅ Статус обновлён','success'); }
 
-function openProfile(emp) { const p = profiles[emp]; const stickersList = Object.entries(p.stickers || {}).map(([id, count]) => { const g = gifts.find(g => g.id === id); return `<div style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,0.4); padding:6px 12px; border-radius:40px; margin:4px;"><span style="font-size:20px;">${g?.icon}</span> ${g?.name} x${count} <span style="color:${g?.ratingChange>0?'#34d399':'#f87171'}">(${g?.ratingChange>0?'+':''}${g?.ratingChange})</span></div>`; }).join(''); document.getElementById('profileModalContent').innerHTML = `<div style="padding:32px;"><div style="display:flex; justify-content:space-between;"><h2>${p.name}</h2><button style="background:none; border:none; font-size:28px; cursor:pointer;" onclick="closeProfileModal()">✕</button></div><div style="display:flex; gap:28px;"><div style="width:100px; height:100px; background:linear-gradient(135deg,#6366f1,#ec4899); border-radius:32px; display:flex; align-items:center; justify-content:center; font-size:52px;">${p.avatar}</div><div><div><strong>Статус:</strong> ${p.status}</div><div><strong>Роль:</strong> ${roleNames[p.role]}</div><div><strong>Рейтинг:</strong> ${p.rating}</div><div><strong>Монеты:</strong> ${p.coins}</div></div></div><div style="background:rgba(0,0,0,0.3); border-radius:24px; padding:16px; margin-top:24px;"><strong>📦 Полученные подарки:</strong><div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;">${stickersList || 'Нет подарков'}</div></div><div style="display:flex; gap:12px; margin-top:24px;"><button class="btn-primary" onclick="openGiftModal('${emp}')">Подарить</button></div></div>`; document.getElementById('profileModal').classList.add('active'); }
+function openProfile(emp) { 
+    const p = profiles[emp]; 
+    const stickersList = Object.entries(p.stickers || {}).map(([id, count]) => { 
+        const g = gifts.find(g => g.id === id); 
+        return `<div style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,0.4); padding:6px 12px; border-radius:40px; margin:4px;"><span style="font-size:20px;">${g?.icon}</span> ${g?.name} x${count} <span style="color:${g?.ratingChange>0?'#34d399':'#f87171'}">(${g?.ratingChange>0?'+':''}${g?.ratingChange})</span></div>`; 
+    }).join(''); 
+    document.getElementById('profileModalContent').innerHTML = `<div style="padding:32px;"><div style="display:flex; justify-content:space-between;"><h2>${p.name}</h2><button style="background:none; border:none; font-size:28px; cursor:pointer;" onclick="closeProfileModal()">✕</button></div><div style="display:flex; gap:28px;"><div style="width:100px; height:100px; background:linear-gradient(135deg,#6366f1,#ec4899); border-radius:32px; display:flex; align-items:center; justify-content:center; font-size:52px;">${p.avatar}</div><div><div><strong>Статус:</strong> ${p.status}</div><div><strong>Роль:</strong> ${roleNames[p.role]}</div><div><strong>Рейтинг:</strong> ${p.rating}</div><div><strong>Монеты:</strong> ${p.coins}</div></div></div><div style="background:rgba(0,0,0,0.3); border-radius:24px; padding:16px; margin-top:24px;"><strong>📦 Полученные подарки:</strong><div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;">${stickersList || 'Нет подарков'}</div></div><div style="display:flex; gap:12px; margin-top:24px;"><button class="btn-primary" onclick="openGiftModal('${emp}')">Подарить</button></div></div>`; 
+    document.getElementById('profileModal').classList.add('active'); 
+}
 function openGiftModal(target) { document.getElementById('sendGiftWindow').innerHTML = `<h3>Подарок для ${target}</h3><div style="display:flex; gap:12px; margin:16px 0;"><button class="btn-primary" onclick="sendGiftTo('${target}',false)">Открыто</button><button class="btn-primary" onclick="sendGiftTo('${target}',true)">Анонимно</button></div><div>${gifts.map(g=>`<div style="margin:8px 0; padding:12px; background:rgba(255,255,255,0.05); border-radius:16px; cursor:pointer;" onclick="selectGift('${g.id}',${g.price},${g.ratingChange})"><div style="font-size:32px;">${g.icon}</div><div>${g.name} - ${g.price} WP</div></div>`).join('')}</div><button class="btn-secondary" onclick="closeSendGiftModal()">Отмена</button>`; document.getElementById('sendGiftModal').classList.add('active'); window.giftTarget = target; }
 let selectedGift = null;
 function selectGift(id, price, rating) { selectedGift = { id, price, rating }; showNotif('Выберите способ отправки','info'); }
 async function sendGiftTo(target, anonymous) { if(!selectedGift) { showNotif('Сначала выберите подарок','error'); return; } let gift = gifts.find(g => g.id === selectedGift.id); if(profiles[currentUser].coins < selectedGift.price) { showNotif('Недостаточно монет','error'); return; } await apiCall('/gifts', 'POST', { recipient: target, giftId: gift.id, giftName: gift.name, price: selectedGift.price, ratingChange: selectedGift.rating, sender: anonymous ? '🕵️ Аноним' : currentUser }); sendSync('client-gift-send', { recipient: target, giftId: gift.id, giftName: gift.name, price: selectedGift.price, ratingChange: selectedGift.rating, sender: anonymous ? '🕵️ Аноним' : currentUser }); await loadData(); renderAll(); closeSendGiftModal(); closeProfileModal(); selectedGift = null; showNotif(`🎁 Подарок отправлен!`, 'success'); }
 
-function updateRatingTable() { let sorted = [...employees].sort((a,b)=>(profiles[b]?.rating||0)-(profiles[a]?.rating||0)); document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}</td><td style="padding:12px;">${p.avatar} ${p.name}</td><td style="padding:12px;">${p.hours}ч</td><td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}</td><td style="padding:12px;">💰 ${p.coins}</td><td style="padding:12px;">${title}</td></tr>`; }).join(''); }
+function updateRatingTable() { 
+    let sorted = [...employees].sort((a,b)=>(profiles[b]?.rating||0)-(profiles[a]?.rating||0)); 
+    document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}</td><td style="padding:12px;">${p.avatar} ${p.name}</td><td style="padding:12px;">${p.hours}ч</td><td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}</td><td style="padding:12px;">💰 ${p.coins}</td><td style="padding:12px;">${title}</td></tr>`; }).join(''); 
+}
 function updateStats() { document.getElementById('statTasksDone').textContent = tasks.filter(t=>t.status==='Выполнено').length; }
 
 // ==================== ГРАФИК ====================
@@ -663,7 +728,6 @@ document.getElementById('loginModal').classList.add('active');
 initPusher();
 loadData().then(() => {
     renderAll();
-    // Если нет директора Денис, добавляем его в базу паролей
     if(!passwords['Денис']) {
         passwords['Денис'] = 'admin101';
         saveData();
