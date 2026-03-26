@@ -17,23 +17,10 @@
             overflow-x: hidden;
             transition: background 0.5s ease;
         }
-        /* ========== СЕЗОННЫЕ ФОНЫ ========== */
-        body.theme-summer { 
-            background: linear-gradient(135deg, #ffd966 0%, #ffb347 50%, #ff8c42 100%);
-            background-attachment: fixed;
-        }
-        body.theme-autumn { 
-            background: linear-gradient(135deg, #d97706 0%, #b91c1c 40%, #92400e 100%);
-            background-attachment: fixed;
-        }
-        body.theme-winter { 
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #0891b2 100%);
-            background-attachment: fixed;
-        }
-        body.theme-spring { 
-            background: linear-gradient(135deg, #86efac 0%, #4ade80 30%, #22c55e 70%, #16a34a 100%);
-            background-attachment: fixed;
-        }
+        body.theme-summer { background: linear-gradient(135deg, #ffd966, #ffb347, #ff8c42); background-attachment: fixed; }
+        body.theme-autumn { background: linear-gradient(135deg, #d97706, #b91c1c, #92400e); background-attachment: fixed; }
+        body.theme-winter { background: linear-gradient(135deg, #1e293b, #0f172a, #0891b2); background-attachment: fixed; }
+        body.theme-spring { background: linear-gradient(135deg, #86efac, #4ade80, #22c55e); background-attachment: fixed; }
         
         .container { max-width: 1400px; margin: 0 auto; padding: 24px; position: relative; z-index: 2; }
         .glass-card { background: rgba(20, 30, 55, 0.65); backdrop-filter: blur(14px); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 28px; }
@@ -50,7 +37,7 @@
         .user-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; }
         .user-info { text-align: right; }
         .user-name { font-weight: 700; font-size: 15px; color: #fff; }
-        .user-status { font-size: 11px; opacity: 0.8; }
+        .user-status { font-size: 11px; opacity: 0.8; margin-top: 2px; }
         .logout-btn { background: rgba(239,68,68,0.2); border: 1px solid #ef4444; border-radius: 40px; padding: 6px 16px; color: #f87171; cursor: pointer; font-size: 12px; transition: 0.2s; }
         .logout-btn:hover { background: rgba(239,68,68,0.4); }
         .main-menu { display: flex; gap: 8px; margin-bottom: 32px; background: rgba(20, 30, 55, 0.5); backdrop-filter: blur(12px); border-radius: 60px; padding: 6px; flex-wrap: wrap; }
@@ -199,8 +186,6 @@
                 <thead><th>Дата</th><th>Задача</th><th>Постановщик</th><th>Исполнитель</th><th>Дедлайн</th><th>Статус</th><th></th></thead>
                 <tbody id="tasksTableBody"></tbody>
               –
-
-```html
         </div>
     </div>
     
@@ -347,6 +332,11 @@ async function loadData() {
             if(!profiles[emp].stickers) profiles[emp].stickers = {};
         }
     }
+    // Обновляем отображение имени в шапке
+    if(currentUser && profiles[currentUser]) {
+        document.getElementById('headerName').textContent = currentUser;
+        document.getElementById('headerAvatar').innerHTML = profiles[currentUser].avatar;
+    }
 }
 
 async function saveData() {
@@ -362,18 +352,23 @@ function initPusher() {
         document.getElementById('syncIndicator').classList.remove('offline');
         document.getElementById('syncIndicator').classList.add('online');
         document.getElementById('syncText').innerHTML = '<i class="fas fa-check-circle"></i> Синхронизация активна';
+        showNotif('✅ Real-time синхронизация активна!', 'success');
     });
     
-    // Обработчики событий
+    channel.bind('pusher:subscription_error', () => {
+        wsConnected = false;
+        document.getElementById('syncIndicator').classList.remove('online');
+        document.getElementById('syncIndicator').classList.add('offline');
+        document.getElementById('syncText').innerHTML = '<i class="fas fa-exclamation-triangle"></i> Офлайн режим';
+    });
+    
+    // Обработчики событий — обновляют данные без перезагрузки
     channel.bind('client-employee-add', (data) => {
         if(data.sessionId !== SESSION_ID && !employees.includes(data.employee)) {
             employees.push(data.employee);
             profiles[data.employee] = data.profile;
             passwords[data.login] = data.password;
-            renderEmployees();
-            updateStats();
-            updateRatingTable();
-            renderChatSidebar();
+            renderAll();
             showNotif(`👥 Новый сотрудник: ${data.employee}`, 'info');
         }
     });
@@ -383,10 +378,7 @@ function initPusher() {
             employees = employees.filter(e => e !== data.employee);
             delete profiles[data.employee];
             delete passwords[data.login];
-            renderEmployees();
-            updateStats();
-            updateRatingTable();
-            renderChatSidebar();
+            renderAll();
             showNotif(`👋 Сотрудник ${data.employee} удалён`, 'info');
         }
     });
@@ -394,10 +386,10 @@ function initPusher() {
     channel.bind('client-profile-update', (data) => {
         if(data.sessionId !== SESSION_ID && profiles[data.employee]) {
             profiles[data.employee] = { ...profiles[data.employee], ...data.updates };
-            renderEmployees();
+            renderAll();
             if(currentUser === data.employee) {
-                document.getElementById('headerName').textContent = data.employee;
-                document.getElementById('headerAvatar').innerHTML = profiles[data.employee]?.avatar;
+                document.getElementById('headerName').textContent = currentUser;
+                document.getElementById('headerAvatar').innerHTML = profiles[currentUser]?.avatar;
                 document.getElementById('welcomeCard').innerHTML = `<div style="display:flex; align-items:center; gap:16px;"><div style="font-size:48px;">${profiles[currentUser]?.avatar || '👤'}</div><div><h2>Добро пожаловать, ${currentUser}!</h2><p>Рейтинг: ${profiles[currentUser]?.rating || 0}, монет: ${profiles[currentUser]?.coins || 0}</p><p>Вы ${roleNames[currentUserRole]}</p></div></div>`;
             }
             showNotif(`🔄 ${data.user} обновил профиль ${data.employee}`, 'info');
@@ -411,8 +403,7 @@ function initPusher() {
             if(!profiles[data.recipient].stickers) profiles[data.recipient].stickers = {};
             if(!profiles[data.recipient].stickers[data.giftId]) profiles[data.recipient].stickers[data.giftId] = 0;
             profiles[data.recipient].stickers[data.giftId]++;
-            renderEmployees();
-            updateRatingTable();
+            renderAll();
             showNotif(`${data.sender} подарил ${data.giftName} ${data.recipient}`, data.ratingChange > 0 ? 'success' : 'info');
         }
     });
@@ -420,8 +411,7 @@ function initPusher() {
     channel.bind('client-task-add', (data) => {
         if(data.sessionId !== SESSION_ID) {
             tasks.push(data.task);
-            renderTasks();
-            updateStats();
+            renderAll();
             showNotif(`📋 Новая задача: ${data.task.name}`, 'info');
         }
     });
@@ -429,24 +419,21 @@ function initPusher() {
     channel.bind('client-task-update', (data) => {
         if(data.sessionId !== SESSION_ID && tasks[data.index]) {
             tasks[data.index].status = data.status;
-            renderTasks();
-            updateStats();
+            renderAll();
         }
     });
     
     channel.bind('client-task-delete', (data) => {
         if(data.sessionId !== SESSION_ID && tasks[data.index]) {
             tasks.splice(data.index, 1);
-            renderTasks();
-            updateStats();
+            renderAll();
         }
     });
     
     channel.bind('client-fine-add', (data) => {
         if(data.sessionId !== SESSION_ID) {
             fines.push(data.fine);
-            renderFines();
-            updateStats();
+            renderAll();
             showNotif(`⚠️ Новое нарушение: ${data.fine.event}`, 'warning');
         }
     });
@@ -454,16 +441,14 @@ function initPusher() {
     channel.bind('client-fine-delete', (data) => {
         if(data.sessionId !== SESSION_ID && fines[data.index]) {
             fines.splice(data.index, 1);
-            renderFines();
-            updateStats();
+            renderAll();
         }
     });
     
     channel.bind('client-fine-update', (data) => {
         if(data.sessionId !== SESSION_ID && fines[data.index]) {
             fines[data.index] = { ...fines[data.index], ...data.updates };
-            renderFines();
-            updateStats();
+            renderAll();
         }
     });
     
@@ -497,8 +482,7 @@ function initPusher() {
                     profiles[e].rating += data.rating;
                 }
             });
-            renderEmployees();
-            updateRatingTable();
+            renderAll();
             showNotif(`🎉 Бонусы выданы всем! +${data.coins} монет, +${data.rating} рейтинга`, 'success');
         }
     });
@@ -521,6 +505,7 @@ function login() {
             const rating = (loginName === 'Денис') ? 100 : 0;
             const avatar = (loginName === 'Денис') ? '👑' : '👤';
             profiles[employeeName] = { avatar: avatar, name: employeeName, status: '💼 Работаю', coins: coins, rating: rating, background: 'bg_default', role: role, hours: 0, stickers: {} };
+            passwords[loginName] = pass;
             saveData();
             sendSync('client-employee-add', { employee: employeeName, profile: profiles[employeeName], login: loginName, password: pass });
         }
@@ -530,6 +515,11 @@ function login() {
         currentUserPermissions = rolesMap[currentUserRole] || rolesMap.operator;
         document.getElementById('loginModal').classList.remove('active');
         document.getElementById('mainContainer').style.display = 'block';
+        
+        // Сразу обновляем имя в шапке
+        document.getElementById('headerName').textContent = currentUser;
+        document.getElementById('headerAvatar').innerHTML = profiles[currentUser]?.avatar || '👤';
+        
         afterLogin();
     } else {
         alert('Неверный логин или пароль');
@@ -542,6 +532,8 @@ function logout() {
     document.getElementById('loginModal').classList.add('active');
     document.getElementById('loginName').value = '';
     document.getElementById('loginPassword').value = '';
+    document.getElementById('headerName').textContent = 'Гость';
+    document.getElementById('headerAvatar').innerHTML = '👤';
 }
 
 function afterLogin() {
@@ -551,8 +543,6 @@ function afterLogin() {
         renderCalendar();
         renderChatSidebar();
         if(currentChatRoom === 'general') renderChat();
-        document.getElementById('headerName').textContent = currentUser;
-        document.getElementById('headerAvatar').innerHTML = profiles[currentUser]?.avatar || '👤';
         document.getElementById('welcomeCard').innerHTML = `<div style="display:flex; align-items:center; gap:16px;"><div style="font-size:48px;">${profiles[currentUser]?.avatar || '👤'}</div><div><h2>Добро пожаловать, ${currentUser}!</h2><p>Рейтинг: ${profiles[currentUser]?.rating || 0}, монет: ${profiles[currentUser]?.coins || 0}</p><p>Вы ${roleNames[currentUserRole]}</p></div></div>`;
     });
 }
@@ -567,6 +557,11 @@ function renderAll() {
     updateStats();
     updateRatingTable();
     renderMainMenu();
+    // Обновляем имя в шапке если оно изменилось
+    if(currentUser && profiles[currentUser]) {
+        document.getElementById('headerName').textContent = currentUser;
+        document.getElementById('headerAvatar').innerHTML = profiles[currentUser].avatar;
+    }
 }
 
 function renderMainMenu() {
@@ -625,9 +620,9 @@ function renderTasks() {
     tasks.forEach(task => { if(task.deadline && task.deadline < today && task.status === 'В процессе') task.status = 'Не выполнено'; });
     tbody.innerHTML = tasks.map((t, idx) => {
         const statusClass = t.status === 'Выполнено' ? 'task-status-completed' : t.status === 'Не выполнено' ? 'task-status-failed' : 'task-status-progress';
-        return `<tr><td style="padding:12px;">${t.date||'—'}</td><td style="padding:12px;"><strong>${t.name}</strong></td><td style="padding:12px;">${t.authorName || t.author}</td><td style="padding:12px;">${t.executorRole ? roleNames[t.executorRole]+' (все)' : t.executor}</td><td style="padding:12px;">${t.deadline||'—'}</td><td style="padding:12px;"><span class="${statusClass}">${t.status}</span></td><td style="padding:12px;"><button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'Выполнено')"><i class="fas fa-check"></i></button> <button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'В процессе')"><i class="fas fa-play"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteTask(${idx})"><i class="fas fa-trash"></i></button></td></tr>`;
+        return `<tr><td style="padding:12px;">${t.date||'—'}<td style="padding:12px;"><strong>${t.name}</strong><td style="padding:12px;">${t.authorName || t.author}<td style="padding:12px;">${t.executorRole ? roleNames[t.executorRole]+' (все)' : t.executor}<td style="padding:12px;">${t.deadline||'—'}<td style="padding:12px;"><span class="${statusClass}">${t.status}</span><td style="padding:12px;"><button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'Выполнено')"><i class="fas fa-check"></i></button> <button class="btn-secondary" style="padding:4px 8px;" onclick="changeTaskStatus(${idx},'В процессе')"><i class="fas fa-play"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteTask(${idx})"><i class="fas fa-trash"></i></button><tr`;
     }).join('');
-    if(!tasks.length) tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📋</div><p>Нет задач</p></div></td></tr>';
+    if(!tasks.length) tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📋</div><p>Нет задач</p></div><tr>';
 }
 
 async function changeTaskStatus(idx, status) { await apiCall(`/tasks/${idx}`, 'PUT', { status }); sendSync('client-task-update', { index: idx, status }); await loadData(); renderTasks(); updateStats(); }
@@ -639,8 +634,8 @@ function renderFines() {
     const canEdit = currentUserPermissions?.canEditFines;
     const totalFines = fines.reduce((sum, f) => sum + (f.amount || 0), 0);
     document.getElementById('statFinesTotal').textContent = totalFines;
-    tbody.innerHTML = fines.map((f, idx) => `<tr><td style="padding:12px;">${f.date}</td><td style="padding:12px;">${f.event}</td><td style="padding:12px;">${f.employee}</td><td style="padding:12px;">${f.amount ? f.amount + ' ₽' : '—'}</td><td style="padding:12px;">${canEdit ? `<button class="btn-secondary" style="padding:4px 8px;" onclick="editFine(${idx})"><i class="fas fa-edit"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteFine(${idx})"><i class="fas fa-trash"></i></button>` : ''}</td></tr>`).join('');
-    if(!fines.length) tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Нарушений нет</p></div></td></tr>';
+    tbody.innerHTML = fines.map((f, idx) => `<tr><td style="padding:12px;">${f.date}<td style="padding:12px;">${f.event}<td style="padding:12px;">${f.employee}<td style="padding:12px;">${f.amount ? f.amount + ' ₽' : '—'}<td style="padding:12px;">${canEdit ? `<button class="btn-secondary" style="padding:4px 8px;" onclick="editFine(${idx})"><i class="fas fa-edit"></i></button> <button class="btn-secondary" style="padding:4px 8px; background:#ef4444;" onclick="deleteFine(${idx})"><i class="fas fa-trash"></i></button>` : ''}<tr`).join('');
+    if(!fines.length) tbody.innerHTML = '<tr><td colspan="5"><div class="empty-state"><div class="empty-state-icon">⚠️</div><p>Нарушений нет</p></div><tr>';
 }
 
 async function addFine() { const date = document.getElementById('fineDate').value, event = document.getElementById('fineEvent').value.trim(), employee = document.getElementById('fineEmployee').value, amount = parseInt(document.getElementById('fineAmount').value) || 0; if(!date || !event || !employee) { showNotif('Заполните все поля','error'); return; } const fine = { date, event, employee, amount }; await apiCall('/fines', 'POST', { fine }); sendSync('client-fine-add', { fine }); await loadData(); renderFines(); closeAddFineModal(); showNotif('✅ Нарушение добавлено', 'success'); }
@@ -680,7 +675,7 @@ async function sendGiftTo(target, anonymous) { if(!selectedGift) { showNotif('С
 
 function updateRatingTable() { 
     let sorted = [...employees].sort((a,b)=>(profiles[b]?.rating||0)-(profiles[a]?.rating||0)); 
-    document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}</td><td style="padding:12px;">${p.avatar} ${p.name}</td><td style="padding:12px;">${p.hours}ч</td><td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}</td><td style="padding:12px;">💰 ${p.coins}</td><td style="padding:12px;">${title}</td></tr>`; }).join(''); 
+    document.getElementById('ratingTableBody').innerHTML = sorted.map((e,i)=>{ let p=profiles[e]; let title=p.rating>=500?'👑 Легенда':p.rating>=300?'💎 Профессионал':p.rating>=150?'🏆 Эксперт':p.rating>=50?'🔥 Мастер':p.rating>=1?'⭐ Ученик':'🌱 Новичок'; return `<tr><td style="padding:12px;">${i+1}<td style="padding:12px;">${p.avatar} ${p.name}<td style="padding:12px;">${p.hours}ч<td style="padding:12px; color:${p.rating>=0?'#10B981':'#EF4444'}">${p.rating>=0?'+':''}${p.rating}<td style="padding:12px;">💰 ${p.coins}<td style="padding:12px;">${title}<tr`; }).join(''); 
 }
 function updateStats() { document.getElementById('statTasksDone').textContent = tasks.filter(t=>t.status==='Выполнено').length; }
 
