@@ -57,26 +57,14 @@ class BookingParser {
         return currentProgress;
     }
     
-    async clickOnText(page, text, timeout = 5000) {
+    async clickOnText(page, text) {
         try {
-            // Ждём появления элемента
-            await page.waitForFunction(
-                (searchText) => {
-                    const elements = Array.from(document.querySelectorAll('button, div, span, a, [role="button"]'));
-                    return elements.some(el => el.innerText?.trim() === searchText && el.offsetParent !== null);
-                },
-                { timeout },
-                text
-            );
-            
             const result = await page.evaluate((searchText) => {
-                const elements = Array.from(document.querySelectorAll('button, div, span, a, [role="button"]'));
+                const elements = Array.from(document.querySelectorAll('button, div, span, a'));
                 for (const el of elements) {
                     if (el.innerText?.trim() === searchText && el.offsetParent !== null) {
                         const rect = el.getBoundingClientRect();
-                        // Скроллим к элементу
-                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        return { x: rect.x + rect.width/2, y: rect.y + rect.height/2, found: true, element: el };
+                        return { x: rect.x + rect.width/2, y: rect.y + rect.height/2, found: true };
                     }
                 }
                 return { found: false };
@@ -89,7 +77,6 @@ class BookingParser {
             }
             return false;
         } catch (err) {
-            console.log(`   ⚠️ Не найден элемент: ${text}`);
             return false;
         }
     }
@@ -98,40 +85,31 @@ class BookingParser {
         const time = this.getTobolskTime();
         const today = time.day;
         
-        try {
-            // Ждём загрузки календаря
-            await page.waitForSelector('button, .q-btn, [role="button"]', { timeout: 10000 });
+        return await page.evaluate((today) => {
+            const dates = [];
+            const buttons = Array.from(document.querySelectorAll('button, .q-btn, [role="button"]'));
             
-            return await page.evaluate((today) => {
-                const dates = [];
-                const buttons = Array.from(document.querySelectorAll('button, .q-btn, [role="button"]'));
-                
-                for (const btn of buttons) {
-                    const text = btn.innerText?.trim();
-                    if (text && /^\d{1,2}$/.test(text)) {
-                        const day = parseInt(text);
-                        if (day >= 1 && day <= 31 && day >= today) {
-                            const rect = btn.getBoundingClientRect();
-                            const isDisabled = btn.disabled || btn.classList?.contains('disabled') || btn.hasAttribute('disabled');
-                            const isVisible = rect.width > 0 && rect.height > 0 && rect.y > 0;
-                            
-                            if (!isDisabled && isVisible) {
-                                dates.push({
-                                    day: day,
-                                    x: rect.x + rect.width / 2,
-                                    y: rect.y + rect.height / 2,
-                                    element: btn
-                                });
-                            }
+            for (const btn of buttons) {
+                const text = btn.innerText?.trim();
+                if (text && /^\d{1,2}$/.test(text)) {
+                    const day = parseInt(text);
+                    if (day >= 1 && day <= 31 && day >= today) {
+                        const rect = btn.getBoundingClientRect();
+                        const isDisabled = btn.disabled || btn.classList?.contains('disabled');
+                        const isVisible = rect.width > 0 && rect.height > 0 && rect.y > 0;
+                        
+                        if (!isDisabled && isVisible) {
+                            dates.push({
+                                day: day,
+                                x: rect.x + rect.width / 2,
+                                y: rect.y + rect.height / 2
+                            });
                         }
                     }
                 }
-                return dates.sort((a, b) => a.day - b.day);
-            }, today);
-        } catch (err) {
-            console.log('   ⚠️ Ошибка получения дат:', err.message);
-            return [];
-        }
+            }
+            return dates.sort((a, b) => a.day - b.day);
+        }, today);
     }
     
     async parseAvailability() {
@@ -172,15 +150,7 @@ class BookingParser {
             }
             
             browser = await puppeteer.launch({
-                args: [
-                    ...chromium.args,
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox',
-                    '--disable-dev-shm-usage',
-                    '--disable-gpu',
-                    '--disable-web-security',
-                    '--disable-features=IsolateOrigins,site-per-process'
-                ],
+                args: [...chromium.args, '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
                 executablePath: executablePath,
                 headless: true,
                 defaultViewport: { width: 1280, height: 800 }
@@ -191,10 +161,6 @@ class BookingParser {
             const page = await browser.newPage();
             await page.setViewport({ width: 1280, height: 800 });
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-            
-            // Устанавливаем таймауты
-            page.setDefaultTimeout(60000);
-            page.setDefaultNavigationTimeout(60000);
             
             const url = `${this.baseUrl}/?country=Россия&city=${encodeURIComponent(this.city)}&arena=${encodeURIComponent(this.arena)}`;
             
@@ -236,14 +202,13 @@ class BookingParser {
             for (let i = 0; i < dates.length; i++) {
                 const date = dates[i];
                 const percent = 55 + Math.floor((i + 1) / dates.length * 35);
-                await this.saveProgress(7, percent, `Обработка ${date.day} (${i+1}/${dates.length})`, date.day, dates.length);
+                await this.saveProgress(7, percent, `Обработка ${date.day} (${i+1}/${dates.length})`);
                 
                 console.log(`\n📅 Дата ${date.day}`);
                 
                 const dateData = { available: [], partially: [], fullyBooked: [], passed: [] };
                 const times = getTimesForDate(date.day);
                 
-                // Перезагружаем страницу для каждой даты
                 await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
                 await this.sleep(8000);
                 await this.clickOnText(page, 'АРЕНА');
@@ -259,9 +224,6 @@ class BookingParser {
                 if (targetDate) {
                     await page.mouse.click(targetDate.x, targetDate.y);
                     await this.sleep(2000);
-                } else {
-                    console.log(`   ⚠️ Дата ${date.day} не найдена в календаре`);
-                    continue;
                 }
                 
                 for (const timeSlot of times) {
@@ -271,31 +233,26 @@ class BookingParser {
                         continue;
                     }
                     
-                    try {
-                        const info = await page.evaluate((t) => {
-                            const elements = Array.from(document.querySelectorAll('*'));
-                            for (const el of elements) {
-                                if (el.innerText?.trim() === t) {
-                                    const parent = el.parentElement;
-                                    const text = (el.innerText || '') + ' ' + (parent?.innerText || '');
-                                    const match = text.match(/(\d+)\/(\d+)/);
-                                    if (match) return { free: parseInt(match[1]), total: parseInt(match[2]) };
-                                }
+                    const info = await page.evaluate((t) => {
+                        const elements = Array.from(document.querySelectorAll('*'));
+                        for (const el of elements) {
+                            if (el.innerText?.trim() === t) {
+                                const parent = el.parentElement;
+                                const text = (el.innerText || '') + ' ' + (parent?.innerText || '');
+                                const match = text.match(/(\d+)\/(\d+)/);
+                                if (match) return { free: parseInt(match[1]), total: parseInt(match[2]) };
                             }
-                            return null;
-                        }, timeSlot);
-                        
-                        if (!info) {
-                            dateData.fullyBooked.push(timeSlot);
-                        } else if (info.free === 10) {
-                            dateData.available.push(timeSlot);
-                        } else if (info.free > 0) {
-                            dateData.partially.push({ time: timeSlot, free: info.free, total: info.total });
-                        } else {
-                            dateData.fullyBooked.push(timeSlot);
                         }
-                    } catch (err) {
-                        console.log(`   ⚠️ Ошибка обработки ${timeSlot}: ${err.message}`);
+                        return null;
+                    }, timeSlot);
+                    
+                    if (!info) {
+                        dateData.fullyBooked.push(timeSlot);
+                    } else if (info.free === 10) {
+                        dateData.available.push(timeSlot);
+                    } else if (info.free > 0) {
+                        dateData.partially.push({ time: timeSlot, free: info.free, total: info.total });
+                    } else {
                         dateData.fullyBooked.push(timeSlot);
                     }
                     
