@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WARPOINT - Аналитика бронирований</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', system-ui, sans-serif; background: #0a0c15; color: #f0f3fa; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; }
+        
+        .progress-card { background: rgba(17, 24, 39, 0.95); border-radius: 20px; padding: 24px; margin-bottom: 24px; border: 1px solid #374151; display: none; }
+        .progress-header { display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 14px; }
+        .progress-bar-container { background: #1e293b; border-radius: 30px; height: 24px; overflow: hidden; margin-bottom: 16px; }
+        .progress-fill { background: linear-gradient(90deg, #6366f1, #ec4899); width: 0%; height: 100%; border-radius: 30px; transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; }
+        .progress-steps { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .step { font-size: 11px; color: #6b7280; display: flex; align-items: center; gap: 6px; }
+        .step.active { color: #f59e0b; }
+        .step.completed { color: #10b981; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 20px; margin-bottom: 32px; }
+        .stat-card { background: #111827; border-radius: 20px; padding: 20px; text-align: center; border: 1px solid #374151; transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-4px); border-color: #6366f1; }
+        .stat-icon { font-size: 28px; margin-bottom: 12px; }
+        .stat-value { font-size: 32px; font-weight: 700; color: #fbbf24; }
+        .stat-label { font-size: 11px; opacity: 0.7; margin-top: 8px; }
+        
+        .form-card { background: #111827; border-radius: 24px; padding: 24px; margin-bottom: 32px; border: 1px solid #374151; }
+        .form-title { font-size: 18px; font-weight: 600; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; }
+        .btn { background: linear-gradient(135deg, #6366f1, #ec4899); border: none; padding: 10px 20px; border-radius: 40px; color: white; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: transform 0.2s; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99,102,241,0.4); }
+        .btn-outline { background: transparent; border: 1px solid #6366f1; }
+        .btn-outline:hover { background: rgba(99,102,241,0.1); }
+        
+        .dates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; margin-top: 24px; }
+        .date-card { background: #111827; border-radius: 20px; overflow: hidden; border: 1px solid #374151; transition: transform 0.2s; }
+        .date-card:hover { transform: translateY(-4px); border-color: #6366f1; }
+        .date-header { background: rgba(99,102,241,0.1); padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid #374151; }
+        .date-number { font-size: 18px; font-weight: 700; }
+        .date-badge { display: flex; gap: 10px; }
+        .badge { padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 600; }
+        .badge-green { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981; }
+        .badge-yellow { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid #f59e0b; }
+        .badge-red { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid #ef4444; }
+        
+        .slots-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 16px; }
+        .slot { padding: 8px 6px; text-align: center; border-radius: 10px; font-size: 12px; font-weight: 500; }
+        .slot-available { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .slot-partially { background: rgba(245,158,11,0.15); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+        .slot-booked { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); text-decoration: line-through; }
+        .slot-passed { background: rgba(107,114,128,0.1); color: #6b7280; border: 1px solid rgba(107,114,128,0.3); }
+        
+        .chart-container { background: #111827; border-radius: 20px; padding: 20px; margin-top: 20px; border: 1px solid #374151; }
+        .top-days { margin-top: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .top-day { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #1e293b; border-radius: 12px; }
+        .top-day-bar { height: 6px; background: #f59e0b; border-radius: 4px; transition: width 0.3s; margin-top: 8px; }
+        
+        .loading { text-align: center; padding: 60px; color: #9ca3af; }
+        .update-time { text-align: right; font-size: 11px; opacity: 0.5; margin-top: 16px; }
+        
+        @media (max-width: 768px) {
+            .slots-grid { grid-template-columns: repeat(3, 1fr); }
+            .dates-grid { grid-template-columns: 1fr; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .form-title { flex-direction: column; align-items: stretch; }
+            .btn { justify-content: center; }
+        }
+        @media (max-width: 480px) { .slots-grid { grid-template-columns: repeat(2, 1fr); } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="progressCard" class="progress-card">
+        <div class="progress-header"><span><i class="fas fa-spinner fa-spin"></i> Парсинг данных</span><span id="progressPercent">0%</span></div>
+        <div class="progress-bar-container"><div id="progressFill" class="progress-fill" style="width: 0%">0%</div></div>
+        <div id="progressSteps" class="progress-steps">
+            <div class="step" data-step="1"><i class="fas fa-circle"></i> Запуск</div>
+            <div class="step" data-step="2"><i class="fas fa-circle"></i> Браузер</div>
+            <div class="step" data-step="3"><i class="fas fa-circle"></i> Страница</div>
+            <div class="step" data-step="4"><i class="fas fa-circle"></i> Арена</div>
+            <div class="step" data-step="5"><i class="fas fa-circle"></i> Календарь</div>
+            <div class="step" data-step="6"><i class="fas fa-circle"></i> Сбор дат</div>
+            <div class="step" data-step="7"><i class="fas fa-circle"></i> Обработка</div>
+            <div class="step" data-step="8"><i class="fas fa-circle"></i> Сохранение</div>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="form-title">
+            <span><i class="fas fa-calendar-check"></i> Доступность бронирования</span>
+            <button id="runParserBtn" class="btn btn-outline" onclick="runParser()"><i class="fas fa-sync-alt"></i> Обновить данные</button>
+        </div>
+        <div id="loader" class="loading">Загрузка данных...</div>
+        <div id="content" style="display: none;">
+            <div class="stats-grid" id="statsGrid"></div>
+            <div class="dates-grid" id="datesGrid"></div>
+            <div class="chart-container"><canvas id="dailyChart"></canvas></div>
+            <div id="topDaysContainer" class="top-days"></div>
+            <div id="updateTime" class="update-time"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API_URL = '/api';
+let progressInterval = null;
+let dailyChart = null;
+
+async function updateProgress() {
+    try {
+        const response = await fetch(`${API_URL}/parsing/progress`);
+        const progress = await response.json();
+        const percent = progress.percent || 0;
+        const step = progress.step || 0;
+        
+        document.getElementById('progressPercent').innerText = percent + '%';
+        document.getElementById('progressFill').style.width = percent + '%';
+        document.getElementById('progressFill').innerText = percent + '%';
+        
+        for (let i = 1; i <= 8; i++) {
+            const stepEl = document.querySelector(`.step[data-step="${i}"]`);
+            if (stepEl) {
+                if (i < step) { stepEl.classList.add('completed'); stepEl.classList.remove('active'); stepEl.innerHTML = '<i class="fas fa-check-circle"></i> ' + stepEl.innerText.replace(/[^А-Яа-я]/g, ''); }
+                else if (i === step) { stepEl.classList.add('active'); stepEl.classList.remove('completed'); stepEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + stepEl.innerText.replace(/[^А-Яа-я]/g, ''); }
+            }
+        }
+        
+        if (percent >= 100 || progress.message === 'Готово') {
+            if (progressInterval) clearInterval(progressInterval);
+            document.getElementById('progressCard').style.display = 'none';
+            await loadData();
+        }
+    } catch (err) { console.error(err); }
+}
+
+async function runParser() {
+    const btn = document.getElementById('runParserBtn');
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Запуск...';
+    btn.disabled = true;
+    document.getElementById('progressCard').style.display = 'block';
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('progressPercent').innerText = '0%';
+    for (let i = 1; i <= 8; i++) {
+        const stepEl = document.querySelector(`.step[data-step="${i}"]`);
+        if (stepEl) { stepEl.classList.remove('active', 'completed'); stepEl.innerHTML = '<i class="fas fa-circle"></i> ' + stepEl.innerText.replace(/[^А-Яа-я]/g, ''); }
+    }
+    if (progressInterval) clearInterval(progressInterval);
+    progressInterval = setInterval(updateProgress, 1000);
+    try {
+        const response = await fetch(`${API_URL}/parsing/run`, { method: 'POST' });
+        const result = await response.json();
+        if (!result.success) { alert('Ошибка: ' + (result.error || 'Неизвестная ошибка')); if (progressInterval) clearInterval(progressInterval); document.getElementById('progressCard').style.display = 'none'; }
+    } catch (err) { alert('Ошибка соединения'); if (progressInterval) clearInterval(progressInterval); document.getElementById('progressCard').style.display = 'none'; }
+    finally { btn.innerHTML = '<i class="fas fa-sync-alt"></i> Обновить данные'; btn.disabled = false; }
+}
+
+async function loadData() {
+    const loader = document.getElementById('loader');
+    const content = document.getElementById('content');
+    loader.style.display = 'block';
+    content.style.display = 'none';
+    loader.innerHTML = '<div class="loading"><i class="fas fa-spinner fa-spin"></i> Загрузка данных...</div>';
+    try {
+        const response = await fetch(`${API_URL}/parsing/latest`);
+        const data = await response.json();
+        if (data.error || !data.dates || Object.keys(data.dates).length === 0) { loader.innerHTML = '<div class="loading">⚠️ Нет данных. Нажмите "Обновить данные" для запуска парсинга.</div>'; return; }
+        loader.style.display = 'none';
+        content.style.display = 'block';
+        renderStats(data);
+        renderDates(data);
+        renderChart(data);
+        renderTopDays(data);
+        const updateTime = document.getElementById('updateTime');
+        if (updateTime && data.parsedAt) updateTime.innerHTML = `<i class="fas fa-clock"></i> Обновлено: ${new Date(data.parsedAt).toLocaleString()}`;
+    } catch (err) { loader.innerHTML = '<div class="loading">❌ Ошибка загрузки данных</div>'; }
+}
+
+function renderStats(data) {
+    const dates = Object.keys(data.dates);
+    let totalAvailable = 0, totalPartially = 0, totalBooked = 0, totalPassed = 0;
+    for (const date of dates) {
+        const dayData = data.dates[date];
+        totalAvailable += dayData.available?.length || 0;
+        totalPartially += dayData.partially?.length || 0;
+        totalBooked += dayData.fullyBooked?.length || 0;
+        totalPassed += dayData.passed?.length || 0;
+    }
+    document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card"><div class="stat-icon">📅</div><div class="stat-value">${dates.length}</div><div class="stat-label">Дней</div></div>
+        <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-value" style="color:#10b981;">${totalAvailable}</div><div class="stat-label">Свободных</div></div>
+        <div class="stat-card"><div class="stat-icon">🟡</div><div class="stat-value" style="color:#f59e0b;">${totalPartially}</div><div class="stat-label">Частично</div></div>
+        <div class="stat-card"><div class="stat-icon">❌</div><div class="stat-value" style="color:#ef4444;">${totalBooked}</div><div class="stat-label">Занятых</div></div>
+    `;
+}
+
+function renderDates(data) {
+    const dates = Object.keys(data.dates).sort((a,b) => parseInt(a) - parseInt(b));
+    const times = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+    const today = new Date().getDate();
+    const currentHour = new Date().getHours();
+    const isPassed = (day, time) => { if (day < today) return true; if (day > today) return false; return parseInt(time.split(':')[0]) <= currentHour; };
+    let html = '';
+    for (const date of dates) {
+        const dayNum = parseInt(date);
+        const dayData = data.dates[date];
+        let slotsHtml = '';
+        let available = 0, partially = 0, booked = 0, passed = 0;
+        for (const time of times) {
+            let slotClass = 'slot', statusText = '';
+            if (isPassed(dayNum, time)) { slotClass += ' slot-passed'; statusText = 'Прошёл'; passed++; }
+            else if (dayData.fullyBooked?.includes(time)) { slotClass += ' slot-booked'; statusText = 'Занят'; booked++; }
+            else if (dayData.partially?.find(p => p.time === time)) { slotClass += ' slot-partially'; const partial = dayData.partially.find(p => p.time === time); statusText = `${partial.free}/${partial.total}`; partially++; }
+            else if (dayData.available?.includes(time)) { slotClass += ' slot-available'; statusText = 'Свободен'; available++; }
+            else { slotClass += ' slot-booked'; statusText = 'Занят'; booked++; }
+            slotsHtml += `<div class="${slotClass}"><div>${time}</div><div style="font-size:9px;">${statusText}</div></div>`;
+        }
+        html += `<div class="date-card"><div class="date-header"><span class="date-number">${date}</span><div class="date-badge"><span class="badge badge-green">🟢 ${available}</span><span class="badge badge-yellow">🟡 ${partially}</span><span class="badge badge-red">🔴 ${booked}</span></div></div><div class="slots-grid">${slotsHtml}</div></div>`;
+    }
+    document.getElementById('datesGrid').innerHTML = html;
+}
+
+function renderChart(data) {
+    const dates = Object.keys(data.dates).sort((a,b) => parseInt(a) - parseInt(b));
+    const times = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+    const today = new Date().getDate();
+    const currentHour = new Date().getHours();
+    const isPassed = (day, time) => { if (day < today) return true; if (day > today) return false; return parseInt(time.split(':')[0]) <= currentHour; };
+    const availableData = [], partiallyData = [], bookedData = [];
+    for (const date of dates) {
+        const dayNum = parseInt(date);
+        const dayData = data.dates[date];
+        let available = 0, partially = 0, booked = 0;
+        for (const time of times) {
+            if (isPassed(dayNum, time)) continue;
+            if (dayData.available?.includes(time)) available++;
+            else if (dayData.partially?.find(p => p.time === time)) partially++;
+            else booked++;
+        }
+        availableData.push(available); partiallyData.push(partially); bookedData.push(booked);
+    }
+    const ctx = document.getElementById('dailyChart').getContext('2d');
+    if (dailyChart) dailyChart.destroy();
+    dailyChart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: dates, datasets: [
+            { label: 'Свободные', data: availableData, backgroundColor: '#10b981', borderRadius: 8 },
+            { label: 'Частично', data: partiallyData, backgroundColor: '#f59e0b', borderRadius: 8 },
+            { label: 'Занятые', data: bookedData, backgroundColor: '#ef4444', borderRadius: 8 }
+        ] },
+        options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#fff' } } }, scales: { y: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } }, x: { ticks: { color: '#fff', rotation: 45 }, grid: { color: 'rgba(255,255,255,0.1)' } } } }
+    });
+}
+
+function renderTopDays(data) {
+    const dates = Object.keys(data.dates);
+    const times = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+    const today = new Date().getDate();
+    const currentHour = new Date().getHours();
+    const isPassed = (day, time) => { if (day < today) return true; if (day > today) return false; return parseInt(time.split(':')[0]) <= currentHour; };
+    const loadPercent = [];
+    for (const date of dates) {
+        const dayNum = parseInt(date);
+        const dayData = data.dates[date];
+        let total = 0, booked = 0;
+        for (const time of times) {
+            if (isPassed(dayNum, time)) continue;
+            total++;
+            if (dayData.fullyBooked?.includes(time)) booked++;
+            else if (dayData.partially?.find(p => p.time === time)) booked++;
+        }
+        const percent = total > 0 ? (booked / total * 100) : 0;
+        loadPercent.push({ date, percent, booked, total });
+    }
+    loadPercent.sort((a, b) => b.percent - a.percent);
+    const top5 = loadPercent.slice(0, 5);
+    if (top5.length === 0) { document.getElementById('topDaysContainer').innerHTML = '<div class="loading">Нет данных для анализа</div>'; return; }
+    let html = '<h3 style="margin-bottom:16px;"><i class="fas fa-fire"></i> Самые загруженные дни</h3>';
+    for (let i = 0; i < top5.length; i++) {
+        const item = top5[i];
+        const color = item.percent > 70 ? '#ef4444' : (item.percent > 40 ? '#f59e0b' : '#10b981');
+        html += `<div class="top-day"><div><strong>${i + 1}.</strong> ${item.date}</div><div style="color: ${color}; font-weight:600;">${item.percent.toFixed(0)}%</div></div><div class="top-day-bar" style="width: ${item.percent}%; background: ${color};"></div>`;
+    }
+    document.getElementById('topDaysContainer').innerHTML = html;
+}
+
+loadData();
+</script>
+</body>
+</html>

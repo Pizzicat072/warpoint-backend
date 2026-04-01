@@ -1,0 +1,10 @@
+node_modules/
+.cache/
+data/
+*.log
+.DS_Store
+.env
+*.tmp
+*.swp
+.vscode/
+.idea/
