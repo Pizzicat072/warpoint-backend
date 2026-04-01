@@ -7,7 +7,6 @@
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
-    <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -137,6 +136,10 @@
         .article-actions { display: flex; gap: 8px; }
         .add-article-btn { margin-top: 8px; padding: 10px; background: transparent; border: 1px dashed var(--border-color); border-radius: 16px; color: #6b7280; cursor: pointer; font-size: 12px; }
         .add-article-btn:hover { border-color: var(--accent-hover); color: #a78bfa; }
+        .salary-table-container { overflow-x: auto; }
+        .salary-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .salary-table th, .salary-table td { padding: 8px 4px; text-align: center; border: 1px solid rgba(255,255,255,0.1); }
+        .salary-table input { width: 55px; background: #1e293b; border: 1px solid var(--accent); border-radius: 6px; color: white; padding: 4px; text-align: center; }
         @media (max-width: 768px) {
             .employees-grid { padding: 0 16px; grid-template-columns: 1fr; }
             .shop-container { padding: 0 16px; grid-template-columns: repeat(2, 1fr); }
@@ -240,7 +243,7 @@
                 <select id="taskExecutorFilter" class="styled-select" style="width: auto;" onchange="filterTasks()">
                     <option value="all">Все исполнители</option>
                 </select>
-                <input type="text" id="taskSearchInput" class="filter-input" placeholder="Поиск..." onkeyup="filterTasks()">
+                <input type="text" id="taskSearchInput" class="filter-input" placeholder="Поиск..." onkeyup="filterTasks()" style="background:#1e293b; border:1px solid var(--accent); border-radius:30px; padding:8px 16px; color:white;">
             </div>
             <div style="overflow-x: auto;">
                 <table class="schedule-table" id="tasksTable">
@@ -262,12 +265,14 @@
 
     <!-- Рейтинг -->
     <div id="tab-rating" class="tab-content">
-        <div class="glass-card" style="padding: 24px; border-radius: 24px; overflow-x: auto; margin: 0 32px;">
-            <h3 style="margin-bottom: 20px;"><i class="fas fa-trophy"></i> Рейтинг сотрудников</h3>
-            <table class="rating-table" style="width:100%; border-collapse: collapse;">
-                <thead><tr><th>#</th><th>Сотрудник</th><th>Часы</th><th>Рейтинг</th><th>Монеты</th><th>Звание</th></tr></thead>
-                <tbody id="ratingTableBody"></tbody>
-            </table>
+        <div class="glass-card" style="padding: 24px; margin: 0 32px;">
+            <h3><i class="fas fa-trophy"></i> Рейтинг сотрудников</h3>
+            <div style="overflow-x: auto;">
+                <table class="schedule-table">
+                    <thead><tr><th>#</th><th>Сотрудник</th><th>Часы</th><th>Рейтинг</th><th>Монеты</th><th>Звание</th></tr></thead>
+                    <tbody id="ratingTableBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -289,7 +294,7 @@
                 <select id="fineEmployeeFilter" class="styled-select" style="width: auto;" onchange="filterFines()">
                     <option value="all">Все сотрудники</option>
                 </select>
-                <input type="text" id="fineSearchInput" class="filter-input" placeholder="Поиск..." onkeyup="filterFines()">
+                <input type="text" id="fineSearchInput" class="filter-input" placeholder="Поиск..." onkeyup="filterFines()" style="background:#1e293b; border:1px solid var(--accent); border-radius:30px; padding:8px 16px; color:white;">
             </div>
             <div style="overflow-x: auto;">
                 <table class="schedule-table" id="finesTable">
@@ -378,7 +383,7 @@
             <div class="stats-grid" id="vpStats"></div>
             <div style="overflow-x: auto;">
                 <table class="schedule-table" id="vpTable">
-                    <thead><tr><th>Кто бронировал</th><th>Дата проведения</th><th>Время</th><th>Имя заказчика</th><th>ПО (сумма)</th><th>Способ оплаты</th><th>Дата брони</th><th>Фото</th><th>Скрипт отзыва</th><th>Действия</th> </thead>
+                    <thead> procs<th>Кто бронировал</th><th>Дата проведения</th><th>Время</th><th>Имя заказчика</th><th>ПО (сумма)</th><th>Способ оплаты</th><th>Дата брони</th><th>Фото</th><th>Скрипт отзыва</th><th>Действия</th> </thead>
                     <tbody id="vpTableBody"></tbody>
                 追赶
             </div>
@@ -403,11 +408,11 @@
                 </select>
                 <input type="number" id="salaryYearFilter" value="2026" style="width: 80px;" class="edit-input" onchange="loadSalary()">
             </div>
-            <div id="salaryTableContainer" style="overflow-x: auto;">
-                <table class="schedule-table" id="salaryTable">
+            <div class="salary-table-container" style="overflow-x: auto;">
+                <table class="salary-table" id="salaryTable">
                     <thead id="salaryTableHead"></thead>
                     <tbody id="salaryTableBody"></tbody>
-                </table>
+                追赶
             </div>
             <div style="margin-top: 24px; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 20px;">
                 <h4>🏦 Фонд на корпоратив</h4>
@@ -425,7 +430,7 @@
     <div class="modal-window">
         <div style="text-align: center; margin-bottom: 24px;">
             <div class="logo-icon" style="width: 80px; height: 80px; margin: 0 auto 16px;"><img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT"></div>
-            <h2 style="font-size: 28px;">🔐 WARPOINT</h2>
+            <h2>🔐 WARPOINT</h2>
             <p style="opacity: 0.7; margin-top: 8px;">Войдите в корпоративный портал</p>
         </div>
         <form id="loginForm" onsubmit="event.preventDefault(); login();">
@@ -821,7 +826,7 @@ function updateCompactEvents() {
     let today = new Date();
     let upcoming = allVp.filter(v => new Date(v.event_date) >= today).slice(0, 5);
     if (!upcoming.length) { container.innerHTML = '<div class="empty-state">Нет ближайших событий</div>'; return; }
-    container.innerHTML = upcoming.map(v => `<div class="compact-event-item" style="display:flex; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:16px; margin-bottom:8px;"><span>${escapeHtml(v.customer_name)}</span><span>${formatDate(v.event_date)} ${v.event_time}</span></div>`).join('');
+    container.innerHTML = upcoming.map(v => `<div style="display:flex; justify-content:space-between; padding:12px; background:rgba(0,0,0,0.2); border-radius:16px; margin-bottom:8px;"><span>${escapeHtml(v.customer_name)}</span><span>${formatDate(v.event_date)} ${v.event_time}</span></div>`).join('');
 }
 
 // ============================================
@@ -986,7 +991,7 @@ function renderTasks() {
         if (currentTaskFilter.search && !t.name.toLowerCase().includes(currentTaskFilter.search)) return false;
         return true;
     });
-    if (!filtered.length) { tbody.innerHTML = '发展<td colspan="9">Нет задач</td> </tr>'; return; }
+    if (!filtered.length) { tbody.innerHTML = '发展<td colspan="9">Нет задач</td></tr>'; return; }
     tbody.innerHTML = filtered.map((t, i) => `
         <tr><td>${i+1}</td><td><strong>${escapeHtml(t.name)}</strong></td><td>${escapeHtml(t.author)}</td><td>${escapeHtml(t.executor)}</td>
         <td>${t.deadline ? formatDate(t.deadline) : '—'}</td><td>${priorityColors[t.priority] || '🟡'}</td>
@@ -1060,7 +1065,7 @@ function renderFines() {
         if (currentFineFilter.search && !f.description?.toLowerCase().includes(currentFineFilter.search)) return false;
         return true;
     });
-    if (!filtered.length) { tbody.innerHTML = '发展<td colspan="8">Нет нарушений</td> </tr>'; return; }
+    if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="8">Нет нарушений</td></tr>'; return; }
     tbody.innerHTML = filtered.map(f => `
         <tr><td>${formatDate(f.date)}</td><td>${escapeHtml(f.employee)}</td><td>${fineTypes[f.type] || f.type}</td>
         <td>${fineSeverity[f.severity]?.name || '🟡 Среднее'}</td><td>${f.amount || '—'} ₽</td>
@@ -1124,7 +1129,7 @@ async function saveFine() {
 function renderVpTable(vpList) {
     let tbody = document.getElementById('vpTableBody');
     if (!tbody) return;
-    if (!vpList.length) { tbody.innerHTML = '发展<td colspan="10">Нет броней</td> </tr>'; return; }
+    if (!vpList.length) { tbody.innerHTML = '<tr><td colspan="10">Нет броней</td></tr>'; return; }
     let adminFilter = document.getElementById('vpAdminFilter');
     if (adminFilter && adminFilter.options.length <= 1) {
         let admins = [...new Set(vpList.map(v => v.admin))];
@@ -1225,7 +1230,7 @@ function renderSalaryTable() {
     let month = parseInt(document.getElementById('salaryMonthFilter').value);
     let year = parseInt(document.getElementById('salaryYearFilter').value);
     let days = new Date(year, month, 0).getDate();
-    let motivations = salaryData.motivations || ['Оклад', 'Мероприятие', 'Премия', 'Ролик'];
+    let motivations = salaryData.motivations || ['Оклад', 'Мероприятие', 'Премия с оборота', 'Премия за 35 тыс.', 'Ролик', 'Уборка с/у'];
     thead.innerHTML = `<tr><th>Сотрудник</th><th>Мотивация</th>${Array.from({ length: days }, (_, i) => `<th>${i + 1}</th>`).join('')}</tr>`;
     if (!salaryData.employees?.length) { tbody.innerHTML = '<tr><td colspan="2">Нет данных</td></tr>'; return; }
     let rows = '';
@@ -1234,7 +1239,7 @@ function renderSalaryTable() {
             let daysHtml = '';
             for (let d = 1; d <= days; d++) {
                 let daily = salaryData.dailyData?.find(dd => dd.employee_id === emp.id && dd.motivation_type === mot && dd.day_number === d);
-                daysHtml += `<td><input type="number" value="${daily?.amount || 0}" style="width:60px; background:#1e293b; border:1px solid #6366f1; border-radius:8px; color:white; padding:4px;" ${currentUserRole !== 'director' ? 'disabled' : ''} onchange="updateSalaryCell(${emp.id},'${mot}',${d},this.value)"></td>`;
+                daysHtml += `<td><input type="number" value="${daily?.amount || 0}" ${currentUserRole !== 'director' ? 'disabled' : ''} onchange="updateSalaryCell(${emp.id},'${mot}',${d},this.value)"></td>`;
             }
             rows += `<tr><td>${escapeHtml(emp.employee_name)}</td><td>${mot}</td>${daysHtml}</tr>`;
         }
