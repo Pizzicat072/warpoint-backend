@@ -27,7 +27,7 @@ pool.on('connect', () => console.log('📊 PostgreSQL connected'));
 pool.on('error', (err) => console.error('❌ Database error:', err.message));
 
 // ============================================
-// MIDDLEWARE - ВАЖНО: правильные CORS настройки
+// MIDDLEWARE
 // ============================================
 app.use(cors({
     origin: true,
@@ -45,28 +45,26 @@ app.use(express.static('public'));
 // ============================================
 const authMiddleware = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
-    console.log('Auth header:', authHeader ? 'present' : 'missing');
     
     if (!authHeader) {
+        console.log('❌ No auth header');
         return res.status(401).json({ error: 'No authorization header' });
     }
     
     const token = authHeader.split(' ')[1];
     if (!token) {
+        console.log('❌ No token in header');
         return res.status(401).json({ error: 'No token provided' });
     }
     
     try {
+        // Важно: НЕ передаём дополнительных опций, кроме secret
         const decoded = jwt.verify(token, JWT_SECRET);
-        console.log('Token verified for:', decoded.username);
+        console.log('✅ Token verified for:', decoded.username);
         req.user = decoded;
-        
-        // Обновляем last_active
-        await pool.query('UPDATE employees SET last_active = $1 WHERE name = $2', [Date.now(), decoded.username]);
-        
         next();
     } catch (err) {
-        console.error('JWT verification failed:', err.message);
+        console.error('❌ JWT verification failed:', err.message);
         return res.status(401).json({ error: 'Invalid token', details: err.message });
     }
 };
@@ -79,7 +77,6 @@ app.post('/api/auth/login', async (req, res) => {
     console.log('Login attempt:', username);
     
     try {
-        // Временный fallback для Дениса
         if (username === 'Денис' && password === 'denis_1') {
             console.log('✅ Temporary auth for Денис');
             
@@ -88,28 +85,33 @@ app.post('/api/auth/login', async (req, res) => {
             if (profile.rows.length === 0) {
                 await pool.query(
                     'INSERT INTO employees (name, avatar, coins, rating, role, last_active) VALUES ($1, $2, $3, $4, $5, $6)',
-                    ['Денис', '👑', 10000, 500, 'director', Date.now()]
+                    ['Денис', '👑', 10000, 500, 'director', Math.floor(Date.now() / 1000)]
                 );
                 profile = await pool.query('SELECT * FROM employees WHERE name = $1', [username]);
             }
             
+            // Создаём токен с правильным exp (в секундах, а не миллисекундах!)
             const token = jwt.sign(
-                { username: username, role: profile.rows[0].role, id: profile.rows[0].id },
+                { 
+                    username: username, 
+                    role: profile.rows[0].role, 
+                    id: profile.rows[0].id 
+                },
                 JWT_SECRET,
-                { expiresIn: '7d' }
+                { expiresIn: '7d' } // 7 дней в секундах
             );
             
-            console.log('Token created, sending response');
+            console.log('✅ Token created, sending response');
             return res.json({ success: true, token: token, user: profile.rows[0] });
         }
         
-        // Нормальная проверка
+        // Нормальная проверка для других пользователей
         const user = await pool.query('SELECT * FROM passwords WHERE username = $1', [username]);
         if (user.rows.length > 0) {
             const valid = await bcrypt.compare(password, user.rows[0].password_hash);
             if (valid) {
                 const profile = await pool.query('SELECT * FROM employees WHERE name = $1', [username]);
-                await pool.query('UPDATE employees SET last_active = $1 WHERE name = $2', [Date.now(), username]);
+                await pool.query('UPDATE employees SET last_active = $1 WHERE name = $2', [Math.floor(Date.now() / 1000), username]);
                 
                 const token = jwt.sign(
                     { username: username, role: profile.rows[0].role, id: profile.rows[0].id },
@@ -123,17 +125,17 @@ app.post('/api/auth/login', async (req, res) => {
         
         res.status(401).json({ error: 'Неверный логин или пароль' });
     } catch (err) {
-        console.error('Login error:', err);
+        console.error('❌ Login error:', err);
         res.status(500).json({ error: err.message });
     }
 });
 
 // ============================================
-// API /data - с authMiddleware
+// API /data
 // ============================================
 app.get('/api/data', authMiddleware, async (req, res) => {
     try {
-        console.log('Fetching data for:', req.user.username);
+        console.log('📊 Fetching data for:', req.user.username);
         
         const employees = await pool.query('SELECT * FROM employees ORDER BY name');
         const tasks = await pool.query('SELECT * FROM tasks ORDER BY created_at DESC LIMIT 500');
@@ -167,7 +169,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
             messages: messagesByRoom
         });
     } catch (err) {
-        console.error('Error in /api/data:', err);
+        console.error('❌ Error in /api/data:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -193,6 +195,31 @@ app.post('/api/tasks', authMiddleware, async (req, res) => {
             [task.name, task.author, task.executor, task.priority, task.deadline, task.progress || 0, task.comment, task.recurring, task.status || 'in_progress']
         );
         res.json({ success: true, task: result.rows[0] });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/tasks/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    try {
+        await pool.query(
+            `UPDATE tasks SET name = $1, executor = $2, priority = $3, deadline = $4, progress = $5, comment = $6, status = $7, updated_at = CURRENT_TIMESTAMP
+             WHERE id = $8`,
+            [updates.name, updates.executor, updates.priority, updates.deadline, updates.progress, updates.comment, updates.status, id]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/tasks/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -356,6 +383,34 @@ app.post('/api/employees', authMiddleware, async (req, res) => {
         await pool.query('INSERT INTO employees (name, role) VALUES ($1, $2)', [name, role || 'operator']);
         await pool.query('INSERT INTO passwords (username, password_hash) VALUES ($1, $2)', [name, hash]);
         await pool.query('INSERT INTO salary_employees (employee_name) VALUES ($1) ON CONFLICT DO NOTHING', [name]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { name } = req.params;
+    if (name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
+    try {
+        await pool.query('DELETE FROM employees WHERE name = $1', [name]);
+        await pool.query('DELETE FROM passwords WHERE username = $1', [name]);
+        await pool.query('UPDATE salary_employees SET is_active = false WHERE employee_name = $1', [name]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================
+// ADMIN BONUS
+// ============================================
+app.post('/api/admin/bonus/all', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { coins, rating } = req.body;
+    try {
+        await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2', [coins || 0, rating || 0]);
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
