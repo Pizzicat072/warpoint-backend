@@ -1,0 +1,54 @@
+<!-- public/pages/employees.html -->
+<div class="employees-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; padding: 0 32px;">
+    <h2 style="color: white;"><i class="fas fa-users"></i> Команда <span id="teamCount"></span></h2>
+    <button class="btn-primary" onclick="openCreateEmployeeModal()" id="createEmployeeBtn" style="display: none;">
+        <i class="fas fa-user-plus"></i> Создать сотрудника
+    </button>
+</div>
+
+<div id="employeesGrid" class="employees-grid"></div>
+
+<!-- Модальное окно профиля -->
+<div id="profileModal" class="modal">
+    <div class="modal-content" id="profileModalContent"></div>
+</div>
+
+<!-- Модальное окно создания сотрудника -->
+<div id="createEmployeeModal" class="modal">
+    <div class="modal-window">
+        <h3>Создать сотрудника</h3>
+        <input type="text" id="newEmpName" class="edit-input" placeholder="Имя">
+        <select id="newEmpRole" class="styled-select">
+            <option value="operator">Оператор</option>
+            <option value="admin">Админ</option>
+            <option value="manager">Управляющий</option>
+        </select>
+        <input type="password" id="newEmpPassword" class="edit-input" placeholder="Пароль">
+        <div style="display: flex; gap: 12px; margin-top: 16px;">
+            <button class="btn-primary" onclick="createEmployee()">Создать</button>
+            <button class="btn-secondary" onclick="closeCreateEmployeeModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно смены аватара -->
+<div id="avatarModal" class="modal">
+    <div class="modal-window">
+        <h3>Выберите аватар</h3>
+        <div id="avatarGrid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 20px 0;"></div>
+        <div style="display: flex; gap: 12px;">
+            <button class="btn-secondary" onclick="closeAvatarModal()">Отмена</button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно смены статуса -->
+<div id="statusModal" class="modal">
+    <div class="modal-window">
+        <h3>Изменить статус</h3>
+        <div id="statusList" style="display: flex; flex-direction: column; gap: 12px; margin: 20px 0;"></div>
+        <div style="display: flex; gap: 12px;">
+            <button class="btn-secondary" onclick="closeStatusModal()">Отмена</button>
+        </div>
+    </div>
+</div>
