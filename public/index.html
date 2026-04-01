@@ -27,7 +27,6 @@
         body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg-primary); color: var(--text-primary); overflow-x: hidden; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideInRight { from { opacity: 0; transform: translateX(50px); } to { opacity: 1; transform: translateX(0); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .glass-card { background: var(--bg-card); backdrop-filter: blur(20px); border-radius: 28px; border: 1px solid var(--border-color); transition: all 0.4s; }
         .glass-card:hover { border-color: var(--accent-hover); background: var(--bg-card-hover); transform: translateY(-4px); }
         .btn-primary { background: linear-gradient(135deg, #6366f1, #ec4899); border: none; padding: 10px 24px; border-radius: 40px; color: white; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; transition: all 0.2s; }
@@ -35,11 +34,11 @@
         .btn-secondary { background: rgba(255,255,255,0.08); border: 1px solid var(--border-color); padding: 10px 24px; border-radius: 40px; color: var(--text-secondary); cursor: pointer; transition: all 0.2s; }
         .btn-secondary:hover { background: rgba(99,102,241,0.2); }
         .btn-danger { background: rgba(239,68,68,0.2); border: 1px solid var(--danger); color: #f87171; cursor: pointer; padding: 10px 24px; border-radius: 40px; }
-        .btn-danger:hover { background: rgba(239,68,68,0.4); }
         .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; cursor: pointer; transition: all 0.2s; }
         .badge-success { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; }
         .badge-warning { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid #f59e0b; animation: pulse 1s infinite; }
         .badge-danger { background: rgba(239,68,68,0.2); color: #ef4444; border: 1px solid #ef4444; animation: pulse 0.8s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
         .sync-indicator { position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); backdrop-filter: blur(12px); padding: 10px 20px; border-radius: 40px; font-size: 12px; z-index: 1000; display: flex; align-items: center; gap: 10px; border: 1px solid rgba(255,255,255,0.1); }
         .sync-indicator.online { color: var(--success); border-color: var(--success); }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 16px 32px; background: rgba(10,10,26,0.8); backdrop-filter: blur(20px); border-bottom: 1px solid var(--border-color); position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 12px; }
@@ -49,6 +48,7 @@
         .logo-text { font-size: 26px; font-weight: 800; background: linear-gradient(135deg, #fff, #a78bfa, #f472b6); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .user-card { display: flex; align-items: center; gap: 15px; background: rgba(20,25,50,0.8); border-radius: 60px; padding: 6px 20px 6px 12px; border: 1px solid var(--border-color); }
         .user-avatar { width: 44px; height: 44px; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; cursor: pointer; }
+        .logout-btn { background: rgba(239,68,68,0.2); border: 1px solid var(--danger); border-radius: 30px; padding: 6px 14px; color: #f87171; cursor: pointer; font-size: 12px; }
         .main-menu { background: rgba(10,10,20,0.95); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); position: sticky; top: 72px; z-index: 99; padding: 0 16px; overflow-x: auto; }
         .menu-container { display: flex; align-items: center; gap: 4px; max-width: 1200px; margin: 0 auto; padding: 8px 0; }
         .menu-item { display: flex; flex-direction: column; align-items: center; gap: 6px; background: transparent; border: none; border-radius: 40px; padding: 8px 20px; cursor: pointer; white-space: nowrap; }
@@ -72,43 +72,36 @@
         .form-group label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 500; color: #a78bfa; }
         .notification { position: fixed; bottom: 24px; right: 24px; background: #1e293b; border-radius: 20px; padding: 14px 24px; z-index: 5000; border-left: 4px solid var(--success); animation: slideInRight 0.3s ease-out; display: flex; align-items: center; gap: 12px; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 16px; margin-bottom: 24px; }
-        .stat-card { background: rgba(15,25,45,0.7); backdrop-filter: blur(12px); border-radius: 24px; padding: 16px; text-align: center; border: 1px solid rgba(99,102,241,0.3); transition: transform 0.2s; }
-        .stat-card:hover { transform: translateY(-4px); border-color: #8b5cf6; }
-        .stat-icon { font-size: 28px; margin-bottom: 8px; }
+        .stat-card { background: rgba(15,25,45,0.7); backdrop-filter: blur(12px); border-radius: 24px; padding: 16px; text-align: center; border: 1px solid rgba(99,102,241,0.3); }
         .stat-value { font-size: 28px; font-weight: 800; color: #fbbf24; }
-        .stat-label { font-size: 11px; opacity: 0.7; margin-top: 4px; }
-        .filter-bar { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
         .schedule-table { width: 100%; border-collapse: collapse; font-size: 13px; }
         .schedule-table th, .schedule-table td { padding: 12px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .schedule-table th { background: rgba(99,102,241,0.15); font-weight: 600; }
+        .schedule-table th { background: rgba(99,102,241,0.15); }
         .empty-state { text-align: center; padding: 60px 20px; background: rgba(0,0,0,0.2); border-radius: 28px; }
         .week-schedule-card { background: rgba(0,0,0,0.3); border-radius: 20px; margin-bottom: 24px; overflow: hidden; border: 1px solid rgba(99,102,241,0.3); }
-        .week-header { background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.1)); padding: 12px 20px; font-weight: 700; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .week-header { background: linear-gradient(135deg, rgba(99,102,241,0.3), rgba(139,92,246,0.1)); padding: 12px 20px; font-weight: 700; }
         .week-days, .week-row { display: grid; grid-template-columns: 140px repeat(7, 1fr); }
         .day-header, .employee-name-cell { padding: 10px 6px; font-weight: 600; font-size: 12px; border-right: 1px solid rgba(255,255,255,0.1); border-bottom: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.2); }
-        .shift-cell { padding: 6px; text-align: center; border-right: 1px solid rgba(255,255,255,0.05); cursor: pointer; transition: background 0.2s; }
-        .shift-cell:hover { background: rgba(99,102,241,0.2); }
+        .shift-cell { padding: 6px; text-align: center; border-right: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
         .month-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; }
         .shop-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 24px; padding: 0 32px; }
         .shop-item { background: linear-gradient(135deg, rgba(30,41,59,0.8), rgba(15,23,42,0.9)); border-radius: 28px; padding: 24px; text-align: center; cursor: pointer; transition: all 0.25s; border: 1px solid var(--border-color); }
-        .shop-item:hover { transform: translateY(-5px); border-color: var(--accent-hover); }
-        .shop-icon { font-size: 56px; margin-bottom: 12px; }
         .chat-container { display: flex; gap: 20px; min-height: 550px; background: rgba(0,0,0,0.3); border-radius: 28px; overflow: hidden; margin: 0 32px; }
-        .chat-sidebar { width: 280px; background: rgba(0,0,0,0.4); border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; }
-        .chat-sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); font-weight: 600; }
-        .chat-contact { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; cursor: pointer; transition: all 0.2s; margin-bottom: 4px; }
+        .chat-sidebar { width: 280px; background: rgba(0,0,0,0.4); border-right: 1px solid rgba(255,255,255,0.1); }
+        .chat-sidebar-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .chat-contact { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 16px; cursor: pointer; margin-bottom: 4px; }
         .chat-contact:hover { background: rgba(99,102,241,0.2); }
         .chat-contact.active { background: rgba(99,102,241,0.4); }
         .contact-avatar { width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
         .chat-main { flex: 1; display: flex; flex-direction: column; }
         .chat-header { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 12px; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-        .message { display: flex; gap: 12px; max-width: 70%; animation: fadeInUp 0.3s ease-out; }
+        .message { display: flex; gap: 12px; max-width: 70%; }
         .message.own { margin-left: auto; flex-direction: row-reverse; }
         .message-bubble { background: rgba(255,255,255,0.1); border-radius: 20px; padding: 10px 16px; }
         .message.own .message-bubble { background: linear-gradient(135deg, #6366f1, #ec4899); }
         .chat-input-area { padding: 20px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 12px; align-items: flex-end; }
-        .chat-input-area textarea { flex: 1; padding: 12px 16px; border-radius: 24px; background: #1e293b; border: 1px solid var(--accent); color: white; font-family: inherit; resize: none; }
+        .chat-input-area textarea { flex: 1; padding: 12px 16px; border-radius: 24px; background: #1e293b; border: 1px solid var(--accent); color: white; resize: none; }
         .knowledge-container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
         .knowledge-header { text-align: center; margin-bottom: 24px; padding: 24px; background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(236,72,153,0.1)); border-radius: 28px; }
         .knowledge-category { background: rgba(20,25,50,0.5); border-radius: 20px; border: 1px solid var(--border-color); overflow: hidden; margin-bottom: 16px; }
@@ -116,7 +109,7 @@
         .category-content { display: none; padding: 16px; flex-direction: column; gap: 12px; }
         .category-content.open { display: flex; }
         .knowledge-article { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(0,0,0,0.2); border-radius: 16px; margin-bottom: 8px; }
-        @media (max-width: 768px) { .employees-grid { padding: 0 16px; } .week-days, .week-row { grid-template-columns: 100px repeat(7, 1fr); } .chat-container { flex-direction: column; } .chat-sidebar { width: 100%; max-height: 200px; } .modal-window { max-width: 95%; padding: 20px; } }
+        @media (max-width: 768px) { .employees-grid { padding: 0 16px; } .week-days, .week-row { grid-template-columns: 100px repeat(7, 1fr); } .chat-container { flex-direction: column; } .chat-sidebar { width: 100%; max-height: 200px; } }
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 10px; }
@@ -136,7 +129,7 @@
             <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ СОТРУДНИКОВ</span></div>
         </div>
         <div class="user-card">
-            <div class="user-avatar" id="headerAvatar" onclick="openMyProfile()">👤</div>
+            <div class="user-avatar" id="headerAvatar">👤</div>
             <div class="user-info">
                 <div class="user-name" id="headerName">Гость</div>
                 <div class="user-status" id="headerStatus"></div>
@@ -169,7 +162,7 @@
     <div id="tab-employees" class="tab-content">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 0 32px;">
             <h2><i class="fas fa-users"></i> Команда <span id="teamCount"></span></h2>
-            <button class="btn-primary" onclick="openCreateEmployeeModal()" id="createEmployeeBtn"><i class="fas fa-user-plus"></i> Создать сотрудника</button>
+            <button class="btn-primary" onclick="openCreateEmployeeModal()"><i class="fas fa-user-plus"></i> Создать сотрудника</button>
         </div>
         <div id="employeesGrid" class="employees-grid"></div>
     </div>
@@ -194,10 +187,7 @@
                 <button class="btn-primary" onclick="openTaskModal()"><i class="fas fa-plus"></i> Создать задачу</button>
             </div>
             <div style="overflow-x: auto;">
-                <table class="schedule-table">
-                    <thead><tr><th>№</th><th>Задача</th><th>Постановщик</th><th>Исполнитель</th><th>Дедлайн</th><th>Приоритет</th><th>Прогресс</th><th>Статус</th><th>Действия</th></thead>
-                    <tbody id="tasksTableBody"></tbody>
-                </table>
+                <table class="schedule-table"><thead><tr><th>№</th><th>Задача</th><th>Постановщик</th><th>Исполнитель</th><th>Дедлайн</th><th>Приоритет</th><th>Прогресс</th><th>Статус</th><th>Действия</th></tr></thead><tbody id="tasksTableBody"></tbody></table>
             </div>
         </div>
     </div>
@@ -221,10 +211,7 @@
                 <button class="btn-primary" onclick="openFineModal()"><i class="fas fa-plus"></i> Сообщить о нарушении</button>
             </div>
             <div style="overflow-x: auto;">
-                <table class="schedule-table">
-                    <thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Степень</th><th>Сумма</th><th>Статус</th><th>Кем создано</th><th>Действия</th></tr></thead>
-                    <tbody id="finesTableBody"></tbody>
-                </table>
+                <table class="schedule-table"><thead><tr><th>Дата</th><th>Сотрудник</th><th>Тип</th><th>Степень</th><th>Сумма</th><th>Статус</th><th>Кем создано</th><th>Действия</th></tr></thead><tbody id="finesTableBody"></tbody></table>
             </div>
         </div>
     </div>
@@ -254,7 +241,7 @@
         <iframe src="/reports.html" style="width: calc(100% - 64px); height: 80vh; border: none; border-radius: 24px; margin: 0 32px; background: rgba(0,0,0,0.2);"></iframe>
     </div>
 
-    <!-- Управление (Админ) -->
+    <!-- Управление -->
     <div id="tab-admin" class="tab-content">
         <div class="glass-card" style="padding: 28px; margin: 0 32px;">
             <h2><i class="fas fa-cogs"></i> Управление</h2>
@@ -265,10 +252,7 @@
     <!-- База знаний -->
     <div id="tab-knowledge" class="tab-content">
         <div class="knowledge-container">
-            <div class="knowledge-header">
-                <i class="fas fa-book-open"></i>
-                <h2>БАЗА ЗНАНИЙ WARPOINT</h2>
-            </div>
+            <div class="knowledge-header"><i class="fas fa-book-open"></i><h2>БАЗА ЗНАНИЙ WARPOINT</h2></div>
             <button class="btn-create-category" onclick="openCreateCategoryModal()" style="width: 100%; margin-bottom: 24px; padding: 12px; background: rgba(99,102,241,0.15); border: 1px dashed var(--border-color); border-radius: 40px; color: #a78bfa; cursor: pointer;">+ Создать категорию</button>
             <div id="knowledgeCategories" class="knowledge-categories"></div>
         </div>
@@ -277,25 +261,17 @@
     <!-- ВП -->
     <div id="tab-vp" class="tab-content">
         <div class="glass-card" style="padding: 24px; margin: 0 32px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h2><i class="fas fa-gamepad"></i> Бронирования (ВП)</h2>
                 <button class="btn-primary" onclick="openVpModal()"><i class="fas fa-plus"></i> Добавить бронь</button>
             </div>
-            <div class="filter-bar">
-                <select id="vpMonthFilter" class="styled-select" style="width: auto;" onchange="loadVp()">
-                    <option value="1">Январь</option><option value="2">Февраль</option><option value="3" selected>Март</option>
-                    <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
-                    <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
-                    <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
-                </select>
+            <div class="filter-bar" style="display: flex; gap: 16px; margin-bottom: 20px;">
+                <select id="vpMonthFilter" class="styled-select" style="width: auto;" onchange="loadVp()"><option value="1">Январь</option><option value="2">Февраль</option><option value="3" selected>Март</option><option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option><option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option><option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option></select>
                 <input type="number" id="vpYearFilter" value="2026" style="width: 80px;" class="edit-input" onchange="loadVp()">
                 <button class="btn-secondary" onclick="showCancelledArchive()"><i class="fas fa-archive"></i> Архив</button>
             </div>
             <div style="overflow-x: auto;">
-                <table class="schedule-table" id="vpTable">
-                    <thead><tr><th>Кто бронировал</th><th>Дата проведения</th><th>Время</th><th>Имя заказчика</th><th>ПО (сумма/способ)</th><th>Дата брони</th><th>Фото</th><th>Скрипт отзыва</th><th>Действия</th></tr></thead>
-                    <tbody id="vpTableBody"><tr><td colspan="9" class="loading-spinner">Загрузка...</td></tr></tbody>
-                </table>
+                <table class="schedule-table" id="vpTable"><thead><tr><th>Кто бронировал</th><th>Дата проведения</th><th>Время</th><th>Имя заказчика</th><th>ПО (сумма/способ)</th><th>Дата брони</th><th>Фото</th><th>Скрипт отзыва</th><th>Действия</th></tr></thead><tbody id="vpTableBody"><tr><td colspan="9" class="loading-spinner">Загрузка...</td></tr></tbody></table>
             </div>
         </div>
     </div>
@@ -305,17 +281,10 @@
         <div class="glass-card" style="padding: 24px; margin: 0 32px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                 <h2><i class="fas fa-ruble-sign"></i> Зарплата</h2>
-                <div><select id="salaryMonthFilter" class="styled-select" style="width: auto;" onchange="loadSalary()">
-                    <option value="1">Январь</option><option value="2">Февраль</option><option value="3" selected>Март</option>
-                    <option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option>
-                    <option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option>
-                    <option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option>
-                </select>
+                <div><select id="salaryMonthFilter" class="styled-select" style="width: auto;" onchange="loadSalary()"><option value="1">Январь</option><option value="2">Февраль</option><option value="3" selected>Март</option><option value="4">Апрель</option><option value="5">Май</option><option value="6">Июнь</option><option value="7">Июль</option><option value="8">Август</option><option value="9">Сентябрь</option><option value="10">Октябрь</option><option value="11">Ноябрь</option><option value="12">Декабрь</option></select>
                 <input type="number" id="salaryYearFilter" value="2026" style="width: 80px;" class="edit-input" onchange="loadSalary()"></div>
             </div>
-            <div id="salaryTableContainer" style="overflow-x: auto;">
-                <table class="schedule-table" id="salaryTable"><thead id="salaryTableHead"></thead><tbody id="salaryTableBody"></tbody></table>
-            </div>
+            <div id="salaryTableContainer" style="overflow-x: auto;"><table class="schedule-table" id="salaryTable"><thead id="salaryTableHead"></thead><tbody id="salaryTableBody"></tbody></table></div>
         </div>
     </div>
 </div>
@@ -332,164 +301,35 @@
     </div>
 </div>
 
-<div id="createEmployeeModal" class="modal">
-    <div class="modal-window">
-        <h3>Создать сотрудника</h3>
-        <input type="text" id="newEmpName" class="edit-input" placeholder="Имя">
-        <select id="newEmpRole" class="styled-select">
-            <option value="operator">Оператор</option>
-            <option value="admin">Админ</option>
-            <option value="manager">Управляющий</option>
-        </select>
-        <input type="password" id="newEmpPassword" class="edit-input" placeholder="Пароль" autocomplete="new-password">
-        <button onclick="createEmployee()" class="btn-primary">Создать</button>
-        <button onclick="closeCreateEmployeeModal()" class="btn-secondary">Отмена</button>
-    </div>
-</div>
-
-<div id="taskModal" class="modal">
-    <div class="modal-window">
-        <h3 id="taskModalTitle">➕ Создать задачу</h3>
-        <input type="hidden" id="taskId">
-        <input type="text" id="taskName" class="edit-input" placeholder="Название задачи">
-        <select id="taskAuthor" class="styled-select"></select>
-        <select id="taskExecutor" class="styled-select"></select>
-        <select id="taskPriority" class="styled-select">
-            <option value="low">🟢 Низкий</option>
-            <option value="medium">🟡 Средний</option>
-            <option value="high">🔴 Высокий</option>
-        </select>
-        <input type="date" id="taskDeadline" class="edit-input">
-        <div class="form-group"><label>📊 Прогресс</label><input type="range" id="taskProgress" min="0" max="100" value="0" style="width:100%"><span id="taskProgressValue">0%</span></div>
-        <textarea id="taskComment" class="edit-textarea" rows="3" placeholder="Комментарий"></textarea>
-        <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="saveTask()" class="btn-primary">💾 Сохранить</button>
-            <button onclick="closeTaskModal()" class="btn-secondary">❌ Отмена</button>
-        </div>
-    </div>
-</div>
-
-<div id="fineModal" class="modal">
-    <div class="modal-window">
-        <h3 id="fineModalTitle">⚠️ Сообщить о нарушении</h3>
-        <input type="hidden" id="fineId">
-        <input type="date" id="fineDate" class="edit-input">
-        <select id="fineEmployee" class="styled-select"></select>
-        <select id="fineType" class="styled-select">
-            <option value="late">⏰ Опоздание</option>
-            <option value="task">📋 Невыполнение задачи</option>
-            <option value="rudeness">💬 Грубость</option>
-            <option value="damage">🛠️ Повреждение инвентаря</option>
-            <option value="smoking">🚬 Курение</option>
-            <option value="phone">📱 Телефон на смене</option>
-            <option value="other">✏️ Другое</option>
-        </select>
-        <select id="fineSeverity" class="styled-select">
-            <option value="light">🟢 Легкое</option>
-            <option value="medium">🟡 Среднее</option>
-            <option value="heavy">🔴 Тяжелое</option>
-        </select>
-        <div id="fineAmountContainer" style="display: none;">
-            <label>💰 Сумма штрафа (только для директора)</label>
-            <input type="number" id="fineAmount" class="edit-input" placeholder="Сумма">
-        </div>
-        <textarea id="fineDescription" class="edit-textarea" rows="3" placeholder="Описание нарушения"></textarea>
-        <div id="fineAppealSection" style="display: none;">
-            <label>📝 Причина апелляции</label>
-            <textarea id="fineAppealReason" class="edit-textarea" rows="2" placeholder="Укажите причину обжалования и приложите опровергающие факты"></textarea>
-        </div>
-        <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="saveFine()" class="btn-primary">📤 Отправить</button>
-            <button onclick="closeFineModal()" class="btn-secondary">❌ Отмена</button>
-        </div>
-    </div>
-</div>
-
-<div id="vpModal" class="modal">
-    <div class="modal-window">
-        <h3>➕ Добавить бронь</h3>
-        <input type="hidden" id="vpId">
-        <select id="vpAdmin" class="styled-select"></select>
-        <input type="date" id="vpEventDate" class="edit-input">
-        <input type="time" id="vpEventTime" class="edit-input">
-        <input type="text" id="vpCustomerName" class="edit-input" placeholder="Имя заказчика">
-        <div style="display: flex; gap: 12px;">
-            <input type="number" id="vpAmount" class="edit-input" placeholder="Сумма ПО" value="2000" style="flex:1">
-            <select id="vpPaymentType" class="styled-select" style="flex:1">
-                <option value="evotor_card">💳 Эвотор (КАРТА)</option>
-                <option value="evotor_cash">💵 Эвотор (НАЛ)</option>
-                <option value="vtb">🏦 ВТБ</option>
-                <option value="sber">💳 СБЕР</option>
-                <option value="not_paid">⏳ Ещё не внесли</option>
-            </select>
-        </div>
-        <input type="date" id="vpBookingDate" class="edit-input">
-        <select id="vpPhotoStatus" class="styled-select">
-            <option value="pending">⏳ В процессе</option>
-            <option value="sent">✅ Отправлено</option>
-        </select>
-        <select id="vpScriptStatus" class="styled-select">
-            <option value="not_sent">⏳ Не отправлено</option>
-            <option value="sent">✅ Отправлено</option>
-        </select>
-        <div style="display: flex; gap: 12px; margin-top: 24px;">
-            <button onclick="saveVp()" class="btn-primary">💾 Сохранить</button>
-            <button onclick="closeVpModal()" class="btn-secondary">❌ Отмена</button>
-            <button id="vpCancelBtn" onclick="cancelVp()" class="btn-danger" style="display: none;">🗑️ Отменить бронь</button>
-        </div>
-    </div>
-</div>
-
-<div id="vpArchiveModal" class="modal">
-    <div class="modal-window">
-        <h3>🗑️ Архив отменённых броней</h3>
-        <div id="vpArchiveTableBody"></div>
-        <button onclick="closeArchiveModal()" class="btn-secondary" style="margin-top: 20px;">Закрыть</button>
-    </div>
-</div>
-
-<div id="categoryModal" class="modal">
-    <div class="modal-window">
-        <h3>Создать категорию</h3>
-        <input type="text" id="newCategoryName" class="edit-input" placeholder="Название категории">
-        <select id="newCategoryIcon" class="styled-select">
-            <option value="📁">📁 Общее</option>
-            <option value="🔐">🔐 Пароли и доступы</option>
-            <option value="📞">📞 Контакты</option>
-            <option value="🛠️">🛠️ Инструкции</option>
-            <option value="📚">📚 Документация</option>
-        </select>
-        <button onclick="createCategory()" class="btn-primary">Создать</button>
-        <button onclick="closeCategoryModal()" class="btn-secondary">Отмена</button>
-    </div>
-</div>
-
-<div id="articleModal" class="modal">
-    <div class="modal-window">
-        <h3 id="articleModalTitle">Создать статью</h3>
-        <input type="hidden" id="articleCategoryId">
-        <input type="text" id="articleTitle" class="edit-input" placeholder="Заголовок">
-        <textarea id="articleContent" class="edit-textarea" rows="8" placeholder="Содержание..."></textarea>
-        <button onclick="saveArticle()" class="btn-primary">Сохранить</button>
-        <button onclick="closeArticleModal()" class="btn-secondary">Отмена</button>
-    </div>
-</div>
-
-<div id="viewArticleModal" class="modal">
-    <div class="modal-window">
-        <div id="viewArticleContent"></div>
-        <button onclick="closeViewArticleModal()" class="btn-secondary" style="margin-top: 20px;">Закрыть</button>
-    </div>
-</div>
+<div id="createEmployeeModal" class="modal"><div class="modal-window"><h3>Создать сотрудника</h3><input type="text" id="newEmpName" class="edit-input" placeholder="Имя"><select id="newEmpRole" class="styled-select"><option value="operator">Оператор</option><option value="admin">Админ</option><option value="manager">Управляющий</option></select><input type="password" id="newEmpPassword" class="edit-input" placeholder="Пароль" autocomplete="new-password"><button onclick="createEmployee()" class="btn-primary">Создать</button><button onclick="closeCreateEmployeeModal()" class="btn-secondary">Отмена</button></div></div>
+<div id="taskModal" class="modal"><div class="modal-window"><h3>➕ Задача</h3><input type="hidden" id="taskId"><input type="text" id="taskName" class="edit-input" placeholder="Название"><select id="taskAuthor" class="styled-select"></select><select id="taskExecutor" class="styled-select"></select><select id="taskPriority" class="styled-select"><option value="low">🟢 Низкий</option><option value="medium">🟡 Средний</option><option value="high">🔴 Высокий</option></select><input type="date" id="taskDeadline" class="edit-input"><textarea id="taskComment" class="edit-textarea" rows="3" placeholder="Комментарий"></textarea><button onclick="saveTask()" class="btn-primary">Сохранить</button><button onclick="closeTaskModal()" class="btn-secondary">Отмена</button></div></div>
+<div id="fineModal" class="modal"><div class="modal-window"><h3>⚠️ Нарушение</h3><input type="hidden" id="fineId"><input type="date" id="fineDate" class="edit-input"><select id="fineEmployee" class="styled-select"></select><select id="fineType" class="styled-select"><option value="late">⏰ Опоздание</option><option value="task">📋 Невыполнение задачи</option><option value="rudeness">💬 Грубость</option><option value="damage">🛠️ Повреждение</option><option value="smoking">🚬 Курение</option><option value="phone">📱 Телефон</option><option value="other">✏️ Другое</option></select><select id="fineSeverity" class="styled-select"><option value="light">🟢 Легкое</option><option value="medium">🟡 Среднее</option><option value="heavy">🔴 Тяжелое</option></select><div id="fineAmountContainer" style="display:none;"><label>💰 Сумма штрафа (только для директора)</label><input type="number" id="fineAmount" class="edit-input"></div><textarea id="fineDescription" class="edit-textarea" rows="3" placeholder="Описание"></textarea><button onclick="saveFine()" class="btn-primary">Отправить</button><button onclick="closeFineModal()" class="btn-secondary">Отмена</button></div></div>
+<div id="vpModal" class="modal"><div class="modal-window"><h3>➕ Бронь</h3><input type="hidden" id="vpId"><select id="vpAdmin" class="styled-select"></select><input type="date" id="vpEventDate" class="edit-input"><input type="time" id="vpEventTime" class="edit-input"><input type="text" id="vpCustomerName" class="edit-input" placeholder="Имя заказчика"><div style="display:flex; gap:12px;"><input type="number" id="vpAmount" class="edit-input" placeholder="Сумма ПО" value="2000" style="flex:1"><select id="vpPaymentType" class="styled-select" style="flex:1"><option value="evotor_card">💳 Эвотор (КАРТА)</option><option value="evotor_cash">💵 Эвотор (НАЛ)</option><option value="vtb">🏦 ВТБ</option><option value="sber">💳 СБЕР</option><option value="not_paid">⏳ Ещё не внесли</option></select></div><input type="date" id="vpBookingDate" class="edit-input"><select id="vpPhotoStatus" class="styled-select"><option value="pending">⏳ В процессе</option><option value="sent">✅ Отправлено</option></select><select id="vpScriptStatus" class="styled-select"><option value="not_sent">⏳ Не отправлено</option><option value="sent">✅ Отправлено</option></select><button onclick="saveVp()" class="btn-primary">Сохранить</button><button onclick="closeVpModal()" class="btn-secondary">Отмена</button><button id="vpCancelBtn" onclick="cancelVp()" class="btn-danger" style="display:none;">🗑️ Отменить</button></div></div>
+<div id="vpArchiveModal" class="modal"><div class="modal-window"><h3>🗑️ Архив</h3><div id="vpArchiveTableBody"></div><button onclick="closeArchiveModal()" class="btn-secondary">Закрыть</button></div></div>
+<div id="categoryModal" class="modal"><div class="modal-window"><h3>Создать категорию</h3><input type="text" id="newCategoryName" class="edit-input" placeholder="Название"><select id="newCategoryIcon" class="styled-select"><option value="📁">📁 Общее</option><option value="🔐">🔐 Пароли</option><option value="📞">📞 Контакты</option><option value="🛠️">🛠️ Инструкции</option></select><button onclick="createCategory()" class="btn-primary">Создать</button><button onclick="closeCategoryModal()" class="btn-secondary">Отмена</button></div></div>
+<div id="articleModal" class="modal"><div class="modal-window"><h3>Статья</h3><input type="hidden" id="articleCategoryId"><input type="text" id="articleTitle" class="edit-input" placeholder="Заголовок"><textarea id="articleContent" class="edit-textarea" rows="8" placeholder="Содержание"></textarea><button onclick="saveArticle()" class="btn-primary">Сохранить</button><button onclick="closeArticleModal()" class="btn-secondary">Отмена</button></div></div>
+<div id="viewArticleModal" class="modal"><div class="modal-window"><div id="viewArticleContent"></div><button onclick="closeViewArticleModal()" class="btn-secondary">Закрыть</button></div></div>
 
 <script>
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
 // ============================================
 const API_URL = '/api';
-let currentUser = null, currentUserRole = null, currentUserPermissions = null;
-let employees = [], profiles = {}, allTasks = [], allFines = [], schedule = {}, messages = {}, allVp = [], salaryData = {}, categories = [], articles = [];
-let currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
+let currentUser = null;
+let currentUserRole = null;
+let currentUserPermissions = null;
+let employees = [];
+let profiles = {};
+let allTasks = [];
+let allFines = [];
+let schedule = {};
+let messages = { general: [] };
+let allVp = [];
+let salaryData = {};
+let categories = [];
+let articles = [];
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 let currentChatRoom = 'general';
 let wsConnected = false;
 
@@ -505,8 +345,7 @@ const fineTypes = { late: '⏰ Опоздание', task: '📋 Невыполн
 const fineSeverity = { light: { name: '🟢 Легкое', suggestedAmount: 300 }, medium: { name: '🟡 Среднее', suggestedAmount: 700 }, heavy: { name: '🔴 Тяжелое', suggestedAmount: 1500 } };
 const philosophyQuotes = [
     { text: "Работа избавляет нас от трёх великих зол: скуки, порока и нужды.", author: "Вольтер" },
-    { text: "Успех — это способность двигаться от неудачи к неудаче, не теряя энтузиазма.", author: "Уинстон Черчилль" },
-    { text: "Единственный способ сделать великую работу — любить то, что вы делаете.", author: "Стив Джобс" }
+    { text: "Успех — это способность двигаться от неудачи к неудаче, не теряя энтузиазма.", author: "Уинстон Черчилль" }
 ];
 
 // ============================================
@@ -514,6 +353,7 @@ const philosophyQuotes = [
 // ============================================
 function escapeHtml(s) { if (!s) return ''; return s.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
 function formatDate(d) { if (!d) return '—'; return new Date(d).toLocaleDateString('ru-RU'); }
+
 function showNotif(msg, type) {
     let n = document.createElement('div');
     n.className = 'notification';
@@ -530,10 +370,17 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     if (body) opts.body = JSON.stringify(body);
     try {
         let r = await fetch(API_URL + endpoint, opts);
-        if (r.status === 401) { 
-            console.log('Unauthorized, redirecting to login...');
-            logout(); 
-            return null; 
+        if (r.status === 401) {
+            console.log('Unauthorized, clearing session...');
+            localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
+            if (currentUser) {
+                currentUser = null;
+                document.getElementById('loginModal').classList.add('active');
+                document.getElementById('mainContainer').style.display = 'none';
+                showNotif('Сессия истекла, войдите снова', 'warning');
+            }
+            return null;
         }
         return await r.json();
     } catch(e) { 
@@ -557,7 +404,7 @@ function login() {
     })
     .then(r => r.json())
     .then(data => {
-        if (data.success) {
+        if (data.success && data.token) {
             currentUser = data.user.name;
             currentUserRole = data.user.role;
             currentUserPermissions = rolesMap[currentUserRole] || rolesMap.operator;
@@ -581,6 +428,7 @@ function login() {
 
 function logout() {
     currentUser = null;
+    currentUserRole = null;
     localStorage.removeItem('token');
     localStorage.removeItem('currentUser');
     document.getElementById('loginModal').classList.add('active');
@@ -594,24 +442,20 @@ async function afterLogin() {
     await loadAllData();
     renderMainMenu();
     startPeriodicChecks();
-    
-    // Welcome message
     let hour = new Date().getHours();
     let greeting = hour < 12 ? 'Доброе утро' : (hour < 18 ? 'Добрый день' : 'Добрый вечер');
     document.getElementById('welcomeCard').innerHTML = `<h2>${greeting}, ${escapeHtml(currentUser)}! 👋</h2><p>Добро пожаловать в WARPOINT Hub</p>`;
 }
 
 async function loadAllData() {
-    await Promise.all([
-        loadEmployees(),
-        loadTasks(),
-        loadFines(),
-        loadSchedule(),
-        loadVp(),
-        loadSalary(),
-        loadCategories(),
-        loadArticles()
-    ]);
+    await loadEmployees();
+    await loadTasks();
+    await loadFines();
+    await loadSchedule();
+    await loadVp();
+    await loadSalary();
+    await loadCategories();
+    await loadArticles();
     renderEmployees();
     renderTasks();
     renderFines();
@@ -635,7 +479,6 @@ async function loadEmployees() {
         document.getElementById('statTotalEmployees').textContent = employees.length;
     }
 }
-
 async function loadTasks() { let d = await apiCall('/tasks'); if (d) allTasks = d; renderTasks(); }
 async function loadFines() { let d = await apiCall('/fines'); if (d) allFines = d; renderFines(); }
 async function loadSchedule() { let d = await apiCall('/schedule'); if (d) { schedule = {}; d.forEach(s => { if (!schedule[s.date]) schedule[s.date] = {}; schedule[s.date][s.employee] = { time: s.shift_time, status: s.shift_status }; }); } }
@@ -710,7 +553,7 @@ function renderMainMenu() {
             if (tabId === 'knowledge') renderCategories();
         });
     });
-    document.querySelector('.menu-item').click();
+    document.querySelector('.menu-item')?.click();
 }
 
 // ============================================
@@ -727,7 +570,7 @@ function renderEmployees() {
         let p = profiles[emp];
         if (!p) return '';
         return `<div class="employee-card" onclick="openProfile('${emp}')">
-            <div class="card-header"><div class="employee-avatar">${p.avatar || '👤'}</div><div class="rating-value">⭐ ${p.rating || 0}</div></div>
+            <div class="card-header"><div class="employee-avatar">${p.avatar || '👤'}</div><div>⭐ ${p.rating || 0}</div></div>
             <div class="card-body"><div class="employee-name">${escapeHtml(p.name || emp)}</div><div><span class="employee-role-tag">${roleNames[p.role] || 'Оператор'}</span></div>
             <div class="employee-stats"><div><i class="fas fa-coins"></i> ${p.coins || 0}</div><div><i class="fas fa-clock"></i> ${p.hours || 0}ч</div></div></div></div>`;
     }).join('');
@@ -745,7 +588,6 @@ async function createEmployee() {
     if (r?.success) { await loadEmployees(); renderEmployees(); closeCreateEmployeeModal(); showNotif(`✅ ${name} создан`, 'success'); }
 }
 function openProfile(name) { showNotif(`Профиль ${name} в разработке`, 'info'); }
-function openMyProfile() { if (currentUser) openProfile(currentUser); }
 
 // ============================================
 // ГРАФИК
@@ -771,10 +613,8 @@ function getWeeksInMonth() {
     }
     return weeks.filter(w => w.days.some(d => d.getMonth() === currentMonth));
 }
-
 function formatMonthYear() { return `${['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'][currentMonth]} ${currentYear}`; }
 function changeMonth(d) { currentMonth += d; if (currentMonth < 0) { currentMonth = 11; currentYear--; } if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderMonthSchedule(); }
-
 function renderMonthSchedule() {
     let container = document.getElementById('scheduleWeeksContainer');
     if (!container) return;
@@ -809,23 +649,20 @@ function openShiftModal(date, emp) { showNotif('Редактирование с�
 function renderTasks() {
     let tbody = document.getElementById('tasksTableBody');
     if (!tbody) return;
-    if (!allTasks.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty-state">Нет задач</div></td></tr>'; return; }
+    if (!allTasks.length) { tbody.innerHTML = '发展<td colspan="9"><div class="empty-state">Нет задач</div>发展</tr>'; return; }
     tbody.innerHTML = allTasks.map((t, i) => `
         <tr><td>${i+1}</td><td><strong>${escapeHtml(t.name)}</strong></td><td>${escapeHtml(t.author)}</td><td>${escapeHtml(t.executor)}</td>
         <td>${t.deadline ? formatDate(t.deadline) : '—'}</td><td>${t.priority === 'high' ? '🔴' : t.priority === 'medium' ? '🟡' : '🟢'}</td>
-        <td><div style="background:#1e293b; border-radius:10px;"><div style="width:${t.progress || 0}%; background:#10b981; border-radius:10px; text-align:center; font-size:10px;">${t.progress || 0}%</div></div></td>
+        <td><div style="background:#1e293b; border-radius:10px;"><div style="width:${t.progress || 0}%; background:#10b981; border-radius:10px; text-align:center;">${t.progress || 0}%</div></div></td>
         <td>${t.status === 'completed' ? '✅' : t.status === 'overdue' ? '⚠️' : '⏳'}</td>
         <td><button class="btn-secondary" onclick="openTaskModal(${t.id})"><i class="fas fa-edit"></i></button></td></tr>
     `).join('');
 }
-
 function openTaskModal(id = null) {
     document.getElementById('taskId').value = '';
     document.getElementById('taskName').value = '';
     document.getElementById('taskAuthor').innerHTML = employees.map(e => `<option value="${e}">${e}</option>`).join('');
     document.getElementById('taskExecutor').innerHTML = employees.map(e => `<option value="${e}">${e}</option>`).join('');
-    document.getElementById('taskProgress').value = 0;
-    document.getElementById('taskProgressValue').innerText = '0%';
     document.getElementById('taskComment').value = '';
     if (id) {
         let t = allTasks.find(x => x.id === id);
@@ -836,8 +673,6 @@ function openTaskModal(id = null) {
             document.getElementById('taskExecutor').value = t.executor;
             document.getElementById('taskPriority').value = t.priority;
             document.getElementById('taskDeadline').value = t.deadline;
-            document.getElementById('taskProgress').value = t.progress || 0;
-            document.getElementById('taskProgressValue').innerText = (t.progress || 0) + '%';
             document.getElementById('taskComment').value = t.comment || '';
         }
     }
@@ -851,7 +686,7 @@ async function saveTask() {
         executor: document.getElementById('taskExecutor').value,
         priority: document.getElementById('taskPriority').value,
         deadline: document.getElementById('taskDeadline').value,
-        progress: parseInt(document.getElementById('taskProgress').value) || 0,
+        progress: 0,
         comment: document.getElementById('taskComment').value,
         recurring: 'none',
         status: 'in_progress'
@@ -868,7 +703,7 @@ async function saveTask() {
 function renderFines() {
     let tbody = document.getElementById('finesTableBody');
     if (!tbody) return;
-    if (!allFines.length) { tbody.innerHTML = '<tr><td colspan="8"><div class="empty-state">Нет нарушений</div></td></tr>'; return; }
+    if (!allFines.length) { tbody.innerHTML = '发展<td colspan="8"><div class="empty-state">Нет нарушений</div></tr>'; return; }
     tbody.innerHTML = allFines.map(f => `
         <tr><td>${formatDate(f.date)}</td><td>${escapeHtml(f.employee)}</td><td>${fineTypes[f.type] || f.type}</td>
         <td>${fineSeverity[f.severity]?.name || '🟡 Среднее'}</td><td>${f.amount || '—'} ₽</td>
@@ -876,13 +711,11 @@ function renderFines() {
         <td>${f.created_by || '—'}</td><td><button class="btn-secondary" onclick="openFineModal(${f.id})"><i class="fas fa-eye"></i></button></td></tr>
     `).join('');
 }
-
 function openFineModal(id = null) {
     document.getElementById('fineId').value = '';
     document.getElementById('fineDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('fineEmployee').innerHTML = employees.map(e => `<option value="${e}">${e}</option>`).join('');
     document.getElementById('fineAmountContainer').style.display = currentUserRole === 'director' ? 'block' : 'none';
-    document.getElementById('fineAppealSection').style.display = 'none';
     if (id) {
         let f = allFines.find(x => x.id === id);
         if (f) {
@@ -893,7 +726,6 @@ function openFineModal(id = null) {
             document.getElementById('fineSeverity').value = f.severity || 'medium';
             document.getElementById('fineAmount').value = f.amount || '';
             document.getElementById('fineDescription').value = f.description;
-            if (f.status === 'appeal') document.getElementById('fineAppealSection').style.display = 'block';
         }
     }
     document.getElementById('fineModal').classList.add('active');
@@ -924,37 +756,23 @@ async function saveFine() {
 function renderVpTable(vpList) {
     let tbody = document.getElementById('vpTableBody');
     if (!tbody) return;
-    if (!vpList.length) { tbody.innerHTML = '发展<td colspan="9"><div class="empty-state">Нет броней</div>发展</tr>'; return; }
+    if (!vpList.length) { tbody.innerHTML = '发展<td colspan="9"><div class="empty-state">Нет броней</div></tr>'; return; }
     tbody.innerHTML = vpList.map(v => {
         let paymentText = { evotor_card: '💳 Эвотор КАРТА', evotor_cash: '💵 Эвотор НАЛ', vtb: '🏦 ВТБ', sber: '💳 СБЕР', not_paid: '⏳ Не внесли' }[v.payment_type] || v.payment_type;
-        let photoClass = v.photo_status === 'sent' ? 'badge-success' : 'badge-warning';
-        let scriptClass = v.script_status === 'sent' ? 'badge-success' : 'badge-danger';
-        return `专栏
-            <td>${escapeHtml(v.admin)}专栏
-            <td>${formatDate(v.event_date)}专栏
-            <td>${v.event_time}专栏
-            <td>${escapeHtml(v.customer_name)}专栏
-            <td>${v.amount} ₽ / ${paymentText}专栏
-            <td>${formatDate(v.booking_date)}专栏
-            <td><span class="status-badge ${photoClass}" onclick="togglePhoto(${v.id})">${v.photo_status === 'sent' ? '✅ Отправлено' : '⏳ В процессе'}</span>专栏
-            <td><span class="status-badge ${scriptClass}" onclick="toggleScript(${v.id})">${v.script_status === 'sent' ? '✅ Отправлено' : '⏳ Не отправлено'}</span>专栏
-            <td><button class="btn-secondary" onclick="openVpModal(${v.id})"><i class="fas fa-edit"></i></button>专栏
-        `;
+        return `<tr><td>${escapeHtml(v.admin)}</td><td>${formatDate(v.event_date)}</td><td>${v.event_time}</td>
+        <td>${escapeHtml(v.customer_name)}</td><td>${v.amount} ₽ / ${paymentText}</td><td>${formatDate(v.booking_date)}</td>
+        <td><span class="status-badge ${v.photo_status === 'sent' ? 'badge-success' : 'badge-warning'}" onclick="togglePhoto(${v.id})">${v.photo_status === 'sent' ? '✅ Отправлено' : '⏳ В процессе'}</span></td>
+        <td><span class="status-badge ${v.script_status === 'sent' ? 'badge-success' : 'badge-danger'}" onclick="toggleScript(${v.id})">${v.script_status === 'sent' ? '✅ Отправлено' : '⏳ Не отправлено'}</span></td>
+        <td><button class="btn-secondary" onclick="openVpModal(${v.id})"><i class="fas fa-edit"></i></button></td></tr>`;
     }).join('');
 }
-
 function openVpModal(id = null) {
     document.getElementById('vpId').value = '';
     let admins = employees.filter(e => profiles[e]?.role === 'admin' || profiles[e]?.role === 'manager' || profiles[e]?.role === 'director');
     document.getElementById('vpAdmin').innerHTML = admins.map(e => `<option value="${e}">${e}</option>`).join('');
     document.getElementById('vpEventDate').value = new Date().toISOString().split('T')[0];
     document.getElementById('vpEventTime').value = '19:00';
-    document.getElementById('vpCustomerName').value = '';
-    document.getElementById('vpAmount').value = 2000;
-    document.getElementById('vpPaymentType').value = 'evotor_card';
     document.getElementById('vpBookingDate').value = new Date().toISOString().split('T')[0];
-    document.getElementById('vpPhotoStatus').value = 'pending';
-    document.getElementById('vpScriptStatus').value = 'not_sent';
     document.getElementById('vpCancelBtn').style.display = 'none';
     if (id) {
         let v = allVp.find(x => x.id === id);
@@ -1003,7 +821,6 @@ function togglePhoto(id) { showNotif('Статус фото обновлён', '
 function toggleScript(id) { showNotif('Статус отзыва обновлён', 'success'); loadVp(); }
 function showCancelledArchive() { showNotif('Архив в разработке', 'info'); }
 function closeArchiveModal() { document.getElementById('vpArchiveModal').classList.remove('active'); }
-
 function checkVpNotifications() {
     let now = new Date();
     allVp.forEach(v => {
@@ -1037,17 +854,17 @@ function renderSalaryTable() {
     let year = parseInt(document.getElementById('salaryYearFilter').value);
     let days = new Date(year, month, 0).getDate();
     let motivations = salaryData.motivations || ['Оклад', 'Мероприятие', 'Премия с оборота', 'Премия за 35 тыс.', 'Ролик', 'Уборка с/у'];
-    thead.innerHTML = `<tr><th>Сотрудник</th><th>Мотивация</th>${Array.from({ length: days }, (_, i) => `<th>${i + 1}</th>`).join('')}</tr>`;
-    if (!salaryData.employees?.length) { tbody.innerHTML = '<tr><td colspan="2">Нет данных</td></tr>'; return; }
+    thead.innerHTML = `<tr><th>Сотрудник</th><th>Мотивация</th>${Array.from({ length: days }, (_, i) => `<th>${i + 1}</th>`).join('')}</th>`;
+    if (!salaryData.employees?.length) { tbody.innerHTML = '发展<td colspan="2">Нет данных</td>'; return; }
     let rows = '';
     for (let emp of salaryData.employees) {
         for (let mot of motivations) {
             let daysHtml = '';
             for (let d = 1; d <= days; d++) {
                 let daily = salaryData.dailyData?.find(dd => dd.employee_id === emp.id && dd.motivation_type === mot && dd.day_number === d);
-                daysHtml += `<td><input type="number" value="${daily?.amount || 0}" style="width:60px; background:#1e293b; border:1px solid #6366f1; border-radius:8px; color:white; padding:4px;" ${currentUserRole !== 'director' ? 'disabled' : ''} onchange="updateSalaryCell(${emp.id},'${mot}',${d},this.value)"></td>`;
+                daysHtml += `发展<input type="number" value="${daily?.amount || 0}" style="width:60px; background:#1e293b; border:1px solid #6366f1; border-radius:8px; color:white; padding:4px;" ${currentUserRole !== 'director' ? 'disabled' : ''} onchange="updateSalaryCell(${emp.id},'${mot}',${d},this.value)"></td>`;
             }
-            rows += `<tr><td>${escapeHtml(emp.employee_name)}</td><td>${mot}</td>${daysHtml}</tr>`;
+            rows += `发展<td>${escapeHtml(emp.employee_name)}</td><td>${mot}</td>${daysHtml}</tr>`;
         }
     }
     tbody.innerHTML = rows;
@@ -1065,15 +882,13 @@ async function updateSalaryCell(empId, mot, day, val) {
 function renderShop() {
     let gifts = [{ id: 'flower', name: 'Букет цветов', icon: '🌸', price: 10 }, { id: 'chocolate', name: 'Шоколад', icon: '🍫', price: 15 }, { id: 'star', name: 'Золотая звезда', icon: '⭐', price: 25 }, { id: 'trophy', name: 'Трофей', icon: '🏆', price: 50 }];
     let avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑'];
-    let container = document.getElementById('shopContainer');
-    container.innerHTML = gifts.map(g => `<div class="shop-item" onclick="openGiftModal('${g.id}',${g.price})"><div class="shop-icon">${g.icon}</div><div class="shop-name">${g.name}</div><div class="shop-price">💰 ${g.price} WP</div></div>`).join('') +
-        `<h3 style="grid-column:1/-1;">🎨 Аватары</h3>` + avatars.map(a => `<div class="shop-item" onclick="setAvatar('${a}')"><div class="shop-icon" style="font-size:48px;">${a}</div><div class="shop-name">Аватар</div></div>`).join('');
+    document.getElementById('shopContainer').innerHTML = gifts.map(g => `<div class="shop-item" onclick="openGiftModal('${g.id}',${g.price})"><div class="shop-icon">${g.icon}</div><div class="shop-name">${g.name}</div><div class="shop-price">💰 ${g.price} WP</div></div>`).join('') + `<h3 style="grid-column:1/-1;">🎨 Аватары</h3>` + avatars.map(a => `<div class="shop-item" onclick="setAvatar('${a}')"><div style="font-size:48px;">${a}</div><div class="shop-name">Аватар</div></div>`).join('');
 }
 function updateRatingTable() {
     let sorted = [...employees].sort((a, b) => (profiles[b]?.rating || 0) - (profiles[a]?.rating || 0));
     document.getElementById('ratingTableBody').innerHTML = sorted.map((e, i) => {
         let p = profiles[e];
-        return `<tr><td>${i + 1}</td><td>${p?.avatar || '👤'} ${escapeHtml(e)}</td><td>${p?.hours || 0}ч</td><td>${p?.rating || 0}</td><td>💰 ${p?.coins || 0}</td></tr>`;
+        return `发展<td>${i + 1}</td><td>${p?.avatar || '👤'} ${escapeHtml(e)}</td><td>${p?.hours || 0}ч</td><td>${p?.rating || 0}</td><td>💰 ${p?.coins || 0}</td></tr>`;
     }).join('');
 }
 function renderChatContacts() {
@@ -1152,12 +967,7 @@ function renderCategories() {
         }
     }
 }
-function toggleCategory(header) {
-    let content = header.nextElementSibling;
-    let arrow = header.querySelector('.category-arrow');
-    content.classList.toggle('open');
-    arrow.classList.toggle('open');
-}
+function toggleCategory(header) { let content = header.nextElementSibling; let arrow = header.querySelector('.category-arrow'); content.classList.toggle('open'); arrow.classList.toggle('open'); }
 function openCreateCategoryModal() { document.getElementById('categoryModal').classList.add('active'); }
 function closeCategoryModal() { document.getElementById('categoryModal').classList.remove('active'); }
 async function createCategory() {
