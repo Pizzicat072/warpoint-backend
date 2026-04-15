@@ -9,13 +9,38 @@ let currentProgress = { step: 0, percent: 0, message: 'Ожидание запу
 let isParsing = false;
 let lastParseTime = null;
 
+// Один браузер на все запросы
+let sharedBrowser = null;
+
+async function getBrowser() {
+    if (sharedBrowser && sharedBrowser.isConnected()) {
+        return sharedBrowser;
+    }
+    if (sharedBrowser) {
+        try { await sharedBrowser.close(); } catch(e) {}
+    }
+    sharedBrowser = await puppeteer.launch({
+        args: [
+            ...chromium.args,
+            '--single-process',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-software-rasterizer'
+        ],
+        defaultViewport: { width: 800, height: 600 },
+        executablePath: await chromium.executablePath(),
+        headless: true,
+        timeout: 30000
+    });
+    return sharedBrowser;
+}
+
 class BookingParser {
     constructor() {
         this.baseUrl = 'https://booking.warpoint.ru';
         this.city = 'Тобольск';
         this.arena = 'ТГК Евразия';
         this.dataDir = path.join(__dirname, 'data');
-        
         if (!fs.existsSync(this.dataDir)) {
             fs.mkdirSync(this.dataDir, { recursive: true });
         }
@@ -40,22 +65,12 @@ class BookingParser {
         };
     }
     
-    async saveProgress(step, percent, message, currentDate = null, totalDates = null) {
-        currentProgress = {
-            step: step,
-            percent: percent,
-            message: message,
-            currentDate: currentDate,
-            totalDates: totalDates,
-            timestamp: Date.now(),
-            isParsing: isParsing
-        };
-        
+    async saveProgress(step, percent, message) {
+        currentProgress = { step, percent, message, timestamp: Date.now(), isParsing };
         const progressFile = path.join(this.dataDir, 'parsing-progress.json');
         try {
             fs.writeFileSync(progressFile, JSON.stringify(currentProgress, null, 2));
         } catch (err) {}
-        
         console.log(`📊 [${percent}%] ${message}`);
         return currentProgress;
     }
@@ -105,11 +120,7 @@ class BookingParser {
                         const isVisible = rect.width > 0 && rect.height > 0 && rect.y > 0;
                         
                         if (!isDisabled && isVisible) {
-                            dates.push({
-                                day: day,
-                                x: rect.x + rect.width / 2,
-                                y: rect.y + rect.height / 2
-                            });
+                            dates.push({ day, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
                         }
                     }
                 }
@@ -136,15 +147,13 @@ class BookingParser {
         console.log(`🕷️ Парсинг ${this.city}, ${this.arena}`);
         console.log(`🕐 Тобольск: ${time.dateStr}`);
         console.log(`📅 Месяц: ${monthName} ${year}`);
-        console.log(`📌 Сегодня: ${today}, текущий час: ${currentHour}`);
         
         await this.saveProgress(1, 5, 'Запуск браузера...');
         
         const startTime = Date.now();
-        let browser = null;
+        let page = null;
         
-        const allTimes = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', 
-                          '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+        const allTimes = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
         
         const getTimesForDate = (day) => {
             if (day === today) {
@@ -154,18 +163,21 @@ class BookingParser {
         };
         
         try {
-            // 🔥 ИСПОЛЬЗУЕМ @sparticuz/chromium ДЛЯ RENDER
-            browser = await puppeteer.launch({
-                args: chromium.args,
-                defaultViewport: chromium.defaultViewport,
-                executablePath: await chromium.executablePath(),
-                headless: chromium.headless,
+            const browser = await getBrowser();
+            page = await browser.newPage();
+            
+            // Блокируем лишние ресурсы
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                const resourceType = req.resourceType();
+                if (resourceType === 'image' || resourceType === 'font' || resourceType === 'stylesheet') {
+                    req.abort();
+                } else {
+                    req.continue();
+                }
             });
             
-            await this.saveProgress(2, 10, 'Браузер запущен');
-            
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1280, height: 800 });
+            await page.setViewport({ width: 800, height: 600 });
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
             
             const url = `${this.baseUrl}/?country=Россия&city=${encodeURIComponent(this.city)}&arena=${encodeURIComponent(this.arena)}`;
@@ -173,24 +185,23 @@ class BookingParser {
             console.log(`🌐 Загрузка: ${url}`);
             await this.saveProgress(3, 20, 'Загрузка страницы...');
             
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-            await this.sleep(5000);
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+            await this.sleep(3000);
             
             await this.saveProgress(4, 30, 'Выбор АРЕНЫ...');
             await this.clickOnText(page, 'АРЕНА');
-            await this.sleep(2000);
+            await this.sleep(1500);
             
             await this.saveProgress(5, 40, 'Выбор ОТКРЫТОЙ ИГРЫ...');
             await this.clickOnText(page, 'ОТКРЫТАЯ ИГРА');
-            await this.sleep(5000);
+            await this.sleep(3000);
             
             await this.saveProgress(6, 50, 'Открытие календаря...');
             await this.clickOnText(page, 'ДАТА И ВРЕМЯ');
-            await this.sleep(3000);
+            await this.sleep(2000);
             
             const dates = await this.getAvailableDates(page);
             console.log(`📊 Найдено дат: ${dates.length}`);
-            await this.saveProgress(6, 55, `Найдено ${dates.length} дат`);
             
             if (dates.length === 0) {
                 isParsing = false;
@@ -212,26 +223,24 @@ class BookingParser {
                 const percent = 55 + Math.floor((i + 1) / dates.length * 35);
                 await this.saveProgress(7, percent, `Обработка ${date.day} (${i+1}/${dates.length})`);
                 
-                console.log(`\n📅 Дата ${date.day}`);
-                
                 const dateData = { available: [], partially: [], fullyBooked: [], passed: [] };
                 const times = getTimesForDate(date.day);
                 
-                await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-                await this.sleep(3000);
-                await this.clickOnText(page, 'АРЕНА');
-                await this.sleep(1500);
-                await this.clickOnText(page, 'ОТКРЫТАЯ ИГРА');
-                await this.sleep(4000);
-                await this.clickOnText(page, 'ДАТА И ВРЕМЯ');
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
                 await this.sleep(2000);
+                await this.clickOnText(page, 'АРЕНА');
+                await this.sleep(1000);
+                await this.clickOnText(page, 'ОТКРЫТАЯ ИГРА');
+                await this.sleep(2000);
+                await this.clickOnText(page, 'ДАТА И ВРЕМЯ');
+                await this.sleep(1500);
                 
                 const currentDates = await this.getAvailableDates(page);
                 const targetDate = currentDates.find(d => d.day === date.day);
                 
                 if (targetDate) {
                     await page.mouse.click(targetDate.x, targetDate.y);
-                    await this.sleep(2000);
+                    await this.sleep(1500);
                 }
                 
                 for (const timeSlot of times) {
@@ -264,18 +273,11 @@ class BookingParser {
                         dateData.fullyBooked.push(timeSlot);
                     }
                     
-                    await this.sleep(300);
+                    await this.sleep(200);
                 }
                 
-                result.dates[date.day] = {
-                    available: dateData.available,
-                    partially: dateData.partially,
-                    fullyBooked: dateData.fullyBooked,
-                    passed: dateData.passed,
-                    total: times.length
-                };
-                
-                console.log(`   ✅ ${dateData.available.length} 🟡 ${dateData.partially.length} ❌ ${dateData.fullyBooked.length} ⏰ ${dateData.passed.length}`);
+                result.dates[date.day] = dateData;
+                console.log(`   ✅ ${dateData.available.length} 🟡 ${dateData.partially.length} ❌ ${dateData.fullyBooked.length}`);
             }
             
             await this.saveProgress(8, 100, 'Сохранение...');
@@ -286,29 +288,26 @@ class BookingParser {
             console.log(`✅ Парсинг завершён за ${((Date.now() - startTime)/1000).toFixed(1)}с`);
             
             isParsing = false;
+            await page.close();
             return result;
             
         } catch (err) {
             console.error('❌ Ошибка:', err.message);
             await this.saveProgress(0, 0, `Ошибка: ${err.message}`);
             isParsing = false;
+            if (page) await page.close().catch(() => {});
             return { success: false, error: err.message };
-        } finally {
-            if (browser) await browser.close().catch(() => {});
         }
     }
     
-    getProgress() {
-        return currentProgress;
-    }
-    
-    getLastParseTime() {
-        return lastParseTime;
-    }
-    
-    isParsingNow() {
-        return isParsing;
-    }
+    getProgress() { return currentProgress; }
+    getLastParseTime() { return lastParseTime; }
+    isParsingNow() { return isParsing; }
 }
+
+// Закрываем браузер при завершении
+process.on('exit', () => { if (sharedBrowser) sharedBrowser.close(); });
+process.on('SIGINT', () => { if (sharedBrowser) sharedBrowser.close(); process.exit(); });
+process.on('SIGTERM', () => { if (sharedBrowser) sharedBrowser.close(); process.exit(); });
 
 module.exports = { BookingParser };
