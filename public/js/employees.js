@@ -1,4 +1,4 @@
-// public/js/employees.js - ПОЛНЫЙ ПРЕМИУМ ДИЗАЙН
+// public/js/employees.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 (function() {
     'use strict';
@@ -283,7 +283,6 @@
             `;
         }).join('');
     }
-    
     // ============================================
     // МОДАЛКА ПРОФИЛЯ (ПОЛНЫЙ ПРЕМИУМ ДИЗАЙН)
     // ============================================
@@ -551,7 +550,6 @@
                         </div>
                     ` : ''}
                 </div>
-                
                 <!-- ТАБ: ДОСТИЖЕНИЯ -->
                 <div id="profileTabAchievements" class="emp-profile-tab-content">
                     <div class="emp-section-header">
@@ -703,7 +701,6 @@
     function cancelProfileEdit() {
         toggleProfileEdit();
     }
-    
     // ============================================
     // АВАТАР
     // ============================================
@@ -843,30 +840,27 @@
     // ДЕЙСТВИЯ ДИРЕКТОРА
     // ============================================
     async function giveBonus(employeeName) {
-    const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
-    const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
-    
-    if (coins === 0 && rating === 0) {
-        showNotif('Укажите сумму', 'warning');
-        return;
-    }
-    
-    const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
-    if (res?.success) {
-        showNotif('✅ Бонус выдан', 'success');
-        closeBonusModal();
-        await loadEmployees();
-        renderEmployees();
+        const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
+        const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
         
-        // 🔥 ВОТ СЮДА ДОБАВЬ ЭТУ СТРОКУ:
-        if (typeof refreshAllBalanceDisplays === 'function') {
-            refreshAllBalanceDisplays();
+        if (coins === 0 && rating === 0) {
+            showNotif('Укажите сумму', 'warning');
+            return;
         }
         
-    } else {
-        showNotif('❌ Ошибка', 'error');
+        const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
+        if (res?.success) {
+            showNotif('✅ Бонус выдан', 'success');
+            closeProfileModal();
+            await loadEmployees();
+            renderEmployees();
+            if (typeof refreshAllBalanceDisplays === 'function') {
+                refreshAllBalanceDisplays();
+            }
+        } else {
+            showNotif('❌ Ошибка', 'error');
+        }
     }
-}
     
     async function changeRole(employeeName) {
         const role = document.getElementById('newRole')?.value;
