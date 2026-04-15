@@ -383,6 +383,26 @@
             .main-menu { top: 60px; }
             .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
         }
+.login-logo-ring2 {
+    position: absolute;
+    top: -12px;
+    left: -12px;
+    right: -12px;
+    bottom: -12px;
+    border-radius: 34px;
+    background: linear-gradient(225deg, #ef4444, #6366f1, #ef4444);
+    background-size: 300% 300%;
+    animation: loginRingRotate2 4s linear infinite reverse;
+    filter: blur(10px);
+    opacity: 0.5;
+    z-index: 0;
+}
+
+@keyframes loginRingRotate2 {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 100%; }
+    100% { background-position: 0% 50%; }
+}
     </style>
 </head>
 <body>
