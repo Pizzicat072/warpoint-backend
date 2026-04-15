@@ -263,6 +263,11 @@ async function initDatabase() {
         await pool.query(`ALTER TABLE vp_bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS bonus_streak INTEGER DEFAULT 1`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_bonus_claimed_at TIMESTAMP DEFAULT NULL`);
+// Миграции для таблицы transactions
+await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_before INTEGER DEFAULT 0`);
+await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_after INTEGER DEFAULT 0`);
+await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id INTEGER DEFAULT NULL`);
+await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
         console.log('✅ Миграции: добавлены все недостающие колонки');
     } catch (err) {
         console.log('⚠️ Ошибка миграций:', err.message);
