@@ -1034,8 +1034,56 @@ app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
-    try { await pool.query('UPDATE employees SET coins = 100, rating = 0 WHERE name != $1', ['Денис']); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    console.log('🚀 ===== ЗАПРОС НА РАВНЫЙ СТАРТ =====');
+    
+    if (req.user.role !== 'director') {
+        return res.status(403).json({ error: 'Только директор' });
+    }
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        console.log('📋 Очистка таблиц...');
+        
+        await client.query(`DELETE FROM user_achievements`);
+        await client.query(`DELETE FROM pending_achievements`);
+        await client.query(`DELETE FROM user_statuses`);
+        await client.query(`DELETE FROM transactions`);
+        await client.query(`DELETE FROM daily_bonus_history`);
+        await client.query(`DELETE FROM shift_earnings`);
+        await client.query(`DELETE FROM stickers`);
+        await client.query(`DELETE FROM subtasks`);
+        await client.query(`DELETE FROM task_attachments`);
+        await client.query(`DELETE FROM tasks`);
+        await client.query(`DELETE FROM fine_attachments`);
+        await client.query(`DELETE FROM fines`);
+        await client.query(`DELETE FROM schedule_special_cases`);
+        await client.query(`DELETE FROM schedule`);
+        await client.query(`DELETE FROM exchange_requests`);
+        await client.query(`DELETE FROM messages`);
+        await client.query(`DELETE FROM global_notifications`);
+        
+        console.log('📋 Сброс статистики ВСЕХ сотрудников (включая директора)...');
+        
+        // 🔥 ВАЖНО: Сбрасываем монеты и рейтинг ВСЕМ сотрудникам, включая директора!
+        await client.query(`UPDATE employees SET coins = 100, rating = 0, hours = 0, bonus_streak = 1, last_bonus_claimed_at = NULL, active_status = NULL, status = '💼 Работаю'`);
+        
+        await client.query(`DELETE FROM corporate_fund`);
+        await client.query(`INSERT INTO corporate_fund (amount) VALUES (0)`);
+        
+        await client.query('COMMIT');
+        console.log('✅ Равный старт завершён');
+        
+        res.json({ success: true, message: '🚀 Равный старт! Статистика обнулена у всех сотрудников.' });
+        
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('❌ Ошибка равного старта:', err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
 });
 
 // ============================================
@@ -1046,44 +1094,41 @@ app.post('/api/exchange/create', authMiddleware, async (req, res) => {
     const { toEmployee, toDate, toShiftTime, fromDate, fromShiftTime, comment } = req.body;
     const fromEmployee = req.user.username;
     if (fromEmployee === toEmployee) return res.status(400).json({ error: 'Нельзя обменяться с самим собой' });
-    const fromDateFormatted = formatDateToYMD(fromDate); const toDateFormatted = formatDateToYMD(toDate);
-    const existingRequest = await pool.query(`SELECT id FROM exchange_requests WHERE ((from_employee = $1 AND to_employee = $2) OR (from_employee = $2 AND to_employee = $1)) AND status = 'pending'`, [fromEmployee, toEmployee]);
-    if (existingRequest.rows.length > 0) return res.status(400).json({ error: 'Активный запрос уже существует' });
+    const fromDateFormatted = formatDateToYMD(fromDate);
+    const toDateFormatted = formatDateToYMD(toDate);
+    const existing = await pool.query(`SELECT id FROM exchange_requests WHERE ((from_employee=$1 AND to_employee=$2) OR (from_employee=$2 AND to_employee=$1)) AND status='pending'`, [fromEmployee, toEmployee]);
+    if (existing.rows.length > 0) return res.status(400).json({ error: 'Активный запрос уже существует' });
     const expiresAt = new Date(); expiresAt.setHours(expiresAt.getHours() + 24);
-    await pool.query(`INSERT INTO exchange_requests (from_employee, to_employee, from_date, to_date, from_shift_time, to_shift_time, comment, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [fromEmployee, toEmployee, fromDateFormatted, toDateFormatted, fromShiftTime, toShiftTime, comment, expiresAt]);
-    res.json({ success: true });
+    const result = await pool.query(`INSERT INTO exchange_requests (from_employee, to_employee, from_date, to_date, from_shift_time, to_shift_time, comment, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, [fromEmployee, toEmployee, fromDateFormatted, toDateFormatted, fromShiftTime, toShiftTime, comment, expiresAt]);
+    res.json({ success: true, requestId: result.rows[0].id });
 });
 
 app.get('/api/exchange/pending', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT * FROM exchange_requests WHERE to_employee = $1 AND status = 'pending'`, [req.user.username]); res.json({ success: true, requests: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { const r = await pool.query(`SELECT *, from_date::text as fd, to_date::text as td FROM exchange_requests WHERE to_employee=$1 AND status='pending' ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: r.rows.map(x => ({ ...x, from_date: x.fd, to_date: x.td })) }); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.get('/api/exchange/my', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT * FROM exchange_requests WHERE from_employee = $1 ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { const r = await pool.query(`SELECT *, from_date::text as fd, to_date::text as td FROM exchange_requests WHERE from_employee=$1 ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: r.rows.map(x => ({ ...x, from_date: x.fd, to_date: x.td })) }); } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/exchange/accept/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params; const currentUser = req.user.username;
-    const request = await pool.query(`SELECT * FROM exchange_requests WHERE id = $1 AND status = 'pending'`, [id]);
-    if (request.rows.length === 0) return res.status(404).json({ error: 'Запрос не найден' });
-    const reqData = request.rows[0];
-    if (reqData.to_employee !== currentUser) return res.status(403).json({ error: 'Вы не можете принять этот запрос' });
-    await pool.query(`UPDATE schedule SET employee = $1 WHERE date = $2 AND employee = $3`, [reqData.from_employee, reqData.to_date, reqData.to_employee]);
-    await pool.query(`UPDATE schedule SET employee = $1 WHERE date = $2 AND employee = $3`, [reqData.to_employee, reqData.from_date, reqData.from_employee]);
-    await pool.query(`UPDATE exchange_requests SET status = 'accepted' WHERE id = $1`, [id]);
-    try { await sendGlobalNotification('exchange_accepted', { from: reqData.from_employee, to: reqData.to_employee }); } catch (err) {}
+    const { id } = req.params; const u = req.user.username;
+    const r = await pool.query(`SELECT * FROM exchange_requests WHERE id=$1 AND status='pending'`, [id]);
+    if (r.rows.length === 0) return res.status(404).json({ error: 'Запрос не найден' });
+    const d = r.rows[0]; if (d.to_employee !== u) return res.status(403).json({ error: 'Не ваш запрос' });
+    await pool.query(`UPDATE schedule SET employee=$1 WHERE date=$2 AND employee=$3`, [d.from_employee, d.to_date, d.to_employee]);
+    await pool.query(`UPDATE schedule SET employee=$1 WHERE date=$2 AND employee=$3`, [d.to_employee, d.from_date, d.from_employee]);
+    await pool.query(`UPDATE exchange_requests SET status='accepted' WHERE id=$1`, [id]);
     res.json({ success: true });
 });
 
 app.post('/api/exchange/reject/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params;
-    await pool.query(`UPDATE exchange_requests SET status = 'rejected' WHERE id = $1 AND to_employee = $2`, [id, req.user.username]);
+    await pool.query(`UPDATE exchange_requests SET status='rejected' WHERE id=$1 AND to_employee=$2`, [req.params.id, req.user.username]);
     res.json({ success: true });
 });
 
 app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params;
-    await pool.query(`UPDATE exchange_requests SET status = 'cancelled' WHERE id = $1 AND from_employee = $2`, [id, req.user.username]);
+    await pool.query(`UPDATE exchange_requests SET status='cancelled' WHERE id=$1 AND from_employee=$2`, [req.params.id, req.user.username]);
     res.json({ success: true });
 });
 // ============================================
@@ -1139,19 +1184,78 @@ app.post('/api/admin/bonus/employee', authMiddleware, async (req, res) => {
 });
 
 app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    console.log('🧹 ===== ЗАПРОС НА ПОЛНЫЙ СБРОС ДАННЫХ =====');
+    
+    if (req.user.role !== 'director') {
+        return res.status(403).json({ error: 'Только директор' });
+    }
+    
     const client = await pool.connect();
-    try { await client.query('BEGIN'); await client.query('DELETE FROM employees WHERE name != $1', ['Денис']); await client.query('DELETE FROM passwords WHERE username != $1', ['Денис']); await client.query('COMMIT'); res.json({ success: true }); } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); }
-});
-
-app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
-    try { await pool.query('UPDATE employees SET coins = 100, rating = 0 WHERE name != $1', ['Денис']); await pool.query('DELETE FROM corporate_fund'); await pool.query('INSERT INTO corporate_fund (amount) VALUES (0)'); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/admin/init-achievements', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
-    try { await initAchievements(); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try {
+        await client.query('BEGIN');
+        
+        // Получаем директора
+        const directorRes = await client.query(`SELECT id, name FROM employees WHERE role = 'director' LIMIT 1`);
+        if (directorRes.rows.length === 0) {
+            throw new Error('Директор не найден!');
+        }
+        const directorId = directorRes.rows[0].id;
+        const directorName = directorRes.rows[0].name;
+        console.log(`👑 Директор: ${directorName} (ID: ${directorId})`);
+        
+        console.log('📋 1. Очистка зависимых таблиц...');
+        
+        await client.query(`DELETE FROM user_achievements`);
+        await client.query(`DELETE FROM pending_achievements`);
+        await client.query(`DELETE FROM user_statuses`);
+        await client.query(`DELETE FROM transactions`);
+        await client.query(`DELETE FROM daily_bonus_history`);
+        await client.query(`DELETE FROM shift_earnings`);
+        await client.query(`DELETE FROM stickers`);
+        await client.query(`DELETE FROM knowledge_views`);
+        await client.query(`DELETE FROM subtasks`);
+        await client.query(`DELETE FROM task_attachments`);
+        await client.query(`DELETE FROM tasks`);
+        await client.query(`DELETE FROM fine_attachments`);
+        await client.query(`DELETE FROM fines`);
+        await client.query(`DELETE FROM schedule_special_cases`);
+        await client.query(`DELETE FROM schedule`);
+        await client.query(`DELETE FROM exchange_requests`);
+        await client.query(`DELETE FROM messages`);
+        await client.query(`DELETE FROM global_notifications`);
+        
+        console.log('📋 2. Удаление сотрудников (кроме директора)...');
+        
+        await client.query(`DELETE FROM employees WHERE id != $1`, [directorId]);
+        await client.query(`DELETE FROM passwords WHERE username != $1`, [directorName]);
+        
+        console.log('📋 3. Очистка оставшихся таблиц...');
+        
+        await client.query(`DELETE FROM vp_bookings`);
+        await client.query(`DELETE FROM salary_daily_new`);
+        await client.query(`DELETE FROM knowledge_articles`);
+        await client.query(`DELETE FROM knowledge_categories`);
+        
+        console.log('📋 4. Сброс статистики директора и фонда...');
+        
+        // 🔥 ВАЖНО: Сбрасываем монеты и рейтинг директора!
+        await client.query(`UPDATE employees SET coins = 100, rating = 0, hours = 0, bonus_streak = 1, last_bonus_claimed_at = NULL, active_status = NULL, status = '💼 Работаю' WHERE id = $1`, [directorId]);
+        
+        await client.query(`DELETE FROM corporate_fund`);
+        await client.query(`INSERT INTO corporate_fund (amount) VALUES (0)`);
+        
+        await client.query('COMMIT');
+        console.log('✅ Полный сброс завершён');
+        
+        res.json({ success: true, message: '✅ Все данные сброшены. Чистый лист!' });
+        
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('❌ Ошибка сброса:', err);
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
 });
 // ============================================
 // ЗАЩИЩЁННЫЕ CRON-ЗАДАЧИ
