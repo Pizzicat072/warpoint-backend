@@ -407,9 +407,8 @@
 </head>
 <body>
 
-<div class="sync-indicator offline" id="syncIndicator">
-    <i class="fas fa-broadcast-tower fa-fw"></i>
-    <span id="syncText">Подключение...</span>
+<div class="sync-indicator offline" id="syncIndicator" style="position: fixed; top: 80px; right: 20px; width: 40px; height: 40px; background: #11141c; backdrop-filter: blur(12px); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 9998; border: 1px solid #1e2430; cursor: pointer;" onclick="if(typeof window.initPusher==='function')window.initPusher()">
+    <i class="fas fa-broadcast-tower fa-fw" style="color: #ef4444;"></i>
 </div>
 
 <div id="mainContainer" style="display: none;">
