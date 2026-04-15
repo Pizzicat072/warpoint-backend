@@ -517,17 +517,7 @@ async function initDatabase() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`
     ];
-    // 🔥 Добавляем недостающие колонки (миграция)
-    try {
-        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
-        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
-        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
-        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
-        console.log('✅ Миграция: добавлены недостающие колонки');
-    } catch (err) {
-        console.log('⚠️ Ошибка миграции:', err.message);
-    }
-}
+    
     for (const query of tableQueries) {
         try {
             await pool.query(query);
@@ -536,7 +526,7 @@ async function initDatabase() {
         }
     }
     
-    // Индексы для производительности
+     // Индексы
     try {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room, time DESC)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_tasks_executor_status ON tasks(executor, status)`);
@@ -544,6 +534,17 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_schedule_date ON schedule(date)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_views_user ON knowledge_views(user_id)`);
     } catch (err) {}
+    
+    // 🔥 МИГРАЦИЯ: Добавляем недостающие колонки (внутри async функции!)
+    try {
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
+        console.log('✅ Миграция: добавлены недостающие колонки в tasks');
+    } catch (err) {
+        console.log('⚠️ Ошибка миграции колонок:', err.message);
+    }
     
     // Создаём директора
     try {
