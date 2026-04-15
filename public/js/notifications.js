@@ -1,4 +1,4 @@
-// public/js/notifications.js - СИСТЕМА УВЕДОМЛЕНИЙ С ОЧЕРЕДЬЮ
+// public/js/notifications.js - С ЗАЩИТОЙ ОТ БЕСКОНЕЧНЫХ ЦИКЛОВ
 
 let notificationsList = [];
 let unreadCount = 0;
@@ -8,12 +8,23 @@ const MAX_NOTIFICATIONS = 50;
 // 🔥 ОЧЕРЕДЬ TOAST-УВЕДОМЛЕНИЙ
 let toastQueue = [];
 let isShowingToast = false;
-const TOAST_DELAY = 800; // Задержка между уведомлениями (мс)
+const TOAST_DELAY = 800;
+
+// 🔥 ЗАЩИТА ОТ ЧАСТЫХ ПРОВЕРОК
+let lastCheck = 0;
+const CHECK_INTERVAL = 30000; // Минимум 30 секунд между проверками
+let isInitialized = false;
 
 // ============================================
 // ИНИЦИАЛИЗАЦИЯ
 // ============================================
 function initNotifications() {
+    if (isInitialized) {
+        console.log('🔔 Уведомления уже инициализированы');
+        return;
+    }
+    isInitialized = true;
+    
     console.log('🔔 Инициализация системы уведомлений');
     loadNotificationsFromStorage();
     setupPusherNotificationListeners();
@@ -47,11 +58,16 @@ function saveNotificationsToStorage() {
 }
 
 // ============================================
-// ОЧЕРЕДЬ TOAST-УВЕДОМЛЕНИЙ
+// ОЧЕРЕДЬ TOAST-УВЕДОМЛЕНИЙ (С ЗАЩИТОЙ)
 // ============================================
 function enqueueToast(notification) {
+    // 🔥 Ограничение очереди
+    if (toastQueue.length > 10) {
+        console.log('⚠️ Очередь уведомлений переполнена, очищаем');
+        toastQueue = toastQueue.slice(-5);
+    }
+    
     toastQueue.push(notification);
-    console.log(`📨 Уведомление добавлено в очередь (всего: ${toastQueue.length})`);
     processToastQueue();
 }
 
@@ -64,7 +80,6 @@ function processToastQueue() {
     
     showToastNow(notification);
     
-    // После показа текущего, запускаем следующий через задержку
     setTimeout(() => {
         isShowingToast = false;
         processToastQueue();
@@ -75,14 +90,10 @@ function showToastNow(notification) {
     const toast = document.createElement('div');
     toast.className = 'notification-toast';
     
-    // Определяем цвет рамки в зависимости от типа
-    let borderColor = '#10b981'; // зелёный по умолчанию
+    let borderColor = '#10b981';
     if (notification.type === 'achievement') borderColor = '#fbbf24';
     else if (notification.type === 'gift_received') borderColor = '#ec4899';
-    else if (notification.type === 'task_completed') borderColor = '#10b981';
     else if (notification.type === 'fine_approved') borderColor = '#ef4444';
-    else if (notification.type === 'exchange') borderColor = '#3b82f6';
-    else if (notification.type === 'new_employee') borderColor = '#8b5cf6';
     
     toast.style.cssText = `
         position: fixed;
@@ -99,7 +110,7 @@ function showToastNow(notification) {
         z-index: 99999;
         transform: translateX(450px);
         opacity: 0;
-        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.4s;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
         border-left: 4px solid ${borderColor};
         cursor: pointer;
@@ -112,76 +123,56 @@ function showToastNow(notification) {
             <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px; color: #f1f5f9;">${escapeHtml(notification.title)}</div>
             <div style="font-size: 12px; color: #94a3b8; line-height: 1.4;">${escapeHtml(notification.text)}</div>
         </div>
-        <button class="toast-close-btn" style="background: none; border: none; color: #64748b; font-size: 20px; cursor: pointer; padding: 0; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: all 0.2s;">&times;</button>
+        <button class="toast-close-btn" style="background: none; border: none; color: #64748b; font-size: 20px; cursor: pointer;">&times;</button>
     `;
     
     document.body.appendChild(toast);
     
-    // Кнопка закрытия
     const closeBtn = toast.querySelector('.toast-close-btn');
     closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         closeToast(toast);
     });
-    closeBtn.addEventListener('mouseenter', () => {
-        closeBtn.style.background = 'rgba(239, 68, 68, 0.2)';
-        closeBtn.style.color = '#f87171';
-    });
-    closeBtn.addEventListener('mouseleave', () => {
-        closeBtn.style.background = 'none';
-        closeBtn.style.color = '#64748b';
-    });
     
-    // Анимация появления
     setTimeout(() => {
         toast.style.transform = 'translateX(0)';
         toast.style.opacity = '1';
     }, 10);
     
-    // Клик по уведомлению
     toast.addEventListener('click', (e) => {
-        if (!e.target.closest('.toast-close-btn')) {
-            closeToast(toast);
-        }
+        if (!e.target.closest('.toast-close-btn')) closeToast(toast);
     });
     
-    // Автоматическое закрытие через 5 секунд
-    const timeoutId = setTimeout(() => {
-        closeToast(toast);
-    }, 5000);
-    
+    const timeoutId = setTimeout(() => closeToast(toast), 5000);
     toast.dataset.timeoutId = timeoutId;
 }
 
 function closeToast(toast) {
     if (!toast.parentElement) return;
-    
-    // Очищаем таймаут
-    if (toast.dataset.timeoutId) {
-        clearTimeout(parseInt(toast.dataset.timeoutId));
-    }
-    
-    // Анимация исчезновения
+    if (toast.dataset.timeoutId) clearTimeout(parseInt(toast.dataset.timeoutId));
     toast.style.transform = 'translateX(450px)';
     toast.style.opacity = '0';
-    
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.remove();
-        }
-    }, 400);
+    setTimeout(() => { if (toast.parentElement) toast.remove(); }, 400);
 }
 
 // ============================================
-// PUSHER СЛУШАТЕЛИ
+// PUSHER СЛУШАТЕЛИ (С ЗАЩИТОЙ)
 // ============================================
+let pusherBindingsSetup = false;
+
 function setupPusherNotificationListeners() {
+    if (pusherBindingsSetup) {
+        console.log('🔔 Pusher слушатели уже настроены');
+        return;
+    }
+    
     const checkPusher = setInterval(() => {
         if (window.channel && window.privateChannel) {
             clearInterval(checkPusher);
             bindNotificationEvents();
+            pusherBindingsSetup = true;
         }
-    }, 200);
+    }, 2000);
     
     setTimeout(() => clearInterval(checkPusher), 10000);
 }
@@ -189,12 +180,9 @@ function setupPusherNotificationListeners() {
 function bindNotificationEvents() {
     console.log('🔔 Привязка слушателей уведомлений к Pusher');
     
-    // ГЛОБАЛЬНЫЕ УВЕДОМЛЕНИЯ (для всех)
     if (window.channel) {
+        window.channel.unbind('global-notification');
         window.channel.bind('global-notification', (data) => {
-            console.log('🌍 Глобальное уведомление:', data);
-            
-            // Не показываем, если пользователь исключён
             if (data.excludeUser === window.app?.currentUser) return;
             
             enqueueToast({
@@ -217,11 +205,9 @@ function bindNotificationEvents() {
         });
     }
     
-    // ЛИЧНЫЕ УВЕДОМЛЕНИЯ
     if (window.privateChannel) {
+        window.privateChannel.unbind('personal-notification');
         window.privateChannel.bind('personal-notification', (data) => {
-            console.log('📨 Личное уведомление:', data);
-            
             enqueueToast({
                 type: data.type,
                 icon: data.icon,
@@ -240,17 +226,6 @@ function bindNotificationEvents() {
                 read: false
             });
         });
-        
-        // Получен подарок
-        window.privateChannel.bind('gift-received', (data) => {
-            enqueueToast({
-                type: 'gift_received',
-                icon: '🎁',
-                title: 'Вам подарок!',
-                text: `${data.sender} подарил вам ${data.giftName} ${data.quantity > 1 ? `(x${data.quantity})` : ''}!`,
-                time: Date.now()
-            });
-        });
     }
 }
 
@@ -267,7 +242,11 @@ function addNotificationToList(notification) {
     
     saveNotificationsToStorage();
     updateNotificationsBadge();
-    renderNotificationsDropdown();
+    
+    // 🔥 НЕ ВЫЗЫВАЕМ РЕНДЕР КАЖДЫЙ РАЗ
+    if (document.getElementById('notificationsDropdown')?.classList.contains('show')) {
+        renderNotificationsDropdown();
+    }
 }
 
 // ============================================
@@ -275,8 +254,6 @@ function addNotificationToList(notification) {
 // ============================================
 function renderNotificationsDropdown() {
     const container = document.getElementById('notificationsList');
-    const badge = document.getElementById('notificationsBadge');
-    
     if (!container) return;
     
     if (notificationsList.length === 0) {
@@ -301,15 +278,6 @@ function renderNotificationsDropdown() {
     }
     
     container.innerHTML = html;
-    
-    if (badge) {
-        if (unreadCount > 0) {
-            badge.style.display = 'flex';
-            badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
-        } else {
-            badge.style.display = 'none';
-        }
-    }
 }
 
 function formatTimeAgo(timestamp) {
@@ -327,7 +295,6 @@ function markNotificationRead(id) {
         notification.read = true;
         unreadCount = Math.max(0, unreadCount - 1);
         saveNotificationsToStorage();
-        renderNotificationsDropdown();
         updateNotificationsBadge();
     }
 }
@@ -335,10 +302,7 @@ function markNotificationRead(id) {
 function markAllNotificationsRead() {
     let changed = false;
     for (const n of notificationsList) {
-        if (!n.read) {
-            n.read = true;
-            changed = true;
-        }
+        if (!n.read) { n.read = true; changed = true; }
     }
     if (changed) {
         unreadCount = 0;
@@ -394,7 +358,6 @@ function toggleNotificationsDropdown() {
 // ============================================
 window.initNotifications = initNotifications;
 window.enqueueToast = enqueueToast;
-window.showToastNow = showToastNow;
 window.renderNotificationsDropdown = renderNotificationsDropdown;
 window.updateNotificationsBadge = updateNotificationsBadge;
 window.toggleNotificationsDropdown = toggleNotificationsDropdown;
@@ -402,11 +365,9 @@ window.markAllNotificationsRead = markAllNotificationsRead;
 window.clearAllNotifications = clearAllNotifications;
 window.markNotificationRead = markNotificationRead;
 
-// Автозапуск
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initNotifications);
-} else {
-    setTimeout(initNotifications, 500);
-}
+// Автозапуск (с задержкой)
+setTimeout(() => {
+    if (!isInitialized) initNotifications();
+}, 1000);
 
-console.log('✅ notifications.js загружен (с очередью уведомлений)');
+console.log('✅ notifications.js загружен (с защитой от циклов)');
