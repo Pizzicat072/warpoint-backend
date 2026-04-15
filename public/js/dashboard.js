@@ -181,7 +181,49 @@ function initDashboardSettings() {
     const blockIds = ['welcome-panel', 'info-grid', 'quick-start', 'key-stats', 'events-section', 'activity-grid', 'quote-card'];
     blockIds.forEach(blockId => { const checkbox = document.getElementById(`toggle-${blockId}`); if (checkbox) { checkbox.addEventListener('change', (e) => { toggleBlockVisibility(blockId, e.target.checked); }); } });
 }
+function initSettingsTabs() {
+    const btnStyles = document.getElementById('btnStyles');
+    const btnPresets = document.getElementById('btnPresets');
+    const btnBlocks = document.getElementById('btnBlocks');
+    
+    const panelStyles = document.getElementById('panelStyles');
+    const panelPresets = document.getElementById('panelPresets');
+    const panelBlocks = document.getElementById('panelBlocks');
+    
+    if (!btnStyles || !panelStyles) return;
+    
+    function switchPanel(activePanel, activeBtn) {
+        if (panelStyles) panelStyles.style.display = 'none';
+        if (panelPresets) panelPresets.style.display = 'none';
+        if (panelBlocks) panelBlocks.style.display = 'none';
+        if (activePanel) activePanel.style.display = 'block';
+        
+        [btnStyles, btnPresets, btnBlocks].forEach(btn => {
+            if (btn) {
+                btn.style.background = 'transparent';
+                btn.style.color = '#94a3b8';
+            }
+        });
+        if (activeBtn) {
+            activeBtn.style.background = 'rgba(99,102,241,0.2)';
+            activeBtn.style.color = '#a78bfa';
+        }
+    }
+    
+    btnStyles.onclick = () => switchPanel(panelStyles, btnStyles);
+    btnPresets.onclick = () => switchPanel(panelPresets, btnPresets);
+    btnBlocks.onclick = () => switchPanel(panelBlocks, btnBlocks);
+    
+    // По умолчанию активна вкладка стилей
+    panelStyles.style.display = 'block';
+    panelPresets.style.display = 'none';
+    panelBlocks.style.display = 'none';
+    btnStyles.style.background = 'rgba(99,102,241,0.2)';
+    btnStyles.style.color = '#a78bfa';
+}
 
+// Экспорт в глобальную область
+window.initSettingsTabs = initSettingsTabs;
 async function fetchWeather() {
     const now = Date.now();
     if (now - lastWeatherFetch < WEATHER_FETCH_INTERVAL) { return; }
