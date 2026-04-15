@@ -1,0 +1,666 @@
+<!-- public/pages/reports.html -->
+<div class="reports-container">
+    <!-- Прогресс парсинга -->
+    <div id="progressCard" class="progress-card" style="display: none;">
+        <div class="progress-header">
+            <span><i class="fas fa-spinner fa-spin"></i> Парсинг данных</span>
+            <span id="progressPercent" class="progress-percent">0%</span>
+        </div>
+        <div class="progress-bar-container">
+            <div id="progressFill" class="progress-fill" style="width: 0%">0%</div>
+        </div>
+        <div id="progressSteps" class="progress-steps">
+            <div class="step" data-step="1"><i class="fas fa-circle"></i> Запуск</div>
+            <div class="step" data-step="2"><i class="fas fa-circle"></i> Браузер</div>
+            <div class="step" data-step="3"><i class="fas fa-circle"></i> Страница</div>
+            <div class="step" data-step="4"><i class="fas fa-circle"></i> Арена</div>
+            <div class="step" data-step="5"><i class="fas fa-circle"></i> Календарь</div>
+            <div class="step" data-step="6"><i class="fas fa-circle"></i> Сбор дат</div>
+            <div class="step" data-step="7"><i class="fas fa-circle"></i> Обработка</div>
+            <div class="step" data-step="8"><i class="fas fa-circle"></i> Сохранение</div>
+        </div>
+    </div>
+
+    <!-- Заголовок -->
+    <div class="reports-header">
+        <div class="reports-header-icon">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <div class="reports-header-info">
+            <h1>Аналитика бронирований</h1>
+            <p>Доступность слотов для бронирования</p>
+        </div>
+        <div class="reports-header-badge">
+            <div id="parsingIndicator" class="auto-badge" style="display: none;">
+                <i class="fas fa-spinner fa-spin"></i>
+                <span>Парсинг...</span>
+            </div>
+            <button id="runParserBtn" class="reports-refresh-btn">
+                <i class="fas fa-sync-alt"></i>
+                <span>Обновить данные</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Статистика и график в одной строке -->
+<div class="stats-charts-row">
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="compact-chart">
+        <canvas id="pieChart" height="150"></canvas>
+    </div>
+</div>
+
+<!-- Топ загруженных дней -->
+<div id="topDaysContainer" class="reports-top-days"></div>
+
+<!-- Даты -->
+<div id="datesGrid" class="reports-dates-grid"></div>
+
+    <!-- Футер -->
+    <div class="reports-footer">
+        <div class="footer-info">
+            <span><i class="fas fa-database"></i> WARPOINT Booking</span>
+            <span id="updateTime"><i class="fas fa-clock"></i> Загрузка...</span>
+            <span id="autoTime"><i class="fas fa-robot"></i> Авто: каждый час</span>
+        </div>
+        <div class="footer-actions">
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span>Online</span>
+            </div>
+            <button id="fixParserBtn" class="fix-parser-btn">
+                <i class="fas fa-wrench"></i> Сброс
+            </button>
+        </div>
+    </div>
+
+    <!-- Загрузчик -->
+    <div id="loader" class="reports-loader" style="display: none;">
+        <i class="fas fa-spinner fa-spin"></i> Загрузка данных...
+    </div>
+</div>
+
+<style>
+.reports-container {
+    padding: 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Прогресс карта */
+.progress-card {
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 28px;
+    padding: 24px;
+    margin-bottom: 24px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    animation: slideInUp 0.4s ease-out;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: #38bdf8;
+}
+
+.progress-percent {
+    color: #fbbf24;
+    font-weight: 700;
+}
+
+.progress-bar-container {
+    background: #1e293b;
+    border-radius: 30px;
+    height: 24px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.progress-fill {
+    background: linear-gradient(90deg, #38bdf8, #8b5cf6);
+    width: 0%;
+    height: 100%;
+    border-radius: 30px;
+    transition: width 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.progress-steps {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.step {
+    font-size: 11px;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.step.active {
+    color: #f59e0b;
+}
+
+.step.completed {
+    color: #10b981;
+}
+
+/* Заголовок */
+.reports-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 32px;
+    padding: 20px 28px;
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6));
+    backdrop-filter: blur(20px);
+    border-radius: 32px;
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    flex-wrap: wrap;
+}
+
+.reports-header-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.reports-header-info h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    background: linear-gradient(135deg, #fff, #94a3b8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.reports-header-info p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.auto-badge {
+    background: rgba(56, 189, 248, 0.1);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    border-radius: 40px;
+    padding: 8px 20px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #38bdf8;
+}
+
+.reports-refresh-btn {
+    background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+    border: none;
+    border-radius: 40px;
+    padding: 12px 28px;
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.reports-refresh-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(56, 189, 248, 0.3);
+}
+
+.reports-refresh-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Статистика */
+.reports-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.reports-stats-grid .stat-card {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    transition: all 0.2s;
+}
+
+.reports-stats-grid .stat-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(56, 189, 248, 0.5);
+}
+
+.reports-stats-grid .stat-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.reports-stats-grid .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.reports-stats-grid .stat-label {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 6px;
+}
+/* Статистика и график в ряд */
+.stats-charts-row {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+}
+
+.stats-charts-row .stats-grid {
+    flex: 2;
+    min-width: 280px;
+    margin-bottom: 0;
+}
+
+.compact-chart {
+    flex: 1;
+    min-width: 200px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    padding: 16px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compact-chart canvas {
+    max-height: 150px;
+    width: auto;
+}
+
+@media (max-width: 700px) {
+    .stats-charts-row {
+        flex-direction: column;
+    }
+    .compact-chart {
+        max-width: 250px;
+        margin: 0 auto;
+    }
+}
+
+/* Топ дни */
+.reports-top-days {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    padding: 20px;
+    margin-bottom: 32px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.reports-top-days h3 {
+    font-size: 16px;
+    margin-bottom: 20px;
+    color: #38bdf8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.top-day {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.top-day-bar {
+    height: 4px;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    border-radius: 4px;
+    transition: width 0.3s;
+    margin-top: 4px;
+}
+
+/* Даты */
+.reports-dates-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.date-card {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid rgba(56, 189, 248, 0.15);
+    transition: all 0.2s;
+}
+
+.date-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(56, 189, 248, 0.4);
+}
+
+.date-header {
+    background: rgba(56, 189, 248, 0.08);
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.1);
+}
+
+.date-number {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.date-card.date-weekend {
+    border-left: 3px solid #f59e0b;
+}
+
+.date-card.date-weekend .date-header {
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.date-card.date-weekend .date-number {
+    color: #f59e0b;
+}
+
+.date-badge {
+    display: flex;
+    gap: 10px;
+}
+
+.badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 600;
+}
+
+.badge-green {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.badge-yellow {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-red {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.slots-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 18px;
+}
+
+.slot {
+    padding: 10px 6px;
+    text-align: center;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.slot-available {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.slot-partially {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.slot-booked {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    text-decoration: line-through;
+}
+
+.slot-passed {
+    background: rgba(107, 114, 128, 0.08);
+    color: #6b7280;
+    border: 1px solid rgba(107, 114, 128, 0.2);
+}
+
+/* Футер */
+.reports-footer {
+    margin-top: 28px;
+    padding: 16px 24px;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    border-radius: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    border: 1px solid rgba(56, 189, 248, 0.2);
+}
+
+.footer-info {
+    display: flex;
+    gap: 24px;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.footer-info i {
+    margin-right: 6px;
+}
+
+.footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #10b981;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: pulse 1.5s infinite;
+}
+
+.fix-parser-btn {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 40px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #f87171;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.fix-parser-btn:hover {
+    background: rgba(239, 68, 68, 0.3);
+    transform: translateY(-1px);
+}
+
+/* Загрузчик */
+.reports-loader {
+    text-align: center;
+    padding: 60px;
+    color: #64748b;
+}
+
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+@media (max-width: 768px) {
+    .reports-container {
+        padding: 16px;
+    }
+    
+    .reports-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .reports-header-icon {
+        margin: 0 auto;
+    }
+    
+    .reports-header-info h1 {
+        font-size: 22px;
+    }
+    
+    .reports-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .progress-steps {
+        justify-content: center;
+    }
+    
+    .footer-info {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .footer-actions {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .reports-stats-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .slots-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #38bdf8, #8b5cf6);
+    border-radius: 10px;
+}
+/* Стили для выходных и пятницы */
+.date-card.date-weekend {
+    border-left: 3px solid #f59e0b;
+}
+
+.date-card.date-weekend .date-header {
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.date-card.date-weekend .date-number {
+    color: #f59e0b;
+}
+
+/* Улучшенный топ дней */
+.top-day {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+
+.top-day:hover {
+    background: rgba(56, 189, 248, 0.1);
+    transform: translateX(4px);
+}
+
+.top-day-bar {
+    height: 4px;
+    background: linear-gradient(90deg, #f59e0b, #fbbf24);
+    border-radius: 4px;
+    transition: width 0.3s;
+    margin-top: 0;
+    margin-bottom: 8px;
+}
+</style>

@@ -1,0 +1,171 @@
+<!-- public/pages/admin.html -->
+<div class="glass-card" style="padding: 24px; margin: 0 32px;">
+    <h2 style="margin-bottom: 24px;"><i class="fas fa-cogs"></i> Управление системой</h2>
+    
+    <div class="admin-tabs">
+        <div class="admin-tab active" data-tab="Employees">👥 Сотрудники</div>
+        <div class="admin-tab" data-tab="Fund">🏦 Корпоративный фонд</div>
+        <div class="admin-tab" data-tab="Settings">⚙️ Настройки</div>
+    </div>
+    
+    <!-- ВКЛАДКА: СОТРУДНИКИ -->
+    <div id="adminTabEmployees" class="admin-tab-content active">
+        <div style="margin-bottom: 20px; display: flex; justify-content: flex-end;">
+            <button class="btn-primary" onclick="openCreateEmployeeModal()">
+                <i class="fas fa-user-plus"></i> Создать сотрудника
+            </button>
+        </div>
+        <div id="adminEmployeesList">
+            <div class="loading-spinner">Загрузка сотрудников...</div>
+        </div>
+    </div>
+    
+    <!-- ВКЛАДКА: КОРПОРАТИВНЫЙ ФОНД -->
+    <div id="adminTabFund" class="admin-tab-content">
+        <div class="stat-block">
+            <h4>💰 Корпоративный фонд</h4>
+            <div style="font-size: 36px; font-weight: 700; color: #fbbf24; margin: 16px 0;" id="fundDisplayAmount">0 ₽</div>
+            <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                <div style="flex: 1;">
+                    <label>Изменить сумму</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="fundChangeAmount" class="edit-input" placeholder="Сумма" value="0">
+                        <button class="btn-primary" onclick="updateFund()">Установить</button>
+                    </div>
+                </div>
+                <div style="flex: 1;">
+                    <label>Добавить / Убавить</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="number" id="fundAddAmount" class="edit-input" placeholder="Сумма" value="0">
+                        <button class="btn-primary" onclick="addToFund()">➕</button>
+                        <button class="btn-danger" onclick="subtractFromFund()">➖</button>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 16px;">
+                <button class="btn-danger" onclick="resetFund()" style="width: 100%;">Сбросить фонд</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ВКЛАДКА: НАСТРОЙКИ -->
+    <div id="adminTabSettings" class="admin-tab-content">
+        <div class="stat-block">
+            <h4>🎨 Глобальная тема</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-bottom: 20px;">
+                <button class="btn-secondary" onclick="setGlobalTheme('vr-portal')">🎮 VR-портал</button>
+                <button class="btn-secondary" onclick="setGlobalTheme('hacker')">💚 Хакер</button>
+                <button class="btn-secondary" onclick="setGlobalTheme('glitch')">🌌 Глитч</button>
+                <button class="btn-secondary" onclick="setGlobalTheme('explosion')">🔥 Взрыв</button>
+                <button class="btn-secondary" onclick="setGlobalTheme('depth')">🌊 Глубина</button>
+                <button class="btn-secondary" onclick="setGlobalTheme('charge')">👑 Заряд</button>
+            </div>
+            <div id="currentThemeDisplay" style="background: rgba(0,0,0,0.3); border-radius: 12px; padding: 12px; text-align: center;">
+                Текущая тема: <strong id="currentThemeName">VR-портал</strong>
+            </div>
+        </div>
+        
+        <!-- СБРОС ДАННЫХ -->
+<div class="stat-block" style="margin-top: 20px;">
+    <h4>🧹 Сброс данных</h4>
+    <button class="btn-danger" onclick="resetAllData()" style="margin-bottom: 12px; width: 100%;">
+        🗑️ Сбросить ВСЕ настройки (чистый лист)
+    </button>
+    <button class="btn-warning" onclick="equalStart()" style="width: 100%; background: #f59e0b; border: none; padding: 12px; border-radius: 30px; color: white; font-weight: 600; cursor: pointer;">
+        🚀 Равный старт (обнулить статистику)
+    </button>
+    <p style="font-size: 11px; color: #64748b; margin-top: 12px; line-height: 1.5;">
+        ⚠️ <strong>Чистый лист</strong> — удаляет всех сотрудников кроме директора и ВСЕ данные.<br>
+        🚀 <strong>Равный старт</strong> — обнуляет достижения, график, задачи, штрафы, статистику. Сохраняет сотрудников, ВП, Зарплату и Базу знаний.
+    </p>
+</div>
+        
+        <!-- ИНИЦИАЛИЗАЦИЯ ДОСТИЖЕНИЙ -->
+        <div class="stat-block" style="margin-top: 20px;">
+            <h4>🏆 Достижения</h4>
+            <button class="btn-secondary" onclick="initAchievementsAdmin()" style="width: 100%;">
+                🔄 Переинициализировать достижения
+            </button>
+            <p style="font-size: 11px; color: #64748b; margin-top: 8px;">
+                Обновляет список достижений в базе данных (если были добавлены новые).
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+.admin-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+.admin-tab {
+    padding: 10px 20px;
+    cursor: pointer;
+    border-radius: 30px;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+.admin-tab:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+.admin-tab.active {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a78bfa;
+}
+.admin-tab-content {
+    display: none;
+}
+.admin-tab-content.active {
+    display: block;
+}
+.admin-employee-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: rgba(17, 20, 28, 0.6);
+    border-radius: 20px;
+    margin-bottom: 12px;
+    border: 1px solid var(--border-color);
+}
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+    color: #64748b;
+}
+.stat-block {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+    padding: 20px;
+}
+.btn-warning {
+    transition: all 0.2s;
+}
+.btn-warning:hover {
+    background: #d97706 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+</style>
+
+<script>
+// Инициализация достижений из админки
+async function initAchievementsAdmin() {
+    if (!confirm('Переинициализировать достижения? Это обновит список в базе данных.')) return;
+    
+    try {
+        const response = await apiCall('/admin/init-achievements', 'POST');
+        if (response && response.success) {
+            showNotif('✅ ' + response.message, 'success');
+        } else {
+            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('❌ Ошибка соединения', 'error');
+    }
+}
+</script>

@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>WARPOINT — Хаб сотрудников</title>
+    <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --bg-primary: radial-gradient(ellipse at 20% 30%, #0a0f1e, #05070f);
+            --bg-card: rgba(20, 25, 50, 0.6);
+            --text-primary: #ffffff;
+            --border-color: rgba(99, 102, 241, 0.3);
+            --accent: #6366f1;
+            --success: #10b981;
+            --danger: #ef4444;
+        }
+        body {
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            margin: 0; padding: 0;
+            color: var(--text-primary);
+            overflow-x: hidden;
+            background: #0a0c12;
+        }
+        #loginModal {
+            background-image: url('/2026-04-02_03-45-56.png');
+            background-size: cover; background-position: center; background-repeat: no-repeat;
+        }
+        #loginModal .modal-window {
+            background: rgba(17, 20, 28, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(99, 102, 241, 0.5);
+            border-radius: 28px;
+        }
+        #mainContainer { min-height: 100vh; }
+        .header { background: #0d1016 !important; border-bottom: 1px solid #1e2430 !important; }
+        .main-menu { background: #0d1016 !important; border-bottom: 1px solid #1e2430 !important; }
+        .sync-indicator { background: #11141c !important; border: 1px solid #1e2430 !important; }
+        .user-avatar {
+            width: 44px; height: 44px;
+            background: linear-gradient(135deg, #1a1f2a, #0d1016);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; cursor: pointer;
+            border: 2px solid #6366f1; overflow: hidden;
+        }
+        .notifications-icon {
+            position: relative; cursor: pointer;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .notifications-icon .badge {
+            position: absolute; top: -5px; right: -5px;
+            background: #ef4444; color: white;
+            font-size: 10px; font-weight: 600;
+            min-width: 18px; height: 18px;
+            border-radius: 20px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 0 5px;
+            border: 1px solid #0d1016;
+        }
+        .notifications-dropdown {
+            position: absolute; top: 60px; right: 20px;
+            width: 380px; max-height: 480px;
+            background: #11141c;
+            border-radius: 16px;
+            border: 1px solid #1e2430;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 1000; overflow: hidden;
+            display: none;
+        }
+        .notifications-dropdown.show { display: block; }
+        .edit-input, .styled-select { background: #0d1016 !important; border: 1px solid #1e2430 !important; color: #e2e8f0 !important; }
+        .modal { background: rgba(10, 12, 18, 0.95); }
+        .modal-window, .modal-content { background: #11141c !important; border: 1px solid #1e2430 !important; }
+        .notification-toast {
+            position: fixed; bottom: 24px; right: 24px;
+            min-width: 320px; max-width: 420px;
+            background: linear-gradient(135deg, #1a1f2e, #0f1222);
+            border-radius: 16px;
+            padding: 14px 18px;
+            display: flex; align-items: flex-start; gap: 14px;
+            z-index: 10000;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            border-left: 4px solid #10b981;
+            backdrop-filter: blur(10px);
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 10px; }
+        @media (max-width: 768px) {
+            .header { padding: 12px 16px; }
+            .user-info { display: none; }
+            .main-menu { top: 60px; }
+            .modal-window { max-width: 95%; padding: 20px; }
+            .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="sync-indicator offline" id="syncIndicator">
+    <i class="fas fa-broadcast-tower fa-fw"></i>
+    <span id="syncText">Подключение...</span>
+</div>
+
+<div id="mainContainer" style="display: none;">
+    <div class="header">
+        <div class="logo-area">
+            <div class="logo-icon">
+                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+            </div>
+            <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ СОТРУДНИКОВ</span></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 12px;">
+            <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i> О проекте</a>
+            <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotificationsDropdown()">
+                <i class="fas fa-bell"></i>
+                <span class="badge" id="notificationsBadge" style="display: none;">0</span>
+            </div>
+            <div class="notifications-dropdown" id="notificationsDropdown">
+                <div class="notifications-header" style="padding: 14px 18px; border-bottom: 1px solid #1e2430; display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="margin:0;font-size:14px;"><i class="fas fa-bell"></i> Уведомления</h4>
+                    <div class="notifications-actions" style="display:flex;gap:12px;">
+                        <button onclick="markAllNotificationsRead()" style="background:none;border:none;color:#64748b;cursor:pointer;" title="Прочитать все">✓ Все</button>
+                        <button onclick="clearAllNotifications()" style="background:none;border:none;color:#64748b;cursor:pointer;" title="Очистить">🗑️</button>
+                    </div>
+                </div>
+                <div class="notifications-list" id="notificationsList" style="max-height:380px;overflow-y:auto;">
+                    <div style="padding:40px;text-align:center;color:#64748b;">🔔 Загрузка...</div>
+                </div>
+            </div>
+            <div class="user-card">
+                <div class="user-avatar" id="headerAvatar" onclick="openMyProfile()">👤</div>
+                <div class="user-info">
+                    <div class="user-name" id="headerName">Гость</div>
+                    <div class="user-status" id="headerStatus"></div>
+                </div>
+                <button class="logout-btn" onclick="window.authLogout()"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="main-menu" id="mainMenu"></div>
+    <div id="pageContainer"></div>
+</div>
+
+<div id="loginModal" class="modal active">
+    <div class="modal-window">
+        <div style="text-align: center; margin-bottom: 24px;">
+            <div class="logo-icon" style="width: 80px; height: 80px; margin: 0 auto 16px;">
+                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+            </div>
+            <h2 style="font-size: 28px; color: #e2e8f0;">🔐 WARPOINT</h2>
+            <p style="opacity: 0.7; margin-top: 8px; color: #94a3b8;">Войдите в корпоративный портал</p>
+        </div>
+        <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
+            <input type="text" id="loginName" class="edit-input" placeholder="Логин" autocomplete="username">
+            <input type="password" id="loginPassword" class="edit-input" placeholder="Пароль" autocomplete="current-password">
+            <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; background: #6366f1; border: none;">Войти</button>
+        </form>
+    </div>
+</div>
+
+<script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+<script src="/js/utils.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/achievements.js"></script>
+<script src="/js/auth.js"></script>
+<script src="/js/router.js"></script>
+<script src="/js/dashboard.js"></script>
+<script src="/js/employees.js"></script>
+<script src="/js/schedule.js"></script>
+<script src="/js/tasks.js"></script>
+<script src="/js/shop.js"></script>
+<script src="/js/rating.js"></script>
+<script src="/js/notifications.js"></script>
+<script src="/js/fines.js"></script>
+<script src="/js/chat.js"></script>
+<script src="/js/knowledge.js"></script>
+<script src="/js/vp.js"></script>
+<script src="/js/salary.js"></script>
+<script src="/js/admin.js"></script>
+<script src="/js/reports.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    const PUSHER_KEY = '91e6eb7093c4b16a3275';
+    const PUSHER_CLUSTER = 'ap1';
+    const CHANNEL_NAME = 'private-warpoint-sync';
+    
+    let pusher = null;
+    let channel = null;
+    
+    function transliterateForChannel(name) {
+        const ru = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
+        let result = '';
+        for (let i = 0; i < name.length; i++) {
+            const char = name[i];
+            if (ru[char]) result += ru[char];
+            else if (char.match(/[a-zA-Z0-9]/)) result += char.toLowerCase();
+        }
+        result = result.replace(/[^a-z0-9]/g, '');
+        const defaultNames = {'Денис':'denis','Андрей':'andrey','Максим':'maxim'};
+        if (result === '' || result.length < 3) result = defaultNames[name] || 'user';
+        return result;
+    }
+    
+    function initPusher() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        try {
+            pusher = new Pusher(PUSHER_KEY, {
+                cluster: PUSHER_CLUSTER, forceTLS: true,
+                authEndpoint: '/api/pusher/auth',
+                auth: { headers: { 'Authorization': 'Bearer ' + token } }
+            });
+            window.pusher = pusher;
+            channel = pusher.subscribe(CHANNEL_NAME);
+            window.channel = channel;
+            
+            const currentUser = window.app?.currentUser;
+            if (currentUser) {
+                const userTranslit = transliterateForChannel(currentUser);
+                window.privateChannel = pusher.subscribe('private-user-' + userTranslit);
+            }
+            
+            channel.bind('pusher:subscription_succeeded', function() {
+                document.getElementById('syncIndicator').classList.add('online');
+                document.getElementById('syncIndicator').classList.remove('offline');
+                document.getElementById('syncText').innerHTML = 'Синхронизация активна';
+            });
+            
+            channel.bind('schedule-updated', function(data) {
+                if (typeof loadScheduleData === 'function') loadScheduleData();
+                if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
+                if (typeof updateDashboardStats === 'function') updateDashboardStats();
+                if (typeof renderEmployees === 'function') renderEmployees();
+                showNotif(`📅 Смена для ${data.employee} обновлена`, 'info');
+            });
+        } catch (err) { console.error('Pusher error:', err); }
+    }
+    
+    window.addEventListener('load', () => {
+    if (typeof loadCurrentTheme === 'function') loadCurrentTheme();
+    const token = localStorage.getItem('token');
+    if (token) {
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+            const user = JSON.parse(savedUser);
+            window.app = window.app || {};
+            window.app.currentUser = user.name;
+            window.app.currentUserRole = user.role;
+            
+            // 🔥 ДОБАВЛЕНО: проверяем достижения при обновлении страницы
+            checkAchievementsOnRefresh(user.id, user.name);
+            
+            document.getElementById('loginModal').style.display = 'none';
+            document.getElementById('loginModal').classList.remove('active');
+            document.getElementById('mainContainer').style.display = 'block';
+            document.getElementById('headerName').textContent = user.name;
+            initPusher();
+            loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
+        }
+    }
+});
+
+// 🔥 НОВАЯ ФУНКЦИЯ
+async function checkAchievementsOnRefresh(userId, username) {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/achievements/check', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            }
+        });
+        const data = await response.json();
+        if (data && data.newAchievements && data.newAchievements.length > 0) {
+            for (const ach of data.newAchievements) {
+                showNotif(`🏆 Новое достижение: ${ach.name} (+${ach.coins} WP)`, 'success');
+            }
+        }
+    } catch (err) {
+        console.error('Ошибка проверки достижений:', err);
+    }
+}
+    
+    window.updateHeaderAvatar = function(avatarUrl, avatarEmoji) {
+        const headerAvatar = document.getElementById('headerAvatar');
+        if (headerAvatar) {
+            if (avatarUrl) headerAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+            else if (avatarEmoji) headerAvatar.innerHTML = avatarEmoji;
+            else headerAvatar.innerHTML = '👤';
+        }
+    };
+</script>
+
+<canvas id="particlesCanvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;"></canvas>
+<script>
+(function() {
+    const canvas = document.getElementById('particlesCanvas');
+    if (!canvas) return;
+    let ctx = canvas.getContext('2d');
+    let particles = [];
+    let width, height;
+    function resizeCanvas() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
+    function createParticle() {
+        return {
+            x: Math.random() * width, y: Math.random() * height,
+            radius: Math.random() * 2 + 1, alpha: Math.random() * 0.3 + 0.1,
+            speedX: (Math.random() - 0.5) * 0.2, speedY: (Math.random() - 0.5) * 0.15,
+            color: ['#6366f1', '#8b5cf6', '#a78bfa', '#c084fc'][Math.floor(Math.random() * 4)]
+        };
+    }
+    function initParticles() { particles = []; for (let i = 0; i < 60; i++) particles.push(createParticle()); }
+    function drawParticles() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, width, height);
+        for (let p of particles) {
+            p.x += p.speedX; p.y += p.speedY;
+            if (p.x < -50) p.x = width + 50; if (p.x > width + 50) p.x = -50;
+            if (p.y < -50) p.y = height + 50; if (p.y > height + 50) p.y = -50;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fillStyle = p.color; ctx.shadowBlur = 8; ctx.shadowColor = p.color;
+            ctx.globalAlpha = p.alpha; ctx.fill();
+        }
+        requestAnimationFrame(drawParticles);
+    }
+    window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
+    resizeCanvas(); initParticles(); drawParticles();
+})();
+</script>
+</body>
+</html>

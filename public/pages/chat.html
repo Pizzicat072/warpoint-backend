@@ -1,0 +1,361 @@
+<!-- public/pages/chat.html -->
+<div class="glass-card" style="padding: 24px; margin: 0 32px; min-height: 550px;">
+    <h2 style="margin-bottom: 24px;"><i class="fas fa-comments"></i> Чат команды</h2>
+    
+    <div class="chat-container" style="display: flex; gap: 20px; min-height: 550px; background: rgba(0, 0, 0, 0.3); border-radius: 28px; overflow: hidden;">
+        <div class="chat-sidebar" style="width: 280px; background: rgba(0, 0, 0, 0.4); border-right: 1px solid rgba(255, 255, 255, 0.1); display: flex; flex-direction: column;">
+            <div class="chat-sidebar-header" style="padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); font-weight: 600;">
+                <i class="fas fa-users"></i> Контакты
+            </div>
+            <div id="chatContacts" class="chat-contacts" style="flex: 1; overflow-y: auto; padding: 12px;"></div>
+        </div>
+        
+        <div class="chat-main" style="flex: 1; display: flex; flex-direction: column;">
+            <div class="chat-header" style="padding: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; gap: 12px;">
+                <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px;">
+                    💬
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; font-size: 16px;" id="chatHeaderName">Общий чат</div>
+                    <div style="font-size: 12px; opacity: 0.6;" id="chatHeaderStatus">Все сотрудники</div>
+                </div>
+                <button id="chatSettingsBtn" class="settings-btn" style="display: none; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; color: white;">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button id="announcementBtn" class="announcement-btn" style="display: none; background: linear-gradient(135deg, #8b5cf6, #6366f1); border: none; border-radius: 40px; padding: 8px 20px; color: white; cursor: pointer; font-weight: 500; display: flex; align-items: center; gap: 8px;">
+                    <i class="fas fa-bullhorn"></i> Объявление
+                </button>
+            </div>
+            
+            <div id="chatMessages" class="chat-messages" style="flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                <div style="text-align: center; padding: 40px; opacity: 0.5;">💬 Выберите чат для начала общения</div>
+            </div>
+            
+            <div id="typingIndicator" style="padding: 0 20px; font-size: 11px; color: #64748b; display: none;"></div>
+            
+            <div class="chat-input-area" style="padding: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); display: flex; gap: 12px; align-items: flex-end;">
+                <textarea id="chatInput" placeholder="Введите сообщение..." rows="1" style="flex: 1; padding: 12px 16px; border-radius: 24px; border: 1px solid #6366f1; background: #1e293b; color: white; font-family: inherit; resize: none;"></textarea>
+                <button id="chatEmojiBtn" class="emoji-btn" onclick="toggleEmojiPicker()" style="background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 50%; width: 44px; height: 44px; cursor: pointer; color: white;">
+                    <i class="fas fa-smile"></i>
+                </button>
+                <button id="chatSendBtn" class="btn-primary" style="border-radius: 44px; padding: 12px 24px;">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            
+            <div id="emojiPicker" class="emoji-picker" style="display: none; position: absolute; bottom: 100px; right: 100px; z-index: 1000; background: #1e293b; border-radius: 16px; box-shadow: 0 8px 25px rgba(0,0,0,0.3); padding: 12px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px;">
+                <span onclick="addEmoji('😀')">😀</span>
+                <span onclick="addEmoji('😂')">😂</span>
+                <span onclick="addEmoji('😍')">😍</span>
+                <span onclick="addEmoji('🥰')">🥰</span>
+                <span onclick="addEmoji('😎')">😎</span>
+                <span onclick="addEmoji('🤔')">🤔</span>
+                <span onclick="addEmoji('😢')">😢</span>
+                <span onclick="addEmoji('🎉')">🎉</span>
+                <span onclick="addEmoji('🔥')">🔥</span>
+                <span onclick="addEmoji('⭐')">⭐</span>
+                <span onclick="addEmoji('👍')">👍</span>
+                <span onclick="addEmoji('👎')">👎</span>
+                <span onclick="addEmoji('❤️')">❤️</span>
+                <span onclick="addEmoji('💀')">💀</span>
+                <span onclick="addEmoji('✅')">✅</span>
+                <span onclick="addEmoji('❌')">❌</span>
+                <span onclick="addEmoji('⚠️')">⚠️</span>
+                <span onclick="addEmoji('📢')">📢</span>
+                <span onclick="addEmoji('👑')">👑</span>
+                <span onclick="addEmoji('🎂')">🎂</span>
+                <span onclick="addEmoji('🎁')">🎁</span>
+                <span onclick="addEmoji('🏆')">🏆</span>
+                <span onclick="addEmoji('💪')">💪</span>
+                <span onclick="addEmoji('🙏')">🙏</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для объявления -->
+<div id="announcementModal" class="modal">
+    <div class="modal-window" style="max-width: 500px;">
+        <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div style="width: 40px; height: 40px; background: linear-gradient(135deg, #8b5cf6, #6366f1); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-bullhorn"></i>
+                </div>
+                <div>
+                    <h3 style="margin: 0;">Создать объявление</h3>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Важное сообщение для всех</p>
+                </div>
+            </div>
+            <button onclick="closeAnnouncementModal()" style="background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer;">&times;</button>
+        </div>
+        
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 500; color: #94a3b8;">
+                    <i class="fas fa-comment"></i> Текст объявления
+                </label>
+                <textarea id="announcementText" class="edit-textarea" rows="5" placeholder="Введите важное сообщение..." style="width: 100%;"></textarea>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <label style="display: block; margin-bottom: 8px; font-size: 13px; font-weight: 500; color: #94a3b8;">
+                    <i class="fas fa-palette"></i> Стиль оформления
+                </label>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                    <button class="style-option active" data-style="director" style="padding: 8px 16px; border-radius: 30px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; border: none; cursor: pointer;">👑 Директор</button>
+                    <button class="style-option" data-style="manager" style="padding: 8px 16px; border-radius: 30px; background: #f59e0b; color: white; border: none; cursor: pointer;">📋 Управляющий</button>
+                    <button class="style-option" data-style="urgent" style="padding: 8px 16px; border-radius: 30px; background: #ef4444; color: white; border: none; cursor: pointer;">⚠️ Срочное</button>
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
+            <button class="btn-secondary" onclick="closeAnnouncementModal()">❌ Отмена</button>
+            <button class="btn-primary" onclick="sendAnnouncement()" style="background: linear-gradient(135deg, #8b5cf6, #6366f1);">
+                <i class="fas fa-paper-plane"></i> Опубликовать
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно настроек чата -->
+<div id="chatSettingsModal" class="modal">
+    <div class="modal-window" style="max-width: 450px;">
+        <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15);">
+            <h3><i class="fas fa-sliders-h"></i> Настройки чата</h3>
+            <p style="font-size: 12px; color: #64748b;">Управление сообщениями в общем чате</p>
+        </div>
+        <div style="padding: 20px;">
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 12px; font-weight: 500; color: #94a3b8;">
+                    <i class="fas fa-trash-alt"></i> Удалить сообщения
+                </label>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button class="btn-danger" onclick="deleteMessagesByPeriod('15min')" style="width: 100%; padding: 12px; border-radius: 12px;">🕐 За последние 15 минут</button>
+                    <button class="btn-danger" onclick="deleteMessagesByPeriod('hour')" style="width: 100%; padding: 12px; border-radius: 12px;">⏰ За последний час</button>
+                    <button class="btn-danger" onclick="deleteMessagesByPeriod('day')" style="width: 100%; padding: 12px; border-radius: 12px;">📅 За последний день</button>
+                    <button class="btn-danger" onclick="deleteMessagesByPeriod('week')" style="width: 100%; padding: 12px; border-radius: 12px;">📆 За последнюю неделю</button>
+                    <button class="btn-danger" onclick="deleteMessagesByPeriod('month')" style="width: 100%; padding: 12px; border-radius: 12px;">📅 За последний месяц</button>
+                    <button class="btn-danger" onclick="deleteMessagesByPeriod('all')" style="width: 100%; padding: 12px; border-radius: 12px; background: rgba(239,68,68,0.3);">🗑️ ВСЕ сообщения</button>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1); display: flex; justify-content: flex-end;">
+            <button class="btn-secondary" onclick="closeChatSettingsModal()">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.chat-container {
+    display: flex;
+    gap: 20px;
+    min-height: 550px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 28px;
+    overflow: hidden;
+}
+.chat-sidebar {
+    width: 280px;
+    background: rgba(0, 0, 0, 0.4);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+}
+.chat-sidebar-header {
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    font-weight: 600;
+}
+.chat-contacts {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+.chat-contact {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 4px;
+    position: relative;
+}
+.chat-contact:hover {
+    background: rgba(99, 102, 241, 0.2);
+}
+.chat-contact.active {
+    background: rgba(99, 102, 241, 0.4);
+}
+.contact-avatar {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    overflow: hidden;
+}
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.chat-header {
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.chat-input-area {
+    padding: 20px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    gap: 12px;
+    align-items: flex-end;
+}
+.chat-input-area textarea {
+    flex: 1;
+    padding: 12px 16px;
+    border-radius: 24px;
+    border: 1px solid #6366f1;
+    background: #1e293b;
+    color: white;
+    font-family: inherit;
+    resize: none;
+}
+.emoji-picker {
+    position: absolute;
+    bottom: 100px;
+    right: 100px;
+    z-index: 1000;
+    background: #1e293b;
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    padding: 12px;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 8px;
+}
+.emoji-picker span {
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    text-align: center;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+.emoji-picker span:hover {
+    background: rgba(99, 102, 241, 0.3);
+}
+.unread-badge {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #ef4444;
+    color: white;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    min-width: 18px;
+    text-align: center;
+}
+.announcement-message {
+    margin: 16px 0;
+    animation: announcementFadeIn 0.5s ease-out;
+}
+.announcement-director {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(99, 102, 241, 0.04));
+    border-left: 4px solid #8b5cf6;
+    border-radius: 16px;
+    padding: 0;
+}
+.announcement-manager {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.04));
+    border-left: 4px solid #f59e0b;
+    border-radius: 16px;
+    padding: 0;
+}
+.announcement-urgent {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.04));
+    border-left: 4px solid #ef4444;
+    border-radius: 16px;
+    padding: 0;
+    animation: subtlePulse 2s ease-in-out;
+}
+.announcement-header {
+    padding: 16px 20px 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.announcement-role {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+}
+.announcement-time {
+    font-size: 11px;
+    opacity: 0.5;
+}
+.announcement-content {
+    padding: 16px 20px 20px 20px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+}
+.announcement-content p {
+    margin: 0;
+}
+@keyframes announcementFadeIn {
+    0% { opacity: 0; transform: translateY(20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes subtlePulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.2); border-left-color: #ef4444; }
+    50% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); border-left-color: #f87171; }
+}
+.settings-btn {
+    transition: all 0.3s;
+}
+.settings-btn:hover {
+    transform: rotate(90deg);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+.emoji-btn {
+    transition: all 0.2s;
+}
+.emoji-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+}
+@media (max-width: 768px) {
+    .chat-container {
+        flex-direction: column;
+    }
+    .chat-sidebar {
+        width: 100%;
+        max-height: 200px;
+    }
+    .emoji-picker {
+        grid-template-columns: repeat(6, 1fr);
+        right: 20px;
+        bottom: 80px;
+    }
+}
+</style>

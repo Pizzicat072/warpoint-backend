@@ -1,0 +1,959 @@
+<!-- public/pages/salary.html -->
+<div class="salary-container">
+    <!-- Анимированный фон -->
+    <div class="salary-bg">
+        <div class="bg-glow"></div>
+        <div class="bg-glow-2"></div>
+        <div class="bg-glow-3"></div>
+    </div>
+
+    <!-- Хедер -->
+    <div class="salary-header">
+        <div class="salary-header-icon">
+            <i class="fas fa-coins"></i>
+        </div>
+        <div class="salary-header-info">
+            <h1>Зарплата и мотивация</h1>
+            <p>Управление начислениями и премиями сотрудников</p>
+        </div>
+        <div class="salary-role-badge" id="salaryRoleBadge">
+            <i class="fas fa-user-shield"></i>
+            <span id="salaryRoleText">Режим просмотра</span>
+        </div>
+    </div>
+
+    <!-- Панель управления -->
+    <div class="salary-controls">
+        <div class="salary-period">
+            <button class="month-nav" id="prevMonthBtn" title="Предыдущий месяц">
+                <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="current-period">
+                <span class="period-month-display" id="currentMonthDisplay">Март</span>
+                <span class="period-year-display" id="currentYearDisplay">2026</span>
+            </div>
+            <button class="month-nav" id="nextMonthBtn" title="Следующий месяц">
+                <i class="fas fa-chevron-right"></i>
+            </button>
+        </div>
+        <button class="salary-export" id="exportBtn">
+            <i class="fas fa-file-excel"></i>
+            <span>Экспорт</span>
+        </button>
+    </div>
+
+    <!-- Контейнер таблицы -->
+    <div id="salaryTableContainer" class="salary-table-container">
+        <div class="loading-state">
+            <div class="loading-ring"></div>
+            <div class="loading-text">Загрузка данных...</div>
+        </div>
+    </div>
+</div>
+
+<!-- Модалка для редактирования/просмотра дня -->
+<div id="dayModal" class="modal">
+    <div class="modal-window day-modal">
+        <div class="day-modal-header">
+            <div class="day-modal-header-left">
+                <div class="day-modal-icon">
+                    <i class="fas fa-calendar-day"></i>
+                </div>
+                <div>
+                    <div class="day-modal-date" id="modalDate"></div>
+                    <div class="day-modal-employee" id="modalEmployee"></div>
+                </div>
+            </div>
+            <button class="day-modal-close" onclick="closeDayModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="day-modal-body">
+            <!-- Оклад - основной -->
+            <div class="salary-field primary-field">
+                <div class="salary-field-label">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span>ОКЛАД</span>
+                    <span class="field-badge">основная ставка</span>
+                </div>
+                <div class="salary-field-input">
+                    <span class="currency-symbol">₽</span>
+                    <input type="number" id="salaryOklad" class="salary-number-input" placeholder="0" value="0">
+                </div>
+            </div>
+
+            <!-- Сетка для остальных полей -->
+            <div class="salary-fields-grid">
+                <div class="salary-field">
+                    <div class="salary-field-label">
+                        <i class="fas fa-calendar-star"></i>
+                        <span>МЕРОПРИЯТИЕ</span>
+                    </div>
+                    <div class="salary-field-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="salaryEvent" class="salary-number-input" placeholder="0" value="0">
+                    </div>
+                </div>
+
+                <div class="salary-field">
+                    <div class="salary-field-label">
+                        <i class="fas fa-chart-line"></i>
+                        <span>ПРЕМИЯ С ОБОРОТА</span>
+                    </div>
+                    <div class="salary-field-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="salaryTurnover" class="salary-number-input" placeholder="0" value="0">
+                    </div>
+                </div>
+
+                <div class="salary-field">
+                    <div class="salary-field-label">
+                        <i class="fas fa-trophy"></i>
+                        <span>ПРЕМИЯ ЗА 35 ТЫС.</span>
+                    </div>
+                    <div class="salary-field-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="salaryBonus35" class="salary-number-input" placeholder="0" value="0">
+                    </div>
+                </div>
+
+                <div class="salary-field">
+                    <div class="salary-field-label">
+                        <i class="fas fa-video"></i>
+                        <span>РОЛИК / ОТЗЫВ</span>
+                    </div>
+                    <div class="salary-field-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ИТОГО за день -->
+            <div class="salary-total-day">
+                <div class="total-day-label">
+                    <i class="fas fa-calculator"></i>
+                    <span>ИТОГО ЗА ДЕНЬ</span>
+                </div>
+                <div class="total-day-value" id="totalDayValue">0 ₽</div>
+            </div>
+        </div>
+
+        <div class="day-modal-footer" id="modalFooter">
+            <button class="btn-clear" id="clearDayBtn" onclick="clearCurrentDay()">
+                <i class="fas fa-eraser"></i>
+                <span>Очистить</span>
+            </button>
+            <button class="btn-save" id="saveDayBtn" onclick="saveCurrentDay()">
+                <i class="fas fa-save"></i>
+                <span>Сохранить</span>
+            </button>
+            <button class="btn-close" onclick="closeDayModal()">
+                <i class="fas fa-times"></i>
+                <span>Закрыть</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+/* ============================================
+   PREMIUM SALARY PAGE STYLES v3
+   ============================================ */
+
+@keyframes floatGlow {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+    50% { transform: translate(30px, -20px) scale(1.2); opacity: 0.5; }
+}
+
+@keyframes floatGlow2 {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.2; }
+    50% { transform: translate(-40px, 30px) scale(1.3); opacity: 0.4; }
+}
+
+@keyframes floatGlow3 {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.15; }
+    50% { transform: translate(20px, 40px) scale(1.1); opacity: 0.3; }
+}
+
+@keyframes slideInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.salary-container {
+    position: relative;
+    padding: 24px 32px;
+    max-width: 100%;
+    margin: 0 auto;
+    min-height: calc(100vh - 200px);
+    overflow-x: auto;
+}
+
+/* Анимированный фон */
+.salary-bg {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: -2;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.bg-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(251, 191, 36, 0.12), transparent 70%);
+    top: -200px;
+    right: -100px;
+    animation: floatGlow 15s ease-in-out infinite;
+}
+
+.bg-glow-2 {
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    background: radial-gradient(circle, rgba(139, 92, 246, 0.08), transparent 70%);
+    bottom: -100px;
+    left: -50px;
+    animation: floatGlow2 20s ease-in-out infinite;
+}
+
+.bg-glow-3 {
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.06), transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: floatGlow3 25s ease-in-out infinite;
+}
+
+/* Header */
+.salary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 32px;
+    padding: 24px 32px;
+    background: linear-gradient(135deg, rgba(20, 25, 50, 0.8), rgba(15, 18, 35, 0.6));
+    backdrop-filter: blur(20px);
+    border-radius: 32px;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    flex-wrap: wrap;
+    animation: slideInUp 0.5s ease-out;
+    position: relative;
+    overflow: hidden;
+}
+
+.salary-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(251, 191, 36, 0.08), transparent);
+    animation: shimmer 3s infinite;
+}
+
+.salary-header-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.3);
+}
+
+.salary-header-info h1 {
+    font-size: 28px;
+    font-weight: 800;
+    margin: 0 0 6px 0;
+    background: linear-gradient(135deg, #fff, #fbbf24, #f59e0b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.salary-header-info p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.salary-role-badge {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 20px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 60px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.salary-role-badge i {
+    font-size: 16px;
+    color: #fbbf24;
+}
+
+.salary-role-badge span {
+    font-size: 13px;
+    font-weight: 500;
+    color: #e2e8f0;
+}
+
+/* Controls */
+.salary-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 20px;
+    margin-bottom: 28px;
+    padding: 14px 24px;
+    background: rgba(17, 24, 39, 0.6);
+    backdrop-filter: blur(12px);
+    border-radius: 60px;
+    border: 1px solid rgba(251, 191, 36, 0.15);
+    animation: slideInUp 0.5s ease-out 0.1s backwards;
+}
+
+.salary-period {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.month-nav {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.15), rgba(245, 158, 11, 0.05));
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #fbbf24;
+    transition: all 0.3s;
+    font-size: 18px;
+}
+
+.month-nav:hover {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(245, 158, 11, 0.15));
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(251, 191, 36, 0.3);
+}
+
+.current-period {
+    text-align: center;
+    min-width: 160px;
+    padding: 8px 24px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 60px;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.period-month-display {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.period-year-display {
+    font-size: 16px;
+    font-weight: 600;
+    color: #94a3b8;
+    margin-left: 8px;
+}
+
+.salary-export {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 60px;
+    padding: 10px 24px;
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.salary-export:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+/* Table Container - ОБЯЗАТЕЛЬНАЯ ГОРИЗОНТАЛЬНАЯ ПРОКРУТКА */
+.salary-table-container {
+    background: rgba(17, 24, 39, 0.5);
+    backdrop-filter: blur(12px);
+    border-radius: 28px;
+    border: 1px solid rgba(251, 191, 36, 0.15);
+    overflow-x: auto;
+    overflow-y: visible;
+    padding: 4px;
+    animation: slideInUp 0.5s ease-out 0.2s backwards;
+    width: 100%;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Таблица - ПРИНУДИТЕЛЬНАЯ ШИРИНА */
+.salary-table {
+    width: auto;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    table-layout: auto;
+    white-space: nowrap;
+}
+
+/* Заголовки таблицы */
+.salary-table th {
+    padding: 14px 6px;
+    text-align: center;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.08));
+    font-weight: 600;
+    color: #cbd5e1;
+    border-bottom: 2px solid rgba(251, 191, 36, 0.2);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    font-size: 11px;
+    min-width: 55px;
+}
+
+/* Ячейки таблицы */
+.salary-table td {
+    padding: 10px 4px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 11px;
+}
+
+/* Ячейка дня - фиксированная минимальная ширина */
+.day-cell {
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 11px;
+    min-width: 70px;
+    white-space: nowrap;
+}
+
+.day-cell:hover {
+    background: rgba(251, 191, 36, 0.15);
+    transform: scale(1.02);
+}
+
+.day-cell.empty {
+    color: #475569;
+    opacity: 0.6;
+}
+
+.day-cell.filled {
+    color: #fbbf24;
+    font-weight: 600;
+    background: rgba(251, 191, 36, 0.08);
+}
+
+/* Сотрудник - фиксированная ширина */
+.salary-employee-cell {
+    position: sticky;
+    left: 0;
+    background: linear-gradient(135deg, #0f1222, #11141c);
+    z-index: 4;
+    min-width: 180px;
+    max-width: 180px;
+    border-right: 1px solid rgba(251, 191, 36, 0.1);
+}
+
+.salary-employee-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+}
+
+.salary-employee-avatar {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.salary-employee-name {
+    font-weight: 600;
+    font-size: 12px;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.salary-employee-role {
+    font-size: 9px;
+    color: #a78bfa;
+    margin-top: 2px;
+    white-space: nowrap;
+}
+
+/* Итоговая ячейка */
+.salary-total-cell {
+    font-weight: 700;
+    color: #fbbf24;
+    background: rgba(251, 191, 36, 0.08);
+    border-radius: 10px;
+    min-width: 100px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* Разделитель */
+.salary-separator td {
+    padding: 6px 0;
+}
+
+.separator-line {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #fbbf24, #f59e0b, #fbbf24, transparent);
+    width: 100%;
+}
+
+/* Loading state */
+.loading-state {
+    text-align: center;
+    padding: 60px;
+}
+
+.loading-ring {
+    width: 50px;
+    height: 50px;
+    margin: 0 auto 16px;
+    border: 3px solid rgba(251, 191, 36, 0.2);
+    border-top-color: #fbbf24;
+    border-right-color: #f59e0b;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: #64748b;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 60px;
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-state h3 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #e2e8f0;
+}
+
+.empty-state p {
+    color: #64748b;
+}
+
+/* ============================================
+   DAY MODAL - PREMIUM DESIGN
+   ============================================ */
+
+.day-modal {
+    max-width: 550px;
+    width: 90%;
+    padding: 0;
+    background: linear-gradient(135deg, #1a1f2e, #0f1222);
+    border-radius: 32px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    overflow: hidden;
+}
+
+.day-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.05));
+    border-bottom: 1px solid rgba(251, 191, 36, 0.15);
+}
+
+.day-modal-header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.day-modal-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+}
+
+.day-modal-date {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fbbf24;
+    margin-bottom: 4px;
+}
+
+.day-modal-employee {
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.day-modal-close {
+    width: 34px;
+    height: 34px;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: 50%;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.day-modal-close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.day-modal-body {
+    padding: 24px;
+}
+
+/* Primary field - Оклад */
+.salary-field.primary-field {
+    margin-bottom: 24px;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.02));
+    border-radius: 18px;
+    padding: 14px 18px;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.salary-field.primary-field .salary-field-label {
+    color: #fbbf24;
+    margin-bottom: 10px;
+}
+
+.salary-field.primary-field .salary-field-label i {
+    color: #fbbf24;
+}
+
+.salary-field.primary-field .salary-field-input {
+    background: #0d1016;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.salary-field.primary-field .salary-number-input {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+/* Fields grid */
+.salary-fields-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+}
+
+.salary-field {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+    padding: 10px 14px;
+    transition: all 0.2s;
+}
+
+.salary-field:hover {
+    background: rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+}
+
+.salary-field-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #a78bfa;
+    letter-spacing: 0.5px;
+}
+
+.salary-field-label i {
+    font-size: 11px;
+}
+
+.field-badge {
+    font-size: 8px;
+    padding: 2px 6px;
+    background: rgba(251, 191, 36, 0.15);
+    border-radius: 20px;
+    color: #fbbf24;
+    margin-left: 6px;
+}
+
+.salary-field-input {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #0d1016;
+    border: 1px solid #1e2430;
+    border-radius: 10px;
+    padding: 0 10px;
+    transition: all 0.2s;
+}
+
+.salary-field-input:focus-within {
+    border-color: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.1);
+}
+
+.currency-symbol {
+    color: #fbbf24;
+    font-weight: 600;
+    font-size: 12px;
+}
+
+.salary-number-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 10px 0;
+    color: #e2e8f0;
+    font-size: 13px;
+    font-weight: 500;
+    outline: none;
+}
+
+.salary-number-input:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Total day */
+.salary-total-day {
+    margin-top: 6px;
+    padding: 16px;
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.06));
+    border-radius: 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
+.total-day-label {
+    font-size: 13px;
+    font-weight: 700;
+    color: #fbbf24;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.total-day-label i {
+    font-size: 16px;
+}
+
+.total-day-value {
+    font-size: 24px;
+    font-weight: 800;
+    color: #fbbf24;
+    letter-spacing: 1px;
+}
+
+/* Modal Footer */
+.day-modal-footer {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(251, 191, 36, 0.1);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.btn-clear, .btn-save, .btn-close {
+    padding: 8px 18px;
+    border-radius: 40px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-clear {
+    background: rgba(239, 68, 68, 0.12);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-clear:hover {
+    background: rgba(239, 68, 68, 0.25);
+    transform: translateY(-1px);
+}
+
+.btn-save {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.btn-close {
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.btn-close:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #e2e8f0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .salary-container {
+        padding: 12px;
+    }
+    
+    .salary-header {
+        padding: 16px 18px;
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .salary-header-icon {
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+    }
+    
+    .salary-header-info h1 {
+        font-size: 20px;
+    }
+    
+    .salary-controls {
+        flex-direction: column;
+    }
+    
+    .salary-period {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .salary-export {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .salary-fields-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .day-modal {
+        width: 95%;
+    }
+    
+    .day-modal-header {
+        padding: 16px 18px;
+    }
+    
+    .day-modal-body {
+        padding: 18px;
+    }
+    
+    .day-modal-footer {
+        padding: 14px 18px;
+        flex-wrap: wrap;
+    }
+    
+    .btn-clear, .btn-save, .btn-close {
+        flex: 1;
+        justify-content: center;
+    }
+    
+    .salary-employee-cell {
+        min-width: 150px;
+        max-width: 150px;
+    }
+    
+    .salary-employee-content {
+        gap: 8px;
+    }
+    
+    .salary-employee-avatar {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        font-size: 14px;
+    }
+    
+    .salary-employee-name {
+        font-size: 11px;
+    }
+    
+    .day-cell {
+        min-width: 60px;
+    }
+    
+    .total-day-value {
+        font-size: 20px;
+    }
+}
+</style>

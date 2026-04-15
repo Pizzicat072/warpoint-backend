@@ -1,0 +1,236 @@
+<!-- public/pages/employees.html -->
+
+<div class="employees-modern-container">
+
+    <!-- ХЕДЕР С КНОПКОЙ -->
+    <div class="emp-header">
+        <div class="emp-header-left">
+            <div class="emp-header-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div>
+                <h1>Команда WARPOINT</h1>
+                <p>Сотрудники клуба</p>
+            </div>
+        </div>
+        <button id="createEmployeeBtn" class="emp-create-btn" onclick="openCreateEmployeeModal()" style="display: none;">
+            <i class="fas fa-user-plus"></i>
+            <span>Добавить сотрудника</span>
+        </button>
+    </div>
+
+    <!-- СЕТКА КАРТОЧЕК -->
+    <div id="employeesGrid" class="emp-grid">
+        <!-- Карточки рендерятся через JS -->
+    </div>
+
+</div>
+
+<!-- МОДАЛКА ПРОФИЛЯ -->
+<div id="profileModal" class="emp-modal">
+    <div class="emp-modal-window" style="max-width: 650px;">
+        <div id="profileModalContent"></div>
+    </div>
+</div>
+
+<!-- МОДАЛКА СОЗДАНИЯ СОТРУДНИКА -->
+<div id="createEmployeeModal" class="emp-modal">
+    <div class="emp-modal-window">
+        <div class="emp-modal-header">
+            <div class="emp-modal-icon">
+                <i class="fas fa-user-plus"></i>
+            </div>
+            <div class="emp-modal-title">
+                <h3>Новый сотрудник</h3>
+                <p>Заполните данные</p>
+            </div>
+            <button class="emp-modal-close" onclick="closeCreateEmployeeModal()">&times;</button>
+        </div>
+        
+        <div class="emp-modal-body">
+            <div class="emp-form-group">
+                <label><i class="fas fa-user"></i> Имя</label>
+                <input type="text" id="newEmpName" placeholder="Введите имя">
+            </div>
+            
+            <div class="emp-form-group">
+                <label><i class="fas fa-lock"></i> Пароль</label>
+                <input type="password" id="newEmpPassword" placeholder="Придумайте пароль">
+            </div>
+            
+            <div class="emp-form-group">
+                <label><i class="fas fa-briefcase"></i> Должность</label>
+                <div class="emp-role-selector">
+                    <label class="emp-role-option active" onclick="selectRole('operator')">
+                        <input type="radio" name="roleSelect" value="operator" checked>
+                        <span class="emp-role-icon">👤</span>
+                        <span class="emp-role-info">
+                            <span class="emp-role-name">Оператор</span>
+                            <span class="emp-role-desc">Базовый доступ</span>
+                        </span>
+                        <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
+                    </label>
+                    <label class="emp-role-option" onclick="selectRole('admin')">
+                        <input type="radio" name="roleSelect" value="admin">
+                        <span class="emp-role-icon">⚙️</span>
+                        <span class="emp-role-info">
+                            <span class="emp-role-name">Администратор</span>
+                            <span class="emp-role-desc">Управление ВП</span>
+                        </span>
+                        <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
+                    </label>
+                    <label class="emp-role-option" onclick="selectRole('manager')">
+                        <input type="radio" name="roleSelect" value="manager">
+                        <span class="emp-role-icon">📋</span>
+                        <span class="emp-role-info">
+                            <span class="emp-role-name">Управляющий</span>
+                            <span class="emp-role-desc">Полный доступ</span>
+                        </span>
+                        <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
+                    </label>
+                </div>
+                <input type="hidden" id="newEmpRole" value="operator">
+            </div>
+            
+            <div class="emp-form-row-2">
+                <div class="emp-form-group">
+                    <label><i class="fas fa-calendar"></i> Дата рождения</label>
+                    <input type="date" id="newEmpBirthday">
+                </div>
+                <div class="emp-form-group">
+                    <label><i class="fas fa-phone"></i> Телефон</label>
+                    <input type="tel" id="newEmpPhone" placeholder="+7 (___) ___-__-__">
+                </div>
+            </div>
+        </div>
+        
+        <div class="emp-modal-footer">
+            <button class="emp-btn-secondary" onclick="closeCreateEmployeeModal()">Отмена</button>
+            <button class="emp-btn-primary" onclick="createEmployee()">
+                <i class="fas fa-check"></i> Создать
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА ВЫБОРА АВАТАРА -->
+<div id="avatarModal" class="emp-modal">
+    <div class="emp-modal-window" style="max-width: 450px;">
+        <div class="emp-modal-header">
+            <div class="emp-modal-icon">
+                <i class="fas fa-smile"></i>
+            </div>
+            <div class="emp-modal-title">
+                <h3>Выберите аватар</h3>
+                <p>Эмодзи для профиля</p>
+            </div>
+            <button class="emp-modal-close" onclick="closeAvatarModal()">&times;</button>
+        </div>
+        
+        <div class="emp-modal-body">
+            <div id="avatarGrid" class="emp-avatar-grid"></div>
+        </div>
+        
+        <div class="emp-modal-footer">
+            <button class="emp-btn-primary" onclick="openAvatarUploadModal()">
+                <i class="fas fa-upload"></i> Загрузить фото
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- МОДАЛКА ПРЕДПРОСМОТРА -->
+<div id="avatarPreviewModal" class="emp-modal">
+    <div class="emp-modal-window" style="max-width: 450px;">
+        <div class="emp-modal-header">
+            <div class="emp-modal-icon">
+                <i class="fas fa-camera"></i>
+            </div>
+            <div class="emp-modal-title">
+                <h3>Предпросмотр</h3>
+                <p>Ваше фото</p>
+            </div>
+            <button class="emp-modal-close" onclick="closeAvatarPreviewModal()">&times;</button>
+        </div>
+        
+        <div class="emp-modal-body">
+            <div class="emp-preview-container">
+                <img id="avatarPreviewImg" src="" alt="Предпросмотр">
+            </div>
+        </div>
+        
+        <div class="emp-modal-footer">
+            <button class="emp-btn-secondary" onclick="closeAvatarPreviewModal()">Отмена</button>
+            <button class="emp-btn-primary" onclick="confirmAvatarUpload()">Сохранить</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    function selectRole(role) {
+        document.getElementById('newEmpRole').value = role;
+        document.querySelectorAll('.emp-role-option').forEach(opt => {
+            opt.classList.remove('active');
+            const radio = opt.querySelector('input[type="radio"]');
+            if (radio && radio.value === role) {
+                opt.classList.add('active');
+                radio.checked = true;
+            }
+        });
+    }
+    
+    function openCreateEmployeeModal() {
+        document.getElementById('createEmployeeModal').classList.add('active');
+        selectRole('operator');
+    }
+    
+    function closeCreateEmployeeModal() {
+        document.getElementById('createEmployeeModal').classList.remove('active');
+        document.getElementById('newEmpName').value = '';
+        document.getElementById('newEmpPassword').value = '';
+        document.getElementById('newEmpBirthday').value = '';
+        document.getElementById('newEmpPhone').value = '';
+    }
+    
+    function closeAvatarModal() {
+        document.getElementById('avatarModal').classList.remove('active');
+    }
+    
+    function closeAvatarPreviewModal() {
+        document.getElementById('avatarPreviewModal').classList.remove('active');
+    }
+    
+    function closeProfileModal() {
+        document.getElementById('profileModal').classList.remove('active');
+    }
+    
+    function openAvatarUploadModal() {
+        var input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+        input.onchange = function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                if (file.size > 2 * 1024 * 1024) {
+                    showNotif('Файл слишком большой (макс. 2MB)', 'error');
+                    return;
+                }
+                var reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('avatarPreviewImg').src = event.target.result;
+                    document.getElementById('avatarPreviewModal').classList.add('active');
+                    window.pendingAvatarBase64 = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        input.click();
+    }
+    
+    setTimeout(function() {
+        var btn = document.getElementById('createEmployeeBtn');
+        if (btn && window.app && window.app.currentUserRole === 'director') {
+            btn.style.display = 'inline-flex';
+        }
+    }, 200);
+</script>

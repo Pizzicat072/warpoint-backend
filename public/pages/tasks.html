@@ -1,0 +1,1187 @@
+<!-- public/pages/tasks.html -->
+<div class="tasks-container">
+    <!-- Верхняя панель -->
+    <div class="tasks-header">
+        <div class="tasks-title-section">
+            <div class="tasks-title-icon">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div>
+                <h1 class="tasks-title">Управление задачами</h1>
+                <p class="tasks-subtitle">Создавайте, отслеживайте и выполняйте задачи</p>
+            </div>
+        </div>
+        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="tasks-template-btn" onclick="openTemplateModal()" title="Шаблоны задач">
+                <i class="fas fa-copy"></i>
+                <span>Шаблоны</span>
+            </button>
+            <button class="tasks-stats-btn" onclick="openTasksStatsModal()" title="Статистика">
+                <i class="fas fa-chart-pie"></i>
+                <span>Статистика</span>
+            </button>
+            <button class="tasks-export-btn" onclick="exportTasksToExcel()" title="Экспорт">
+                <i class="fas fa-file-excel"></i>
+                <span>Экспорт</span>
+            </button>
+            <button class="tasks-create-btn" onclick="openTaskModal()">
+                <i class="fas fa-plus"></i>
+                <span>Создать задачу</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Статистика -->
+    <div class="tasks-stats-grid" id="tasksStats">
+        <div class="stat-card">
+            <div class="stat-icon">📋</div>
+            <div class="stat-value" id="statTotal">0</div>
+            <div class="stat-label">Всего задач</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value" id="statProgress">0</div>
+            <div class="stat-label">В процессе</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">✅</div>
+            <div class="stat-value" id="statCompleted">0</div>
+            <div class="stat-label">Выполнено</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">⚠️</div>
+            <div class="stat-value" id="statOverdue">0</div>
+            <div class="stat-label">Просрочено</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon">🔴</div>
+            <div class="stat-value" id="statHigh">0</div>
+            <div class="stat-label">Высокий приоритет</div>
+        </div>
+    </div>
+
+    <!-- Фильтры -->
+    <div class="tasks-filters">
+        <div class="filters-left">
+            <div class="filter-group">
+                <i class="fas fa-search"></i>
+                <input type="text" id="taskSearch" placeholder="Поиск по названию...">
+            </div>
+            <div class="filter-group">
+                <i class="fas fa-filter"></i>
+                <select id="filterStatus">
+                    <option value="all">Все статусы</option>
+                    <option value="in_progress">В процессе</option>
+                    <option value="completed">Выполнено</option>
+                    <option value="overdue">Просрочено</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <i class="fas fa-user"></i>
+                <select id="filterExecutor">
+                    <option value="all">Все исполнители</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <i class="fas fa-flag"></i>
+                <select id="filterPriority">
+                    <option value="all">Все приоритеты</option>
+                    <option value="low">🟢 Низкий</option>
+                    <option value="medium">🟡 Средний</option>
+                    <option value="high">🔴 Высокий</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <i class="fas fa-layer-group"></i>
+                <select id="filterType">
+                    <option value="all">Все типы</option>
+                    <option value="personal">👤 Личные</option>
+                    <option value="group_operators">📢 Для операторов</option>
+                    <option value="group_admins">⚙️ Для админов</option>
+                </select>
+            </div>
+        </div>
+        <div class="filters-right">
+            <label class="archive-checkbox">
+                <input type="checkbox" id="showArchived">
+                <span>📦 Показать архив</span>
+            </label>
+            <button class="filter-reset" onclick="resetFilters()" title="Сбросить фильтры">
+                <i class="fas fa-undo-alt"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Список задач -->
+    <div class="tasks-list" id="tasksList">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i> Загрузка задач...
+        </div>
+    </div>
+    
+    <!-- Информация об авто-архиве -->
+    <div class="auto-archive-info">
+        <i class="fas fa-info-circle"></i> 
+        Выполненные задачи автоматически архивируются через 3 дня
+    </div>
+</div>
+
+<!-- Модальное окно для создания/редактирования задачи -->
+<div id="taskModal" class="modal">
+    <div class="modal-window task-modal-window">
+        <div class="task-modal-header">
+            <div class="task-modal-title">
+                <div class="task-modal-icon">
+                    <i class="fas fa-tasks"></i>
+                </div>
+                <div>
+                    <h3 id="taskModalTitle">Создать задачу</h3>
+                    <p>Заполните информацию о задаче</p>
+                </div>
+            </div>
+            <button class="task-modal-close" onclick="closeTaskModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="task-modal-body">
+            <input type="hidden" id="taskId">
+            
+            <div class="task-form-group">
+                <label class="task-form-label">
+                    <i class="fas fa-heading"></i> Название задачи
+                </label>
+                <input type="text" id="taskName" class="task-form-input" placeholder="Введите название...">
+            </div>
+            
+            <div class="task-form-row">
+                <div class="task-form-group">
+                    <label class="task-form-label">
+                        <i class="fas fa-user-check"></i> Постановщик
+                    </label>
+                    <select id="taskAuthor" class="task-form-select">
+                        <option value="">Выберите постановщика</option>
+                    </select>
+                    <div id="authorHint" class="task-form-hint">Постановщика может выбрать только директор или управляющий</div>
+                </div>
+                <div class="task-form-group">
+                    <label class="task-form-label">
+                        <i class="fas fa-users"></i> Исполнитель
+                    </label>
+                    <select id="taskExecutor" class="task-form-select">
+                        <option value="">Выберите исполнителя</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div id="multiSelectContainer" class="task-multiselect" style="display: none;">
+                <label class="task-form-label">Выберите сотрудников</label>
+                <div id="multiSelectOptions" class="task-multiselect-grid"></div>
+                <div class="task-selected-list">
+                    <div class="task-selected-label">Выбранные сотрудники:</div>
+                    <div id="selectedExecutorsList" class="task-selected-tags"></div>
+                </div>
+            </div>
+            
+            <div class="task-form-row">
+                <div class="task-form-group">
+                    <label class="task-form-label">
+                        <i class="fas fa-flag"></i> Приоритет
+                    </label>
+                    <div class="task-priority-buttons">
+                        <button type="button" class="priority-btn low" data-priority="low" onclick="setTaskPriority('low')">
+                            <i class="fas fa-arrow-down"></i> Низкий
+                        </button>
+                        <button type="button" class="priority-btn medium" data-priority="medium" onclick="setTaskPriority('medium')">
+                            <i class="fas fa-minus"></i> Средний
+                        </button>
+                        <button type="button" class="priority-btn high" data-priority="high" onclick="setTaskPriority('high')">
+                            <i class="fas fa-arrow-up"></i> Высокий
+                        </button>
+                    </div>
+                    <input type="hidden" id="taskPriority" value="medium">
+                </div>
+                <div class="task-form-group">
+                    <label class="task-form-label">
+                        <i class="fas fa-calendar-alt"></i> Дедлайн
+                    </label>
+                    <input type="date" id="taskDeadline" class="task-form-input">
+                </div>
+            </div>
+            
+            <div class="task-form-group">
+                <label class="task-form-label">
+                    <i class="fas fa-comment"></i> Комментарий
+                </label>
+                <textarea id="taskComment" class="task-form-textarea" rows="3" placeholder="Дополнительная информация..."></textarea>
+            </div>
+            
+            <div class="task-form-group">
+                <label class="task-form-label">
+                    <i class="fas fa-sync-alt"></i> Повторять
+                </label>
+                <select id="taskRecurring" class="task-form-select">
+                    <option value="none">Нет</option>
+                    <option value="daily">Ежедневно</option>
+                    <option value="weekly">Еженедельно</option>
+                    <option value="monthly">Ежемесячно</option>
+                </select>
+            </div>
+            
+            <div class="task-form-group">
+                <label class="task-form-label">
+                    <i class="fas fa-list-ul"></i> Подзадачи
+                </label>
+                <div id="subtasksList" class="task-subtasks-list"></div>
+                <button type="button" class="task-add-btn" onclick="addSubtask()">
+                    <i class="fas fa-plus"></i> Добавить подзадачу
+                </button>
+            </div>
+            
+            <div class="task-form-group">
+                <label class="task-form-label">
+                    <i class="fas fa-paperclip"></i> Вложения
+                </label>
+                <div id="taskAttachmentsList" class="task-attachments-list"></div>
+                <button type="button" class="task-add-btn" onclick="addTaskFileInput()">
+                    <i class="fas fa-upload"></i> Добавить файл
+                </button>
+            </div>
+        </div>
+        
+        <div class="task-modal-footer">
+            <button class="task-btn-cancel" onclick="closeTaskModal()">Отмена</button>
+            <button class="task-btn-save" onclick="saveTask()">Сохранить задачу</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.tasks-container {
+    padding: 24px 32px;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.tasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.tasks-title-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.tasks-title-icon {
+    width: 56px;
+    height: 56px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+}
+
+.tasks-title {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    background: linear-gradient(135deg, #fff, #a78bfa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.tasks-subtitle {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+}
+
+.tasks-template-btn, .tasks-stats-btn, .tasks-export-btn {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 40px;
+    padding: 10px 20px;
+    color: #a78bfa;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.tasks-template-btn:hover, .tasks-stats-btn:hover, .tasks-export-btn:hover {
+    background: rgba(99, 102, 241, 0.3);
+    transform: translateY(-2px);
+}
+
+.tasks-create-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    border-radius: 40px;
+    padding: 12px 28px;
+    color: white;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tasks-create-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+}
+
+.tasks-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.tasks-stats-grid .stat-card {
+    background: rgba(17, 24, 39, 0.8);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    transition: all 0.2s;
+}
+
+.tasks-stats-grid .stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+.tasks-stats-grid .stat-icon {
+    font-size: 32px;
+    margin-bottom: 8px;
+}
+
+.tasks-stats-grid .stat-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.tasks-stats-grid .stat-label {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.tasks-filters {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: rgba(17, 24, 39, 0.5);
+    border-radius: 20px;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.filters-left {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    flex: 1;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 0 16px;
+    border-radius: 40px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.filter-group i {
+    color: #64748b;
+    font-size: 14px;
+}
+
+.filter-group input, .filter-group select {
+    background: transparent;
+    border: none;
+    padding: 10px 0;
+    color: #e2e8f0;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+}
+
+.filter-group select option {
+    background: #1e293b;
+}
+
+.filter-group input {
+    min-width: 180px;
+}
+
+.filter-group input::placeholder {
+    color: #475569;
+}
+
+.filters-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.archive-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.archive-checkbox input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #6366f1;
+}
+
+.filter-reset {
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 40px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #a78bfa;
+    transition: all 0.2s;
+}
+
+.filter-reset:hover {
+    background: rgba(99, 102, 241, 0.3);
+    transform: rotate(15deg);
+}
+
+.tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.task-card {
+    background: rgba(17, 24, 39, 0.7);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    transition: all 0.2s;
+    overflow: hidden;
+}
+
+.task-card:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: translateX(4px);
+}
+
+.task-card.completed {
+    opacity: 0.7;
+    border-left: 3px solid #10b981;
+}
+
+.task-card.overdue {
+    border-left: 3px solid #ef4444;
+    background: rgba(239, 68, 68, 0.05);
+}
+
+.task-card.archived {
+    opacity: 0.6;
+    border-left: 3px solid #64748b;
+}
+
+.task-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.task-card-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.task-checkbox {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    border: 2px solid #6366f1;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.task-checkbox.completed {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+.task-checkbox.completed i {
+    color: white;
+    font-size: 12px;
+}
+
+.task-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.task-title.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.task-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.task-priority-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.priority-low {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.priority-medium {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.priority-high {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.task-status-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.status-in-progress {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.status-completed {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-overdue {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.archived-badge {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+}
+
+.task-card-actions {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.task-card:hover .task-card-actions {
+    opacity: 1;
+}
+
+.task-action-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #64748b;
+    transition: all 0.2s;
+    background: none;
+    border: none;
+}
+
+.task-action-icon:hover {
+    background: rgba(99, 102, 241, 0.2);
+    color: #a78bfa;
+}
+
+.task-action-icon.complete:hover {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.task-action-icon.archive:hover {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.task-action-icon.delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.task-action-icon.restore:hover {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+}
+
+.task-card-body {
+    padding: 16px 20px;
+    display: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.task-card.expanded .task-card-body {
+    display: block;
+}
+
+.task-info-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+}
+
+.task-info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.task-info-item i {
+    width: 16px;
+    color: #a78bfa;
+}
+
+.task-subtasks {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.task-subtask-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    font-size: 13px;
+}
+
+.task-subtask-item input {
+    width: 16px;
+    height: 16px;
+    accent-color: #6366f1;
+}
+
+.task-subtask-item span.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.task-modal-window {
+    max-width: 650px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 0;
+    background: linear-gradient(135deg, #1a1f2e, #0f1222);
+    border-radius: 28px;
+}
+
+.task-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+    position: sticky;
+    top: 0;
+    background: inherit;
+    z-index: 10;
+}
+
+.task-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.task-modal-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.task-modal-title h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.task-modal-title p {
+    margin: 4px 0 0;
+    font-size: 12px;
+    color: #64748b;
+}
+
+.task-modal-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.task-modal-close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.task-modal-body {
+    padding: 24px;
+}
+
+.task-form-group {
+    margin-bottom: 20px;
+}
+
+.task-form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.task-form-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+.task-form-label i {
+    margin-right: 8px;
+    color: #a78bfa;
+}
+
+.task-form-input, .task-form-select, .task-form-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: #0d1016;
+    border: 1px solid #1e2430;
+    border-radius: 16px;
+    color: #e2e8f0;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.task-form-input:focus, .task-form-select:focus, .task-form-textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.task-form-textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+.task-form-hint {
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 6px;
+}
+
+.task-priority-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.priority-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 40px;
+    border: none;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+    background: rgba(255, 255, 255, 0.05);
+    color: #94a3b8;
+}
+
+.priority-btn.low.active {
+    background: rgba(16, 185, 129, 0.2);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.priority-btn.medium.active {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.priority-btn.high.active {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.task-subtasks-list {
+    margin-bottom: 12px;
+}
+
+.subtask-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    margin-bottom: 8px;
+}
+
+.subtask-checkbox {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #6366f1;
+}
+
+.subtask-name {
+    flex: 1;
+    font-size: 13px;
+}
+
+.subtask-name.completed {
+    text-decoration: line-through;
+    opacity: 0.6;
+}
+
+.subtask-delete {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.subtask-delete:hover {
+    color: #ef4444;
+}
+
+.task-add-btn {
+    width: 100%;
+    padding: 10px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px dashed rgba(99, 102, 241, 0.3);
+    border-radius: 12px;
+    color: #a78bfa;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.task-add-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    border-color: #a78bfa;
+}
+
+.task-attachments-list {
+    margin-bottom: 12px;
+}
+
+.attachment-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.attachment-remove {
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.task-multiselect {
+    margin-bottom: 20px;
+}
+
+.task-multiselect-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+    padding: 12px;
+    background: #0d1016;
+    border-radius: 16px;
+    border: 1px solid #1e2430;
+    margin-bottom: 12px;
+}
+
+.multi-select-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: #11141c;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+.multi-select-item:hover {
+    background: #1a1f2a;
+}
+
+.multi-select-item input {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #6366f1;
+}
+
+.task-selected-list {
+    margin-top: 8px;
+}
+
+.task-selected-label {
+    font-size: 12px;
+    color: #64748b;
+    margin-bottom: 8px;
+}
+
+.task-selected-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.selected-executor-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(99, 102, 241, 0.2);
+    border-radius: 20px;
+    font-size: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.selected-executor-tag button {
+    background: none;
+    border: none;
+    color: #f87171;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.task-modal-footer {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    padding: 16px 24px;
+    border-top: 1px solid rgba(99, 102, 241, 0.1);
+    position: sticky;
+    bottom: 0;
+    background: inherit;
+}
+
+.task-btn-cancel {
+    padding: 10px 24px;
+    border-radius: 40px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.task-btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.task-btn-save {
+    padding: 10px 28px;
+    border-radius: 40px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.task-btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.auto-archive-info {
+    font-size: 11px;
+    color: #64748b;
+    text-align: center;
+    margin-top: 20px;
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 30px;
+    display: inline-block;
+    width: auto;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 60px;
+    color: #64748b;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 60px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 24px;
+}
+
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+@media (max-width: 768px) {
+    .tasks-container {
+        padding: 16px;
+    }
+    
+    .tasks-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .tasks-title {
+        font-size: 24px;
+    }
+    
+    .filters-left {
+        width: 100%;
+    }
+    
+    .filter-group {
+        flex: 1;
+    }
+    
+    .filter-group input {
+        min-width: auto;
+    }
+    
+    .task-form-row {
+        grid-template-columns: 1fr;
+    }
+    
+    .task-card-header {
+        flex-direction: column;
+        gap: 12px;
+    }
+    
+    .task-card-header-left {
+        width: 100%;
+    }
+    
+    .task-card-actions {
+        opacity: 1;
+        justify-content: flex-end;
+    }
+}
+
+@media (max-width: 480px) {
+    .tasks-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .filters-left {
+        flex-direction: column;
+    }
+    
+    .filter-group {
+        width: 100%;
+    }
+    
+    .task-badges {
+        margin-top: 8px;
+    }
+}
+</style>

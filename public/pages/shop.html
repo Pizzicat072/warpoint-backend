@@ -1,0 +1,324 @@
+<!-- public/pages/shop.html - КОМПАКТНЫЙ ИСПРАВЛЕННЫЙ -->
+<div class="shop-container">
+    <!-- Шапка -->
+    <div class="shop-header">
+        <div class="shop-title">
+            <div class="shop-icon">🛒</div>
+            <div>
+                <h1>WARPOINT MARKET</h1>
+                <p>Подарки, аватары и статусы</p>
+            </div>
+        </div>
+        <div class="shop-balance">
+            <div class="balance-label">МОЙ БАЛАНС</div>
+            <div class="balance-value" id="userCoinsAmount">0</div>
+            <div class="balance-currency">WP</div>
+        </div>
+    </div>
+
+    <!-- Табы -->
+    <div class="shop-tabs">
+        <button class="shop-tab active" data-tab="gifts">🎁 Подарки</button>
+        <button class="shop-tab" data-tab="avatars">👤 Аватары</button>
+        <button class="shop-tab" data-tab="statuses">🏷️ Статусы</button>
+    </div>
+
+    <!-- Подарки -->
+    <div id="giftsTab" class="shop-tab-content active">
+        <div id="giftsContainer" class="shop-grid"></div>
+    </div>
+
+    <!-- Аватары -->
+    <div id="avatarsTab" class="shop-tab-content" style="display: none;">
+        <div id="avatarsContainer" class="shop-grid"></div>
+    </div>
+
+    <!-- Статусы -->
+    <div id="statusesTab" class="shop-tab-content" style="display: none;">
+        <div class="section-header">
+            <h3>✨ Доступные статусы</h3>
+        </div>
+        <div id="statusesContainer" class="shop-grid"></div>
+
+        <div class="section-header" style="margin-top: 32px;">
+            <h3>📦 Инвентарь</h3>
+        </div>
+        <div id="inventoryContainer" class="shop-grid"></div>
+    </div>
+</div>
+
+<!-- Модалка подарка -->
+<div id="giftModal" class="modal" style="display: none;">
+    <div class="modal-window" style="max-width: 400px;">
+        <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0;">🎁 Отправить подарок</h3>
+            <button onclick="closeGiftModal()" style="background: none; border: none; color: #94a3b8; font-size: 20px; cursor: pointer;">&times;</button>
+        </div>
+        <div style="padding: 20px;">
+            <select id="giftRecipient" class="edit-input" style="margin-bottom: 16px;">
+                <option value="">Выберите сотрудника</option>
+            </select>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 20px; margin-bottom: 16px;">
+                <button onclick="changeQuantity(-1)" style="width: 36px; height: 36px; background: #6366f1; border: none; border-radius: 50%; color: white; cursor: pointer;">-</button>
+                <span id="giftQuantity" style="font-size: 24px; font-weight: 700;">1</span>
+                <button onclick="changeQuantity(1)" style="width: 36px; height: 36px; background: #6366f1; border: none; border-radius: 50%; color: white; cursor: pointer;">+</button>
+            </div>
+            <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px; cursor: pointer;">
+                <input type="checkbox" id="giftAnonymous" onchange="toggleAnonymous(this.checked)">
+                <span>🕵️ Отправить анонимно</span>
+            </label>
+            <div style="display: flex; justify-content: space-between; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; margin-bottom: 20px;">
+                <span>Итого:</span>
+                <span id="totalPrice" style="font-size: 22px; color: #fbbf24; font-weight: 700;">0 WP</span>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn-secondary" onclick="closeGiftModal()">Отмена</button>
+                <button class="btn-primary" onclick="sendGift()">Отправить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* КОМПАКТНЫЙ МАГАЗИН */
+.shop-container {
+    padding: 20px 24px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Шапка */
+.shop-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(20, 25, 50, 0.5);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.shop-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.shop-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+}
+
+.shop-title h1 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.shop-title p {
+    font-size: 11px;
+    color: #94a3b8;
+    margin: 2px 0 0;
+}
+
+.shop-balance {
+    text-align: center;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 40px;
+    padding: 8px 24px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.balance-label {
+    font-size: 9px;
+    color: #94a3b8;
+    letter-spacing: 1px;
+}
+
+.balance-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fbbf24;
+    line-height: 1;
+}
+
+.balance-currency {
+    font-size: 9px;
+    color: #94a3b8;
+}
+
+/* Табы */
+.shop-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px;
+    border-radius: 40px;
+    width: fit-content;
+}
+
+.shop-tab {
+    padding: 8px 24px;
+    background: transparent;
+    border: none;
+    border-radius: 40px;
+    color: #94a3b8;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.shop-tab:hover {
+    color: #e2e8f0;
+}
+
+.shop-tab.active {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* Сетка */
+.shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+/* Карточка */
+.shop-card {
+    background: rgba(20, 25, 50, 0.5);
+    backdrop-filter: blur(8px);
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    padding: 16px;
+    text-align: center;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.shop-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(99, 102, 241, 0.4);
+    background: rgba(20, 25, 50, 0.7);
+}
+
+.card-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+.card-name {
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 6px;
+}
+
+.card-desc {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+}
+
+.card-price {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(251, 191, 36, 0.1);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.card-rating {
+    font-size: 11px;
+    color: #fbbf24;
+    margin-bottom: 10px;
+}
+
+.card-btn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    border-radius: 30px;
+    padding: 8px 16px;
+    color: white;
+    font-weight: 600;
+    font-size: 11px;
+    cursor: pointer;
+    width: 100%;
+    transition: all 0.2s;
+}
+
+.card-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.card-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.card-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 16px;
+    font-size: 9px;
+    font-weight: 600;
+    margin-top: 8px;
+}
+
+.badge-owned {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid #10b981;
+    color: #10b981;
+}
+
+.badge-active {
+    background: rgba(251, 191, 36, 0.15);
+    border: 1px solid #fbbf24;
+    color: #fbbf24;
+}
+
+.section-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    padding-left: 8px;
+    border-left: 3px solid #8b5cf6;
+}
+
+/* Адаптив */
+@media (max-width: 768px) {
+    .shop-container {
+        padding: 12px;
+    }
+    .shop-header {
+        flex-direction: column;
+        text-align: center;
+    }
+    .shop-grid {
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+    }
+    .card-icon {
+        font-size: 32px;
+    }
+    .card-name {
+        font-size: 12px;
+    }
+}
+</style>

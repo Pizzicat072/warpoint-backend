@@ -1,0 +1,10 @@
+{
+  "temperature": -1,
+  "feelsLike": -7,
+  "description": "Яндекс.Погода",
+  "icon": "🧥",
+  "temperatureDisplay": "-1",
+  "feelsLikeDisplay": "-7",
+  "fetchedAt": "2026-04-15T03:59:24.856Z",
+  "source": "Yandex"
+}

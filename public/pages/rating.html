@@ -1,0 +1,144 @@
+<!-- public/pages/rating.html -->
+<div class="rating-page">
+    
+    <!-- ГЛАВНЫЙ ГЕРОЙ -->
+    <div class="rating-hero">
+        <div class="rating-hero-bg"></div>
+        <div class="rating-hero-content">
+            <div class="rating-hero-icon">
+                <i class="fas fa-trophy"></i>
+                <div class="hero-icon-pulse"></div>
+            </div>
+            <div class="rating-hero-text">
+                <h1>Рейтинг и достижения</h1>
+                <p>Соревнуйтесь с коллегами и открывайте новые достижения</p>
+            </div>
+            <div class="rating-hero-stats">
+                <div class="hero-stat">
+                    <div class="hero-stat-value" id="totalEmployees">0</div>
+                    <div class="hero-stat-label">сотрудников</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value" id="totalAchievements">0</div>
+                    <div class="hero-stat-label">достижений</div>
+                </div>
+                <div class="hero-stat">
+                    <div class="hero-stat-value" id="userRank">⭐</div>
+                    <div class="hero-stat-label">ваше звание</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- РЕЙТИНГ -->
+    <div class="rating-section">
+        <div class="section-header">
+            <div class="section-icon">🏆</div>
+            <h2>Рейтинг сотрудников</h2>
+            <div class="section-line"></div>
+        </div>
+        
+        <div class="rating-controls">
+            <div class="rating-search">
+                <i class="fas fa-search"></i>
+                <input type="text" id="ratingSearch" placeholder="Поиск сотрудника...">
+            </div>
+            <div class="rating-sort">
+                <select id="ratingSort">
+                    <option value="rating">По рейтингу</option>
+                    <option value="coins">По монетам</option>
+                    <option value="hours">По часам</option>
+                    <option value="name">По имени</option>
+                </select>
+            </div>
+            <div class="rating-order">
+                <button class="order-btn active" data-order="desc" onclick="changeRatingOrder('desc')">
+                    <i class="fas fa-arrow-down"></i> По убыванию
+                </button>
+                <button class="order-btn" data-order="asc" onclick="changeRatingOrder('asc')">
+                    <i class="fas fa-arrow-up"></i> По возрастанию
+                </button>
+            </div>
+        </div>
+
+        <div class="rating-table-wrapper">
+            <table class="rating-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Сотрудник</th>
+                        <th>Часы</th>
+                        <th>⭐ Рейтинг</th>
+                        <th>💰 Монеты</th>
+                        <th>🏆 Звание</th>
+                        <th>🎯 Достижения</th>
+                    </tr>
+                </thead>
+                <tbody id="ratingTableBody">
+                    <tr><td colspan="7" class="loading-cell"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ДОСТИЖЕНИЯ -->
+    <div class="rating-section">
+        <div class="section-header">
+            <div class="section-icon">🎖️</div>
+            <h2>Достижения</h2>
+            <div class="section-line"></div>
+        </div>
+        <div id="achievementsContainer" class="achievements-container">
+            <div class="loading-achievements"><i class="fas fa-spinner fa-spin"></i> Загрузка достижений...</div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Оставляем все стили без изменений, они уже хорошие */
+.rating-page { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+.rating-hero { position: relative; background: linear-gradient(135deg, #1a1f2e, #0f1222); border-radius: 32px; margin-bottom: 32px; overflow: hidden; border: 1px solid rgba(99, 102, 241, 0.2); }
+.rating-hero-bg { position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent 70%); animation: heroGlow 8s ease-in-out infinite; }
+@keyframes heroGlow { 0%, 100% { transform: translate(0, 0); opacity: 0.5; } 50% { transform: translate(5%, 5%); opacity: 1; } }
+.rating-hero-content { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 28px 36px; flex-wrap: wrap; gap: 24px; }
+.rating-hero-icon { position: relative; width: 70px; height: 70px; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-radius: 24px; display: flex; align-items: center; justify-content: center; font-size: 32px; box-shadow: 0 0 30px rgba(251, 191, 36, 0.3); }
+.hero-icon-pulse { position: absolute; top: -5px; left: -5px; right: -5px; bottom: -5px; border-radius: 28px; background: linear-gradient(135deg, #fbbf24, #f59e0b); animation: iconPulse 2s ease-in-out infinite; z-index: -1; opacity: 0.5; }
+@keyframes iconPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 0.8; } }
+.rating-hero-text h1 { font-size: 28px; font-weight: 800; margin: 0; background: linear-gradient(135deg, #fff, #fbbf24); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.rating-hero-text p { font-size: 13px; color: #94a3b8; margin: 6px 0 0; }
+.rating-hero-stats { display: flex; gap: 32px; }
+.hero-stat { text-align: center; background: rgba(0, 0, 0, 0.3); backdrop-filter: blur(10px); border-radius: 40px; padding: 10px 28px; border: 1px solid rgba(99, 102, 241, 0.2); }
+.hero-stat-value { font-size: 28px; font-weight: 800; color: #fbbf24; line-height: 1; }
+.hero-stat-label { font-size: 10px; color: #94a3b8; margin-top: 4px; letter-spacing: 1px; }
+.rating-section { background: rgba(20, 25, 50, 0.4); backdrop-filter: blur(12px); border-radius: 28px; border: 1px solid rgba(99, 102, 241, 0.15); margin-bottom: 32px; overflow: hidden; }
+.section-header { display: flex; align-items: center; gap: 16px; padding: 20px 28px; background: rgba(0, 0, 0, 0.2); border-bottom: 1px solid rgba(99, 102, 241, 0.1); }
+.section-icon { font-size: 28px; }
+.section-header h2 { font-size: 20px; font-weight: 700; margin: 0; }
+.section-line { flex: 1; height: 2px; background: linear-gradient(90deg, rgba(99, 102, 241, 0.3), transparent); }
+.rating-controls { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 20px 28px; border-bottom: 1px solid rgba(99, 102, 241, 0.1); }
+.rating-search { display: flex; align-items: center; gap: 10px; background: #0d1016; border: 1px solid #1e2430; border-radius: 40px; padding: 8px 18px; }
+.rating-search i { color: #64748b; font-size: 14px; }
+.rating-search input { background: transparent; border: none; color: #e2e8f0; font-size: 13px; width: 220px; outline: none; }
+.rating-sort select { background: #0d1016; border: 1px solid #1e2430; border-radius: 40px; padding: 8px 20px; color: #e2e8f0; font-size: 13px; cursor: pointer; outline: none; }
+.rating-order { display: flex; gap: 10px; }
+.order-btn { background: #0d1016; border: 1px solid #1e2430; border-radius: 30px; padding: 8px 20px; color: #94a3b8; cursor: pointer; transition: all 0.2s; font-size: 12px; }
+.order-btn.active { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border-color: transparent; }
+.rating-table-wrapper { overflow-x: auto; padding: 0 4px 4px 4px; }
+.rating-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.rating-table th { padding: 16px 12px; text-align: left; background: rgba(99, 102, 241, 0.08); font-weight: 600; color: #a78bfa; border-bottom: 1px solid rgba(99, 102, 241, 0.15); }
+.rating-table td { padding: 14px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.rating-table tr { cursor: pointer; transition: background 0.2s; }
+.rating-table tr:hover { background: rgba(99, 102, 241, 0.05); }
+.loading-cell { text-align: center; padding: 60px !important; color: #64748b; }
+.achievements-container { padding: 24px 28px; }
+.loading-achievements { text-align: center; padding: 60px; color: #64748b; }
+
+@media (max-width: 768px) {
+    .rating-page { padding: 16px; }
+    .rating-hero-content { flex-direction: column; text-align: center; padding: 24px; }
+    .rating-hero-stats { justify-content: center; }
+    .rating-controls { flex-direction: column; align-items: stretch; }
+    .rating-search { width: 100%; }
+    .rating-search input { width: 100%; }
+}
+</style>

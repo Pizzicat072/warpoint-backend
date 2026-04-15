@@ -1,0 +1,30 @@
+{
+  "name": "warpoint-backend",
+  "version": "3.0.0",
+  "description": "WARPOINT Corporate Portal - Modular Version",
+  "private": true,
+  "scripts": {
+    "start": "node server-pg.js",
+    "dev": "nodemon server-pg.js"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^123.0.1",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "node-cron": "^4.2.1",
+    "node-fetch": "^3.3.2",
+    "pg": "^8.11.3",
+    "puppeteer": "^24.40.0",
+    "puppeteer-core": "^23.11.1",
+    "pusher": "^5.3.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "nodemon": "^3.0.1"
+  }
+}

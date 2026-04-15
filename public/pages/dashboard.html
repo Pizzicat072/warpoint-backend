@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Дашборд - WARPOINT</title>
+</head>
+<body>
+<div class="dashboard-container">
+    <div class="dashboard-content">
+        
+        <!-- БЛОК 1: Приветственная панель -->
+        <div class="welcome-panel" data-block-id="welcome-panel">
+            <div class="welcome-content">
+                <div class="welcome-left">
+                    <div id="welcomeAvatar" onclick="openMyProfile()" class="welcome-avatar">👤</div>
+                    <div>
+                        <h2 class="welcome-title" id="greetingText">Доброе утро, <span id="welcomeUserName"></span>!</h2>
+                        <div class="welcome-badges">
+                            <span id="userRoleBadge" class="role-badge">Оператор</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="welcome-right">
+                    <div class="stats-badge rating-badge" id="ratingBadge">
+                        <div class="stats-value" id="userRating">0</div>
+                        <div class="stats-label">рейтинг</div>
+                    </div>
+                    <div class="stats-badge wp-balance-badge" id="wpBalanceBadge" onclick="openTransactionsModal()">
+                        <div class="stats-value" id="userCoinsAmountHeader">0</div>
+                        <div class="stats-label">WP</div>
+                    </div>
+                    <select id="quickStatusSelect" onchange="quickChangeStatus(this.value)" class="status-select">
+                        <option value="💼 Работаю">💼 Работаю</option>
+                        <option value="☕ Перерыв">☕ Перерыв</option>
+                        <option value="🎯 В фокусе">🎯 В фокусе</option>
+                        <option value="⭐ MVP">⭐ MVP</option>
+                        <option value="🚀 Взлёт">🚀 Взлёт</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- БЛОК 2: Ежедневный бонус -->
+        <div class="daily-bonus-section" id="dailyBonusWidget">
+            <div class="daily-bonus-card">
+                <div class="bonus-left">
+                    <div class="bonus-icon">🎁</div>
+                    <div class="bonus-info">
+                        <div class="bonus-title">ЕЖЕДНЕВНЫЙ БОНУС</div>
+                        <div class="bonus-streak">
+                            <span class="streak-value" id="streakDays">1</span>
+                            <span class="streak-label">день</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="bonus-center">
+                    <div class="bonus-amount" id="bonusAmount">+1 WP</div>
+                </div>
+                <div class="bonus-right">
+                    <button id="claimBonusBtn" class="claim-bonus-btn" onclick="claimDailyBonus()">🎁 Забрать</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- БЛОК 3: Время, погода, смена -->
+        <div class="info-grid" data-block-id="info-grid">
+            <div class="info-card time-card">
+                <div class="info-icon">🕐</div>
+                <div class="info-value" id="currentTime">--:--</div>
+                <div class="info-label" id="currentDate">--</div>
+            </div>
+            <div class="info-card weather-card">
+                <div class="info-icon" id="weatherIcon">🌡️</div>
+                <div class="info-value" id="weatherTemp">--°C</div>
+                <div class="weather-feels-like" id="weatherFeelsLike"></div>
+                <div class="info-label" id="weatherDesc"></div>
+                <div class="weather-city" id="weatherCity">Тобольск</div>
+                <div class="weather-tip" id="weatherTip">😊 Хорошего дня!</div>
+            </div>
+            <div class="info-card shift-card" id="shiftCard">
+                <div class="info-icon">⏰</div>
+                <div class="info-value" id="shiftStatusText">Смена</div>
+                <div class="shift-progress-container">
+                    <div class="shift-progress-bar">
+                        <div class="shift-progress-fill" id="animatedProgressBar" style="width: 0%;"></div>
+                    </div>
+                    <div class="shift-time-left">
+                        <span>До конца смены:</span>
+                        <span class="shift-time-value" id="shiftTimeRemaining">--:--</span>
+                    </div>
+                </div>
+                <div class="next-shift-block">
+                    <div class="next-shift-icon">⏱️</div>
+                    <div class="next-shift-info">
+                        <div class="next-shift-label">До начала смены:</div>
+                        <div class="next-shift-value" id="nextShiftInfo">—</div>
+                    </div>
+                    <div class="next-shift-timer" id="shiftTimer">—</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- БЛОК 4: Быстрый старт -->
+        <div class="section" data-block-id="quick-start">
+            <h3 class="section-title">⚡ БЫСТРЫЙ СТАРТ</h3>
+            <div class="quick-grid">
+                <button onclick="quickAction('task')" class="quick-btn task-btn">➕ Задача</button>
+                <button onclick="quickAction('fine')" class="quick-btn fine-btn">⚠️ Нарушение</button>
+                <button onclick="quickAction('schedule')" class="quick-btn schedule-btn">📅 График</button>
+                <button onclick="quickAction('vp')" class="quick-btn vp-btn">🎮 ВП</button>
+                <button onclick="quickAction('salary')" class="quick-btn salary-btn">💰 Зарплата</button>
+                <button onclick="quickAction('chat')" class="quick-btn chat-btn">💬 Чат</button>
+            </div>
+        </div>
+
+        <!-- БЛОК 5: Ключевые показатели -->
+        <div class="section" data-block-id="key-stats">
+            <h3 class="section-title">📊 ПОКАЗАТЕЛИ</h3>
+            <div class="stats-grid">
+                <div onclick="switchToTab('schedule')" class="stat-card shift-stat">
+                    <div class="stat-icon">🟢</div>
+                    <div class="stat-label">НА СМЕНЕ</div>
+                    <div class="stat-value" id="statOnShift">0</div>
+                    <div class="stat-hint" id="statTotalEmployeesHint">из 0</div>
+                </div>
+                <div onclick="switchToTab('tasks')" class="stat-card tasks-stat">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-label">ЗАДАЧИ</div>
+                    <div class="stat-value" id="tasksProgressText">0 из 0</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill tasks-progress" id="tasksProgressBar"></div>
+                    </div>
+                    <div class="stat-hint"><span id="tasksInProgress">0</span> в процессе</div>
+                </div>
+                <div onclick="switchToTab('fines')" class="stat-card fines-stat">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-label">НАРУШЕНИЯ</div>
+                    <div class="stat-value" id="statFinesCount">0</div>
+                    <div class="stat-hint">за месяц</div>
+                </div>
+                <div onclick="switchToTab('salary')" class="stat-card fund-stat">
+                    <div class="stat-icon">🏦</div>
+                    <div class="stat-label">ФОНД</div>
+                    <div class="stat-value" id="statFundAmount">0 ₽</div>
+                    <div class="stat-hint">корпоративный</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- БЛОК 6: События -->
+        <div class="section" data-block-id="events-section">
+            <div class="info-card events-card">
+                <h3 class="section-title">📅 СОБЫТИЯ</h3>
+                <div id="holidaysAndBirthdaysList" class="events-list"></div>
+            </div>
+        </div>
+
+        <!-- БЛОК 7: Активность -->
+        <div class="activity-grid" data-block-id="activity-grid">
+            <div class="info-card online-card">
+                <div class="activity-title">🟢 В СЕТИ</div>
+                <div id="onlineList" class="activity-list"></div>
+            </div>
+            <div class="info-card lastlogin-card">
+                <div class="activity-title">⏰ ПОСЛЕДНИЙ ВХОД</div>
+                <div id="lastActivityList" class="activity-list"></div>
+            </div>
+        </div>
+
+        <!-- БЛОК 8: Обмен сменами -->
+        <div class="section" data-block-id="exchange-notifications">
+            <h3 class="section-title">🔄 ОБМЕН СМЕНАМИ</h3>
+            <div id="exchangeNotificationsContainer" class="exchange-notifications-container">
+                <div class="exchange-empty">Нет новых предложений</div>
+            </div>
+        </div>
+
+        <!-- БЛОК 9: Мои запросы -->
+        <div class="section" data-block-id="my-exchanges">
+            <h3 class="section-title">📤 МОИ ЗАПРОСЫ</h3>
+            <div id="myExchangesContainer" class="my-exchanges-container">
+                <div class="exchange-empty">Загрузка...</div>
+            </div>
+        </div>
+
+        <!-- БЛОК 10: Цитата -->
+<div class="info-card quote-card" data-block-id="quote-card">
+    <div class="quote-icon">💭</div>
+    <div id="philosophyQuoteText" class="quote-text">Загрузка...</div>
+    <div id="philosophyQuoteAuthor" class="quote-author"></div>
+    <button onclick="refreshPhilosophyQuote()" class="quote-btn">🔄 Другая цитата</button>
+</div>
+
+        <!-- Панель настроек -->
+        <div class="dashboard-settings-panel">
+            <div class="settings-header" onclick="toggleDashboardSettings()">
+                <div class="settings-header-left">
+                    <i class="fas fa-sliders-h"></i>
+                    <span>Настройки дашборда</span>
+                </div>
+                <div class="settings-header-right">
+                    <i class="fas fa-chevron-down" id="settingsToggleIcon"></i>
+                </div>
+            </div>
+            <div class="settings-content" id="settingsContent" style="display: none;">
+                <div class="settings-tabs">
+                    <button id="btnStyles" class="settings-tab active">🎨 Стили</button>
+                    <button id="btnPresets" class="settings-tab">⚡ Пресеты</button>
+                    <button id="btnBlocks" class="settings-tab">📦 Блоки</button>
+                </div>
+                
+                <div id="panelStyles" style="display: block;">
+                    <div class="settings-section-title">
+                        <i class="fas fa-palette"></i> Магазин стилей
+                    </div>
+                    <div id="stylesShopGrid" class="styles-shop-grid">
+                        <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
+                    </div>
+                </div>
+                
+                <div id="panelPresets" style="display: none;">
+                    <div class="settings-section-title">
+                        <i class="fas fa-magic"></i> Пресеты
+                    </div>
+                    <div class="presets-grid">
+                        <div class="preset-card" data-preset="default" onclick="applyDashboardPreset('default')">
+                            <div class="preset-icon">🏠</div>
+                            <div class="preset-name">Стандартный</div>
+                        </div>
+                        <div class="preset-card" data-preset="compact" onclick="applyDashboardPreset('compact')">
+                            <div class="preset-icon">📱</div>
+                            <div class="preset-name">Компактный</div>
+                        </div>
+                        <div class="preset-card" data-preset="focus" onclick="applyDashboardPreset('focus')">
+                            <div class="preset-icon">🎯</div>
+                            <div class="preset-name">Фокус</div>
+                        </div>
+                        <div class="preset-card" data-preset="minimal" onclick="applyDashboardPreset('minimal')">
+                            <div class="preset-icon">⚪</div>
+                            <div class="preset-name">Минимальный</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="panelBlocks" style="display: none;">
+                    <div class="settings-section-title">
+                        <i class="fas fa-eye"></i> Видимость блоков
+                        <button class="reset-hidden-btn" onclick="showAllHiddenBlocks()">Показать все</button>
+                    </div>
+                    <div class="toggles-grid">
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-welcome-panel"><span>Приветствие</span></label>
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-info-grid"><span>Время и погода</span></label>
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-quick-start"><span>Быстрый старт</span></label>
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-key-stats"><span>Показатели</span></label>
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-events-section"><span>События</span></label>
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-activity-grid"><span>Активность</span></label>
+                        <label class="toggle-card"><input type="checkbox" class="toggle-checkbox" id="toggle-quote-card"><span>Цитата</span></label>
+                    </div>
+                </div>
+                
+                <div class="settings-footer">
+                    <button class="settings-reset-btn" onclick="resetAllDashboardSettings()">Сбросить настройки</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleDashboardSettings() {
+    const content = document.getElementById('settingsContent');
+    const icon = document.getElementById('settingsToggleIcon');
+    if (!content) return;
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const btnStyles = document.getElementById('btnStyles');
+    const btnPresets = document.getElementById('btnPresets');
+    const btnBlocks = document.getElementById('btnBlocks');
+    const panelStyles = document.getElementById('panelStyles');
+    const panelPresets = document.getElementById('panelPresets');
+    const panelBlocks = document.getElementById('panelBlocks');
+    
+    if (btnStyles && panelStyles) {
+        btnStyles.onclick = function() {
+            panelStyles.style.display = 'block';
+            panelPresets.style.display = 'none';
+            panelBlocks.style.display = 'none';
+            btnStyles.classList.add('active');
+            btnPresets.classList.remove('active');
+            btnBlocks.classList.remove('active');
+        };
+        btnPresets.onclick = function() {
+            panelStyles.style.display = 'none';
+            panelPresets.style.display = 'block';
+            panelBlocks.style.display = 'none';
+            btnPresets.classList.add('active');
+            btnStyles.classList.remove('active');
+            btnBlocks.classList.remove('active');
+        };
+        btnBlocks.onclick = function() {
+            panelStyles.style.display = 'none';
+            panelPresets.style.display = 'none';
+            panelBlocks.style.display = 'block';
+            btnBlocks.classList.add('active');
+            btnStyles.classList.remove('active');
+            btnPresets.classList.remove('active');
+        };
+    }
+});
+</script>
+</body>
+</html>
