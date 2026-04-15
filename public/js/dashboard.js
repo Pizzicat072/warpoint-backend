@@ -1,7 +1,17 @@
 // public/js/dashboard.js - ПОЛНАЯ ОБНОВЛЁННАЯ ВЕРСИЯ БЕЗ ЗВУКОВ
 
-let dashboardInterval = null;
-let hiddenBlocks = new Set();
+// public/js/dashboard.js - ДОБАВИТЬ В НАЧАЛО
+
+// 🔥 ЗАЩИТА ОТ РЕКУРСИИ
+let isUpdatingDashboard = false;
+let dashboardUpdateTimeout = null;
+let lastDashboardUpdate = 0;
+const MIN_UPDATE_INTERVAL = 5000; // Минимум 5 секунд между обновлениями
+
+// 🔥 ЗАЩИТА ОТ ЧАСТЫХ ЗАПРОСОВ ПОГОДЫ
+let isFetchingWeather = false;
+let lastWeatherFetch = 0;
+const WEATHER_FETCH_INTERVAL = 300000; // 5 минут
 
 // ============================================
 // КОНСТАНТЫ
@@ -355,7 +365,24 @@ function initDashboardSettings() {
 // ПОГОДА И ВРЕМЯ
 // ============================================
 
+let isFetchingWeather = false;
+let lastWeatherFetch = 0;
+const WEATHER_FETCH_INTERVAL = 300000; // 5 минут
+
 async function fetchWeather() {
+    const now = Date.now();
+    
+    // 🔥 ЗАЩИТА ОТ ЧАСТЫХ ЗАПРОСОВ
+    if (now - lastWeatherFetch < WEATHER_FETCH_INTERVAL) {
+        console.log('⏳ Пропускаем запрос погоды (слишком часто)');
+        return;
+    }
+    
+    if (isFetchingWeather) {
+        console.log('⚠️ Погода уже загружается');
+        return;
+    }
+    
     const iconEl = document.getElementById('weatherIcon');
     const tempEl = document.getElementById('weatherTemp');
     const feelsLikeEl = document.getElementById('weatherFeelsLike');
@@ -365,17 +392,19 @@ async function fetchWeather() {
     
     if (!iconEl) return;
     
+    lastWeatherFetch = now;
+    isFetchingWeather = true;
+    
     try {
         const response = await fetch('/api/weather?force=' + Date.now());
-        if (!response.ok) {
-            throw new Error('HTTP error: ' + response.status);
-        }
+        if (!response.ok) throw new Error('HTTP error: ' + response.status);
+        
         const data = await response.json();
         
         if (data && data.success) {
             const temp = data.temp;
-            const now = new Date();
-            const hour = now.getHours();
+            const nowTime = new Date();
+            const hour = nowTime.getHours();
             
             let mainIcon = data.icon || '🌡️';
             const isNight = hour < 6 || hour >= 20;
@@ -406,51 +435,28 @@ async function fetchWeather() {
                 }
             }
             
-            if (cityEl) {
-                cityEl.innerHTML = 'Тобольск';
-            }
-            
-            if (descEl) {
-                descEl.textContent = data.desc || '';
-            }
+            if (cityEl) cityEl.innerHTML = 'Тобольск';
+            if (descEl) descEl.textContent = data.desc || '';
             
             if (weatherTipEl) {
                 let tip = '';
+                if (temp <= -20) tip = '🥶 Экстрим! Оставайся в тепле!';
+                else if (temp <= -10) tip = '❄️ Очень холодно! Одевайся теплее!';
+                else if (temp <= 0) tip = '🧤 Нулевая температура! Не замёрзни!';
+                else if (temp <= 10) tip = '🧥 Прохладно, лучше надеть куртку';
+                else if (temp <= 20) tip = '😎 Отличная погода для работы!';
+                else if (temp <= 30) tip = '🕶️ Жарко! Не забывай пить воду';
+                else tip = '🥵 Адская жара! Береги себя!';
                 
-                if (temp <= -20) {
-                    tip = '🥶 Экстрим! Оставайся в тепле!';
-                } else if (temp <= -10) {
-                    tip = '❄️ Очень холодно! Одевайся теплее!';
-                } else if (temp <= 0) {
-                    tip = '🧤 Нулевая температура! Не замёрзни!';
-                } else if (temp <= 10) {
-                    tip = '🧥 Прохладно, лучше надеть куртку';
-                } else if (temp <= 20) {
-                    tip = '😎 Отличная погода для работы!';
-                } else if (temp <= 30) {
-                    tip = '🕶️ Жарко! Не забывай пить воду';
-                } else {
-                    tip = '🥵 Адская жара! Береги себя!';
-                }
-                
-                if (isNight && temp < 0) {
-                    tip = '🌙❄️ Холодная ночь! Укутайся потеплее';
-                } else if (isNight) {
-                    tip = '🌙 Спокойной ночи! Завтра будет продуктивный день';
-                } else if (hour >= 6 && hour < 9) {
-                    tip = '🌅 Доброе утро! Хорошего дня!';
-                } else if (hour >= 17 && hour < 20) {
-                    tip = '🌇 Вечер близко! Ты отлично поработал!';
-                }
+                if (isNight && temp < 0) tip = '🌙❄️ Холодная ночь! Укутайся потеплее';
+                else if (isNight) tip = '🌙 Спокойной ночи! Завтра будет продуктивный день';
+                else if (hour >= 6 && hour < 9) tip = '🌅 Доброе утро! Хорошего дня!';
+                else if (hour >= 17 && hour < 20) tip = '🌇 Вечер близко! Ты отлично поработал!';
                 
                 if (data.description) {
-                    if (data.description.includes('дожд') || data.description.includes('ливн')) {
-                        tip = '☔ ' + tip;
-                    } else if (data.description.includes('снег')) {
-                        tip = '❄️ ' + tip;
-                    } else if (data.description.includes('ветер')) {
-                        tip = '💨 ' + tip;
-                    }
+                    if (data.description.includes('дожд') || data.description.includes('ливн')) tip = '☔ ' + tip;
+                    else if (data.description.includes('снег')) tip = '❄️ ' + tip;
+                    else if (data.description.includes('ветер')) tip = '💨 ' + tip;
                 }
                 
                 weatherTipEl.innerHTML = tip || '😊 Хорошего дня!';
@@ -464,6 +470,8 @@ async function fetchWeather() {
         if (descEl) descEl.textContent = '';
         if (cityEl) cityEl.innerHTML = 'Тобольск';
         if (weatherTipEl) weatherTipEl.innerHTML = '😊 Хорошего дня!';
+    } finally {
+        isFetchingWeather = false;
     }
 }
 
@@ -527,35 +535,68 @@ function updateUserAvatarAndStatus() {
 // СТАТИСТИКА ДАШБОРДА
 // ============================================
 
+let isUpdatingDashboard = false;
+let lastDashboardUpdate = 0;
+const MIN_UPDATE_INTERVAL = 5000; // 5 секунд
+
 function updateDashboardStats() {
-    const totalEmployees = window.app?.employees?.length || 0;
-    const totalHint = document.getElementById('statTotalEmployeesHint');
-    if (totalHint) totalHint.innerHTML = `из ${totalEmployees} сотрудников`;
+    const now = Date.now();
     
-    const today = new Date().toISOString().split('T')[0];
-    const todaySchedule = window.app?.schedule?.[today] || {};
+    // 🔥 ЗАЩИТА ОТ СЛИШКОМ ЧАСТЫХ ОБНОВЛЕНИЙ
+    if (now - lastDashboardUpdate < MIN_UPDATE_INTERVAL) {
+        console.log('⏳ Пропускаем обновление дашборда (слишком часто)');
+        return;
+    }
     
-    const onShiftCount = Object.keys(todaySchedule).filter(emp => {
-        const shift = todaySchedule[emp];
-        return shift?.time && (!shift?.shift_status || shift.shift_status === 'working');
-    }).length;
-    const onShiftSpan = document.getElementById('statOnShift');
-    if (onShiftSpan) onShiftSpan.textContent = onShiftCount;
+    if (isUpdatingDashboard) {
+        console.log('⚠️ Обновление дашборда уже выполняется');
+        return;
+    }
     
-    const activeTasks = window.app?.tasks?.filter(t => !t.is_archived) || [];
-    const tasksDone = activeTasks.filter(t => t.status === 'completed').length;
-    const tasksTotal = activeTasks.length;
-    const tasksInProgress = activeTasks.filter(t => t.status === 'in_progress').length;
-    
-    const tasksText = document.getElementById('tasksProgressText');
-    const tasksBar = document.getElementById('tasksProgressBar');
-    if (tasksText) tasksText.innerHTML = `${tasksDone} из ${tasksTotal}`;
-    if (tasksBar) tasksBar.style.width = tasksTotal > 0 ? (tasksDone / tasksTotal * 100) + '%' : '0%';
-    
-    const tasksInProgressSpan = document.getElementById('tasksInProgress');
-    if (tasksInProgressSpan) tasksInProgressSpan.textContent = tasksInProgress;
+    lastDashboardUpdate = now;
+    isUpdatingDashboard = true;
     
     try {
+        const totalEmployees = window.app?.employees?.length || 0;
+        const totalHint = document.getElementById('statTotalEmployeesHint');
+        if (totalHint) totalHint.innerHTML = `из ${totalEmployees} сотрудников`;
+        
+        const today = new Date().toISOString().split('T')[0];
+        const todaySchedule = window.app?.schedule?.[today] || {};
+        
+        const onShiftCount = Object.keys(todaySchedule).filter(emp => {
+            const shift = todaySchedule[emp];
+            return shift?.time && (!shift?.shift_status || shift.shift_status === 'working');
+        }).length;
+        
+        const onShiftSpan = document.getElementById('statOnShift');
+        if (onShiftSpan) onShiftSpan.textContent = onShiftCount;
+        
+        const activeTasks = window.app?.tasks?.filter(t => !t.is_archived) || [];
+        const tasksDone = activeTasks.filter(t => t.status === 'completed').length;
+        const tasksTotal = activeTasks.length;
+        const tasksInProgress = activeTasks.filter(t => t.status === 'in_progress').length;
+        
+        const tasksText = document.getElementById('tasksProgressText');
+        const tasksBar = document.getElementById('tasksProgressBar');
+        if (tasksText) tasksText.innerHTML = `${tasksDone} из ${tasksTotal}`;
+        if (tasksBar) tasksBar.style.width = tasksTotal > 0 ? (tasksDone / tasksTotal * 100) + '%' : '0%';
+        
+        const tasksInProgressSpan = document.getElementById('tasksInProgress');
+        if (tasksInProgressSpan) tasksInProgressSpan.textContent = tasksInProgress;
+        
+        // Штрафы
+        const fines = window.app?.fines || [];
+        const finesCount = fines.filter(f => {
+            const fineDate = new Date(f.date);
+            const now = new Date();
+            return fineDate.getMonth() === now.getMonth() && fineDate.getFullYear() === now.getFullYear();
+        }).length;
+        
+        const statFinesCount = document.getElementById('statFinesCount');
+        if (statFinesCount) statFinesCount.textContent = finesCount;
+        
+        // Фонд
         fetch('/api/fund', {
             headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
         })
@@ -567,14 +608,28 @@ function updateDashboardStats() {
             }
         })
         .catch(err => console.error('Ошибка загрузки фонда:', err));
-    } catch(err) {}
+        
+    } finally {
+        isUpdatingDashboard = false;
+    }
 }
 
 // ============================================
 // АКТИВНОСТЬ
 // ============================================
 
+let lastActivityUpdate = 0;
+const ACTIVITY_UPDATE_INTERVAL = 15000; // 15 секунд
+
 function loadActivity() {
+    const now = Date.now();
+    
+    // 🔥 ЗАЩИТА ОТ ЧАСТЫХ ОБНОВЛЕНИЙ
+    if (now - lastActivityUpdate < ACTIVITY_UPDATE_INTERVAL) {
+        return;
+    }
+    lastActivityUpdate = now;
+    
     const onlineList = document.getElementById('onlineList');
     const lastList = document.getElementById('lastActivityList');
     if (!onlineList) return;
@@ -586,6 +641,7 @@ function loadActivity() {
             onlineEmployees.push(emp);
         }
     }
+    
     onlineList.innerHTML = onlineEmployees.length ? 
         onlineEmployees.map(e => `<div><span style="color:#10b981;">🟢</span> ${escapeHtml(e)}</div>`).join('') :
         '<div style="opacity:0.5;">— никого в сети —</div>';
@@ -751,6 +807,9 @@ function loadHolidaysAndBirthdays() {
 // СМЕНА (ОСНОВНАЯ ЛОГИКА)
 // ============================================
 
+let lastShiftUpdate = 0;
+const SHIFT_UPDATE_INTERVAL = 10000; // 10 секунд
+
 function formatDateSimple(dateStr) {
     if (!dateStr) return '—';
     try {
@@ -765,17 +824,25 @@ function formatDateSimple(dateStr) {
 }
 
 function updateNextShiftInfo() {
-    const currentUser = window.app.currentUser;
+    const now = Date.now();
+    
+    // 🔥 ЗАЩИТА ОТ ЧАСТЫХ ОБНОВЛЕНИЙ
+    if (now - lastShiftUpdate < SHIFT_UPDATE_INTERVAL) {
+        return;
+    }
+    lastShiftUpdate = now;
+    
+    const currentUser = window.app?.currentUser;
     if (!currentUser) return;
     
-    const now = getTobolskNow();
-    const today = now.toISOString().split('T')[0];
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
+    const nowTime = getTobolskNow();
+    const today = nowTime.toISOString().split('T')[0];
+    const currentHour = nowTime.getHours();
+    const currentMinute = nowTime.getMinutes();
     const currentTimeMinutes = currentHour * 60 + currentMinute;
     
-    const schedule = window.app.schedule || {};
-    const profiles = window.app.profiles || {};
+    const schedule = window.app?.schedule || {};
+    const profiles = window.app?.profiles || {};
     const currentUserProfile = profiles[currentUser];
     const isDirector = currentUserProfile?.role === 'director';
     
@@ -784,7 +851,6 @@ function updateNextShiftInfo() {
     
     const shiftTimeRemainingSpan = document.getElementById('shiftTimeRemaining');
     const shiftStatusTextSpan = document.getElementById('shiftStatusText');
-    const progressPercentSpan = document.getElementById('progressPercent');
     const animatedProgressBar = document.getElementById('animatedProgressBar');
     const nextShiftInfoSpan = document.getElementById('nextShiftInfo');
     const shiftTimerSpan = document.getElementById('shiftTimer');
@@ -792,7 +858,6 @@ function updateNextShiftInfo() {
     if (isDirector) {
         if (shiftStatusTextSpan) shiftStatusTextSpan.innerHTML = '👑 Директор';
         if (shiftTimeRemainingSpan) shiftTimeRemainingSpan.innerHTML = '—:—';
-        if (progressPercentSpan) progressPercentSpan.innerHTML = '—';
         if (animatedProgressBar) animatedProgressBar.style.width = '0%';
         if (nextShiftInfoSpan) nextShiftInfoSpan.innerHTML = 'Управление';
         if (shiftTimerSpan) shiftTimerSpan.innerHTML = '—';
@@ -806,9 +871,7 @@ function updateNextShiftInfo() {
         const hours = Math.floor(Math.abs(minutes) / 60);
         const mins = Math.abs(minutes) % 60;
         const sign = minutes < 0 ? '-' : '';
-        if (hours > 0) {
-            return `${sign}${hours}ч ${mins}мин`;
-        }
+        if (hours > 0) return `${sign}${hours}ч ${mins}мин`;
         return `${sign}${mins}мин`;
     }
     
@@ -819,7 +882,6 @@ function updateNextShiftInfo() {
             
             if (shiftStatusTextSpan) shiftStatusTextSpan.innerHTML = '⏳ До начала смены';
             if (shiftTimeRemainingSpan) shiftTimeRemainingSpan.innerHTML = timeStr;
-            if (progressPercentSpan) progressPercentSpan.innerHTML = '0%';
             if (animatedProgressBar) animatedProgressBar.style.width = '0%';
             if (nextShiftInfoSpan) nextShiftInfoSpan.innerHTML = 'сегодня в 10:00';
             if (shiftTimerSpan) shiftTimerSpan.innerHTML = `через ${timeStr}`;
@@ -833,7 +895,6 @@ function updateNextShiftInfo() {
             
             if (shiftStatusTextSpan) shiftStatusTextSpan.innerHTML = '🟠 Смена идёт';
             if (shiftTimeRemainingSpan) shiftTimeRemainingSpan.innerHTML = timeLeft;
-            if (progressPercentSpan) progressPercentSpan.innerHTML = `${percent}%`;
             if (animatedProgressBar) animatedProgressBar.style.width = `${percent}%`;
             if (nextShiftInfoSpan) nextShiftInfoSpan.innerHTML = `окончание в 22:00`;
             if (shiftTimerSpan) shiftTimerSpan.innerHTML = `осталось ${timeLeft}`;
@@ -841,7 +902,6 @@ function updateNextShiftInfo() {
         else {
             if (shiftStatusTextSpan) shiftStatusTextSpan.innerHTML = '✅ Смена завершена';
             if (shiftTimeRemainingSpan) shiftTimeRemainingSpan.innerHTML = '00:00';
-            if (progressPercentSpan) progressPercentSpan.innerHTML = '100%';
             if (animatedProgressBar) animatedProgressBar.style.width = '100%';
             if (nextShiftInfoSpan) nextShiftInfoSpan.innerHTML = 'следующих смен нет';
             if (shiftTimerSpan) shiftTimerSpan.innerHTML = '—';
@@ -874,20 +934,17 @@ function updateNextShiftInfo() {
         
         if (shiftStatusTextSpan) shiftStatusTextSpan.innerHTML = '📅 Ближайшая смена';
         if (shiftTimeRemainingSpan) shiftTimeRemainingSpan.innerHTML = nearestShift.time;
-        if (progressPercentSpan) progressPercentSpan.innerHTML = '—';
         if (animatedProgressBar) animatedProgressBar.style.width = '0%';
         if (nextShiftInfoSpan) nextShiftInfoSpan.innerHTML = `${formatDateSimple(nearestDate)} в ${nearestShift.time}`;
         if (shiftTimerSpan) shiftTimerSpan.innerHTML = timeUntil;
     } else {
         if (shiftStatusTextSpan) shiftStatusTextSpan.innerHTML = '❌ Нет смен';
         if (shiftTimeRemainingSpan) shiftTimeRemainingSpan.innerHTML = '—:—';
-        if (progressPercentSpan) progressPercentSpan.innerHTML = '—';
         if (animatedProgressBar) animatedProgressBar.style.width = '0%';
         if (nextShiftInfoSpan) nextShiftInfoSpan.innerHTML = 'смены не назначены';
         if (shiftTimerSpan) shiftTimerSpan.innerHTML = '—';
     }
 }
-
 // ============================================
 // ЦИТАТА ДНЯ
 // ============================================
@@ -937,6 +994,8 @@ function quickChangeStatus(status) {
 // ЕЖЕДНЕВНЫЙ БОНУС - ФУНКЦИИ
 // ============================================
 
+let isClaimingBonus = false;
+
 async function loadDailyBonusInfo() {
     try {
         const response = await apiCall('/user/login-streak');
@@ -946,14 +1005,10 @@ async function loadDailyBonusInfo() {
             const nextBonus = response.nextBonusAmount || 1;
             
             const streakDaysSpan = document.getElementById('streakDays');
-            if (streakDaysSpan) {
-                streakDaysSpan.textContent = streakDays;
-            }
+            if (streakDaysSpan) streakDaysSpan.textContent = streakDays;
             
             const bonusAmountSpan = document.getElementById('bonusAmount');
-            if (bonusAmountSpan) {
-                bonusAmountSpan.textContent = `+${nextBonus} WP`;
-            }
+            if (bonusAmountSpan) bonusAmountSpan.textContent = `+${nextBonus} WP`;
             
             const claimBtn = document.getElementById('claimBonusBtn');
             if (claimBtn) {
@@ -974,12 +1029,19 @@ async function loadDailyBonusInfo() {
 }
 
 async function claimDailyBonus() {
+    if (isClaimingBonus) {
+        console.log('⚠️ Бонус уже запрашивается');
+        return;
+    }
+    
     const claimBtn = document.getElementById('claimBonusBtn');
     
     if (claimBtn) {
         claimBtn.disabled = true;
         claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
     }
+    
+    isClaimingBonus = true;
     
     try {
         const response = await apiCall('/user/claim-daily-bonus', 'POST');
@@ -1013,77 +1075,8 @@ async function claimDailyBonus() {
             claimBtn.disabled = false;
             claimBtn.innerHTML = '🎁 Забрать';
         }
-    }
-}
-
-function showBonusAnimation(amount) {
-    const balanceElement = document.getElementById('userCoinsAmountHeader');
-    if (!balanceElement) return;
-    
-    const rect = balanceElement.getBoundingClientRect();
-    
-    for (let i = 0; i < 10; i++) {
-        const particle = document.createElement('div');
-        particle.className = 'coin-particle';
-        particle.innerHTML = '💰';
-        particle.style.left = `${rect.left + (Math.random() * 50 - 25)}px`;
-        particle.style.top = `${rect.top - 20}px`;
-        particle.style.position = 'fixed';
-        particle.style.fontSize = `${20 + Math.random() * 10}px`;
-        particle.style.pointerEvents = 'none';
-        particle.style.zIndex = '9999';
-        particle.style.animation = `coinRain ${0.8 + Math.random() * 0.5}s ease-out forwards`;
-        
-        document.body.appendChild(particle);
-        
-        setTimeout(() => {
-            particle.remove();
-        }, 1500);
-    }
-    
-    const floatingText = document.createElement('div');
-    floatingText.className = 'bonus-floating-text';
-    floatingText.innerHTML = `+${amount} WP`;
-    floatingText.style.left = `${rect.left + 20}px`;
-    floatingText.style.top = `${rect.top - 40}px`;
-    floatingText.style.position = 'fixed';
-    floatingText.style.background = 'linear-gradient(135deg, #fbbf24, #f59e0b)';
-    floatingText.style.color = '#1a1f2e';
-    floatingText.style.padding = '6px 16px';
-    floatingText.style.borderRadius = '40px';
-    floatingText.style.fontWeight = 'bold';
-    floatingText.style.fontSize = '16px';
-    floatingText.style.pointerEvents = 'none';
-    floatingText.style.zIndex = '9999';
-    floatingText.style.animation = 'floatUp 1s ease-out forwards';
-    
-    document.body.appendChild(floatingText);
-    
-    setTimeout(() => {
-        floatingText.remove();
-    }, 1000);
-}
-
-async function updateUserBalance() {
-    try {
-        await loadEmployees();
-        
-        const currentUser = window.app.currentUser;
-        if (currentUser && window.app.profiles[currentUser]) {
-            const newBalance = window.app.profiles[currentUser].coins || 0;
-            
-            const userCoinsHeader = document.getElementById('userCoinsAmountHeader');
-            if (userCoinsHeader) {
-                userCoinsHeader.textContent = newBalance.toLocaleString();
-            }
-            
-            const profileCoins = document.getElementById('profileCoins');
-            if (profileCoins) {
-                profileCoins.textContent = newBalance;
-            }
-        }
-    } catch (err) {
-        console.error('Ошибка обновления баланса:', err);
+    } finally {
+        isClaimingBonus = false;
     }
 }
 
