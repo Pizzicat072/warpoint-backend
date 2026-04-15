@@ -12,6 +12,30 @@ const fs = require('fs');
 dotenv.config();
 
 const app = express();
+// Предотвращение падения сервера
+process.on('uncaughtException', (err) => {
+    console.error('❌ UNCAUGHT EXCEPTION:', err);
+    // Не завершаем процесс!
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ UNHANDLED REJECTION:', reason);
+    // Не завершаем процесс!
+});
+
+// Таймаут для всех запросов
+app.use((req, res, next) => {
+    const timeout = setTimeout(() => {
+        if (!res.headersSent) {
+            res.status(503).json({ error: 'Server timeout' });
+        }
+    }, 15000);
+    
+    res.on('finish', () => clearTimeout(timeout));
+    res.on('close', () => clearTimeout(timeout));
+    
+    next();
+});
 const PORT = process.env.PORT || 10000;
 const JWT_SECRET = process.env.JWT_SECRET || 'warpoint-secret-key-2024';
 
@@ -21,12 +45,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'warpoint-secret-key-2024';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: {
-        rejectUnauthorized: false // Важно для Render.com!
-    },
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000
+    ssl: { rejectUnauthorized: false },
+    max: 5, // Меньше соединений = меньше утечек
+    idleTimeoutMillis: 10000, // Закрывать неактивные соединения через 10 сек
+    connectionTimeoutMillis: 5000, // Таймаут подключения 5 сек
+    statement_timeout: 10000 // Таймаут SQL-запроса 10 сек
 });
 pool.on('connect', () => console.log('📊 Database connected'));
 pool.on('error', (err) => console.error('❌ Database error:', err));
@@ -3165,26 +3188,70 @@ app.get('/api/achievements/:id/winners', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// CRON JOBS
+// CRON JOBS (С ЗАЩИТОЙ ОТ ЗАВИСАНИЙ)
 // ============================================
 
+let isProcessingShift = false;
+let isProcessingTasks = false;
+let isProcessingExchange = false;
+let isProcessingArchive = false;
+let isProcessingWeather = false;
+
 cron.schedule('5 0 * * *', async () => {
+    if (isProcessingShift) {
+        console.log('⚠️ Начисление WP уже выполняется, пропускаем...');
+        return;
+    }
+    isProcessingShift = true;
     console.log('🕐 Запуск начисления WP за смены...');
-    await processShiftEarnings();
+    try {
+        await processShiftEarnings();
+    } catch (e) {
+        console.error('❌ Shift earnings error:', e);
+    } finally {
+        isProcessingShift = false;
+    }
 });
 
 cron.schedule('0 * * * *', async () => {
+    if (isProcessingTasks) {
+        console.log('⚠️ Проверка просроченных задач уже выполняется, пропускаем...');
+        return;
+    }
+    isProcessingTasks = true;
     console.log('🕐 Проверка просроченных задач...');
-    const count = await checkAndPenalizeOverdueTasks();
-    if (count > 0) console.log(`⚠️ Создано ${count} нарушений за просроченные задачи`);
+    try {
+        const count = await checkAndPenalizeOverdueTasks();
+        if (count > 0) console.log(`⚠️ Создано ${count} нарушений за просроченные задачи`);
+    } catch (e) {
+        console.error('❌ Tasks check error:', e);
+    } finally {
+        isProcessingTasks = false;
+    }
 });
 
 cron.schedule('0 * * * *', async () => {
+    if (isProcessingExchange) {
+        console.log('⚠️ Проверка просроченных обменов уже выполняется, пропускаем...');
+        return;
+    }
+    isProcessingExchange = true;
     console.log('🕐 Проверка просроченных запросов на обмен...');
-    await autoExpireExchangeRequests();
+    try {
+        await autoExpireExchangeRequests();
+    } catch (e) {
+        console.error('❌ Exchange expire error:', e);
+    } finally {
+        isProcessingExchange = false;
+    }
 });
 
 cron.schedule('0 3 * * *', async () => {
+    if (isProcessingArchive) {
+        console.log('⚠️ Архивация уже выполняется, пропускаем...');
+        return;
+    }
+    isProcessingArchive = true;
     console.log('📦 Запуск авто-архивации выполненных задач...');
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
@@ -3193,10 +3260,17 @@ cron.schedule('0 3 * * *', async () => {
         if (result.rows.length > 0) console.log(`✅ Заархивировано ${result.rows.length} задач`);
     } catch (err) {
         console.error('❌ Ошибка авто-архивации:', err);
+    } finally {
+        isProcessingArchive = false;
     }
 });
 
 cron.schedule('0 * * * *', async () => {
+    if (isProcessingWeather) {
+        console.log('⚠️ Парсинг погоды уже выполняется, пропускаем...');
+        return;
+    }
+    isProcessingWeather = true;
     console.log('🕐 Запланированный парсинг погоды...');
     try {
         const weather = await fetchWeather();
@@ -3205,6 +3279,8 @@ cron.schedule('0 * * * *', async () => {
         }
     } catch (err) {
         console.error('❌ Ошибка планового парсинга погоды:', err.message);
+    } finally {
+        isProcessingWeather = false;
     }
 });
 
