@@ -364,8 +364,6 @@ function initDashboardSettings() {
 // ============================================
 // ПОГОДА И ВРЕМЯ
 // ============================================
-
-let isFetchingWeather = false;
 let lastWeatherFetch = 0;
 const WEATHER_FETCH_INTERVAL = 300000; // 5 минут
 
