@@ -1081,7 +1081,73 @@ app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => {
     await pool.query(`UPDATE exchange_requests SET status = 'cancelled' WHERE id = $1 AND from_employee = $2`, [id, req.user.username]);
     res.json({ success: true });
 });
+// ============================================
+// ADMIN API
+// ============================================
 
+app.get('/api/admin/theme', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']); res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' }); } catch (err) { res.json({ success: true, theme: 'vr-portal' }); }
+});
+
+app.post('/api/admin/theme', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    try { await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [req.body.theme]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/fund', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); res.json({ success: true, amount: result.rows[0]?.amount || 0 }); } catch (err) { res.json({ success: true, amount: 0 }); }
+});
+
+app.post('/api/fund/update', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    try { await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [req.body.amount || 0]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/fund/add', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { sum } = req.body;
+    try { const current = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); const newAmount = (current.rows[0]?.amount || 0) + sum; await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [newAmount]); res.json({ success: true, amount: newAmount }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/employees', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { name, role, password, birthday, phone } = req.body;
+    try { await pool.query(`INSERT INTO employees (name, role, birthday, phone, bonus_streak) VALUES ($1, $2, $3, $4, 1)`, [name, role || 'operator', birthday || null, phone || null]); await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); try { await sendGlobalNotification('new_employee', { name }); } catch (err) {} res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    if (req.params.name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
+    try { await pool.query('DELETE FROM employees WHERE name = $1', [req.params.name]); await pool.query('DELETE FROM passwords WHERE username = $1', [req.params.name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/employees/:name/role', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    const { name } = req.params; const { role } = req.body;
+    try { const empRes = await pool.query('SELECT role FROM employees WHERE name = $1', [name]); if (empRes.rows.length === 0) return res.status(404).json({ error: 'Сотрудник не найден' }); if (empRes.rows[0].role === 'director') return res.status(403).json({ error: 'Нельзя изменить роль директора' }); await pool.query('UPDATE employees SET role = $1 WHERE name = $2', [role, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/bonus/employee', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { name, coins, rating } = req.body;
+    try { await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2 WHERE name = $3', [coins || 0, rating || 0, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    const client = await pool.connect();
+    try { await client.query('BEGIN'); await client.query('DELETE FROM employees WHERE name != $1', ['Денис']); await client.query('DELETE FROM passwords WHERE username != $1', ['Денис']); await client.query('COMMIT'); res.json({ success: true }); } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); }
+});
+
+app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    try { await pool.query('UPDATE employees SET coins = 100, rating = 0 WHERE name != $1', ['Денис']); await pool.query('DELETE FROM corporate_fund'); await pool.query('INSERT INTO corporate_fund (amount) VALUES (0)'); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/init-achievements', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    try { await initAchievements(); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
 // ============================================
 // ЗАЩИЩЁННЫЕ CRON-ЗАДАЧИ
 // ============================================
