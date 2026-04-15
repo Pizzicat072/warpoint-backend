@@ -20,17 +20,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'warpoint-secret-key-2024';
 // ============================================
 
 const pool = new Pool({
-    user: 'postgres',
-    password: 'warpoint123',
-    host: 'localhost',
-    port: 5432,
-    database: 'warpoint',
-    ssl: false,
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Важно для Render.com!
+    },
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 5000
 });
-
 pool.on('connect', () => console.log('📊 Database connected'));
 pool.on('error', (err) => console.error('❌ Database error:', err));
 
