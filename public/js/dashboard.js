@@ -9,7 +9,6 @@ const MIN_UPDATE_INTERVAL = 5000; // Минимум 5 секунд между о
 // 🔥 ЗАЩИТА ОТ ЧАСТЫХ ЗАПРОСОВ ПОГОДЫ
 let isFetchingWeather = false;
 let lastWeatherFetch = 0;
-const WEATHER_FETCH_INTERVAL = 300000; // 5 минут
 
 // ============================================
 // КОНСТАНТЫ
