@@ -517,7 +517,17 @@ async function initDatabase() {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )`
     ];
-    
+    // 🔥 Добавляем недостающие колонки (миграция)
+    try {
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
+        await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
+        console.log('✅ Миграция: добавлены недостающие колонки');
+    } catch (err) {
+        console.log('⚠️ Ошибка миграции:', err.message);
+    }
+}
     for (const query of tableQueries) {
         try {
             await pool.query(query);
