@@ -843,24 +843,30 @@
     // ДЕЙСТВИЯ ДИРЕКТОРА
     // ============================================
     async function giveBonus(employeeName) {
-        const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
-        const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
-        
-        if (coins === 0 && rating === 0) {
-            showNotif('Укажите сумму', 'warning');
-            return;
-        }
-        
-        const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
-        if (res?.success) {
-            showNotif('✅ Бонус выдан', 'success');
-            closeProfileModal();
-            await loadEmployees();
-            renderEmployees();
-        } else {
-            showNotif('❌ Ошибка', 'error');
-        }
+    const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
+    const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
+    
+    if (coins === 0 && rating === 0) {
+        showNotif('Укажите сумму', 'warning');
+        return;
     }
+    
+    const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
+    if (res?.success) {
+        showNotif('✅ Бонус выдан', 'success');
+        closeBonusModal();
+        await loadEmployees();
+        renderEmployees();
+        
+        // 🔥 ВОТ СЮДА ДОБАВЬ ЭТУ СТРОКУ:
+        if (typeof refreshAllBalanceDisplays === 'function') {
+            refreshAllBalanceDisplays();
+        }
+        
+    } else {
+        showNotif('❌ Ошибка', 'error');
+    }
+}
     
     async function changeRole(employeeName) {
         const role = document.getElementById('newRole')?.value;
