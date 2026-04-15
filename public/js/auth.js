@@ -3,7 +3,7 @@
 let isLoggingIn = false;
 let heartbeatInterval = null;
 let lastHeartbeat = 0;
-const HEARTBEAT_INTERVAL = 60000; // 1 минута
+const HEARTBEAT_INTERVAL = 60000;
 
 async function login() {
     if (isLoggingIn) {
@@ -19,6 +19,8 @@ async function login() {
         return;
     }
     
+    console.log('📤 Отправка запроса:', { username: loginName });
+    
     const loginBtn = document.querySelector('#loginForm button[type="submit"]');
     const originalBtnText = loginBtn.innerHTML;
     loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
@@ -32,23 +34,23 @@ async function login() {
             body: JSON.stringify({ username: loginName, password: pass })
         });
         
+        console.log('📥 Ответ получен, статус:', response.status);
+        
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             const text = await response.text();
             console.error('❌ Сервер вернул не JSON:', text.substring(0, 200));
-            
-            if (response.status === 404) {
-                throw new Error('API не найден (404). Проверьте настройки сервера.');
-            } else if (response.status === 500) {
-                throw new Error('Внутренняя ошибка сервера (500).');
-            } else {
-                throw new Error(`Ошибка сервера: ${response.status}`);
-            }
+            if (response.status === 404) throw new Error('API не найден (404)');
+            else if (response.status === 500) throw new Error('Внутренняя ошибка сервера (500)');
+            else throw new Error(`Ошибка сервера: ${response.status}`);
         }
         
         const data = await response.json();
+        console.log('📦 Данные ответа:', data);
         
         if (data.success) {
+            console.log('✅ Логин успешен!');
+            
             window.app = window.app || {};
             window.app.currentUser = data.user.name;
             window.app.currentUserRole = data.user.role;
@@ -88,9 +90,10 @@ async function login() {
             startHeartbeat();
             initActivityTracker();
             
-       if (typeof initPusher === 'function' \&\& !window.pusher) {
-    initPusher();
-}
+            if (typeof window.initPusher === 'function') {
+                window.initPusher();
+            }
+            
             renderMainMenu();
             
             showNotif(`Добро пожаловать, ${window.app.currentUser}!`, 'success');
@@ -100,13 +103,12 @@ async function login() {
         }
     } catch (err) {
         console.error('❌ Ошибка входа:', err);
-        
         if (err.message.includes('API не найден')) {
             showNotif('🚫 Сервер API не отвечает. Попробуйте позже.', 'error');
         } else if (err.message.includes('Внутренняя ошибка')) {
-            showNotif('⚠️ Ошибка на сервере. Мы уже работаем над исправлением.', 'error');
+            showNotif('⚠️ Ошибка на сервере.', 'error');
         } else {
-            showNotif('Ошибка соединения с сервером. Проверьте интернет.', 'error');
+            showNotif('Ошибка соединения с сервером.', 'error');
         }
     } finally {
         loginBtn.innerHTML = originalBtnText;
@@ -176,11 +178,7 @@ async function loadLastActivity() {
 
 async function sendHeartbeat() {
     const now = Date.now();
-    
-    // 🔥 ЗАЩИТА ОТ ЧАСТЫХ ЗАПРОСОВ
-    if (now - lastHeartbeat < HEARTBEAT_INTERVAL / 2) {
-        return;
-    }
+    if (now - lastHeartbeat < HEARTBEAT_INTERVAL / 2) return;
     lastHeartbeat = now;
     
     const token = localStorage.getItem('token');
@@ -239,9 +237,10 @@ function initActivityTracker() {
     document.addEventListener('visibilitychange', () => { 
         if (!document.hidden) updateActivity(); 
     });
+    
+    console.log('✅ Activity tracker инициализирован');
 }
 
-// Восстановление
 (function restoreLastActivity() {
     const saved = localStorage.getItem('lastActivity');
     if (saved) { 
