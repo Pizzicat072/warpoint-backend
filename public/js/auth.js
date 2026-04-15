@@ -1,4 +1,4 @@
-// public/js/auth.js - БЕЗ ЗВУКОВ
+// public/js/auth.js - ИСПРАВЛЕННАЯ ВЕРСИЯ ДЛЯ VERCEL
 
 async function login() {
     const loginName = document.getElementById('loginName').value.trim();
@@ -11,6 +11,12 @@ async function login() {
     
     console.log('📤 Отправка запроса:', { username: loginName });
     
+    // 🔥 ПОКАЗЫВАЕМ ИНДИКАТОР ЗАГРУЗКИ
+    const loginBtn = document.querySelector('#loginForm button[type="submit"]');
+    const originalBtnText = loginBtn.innerHTML;
+    loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+    loginBtn.disabled = true;
+    
     try {
         const response = await fetch('/api/auth/login', {
             method: 'POST',
@@ -20,12 +26,29 @@ async function login() {
         
         console.log('📥 Ответ получен, статус:', response.status);
         
+        // 🔥 ПРОВЕРЯЕМ, ЧТО ОТВЕТ - JSON, А НЕ HTML
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            // Сервер вернул HTML вместо JSON (ошибка 404 или 500)
+            const text = await response.text();
+            console.error('❌ Сервер вернул не JSON:', text.substring(0, 200));
+            
+            if (response.status === 404) {
+                throw new Error('API не найден (404). Проверьте настройки Vercel.');
+            } else if (response.status === 500) {
+                throw new Error('Внутренняя ошибка сервера (500). Проверьте логи Vercel.');
+            } else {
+                throw new Error(`Ошибка сервера: ${response.status}`);
+            }
+        }
+        
         const data = await response.json();
         console.log('📦 Данные ответа:', data);
         
         if (data.success) {
             console.log('✅ Логин успешен!');
             
+            window.app = window.app || {};
             window.app.currentUser = data.user.name;
             window.app.currentUserRole = data.user.role;
             window.app.currentUserPermissions = rolesMap[window.app.currentUserRole] || rolesMap.operator;
@@ -49,6 +72,13 @@ async function login() {
                 }
             }
             
+            // 🔥 ПОКАЗЫВАЕМ НОВЫЕ ДОСТИЖЕНИЯ (если есть)
+            if (data.newAchievements && data.newAchievements.length > 0) {
+                for (const ach of data.newAchievements) {
+                    showNotif(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success');
+                }
+            }
+            
             await loadEmployees();
             await loadTasks();
             await loadFines();
@@ -58,25 +88,45 @@ async function login() {
             startHeartbeat();
             initActivityTracker();
             
+            // 🔥 ИНИЦИАЛИЗИРУЕМ PUSHER ПОСЛЕ УСПЕШНОГО ВХОДА
+            if (typeof initPusher === 'function') {
+                initPusher();
+            }
+            
             renderMainMenu();
             
             showNotif(`Добро пожаловать, ${window.app.currentUser}!`, 'success');
+            
         } else {
             console.error('❌ Ошибка входа:', data.error);
             showNotif(data.error || 'Неверный логин или пароль', 'error');
         }
     } catch (err) {
         console.error('❌ Ошибка соединения:', err);
-        showNotif('Ошибка соединения с сервером', 'error');
+        
+        // 🔥 ПОНЯТНОЕ СООБЩЕНИЕ ДЛЯ ПОЛЬЗОВАТЕЛЯ
+        if (err.message.includes('API не найден')) {
+            showNotif('🚫 Сервер API не отвечает. Попробуйте позже.', 'error');
+        } else if (err.message.includes('Внутренняя ошибка')) {
+            showNotif('⚠️ Ошибка на сервере. Мы уже работаем над исправлением.', 'error');
+        } else {
+            showNotif('Ошибка соединения с сервером. Проверьте интернет.', 'error');
+        }
+    } finally {
+        // 🔥 ВОЗВРАЩАЕМ КНОПКУ
+        loginBtn.innerHTML = originalBtnText;
+        loginBtn.disabled = false;
     }
 }
 
 function authLogout() {
-    const userName = window.app.currentUser;
+    const userName = window.app?.currentUser;
     
-    window.app.currentUser = null;
-    window.app.currentUserRole = null;
-    window.app.currentUserPermissions = null;
+    if (window.app) {
+        window.app.currentUser = null;
+        window.app.currentUserRole = null;
+        window.app.currentUserPermissions = null;
+    }
     
     localStorage.removeItem('currentUser');
     localStorage.removeItem('token');
@@ -87,7 +137,7 @@ function authLogout() {
         window.heartbeatInterval = null;
     }
     
-    if (userName && window.app.lastActivity) {
+    if (userName && window.app?.lastActivity) {
         delete window.app.lastActivity[userName];
     }
     
@@ -105,16 +155,22 @@ async function loadLastActivity() {
     try {
         const response = await apiCall('/last-activity');
         if (response && response.success) {
+            window.app = window.app || {};
             window.app.lastActivity = response.data || {};
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
         } else {
             const saved = localStorage.getItem('lastActivity');
+            window.app = window.app || {};
             if (saved) window.app.lastActivity = JSON.parse(saved);
             else window.app.lastActivity = {};
         }
-    } catch (e) { window.app.lastActivity = {}; }
+    } catch (e) {
+        console.error('Ошибка загрузки активности:', e);
+        window.app = window.app || {};
+        window.app.lastActivity = {};
+    }
     
-    if (window.app.currentUser) {
+    if (window.app?.currentUser) {
         window.app.lastActivity[window.app.currentUser] = Date.now();
     }
     
@@ -125,18 +181,31 @@ async function loadLastActivity() {
 async function sendHeartbeat() {
     const token = localStorage.getItem('token');
     if (!token) return;
+    
     try {
         const response = await fetch('/api/heartbeat', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${token}` 
+            }
         });
+        
         if (response.ok && window.app && window.app.currentUser) {
+            window.app.lastActivity = window.app.lastActivity || {};
             window.app.lastActivity[window.app.currentUser] = Date.now();
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
-            if (typeof renderEmployees === 'function') renderEmployees();
-            if (typeof loadActivity === 'function') loadActivity();
+            
+            // 🔥 ОБНОВЛЯЕМ UI ТОЛЬКО РАЗ В 5 СЕКУНД
+            if (!window._lastActivityRender || Date.now() - window._lastActivityRender > 5000) {
+                window._lastActivityRender = Date.now();
+                if (typeof renderEmployees === 'function') renderEmployees();
+                if (typeof loadActivity === 'function') loadActivity();
+            }
         }
-    } catch (e) { console.error('Heartbeat error:', e); }
+    } catch (e) {
+        console.error('Heartbeat error:', e);
+    }
 }
 
 function startHeartbeat(intervalMs = 30000) {
@@ -148,8 +217,10 @@ function startHeartbeat(intervalMs = 30000) {
 function initActivityTracker() {
     const updateActivity = () => {
         if (window.app && window.app.currentUser) {
+            window.app.lastActivity = window.app.lastActivity || {};
             window.app.lastActivity[window.app.currentUser] = Date.now();
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
+            
             if (!window._lastActivityRender || Date.now() - window._lastActivityRender > 5000) {
                 window._lastActivityRender = Date.now();
                 if (typeof renderEmployees === 'function') renderEmployees();
@@ -157,18 +228,33 @@ function initActivityTracker() {
             }
         }
     };
+    
     ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
         document.addEventListener(event, updateActivity, { passive: true });
     });
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) updateActivity(); });
+    
+    document.addEventListener('visibilitychange', () => { 
+        if (!document.hidden) updateActivity(); 
+    });
+    
     console.log('✅ Activity tracker инициализирован');
 }
 
+// Восстановление последней активности из localStorage
 (function restoreLastActivity() {
     const saved = localStorage.getItem('lastActivity');
-    if (saved) { try { window.app.lastActivity = JSON.parse(saved); } catch(e) {} }
+    if (saved) { 
+        try { 
+            window.app = window.app || {};
+            window.app.lastActivity = JSON.parse(saved); 
+        } catch(e) {
+            window.app = window.app || {};
+            window.app.lastActivity = {};
+        }
+    }
 })();
 
+// 🔥 ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ
 window.login = login;
 window.authLogout = authLogout;
 window.startHeartbeat = startHeartbeat;
