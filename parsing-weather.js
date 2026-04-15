@@ -1,10 +1,107 @@
-// parsing-weather.js - ‡€ƒ‹“˜Š€ …‡ PUPPETEER 
- 
-async function fetchWeather() { 
-    console.log('??? ®£®¤ : § £«ãèª  (íª®­®¬¨ï ¯ ¬ïâ¨)'); 
-    return { temperature: 0, temperatureDisplay: '0', feelsLike: null, feelsLikeDisplay: null, description: '’®¡®«ìáª', icon: '???', source: 'stub' }; 
-} 
- 
-function getLastWeather() { return { temperature: 0, temperatureDisplay: '0', description: '’®¡®«ìáª', icon: '???' }; } 
- 
-module.exports = { fetchWeather, getLastWeather }; 
+const puppeteer = require('puppeteer');
+const chromium = require('@sparticuz/chromium');
+
+let lastWeatherData = null;
+
+let sharedBrowser = null;
+
+async function getBrowser() {
+    if (sharedBrowser && sharedBrowser.isConnected()) {
+        return sharedBrowser;
+    }
+    if (sharedBrowser) {
+        try { await sharedBrowser.close(); } catch(e) {}
+    }
+    sharedBrowser = await puppeteer.launch({
+        args: [...chromium.args, '--single-process', '--disable-dev-shm-usage', '--disable-gpu'],
+        defaultViewport: { width: 800, height: 600 },
+        executablePath: await chromium.executablePath(),
+        headless: true,
+        timeout: 30000
+    });
+    return sharedBrowser;
+}
+
+const weatherSources = [
+    {
+        name: 'Yandex',
+        url: 'https://yandex.ru/pogoda/ru/tobolsk',
+        parser: async (page) => {
+            await page.setRequestInterception(true);
+            page.on('request', (req) => {
+                const resourceType = req.resourceType();
+                if (resourceType === 'image' || resourceType === 'font' || resourceType === 'stylesheet') {
+                    req.abort();
+                } else {
+                    req.continue();
+                }
+            });
+            return await page.evaluate(() => {
+                let temperature = null;
+                const tempSpan = document.querySelector('.temp__value');
+                if (tempSpan) {
+                    const tempText = tempSpan.innerText;
+                    const match = tempText.match(/[?-]?\d+/);
+                    if (match) temperature = parseInt(match[0].replace('?', '-'));
+                }
+                let icon = '???';
+                if (temperature !== null) {
+                    const hour = new Date().getHours();
+                    const isNight = hour < 6 || hour >= 20;
+                    if (temperature <= -20) icon = isNight ? '????' : '??';
+                    else if (temperature <= -10) icon = isNight ? '????' : '??';
+                    else if (temperature <= 0) icon = isNight ? '??' : '??';
+                    else if (temperature <= 10) icon = isNight ? '??' : '??';
+                    else icon = isNight ? '??' : '??';
+                }
+                return { temperature, description: 'ßíäåêñ.Ïîãîäà', icon };
+            });
+        }
+    }
+];
+
+function getTobolskTime() {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+}
+
+async function fetchWeather() {
+    console.log('??? Çàïóñê ïàðñèíãà ïîãîäû...', getTobolskTime().toLocaleString());
+    let page = null;
+    try {
+        const browser = await getBrowser();
+        page = await browser.newPage();
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+        await page.setDefaultNavigationTimeout(15000);
+        for (const source of weatherSources) {
+            try {
+                await page.goto(source.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                const weatherData = await source.parser(page);
+                if (weatherData.temperature !== null && !isNaN(weatherData.temperature)) {
+                    weatherData.temperatureDisplay = weatherData.temperature > 0 ? '+' + weatherData.temperature : '' + weatherData.temperature;
+                    weatherData.fetchedAt = new Date().toISOString();
+                    weatherData.source = source.name;
+                    console.log(`? Ïîãîäà: ${weatherData.temperatureDisplay}°C (${source.name})`);
+                    lastWeatherData = weatherData;
+                    await page.close();
+                    return weatherData;
+                }
+            } catch (e) { console.log(`? ${source.name}: ${e.message}`); }
+        }
+        await page.close();
+        if (lastWeatherData) return lastWeatherData;
+        return { temperature: 0, temperatureDisplay: '0', description: 'Íåò äàííûõ', icon: '???', isError: true };
+    } catch (err) {
+        console.error('? Îøèáêà ïàðñèíãà:', err.message);
+        if (page) await page.close().catch(() => {});
+        if (lastWeatherData) return lastWeatherData;
+        return { temperature: 0, temperatureDisplay: '0', description: 'Îøèáêà', icon: '???', isError: true };
+    }
+}
+
+function getLastWeather() { return lastWeatherData; }
+
+process.on('exit', () => { if (sharedBrowser) sharedBrowser.close(); });
+process.on('SIGINT', () => { if (sharedBrowser) sharedBrowser.close(); process.exit(); });
+process.on('SIGTERM', () => { if (sharedBrowser) sharedBrowser.close(); process.exit(); });
+
+module.exports = { fetchWeather, getLastWeather };

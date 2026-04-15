@@ -793,7 +793,20 @@ app.post('/api/gifts', authMiddleware, async (req, res) => {
 // ============================================
 
 app.get('/api/weather', async (req, res) => {
-    try { const weather = await fetchWeather(); res.json({ success: true, temp: weather.temperature, tempDisplay: weather.temperatureDisplay, feelsLike: weather.feelsLike, feelsLikeDisplay: weather.feelsLikeDisplay, desc: weather.description, icon: weather.icon }); } catch (err) { res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' }); }
+    try {
+        const weather = await fetchWeather();
+        res.json({ 
+            success: true, 
+            temp: weather.temperature, 
+            tempDisplay: weather.temperatureDisplay, 
+            feelsLike: weather.feelsLike, 
+            feelsLikeDisplay: weather.feelsLikeDisplay, 
+            desc: weather.description, 
+            icon: weather.icon 
+        });
+    } catch (err) {
+        res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' });
+    }
 });
 
 // ============================================
