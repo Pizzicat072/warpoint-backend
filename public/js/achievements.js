@@ -129,7 +129,7 @@ function renderAchievements() {
     
     if (achievementsData.length === 0) {
         container.innerHTML = `
-            <div style="text-align: center; padding: 60px;">
+            <div class="achievements-empty">
                 <div class="loading-spinner"></div>
                 <p style="color: #64748b; margin-top: 16px;">Загрузка достижений...</p>
             </div>
@@ -195,26 +195,19 @@ function renderAchievements() {
                 </div>
             `;
             
-            // 🔥 РЕНДЕРИМ КАТЕГОРИИ ПО ОДНОЙ (ленивая загрузка)
-            let categoryIndex = 0;
+            // Рендерим категории
             const categoryKeys = Object.keys(categories).filter(cat => grouped[cat].length > 0);
             
-            function renderNextCategory() {
-                if (categoryIndex >= categoryKeys.length) {
-                    isRendering = false;
-                    return;
-                }
-                
-                const catId = categoryKeys[categoryIndex];
+            for (const catId of categoryKeys) {
                 const cat = categories[catId];
                 const catAchievements = grouped[catId];
                 
                 const catUnlocked = catAchievements.filter(a => userUnlocked.has(a.id)).length;
                 const catPending = catAchievements.filter(a => userPending.has(a.id)).length;
                 
-                let catHtml = `
+                html += `
                     <div class="achievement-category-premium">
-                        <div class="category-header-premium" style="border-bottom-color: ${cat.color}40;">
+                        <div class="category-header-premium" style="border-bottom-color: ${cat.color}40;" onclick="toggleCategory('${catId}')">
                             <span class="category-icon">${cat.icon}</span>
                             <span class="category-name">${cat.name}</span>
                             <span class="category-stats">
@@ -222,13 +215,10 @@ function renderAchievements() {
                                 ${catPending > 0 ? ` <span style="color: #fbbf24; margin-left: 8px;">🎁 ${catPending}</span>` : ''}
                             </span>
                         </div>
-                        <div class="category-achievements-grid">
+                        <div class="category-achievements-grid" id="category-${catId}">
                 `;
                 
-                // 🔥 Рендерим максимум 20 достижений за раз
-                const achievementsToShow = catAchievements.slice(0, 20);
-                
-                for (const ach of achievementsToShow) {
+                for (const ach of catAchievements) {
                     const isUnlocked = userUnlocked.has(ach.id);
                     const isPending = userPending.has(ach.id);
                     
@@ -248,7 +238,7 @@ function renderAchievements() {
                         button = `<button class="claim-achievement-btn" onclick="claimAchievement('${ach.id}')">Получить +${ach.coins} WP</button>`;
                     }
                     
-                    catHtml += `
+                    html += `
                         <div class="achievement-card-premium" style="border-color: ${borderColor};">
                             <div class="achievement-card-header">
                                 <span class="achievement-name">${escapeHtml(ach.name)}</span>
@@ -263,26 +253,29 @@ function renderAchievements() {
                     `;
                 }
                 
-                catHtml += `</div></div>`;
-                container.insertAdjacentHTML('beforeend', catHtml);
-                
-                categoryIndex++;
-                
-                // 🔥 СЛЕДУЮЩАЯ КАТЕГОРИЯ ЧЕРЕЗ 10ms (разблокировка UI)
-                setTimeout(renderNextCategory, 10);
+                html += `</div></div>`;
             }
             
             container.innerHTML = html;
-            renderNextCategory();
+            isRendering = false;
             
         } catch (err) {
             console.error('❌ Ошибка рендера:', err);
-            container.innerHTML = '<div style="text-align: center; padding: 60px; color: #ef4444;">Ошибка загрузки достижений</div>';
+            container.innerHTML = '<div class="achievements-empty"><div class="achievements-empty-icon">❌</div><h3>Ошибка загрузки</h3></div>';
             isRendering = false;
         }
     }, 10);
 }
 
+// Функция для сворачивания/разворачивания категорий
+function toggleCategory(catId) {
+    const grid = document.getElementById(`category-${catId}`);
+    if (grid) {
+        grid.style.display = grid.style.display === 'none' ? 'grid' : 'none';
+    }
+}
+
+window.toggleCategory = toggleCategory;
 // ============================================
 // ПОЛУЧЕНИЕ НАГРАДЫ
 // ============================================
