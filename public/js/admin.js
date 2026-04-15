@@ -20,7 +20,6 @@ function initAdmin() {
     }
     
     loadAdminData();
-    setupAdminTabs();
     loadCurrentTheme();
 }
 
@@ -29,28 +28,6 @@ async function loadAdminData() {
     adminEmployeesList = window.app.employees || [];
     renderAdminEmployees();
     loadFundAmount();
-}
-
-function setupAdminTabs() {
-    const tabs = document.querySelectorAll('.admin-tab');
-    if (tabs.length === 0) return;
-    
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const tabId = tab.dataset.tab;
-            document.querySelectorAll('.admin-tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.querySelectorAll('.admin-tab').forEach(t => {
-                t.classList.remove('active');
-            });
-            tab.classList.add('active');
-            const targetContent = document.getElementById(`adminTab${tabId}`);
-            if (targetContent) {
-                targetContent.classList.add('active');
-            }
-        });
-    });
 }
 
 function renderAdminEmployees() {
@@ -137,8 +114,67 @@ async function giveBonus(employeeName) {
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
+        if (typeof refreshAllBalanceDisplays === 'function') refreshAllBalanceDisplays();
     } else {
         showNotif('Ошибка при выдаче бонуса', 'error');
+    }
+}
+
+async function changeEmployeeRole(employeeName, currentRole) {
+    const roles = [
+        { value: 'operator', name: '👤 Оператор' },
+        { value: 'admin', name: '⚙️ Администратор' },
+        { value: 'manager', name: '📋 Управляющий' }
+    ];
+    
+    const optionsHtml = roles.map(r => 
+        `<option value="${r.value}" ${r.value === currentRole ? 'selected' : ''}>${r.name}</option>`
+    ).join('');
+    
+    const modalHtml = `
+        <div id="roleModal" class="modal active">
+            <div class="modal-window" style="max-width: 400px;">
+                <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15);">
+                    <h3>👤 Изменить должность</h3>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Сотрудник: ${escapeHtml(employeeName)}</p>
+                </div>
+                <div style="padding: 20px;">
+                    <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Новая должность</label>
+                    <select id="newRoleSelect" class="edit-input" style="width: 100%;">
+                        ${optionsHtml}
+                    </select>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
+                    <button class="btn-primary" onclick="saveEmployeeRole('${escapeHtml(employeeName)}')">💾 Сохранить</button>
+                    <button class="btn-secondary" onclick="closeRoleModal()">Отмена</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeRoleModal() {
+    const modal = document.getElementById('roleModal');
+    if (modal) modal.remove();
+}
+
+async function saveEmployeeRole(employeeName) {
+    const select = document.getElementById('newRoleSelect');
+    if (!select) return;
+    
+    const newRole = select.value;
+    const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role: newRole });
+    
+    if (response && response.success) {
+        showNotif(`✅ Роль изменена`, 'success');
+        closeRoleModal();
+        await loadEmployees();
+        adminEmployeesList = window.app.employees || [];
+        renderAdminEmployees();
+        if (typeof renderEmployees === 'function') renderEmployees();
+    } else {
+        showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
     }
 }
 
@@ -185,10 +221,7 @@ async function updateFund() {
 
 async function addToFund() {
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
-    if (amount === 0) {
-        showNotif('Введите сумму', 'warning');
-        return;
-    }
+    if (amount === 0) { showNotif('Введите сумму', 'warning'); return; }
     
     const response = await apiCall('/fund/add', 'POST', { sum: amount });
     if (response && response.success) {
@@ -202,10 +235,7 @@ async function addToFund() {
 
 async function subtractFromFund() {
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
-    if (amount === 0) {
-        showNotif('Введите сумму', 'warning');
-        return;
-    }
+    if (amount === 0) { showNotif('Введите сумму', 'warning'); return; }
     
     const response = await apiCall('/fund/add', 'POST', { sum: -amount });
     if (response && response.success) {
@@ -229,10 +259,6 @@ async function resetFund() {
     }
 }
 
-// ============================================
-// ГЛОБАЛЬНАЯ ТЕМА
-// ============================================
-
 async function setGlobalTheme(themeId) {
     if (window.app.currentUserRole !== 'director') {
         showNotif('Только директор может менять тему', 'error');
@@ -240,12 +266,8 @@ async function setGlobalTheme(themeId) {
     }
     
     const themeNames = {
-        'vr-portal': 'VR-портал',
-        'hacker': 'Хакер',
-        'glitch': 'Глитч',
-        'explosion': 'Взрыв',
-        'depth': 'Глубина',
-        'charge': 'Заряд'
+        'vr-portal': 'VR-портал', 'hacker': 'Хакер', 'glitch': 'Глитч',
+        'explosion': 'Взрыв', 'depth': 'Глубина', 'charge': 'Заряд'
     };
     
     try {
@@ -267,261 +289,43 @@ async function setGlobalTheme(themeId) {
 function applyGlobalTheme(themeId) {
     const body = document.body;
     const themes = ['vr-portal', 'hacker', 'glitch', 'explosion', 'depth', 'charge'];
-    themes.forEach(theme => {
-        body.classList.remove(`global-${theme}`);
-    });
-    
+    themes.forEach(theme => body.classList.remove(`global-${theme}`));
     if (themeId && themeId !== 'vr-portal') {
         body.classList.add(`global-${themeId}`);
-    } else {
-        body.classList.add('global-vr-portal');
     }
-    
     localStorage.setItem('globalTheme', themeId || 'vr-portal');
 }
 
 async function loadCurrentTheme() {
-    const token = localStorage.getItem('token');
-    if (!token) {
-        applyGlobalTheme('vr-portal');
-        return;
-    }
-    
     try {
         const response = await apiCall('/admin/theme');
         if (response && response.success && response.theme) {
             applyGlobalTheme(response.theme);
             const themeNames = {
-                'vr-portal': 'VR-портал',
-                'hacker': 'Хакер',
-                'glitch': 'Глитч',
-                'explosion': 'Взрыв',
-                'depth': 'Глубина',
-                'charge': 'Заряд'
+                'vr-portal': 'VR-портал', 'hacker': 'Хакер', 'glitch': 'Глитч',
+                'explosion': 'Взрыв', 'depth': 'Глубина', 'charge': 'Заряд'
             };
             const nameEl = document.getElementById('currentThemeName');
             if (nameEl) nameEl.textContent = themeNames[response.theme] || response.theme;
-        } else {
-            applyGlobalTheme('vr-portal');
         }
     } catch (err) {
         console.error('Ошибка загрузки темы:', err);
-        applyGlobalTheme('vr-portal');
     }
 }
 
-// ============================================
-// СБРОС ДАННЫХ
-// ============================================
-
-// ============================================
-// СБРОС ДАННЫХ (РАБОЧИЕ ФУНКЦИИ)
-// ============================================
-
 async function resetAllData() {
-    console.log('🧹 ===== КНОПКА "ЧИСТЫЙ ЛИСТ" НАЖАТА =====');
-    
-    if (!confirm('⚠️ ВНИМАНИЕ! Будут удалены ВСЕ сотрудники кроме директора и ВСЕ данные!\n\nЭто действие НЕОБРАТИМО. Продолжить?')) {
-        console.log('❌ Отменено пользователем');
-        return;
-    }
-    
-    if (!confirm('Точно? Все задачи, график, достижения, чаты будут удалены.')) {
-        console.log('❌ Отменено пользователем (второе подтверждение)');
-        return;
-    }
+    if (!confirm('⚠️ ВНИМАНИЕ! Будут удалены ВСЕ сотрудники кроме директора и ВСЕ данные!\n\nЭто действие НЕОБРАТИМО. Продолжить?')) return;
+    if (!confirm('Точно? Все задачи, график, достижения, чаты будут удалены.')) return;
     
     showNotif('🧹 Сброс данных...', 'info');
     
     try {
-        const token = localStorage.getItem('token');
-        
-        // 1. Получаем список ВСЕХ сотрудников
-        console.log('📡 Запрос списка сотрудников...');
-        const dataRes = await fetch('/api/data', {
-            headers: { 'Authorization': 'Bearer ' + token }
-        });
-        const data = await dataRes.json();
-        const employees = data.employees || [];
-        
-        console.log(`👥 Найдено сотрудников: ${employees.length}`);
-        console.log('📋 Список:', employees);
-        
-        // 2. Удаляем каждого кроме директора
-        let deletedCount = 0;
-        let failedCount = 0;
-        
-        for (const emp of employees) {
-            if (emp === 'Денис') {
-                console.log(`⏭️ Пропущен: ${emp} (директор)`);
-                continue;
-            }
-            
-            console.log(`🗑️ Удаление сотрудника: ${emp}`);
-            
-            try {
-                const delRes = await fetch(`/api/employees/${encodeURIComponent(emp)}`, {
-                    method: 'DELETE',
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const delData = await delRes.json();
-                
-                if (delData.success) {
-                    deletedCount++;
-                    console.log(`   ✅ ${emp} успешно удалён`);
-                } else {
-                    failedCount++;
-                    console.log(`   ❌ ${emp}: ${delData.error}`);
-                }
-            } catch (err) {
-                failedCount++;
-                console.log(`   ❌ ${emp}: ${err.message}`);
-            }
-        }
-        
-        console.log(`📊 Итог: удалено ${deletedCount}, ошибок ${failedCount}`);
-        
-        // 3. Вызываем серверный сброс для очистки таблиц
-        console.log('📡 Вызов /api/admin/reset-all для очистки таблиц...');
-        const resetRes = await fetch('/api/admin/reset-all', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token 
-            }
-        });
-        const resetData = await resetRes.json();
-        console.log('📡 Ответ сервера:', resetData);
-        
-        if (resetData.success) {
-            showNotif('✅ ' + resetData.message, 'success');
-        } else {
-            showNotif('⚠️ Сотрудники удалены, но таблицы не очищены: ' + (resetData.error || ''), 'warning');
-        }
-        
-        // 4. Перезагружаем страницу
-        console.log('🔄 Перезагрузка страницы через 1.5 сек...');
-        setTimeout(() => {
-            location.reload();
-        }, 1500);
-        
-    } catch (err) {
-        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА:', err);
-        showNotif('❌ Ошибка соединения: ' + err.message, 'error');
-    }
-}
-
-async function equalStart() {
-    console.log('🚀 ===== КНОПКА "РАВНЫЙ СТАРТ" НАЖАТА =====');
-    
-    if (!confirm('🚀 Равный старт!\n\nОбнуляется:\n- Достижения\n- График\n- Задачи и штрафы\n- Статистика\n- Чат\n\nСохраняется:\n- Сотрудники\n- ВП, Зарплата, База знаний\n\nПродолжить?')) {
-        console.log('❌ Отменено пользователем');
-        return;
-    }
-    
-    showNotif('🚀 Равный старт...', 'info');
-    
-    try {
-        const token = localStorage.getItem('token');
-        
-        console.log('📡 Вызов /api/admin/equal-start...');
-        const response = await fetch('/api/admin/equal-start', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token 
-            }
-        });
-        const data = await response.json();
-        console.log('📡 Ответ сервера:', data);
-        
-        if (data.success) {
-            showNotif('✅ ' + data.message, 'success');
-            console.log('🔄 Перезагрузка страницы через 1.5 сек...');
-            setTimeout(() => {
-                location.reload();
-            }, 1500);
-        } else {
-            showNotif('❌ Ошибка: ' + (data.error || 'неизвестная'), 'error');
-        }
-    } catch (err) {
-        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА:', err);
-        showNotif('❌ Ошибка соединения: ' + err.message, 'error');
-    }
-}
-// Изменение роли сотрудника
-async function changeEmployeeRole(employeeName, currentRole) {
-    console.log(`👤 Изменение роли: ${employeeName} (текущая: ${currentRole})`);
-    
-    const roles = [
-        { value: 'operator', name: '👤 Оператор' },
-        { value: 'admin', name: '⚙️ Администратор' },
-        { value: 'manager', name: '📋 Управляющий' }
-    ];
-    
-    // Создаём модалку с выбором роли
-    const optionsHtml = roles.map(r => 
-        `<option value="${r.value}" ${r.value === currentRole ? 'selected' : ''}>${r.name}</option>`
-    ).join('');
-    
-    const modalHtml = `
-        <div id="roleModal" class="modal active">
-            <div class="modal-window" style="max-width: 400px;">
-                <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15);">
-                    <h3>👤 Изменить должность</h3>
-                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Сотрудник: ${escapeHtml(employeeName)}</p>
-                </div>
-                <div style="padding: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Новая должность</label>
-                    <select id="newRoleSelect" class="edit-input" style="width: 100%;">
-                        ${optionsHtml}
-                    </select>
-                    <div style="margin-top: 16px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px;">
-                        <p style="font-size: 12px; color: #94a3b8; margin: 0;">
-                            <strong>👤 Оператор</strong> — базовый доступ, может отмечать смены<br>
-                            <strong>⚙️ Администратор</strong> — может управлять ВП мероприятиями<br>
-                            <strong>📋 Управляющий</strong> — расширенные права, может редактировать график
-                        </p>
-                    </div>
-                </div>
-                <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
-                    <button class="btn-primary" onclick="saveEmployeeRole('${escapeHtml(employeeName)}')">💾 Сохранить</button>
-                    <button class="btn-secondary" onclick="closeRoleModal()">Отмена</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-
-function closeRoleModal() {
-    const modal = document.getElementById('roleModal');
-    if (modal) modal.remove();
-}
-
-async function saveEmployeeRole(employeeName) {
-    const select = document.getElementById('newRoleSelect');
-    if (!select) return;
-    
-    const newRole = select.value;
-    console.log(`📡 Изменение роли ${employeeName} → ${newRole}`);
-    
-    try {
-        const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role: newRole });
-        
+        const response = await apiCall('/admin/reset-all', 'POST');
         if (response && response.success) {
-            showNotif(`✅ ${response.message}`, 'success');
-            closeRoleModal();
-            
-            // Обновляем данные
-            await loadEmployees();
-            adminEmployeesList = window.app.employees || [];
-            renderAdminEmployees();
-            
-            if (typeof renderEmployees === 'function') renderEmployees();
+            showNotif('✅ ' + response.message, 'success');
+            setTimeout(() => location.reload(), 1500);
         } else {
-            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
     } catch (err) {
         console.error('❌ Ошибка:', err);
@@ -529,24 +333,49 @@ async function saveEmployeeRole(employeeName) {
     }
 }
 
-// Экспорт
-window.changeEmployeeRole = changeEmployeeRole;
-window.closeRoleModal = closeRoleModal;
-window.saveEmployeeRole = saveEmployeeRole;
+async function equalStart() {
+    if (!confirm('🚀 Равный старт!\n\nОбнуляется статистика, сохраняются сотрудники.\n\nПродолжить?')) return;
+    
+    showNotif('🚀 Равный старт...', 'info');
+    
+    try {
+        const response = await apiCall('/admin/equal-start', 'POST');
+        if (response && response.success) {
+            showNotif('✅ ' + response.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+        }
+    } catch (err) {
+        console.error('❌ Ошибка:', err);
+        showNotif('❌ Ошибка соединения', 'error');
+    }
+}
+
+async function initAchievementsAdmin() {
+    if (!confirm('Переинициализировать достижения?')) return;
+    
+    try {
+        const response = await apiCall('/admin/init-achievements', 'POST');
+        if (response && response.success) {
+            showNotif('✅ ' + response.message, 'success');
+        } else {
+            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('❌ Ошибка соединения', 'error');
+    }
+}
 
 // Экспорт
-window.resetAllData = resetAllData;
-window.equalStart = equalStart;
-// Экспорт
-window.resetAllData = resetAllData;
-window.equalStart = equalStart;
-// ============================================
-// ЭКСПОРТ
-// ============================================
 window.initAdmin = initAdmin;
 window.openBonusModal = openBonusModal;
 window.closeBonusModal = closeBonusModal;
 window.giveBonus = giveBonus;
+window.changeEmployeeRole = changeEmployeeRole;
+window.closeRoleModal = closeRoleModal;
+window.saveEmployeeRole = saveEmployeeRole;
 window.deleteEmployee = deleteEmployee;
 window.updateFund = updateFund;
 window.addToFund = addToFund;
@@ -556,3 +385,4 @@ window.setGlobalTheme = setGlobalTheme;
 window.loadCurrentTheme = loadCurrentTheme;
 window.resetAllData = resetAllData;
 window.equalStart = equalStart;
+window.initAchievementsAdmin = initAchievementsAdmin;

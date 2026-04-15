@@ -199,22 +199,6 @@
     overflow: hidden;
 }
 
-.admin-header::before {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(99, 102, 241, 0.05) 0%, transparent 70%);
-    animation: adminHeaderGlow 10s ease-in-out infinite;
-}
-
-@keyframes adminHeaderGlow {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(5%, 5%); }
-}
-
 .admin-header-icon {
     position: relative;
     width: 64px;
@@ -746,23 +730,28 @@
 </style>
 
 <script>
-function resetFund() { if (typeof window.resetFund === 'function') window.resetFund(); }
-function updateFund() { if (typeof window.updateFund === 'function') window.updateFund(); }
-function addToFund() { if (typeof window.addToFund === 'function') window.addToFund(); }
-function subtractFromFund() { if (typeof window.subtractFromFund === 'function') window.subtractFromFund(); }
-function setGlobalTheme(theme) { if (typeof window.setGlobalTheme === 'function') window.setGlobalTheme(theme); }
-function equalStart() { if (typeof window.equalStart === 'function') window.equalStart(); }
-function resetAllData() { if (typeof window.resetAllData === 'function') window.resetAllData(); }
-function initAchievementsAdmin() { if (typeof window.initAchievementsAdmin === 'function') window.initAchievementsAdmin(); }
-
-// Табы
+// Переключение табов
 document.querySelectorAll('.admin-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         const tabId = tab.dataset.tab;
+        
+        // Убираем active со всех табов и контента
         document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Активируем выбранный таб и контент
         tab.classList.add('active');
         document.getElementById(`adminTab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`).classList.add('active');
     });
 });
+
+// Заглушки для функций (если не определены в admin.js)
+if (typeof resetFund !== 'function') window.resetFund = function() { alert('Функция resetFund не определена'); };
+if (typeof updateFund !== 'function') window.updateFund = function() { alert('Функция updateFund не определена'); };
+if (typeof addToFund !== 'function') window.addToFund = function() { alert('Функция addToFund не определена'); };
+if (typeof subtractFromFund !== 'function') window.subtractFromFund = function() { alert('Функция subtractFromFund не определена'); };
+if (typeof setGlobalTheme !== 'function') window.setGlobalTheme = function(theme) { alert('Тема: ' + theme); };
+if (typeof equalStart !== 'function') window.equalStart = function() { alert('Функция equalStart не определена'); };
+if (typeof resetAllData !== 'function') window.resetAllData = function() { alert('Функция resetAllData не определена'); };
+if (typeof initAchievementsAdmin !== 'function') window.initAchievementsAdmin = function() { alert('Функция initAchievementsAdmin не определена'); };
 </script>
