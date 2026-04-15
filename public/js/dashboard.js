@@ -1058,6 +1058,58 @@ function initDashboard() {
     }
     
     updateDashboardStats();
+// ============================================
+// АКТИВНОСТЬ
+// ============================================
+
+let lastActivityUpdate = 0;
+const ACTIVITY_UPDATE_INTERVAL = 15000;
+
+function loadActivity() {
+    const now = Date.now();
+    
+    if (now - lastActivityUpdate < ACTIVITY_UPDATE_INTERVAL) {
+        return;
+    }
+    lastActivityUpdate = now;
+    
+    const onlineList = document.getElementById('onlineList');
+    const lastList = document.getElementById('lastActivityList');
+    if (!onlineList) return;
+    
+    const onlineEmployees = [];
+    for (const emp of window.app?.employees || []) {
+        const lastActive = window.app?.lastActivity?.[emp];
+        if (lastActive && Date.now() - lastActive < 60000) {
+            onlineEmployees.push(emp);
+        }
+    }
+    
+    onlineList.innerHTML = onlineEmployees.length ? 
+        onlineEmployees.map(e => `<div><span style="color:#10b981;">🟢</span> ${escapeHtml(e)}</div>`).join('') :
+        '<div style="opacity:0.5;">— никого в сети —</div>';
+    
+    if (lastList) {
+        const lastActivityList = [];
+        for (const emp of window.app?.employees || []) {
+            const lastActive = window.app?.lastActivity?.[emp];
+            if (lastActive) {
+                const date = new Date(lastActive);
+                const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+                lastActivityList.push({ name: emp, time: timeStr, timestamp: lastActive });
+            }
+        }
+        lastActivityList.sort((a, b) => b.timestamp - a.timestamp);
+        
+        if (lastActivityList.length > 0) {
+            lastList.innerHTML = lastActivityList.slice(0, 5).map(item => 
+                `<div>${escapeHtml(item.name)} — ${item.time}</div>`
+            ).join('');
+        } else {
+            lastList.innerHTML = '<div style="opacity:0.5;">— нет активности —</div>';
+        }
+    }
+}
     loadActivity();
     loadHolidaysAndBirthdays();
     refreshPhilosophyQuote();
@@ -1132,7 +1184,25 @@ function cleanupDashboard() {
 }
 
 window.addEventListener('beforeunload', cleanupDashboard);
+// ============================================
+// ЦИТАТА ДНЯ
+// ============================================
 
+function refreshPhilosophyQuote() {
+    const quotes = [
+        { text: "Работа избавляет нас от трёх великих зол: скуки, порока и нужды.", author: "Вольтер" },
+        { text: "Успех — это способность двигаться от неудачи к неудаче, не теряя энтузиазма.", author: "Черчилль" },
+        { text: "Единственный способ сделать великую работу — любить то, что вы делаете.", author: "Стив Джобс" },
+        { text: "Секрет успеха — начать.", author: "Марк Твен" },
+        { text: "Лучший способ предсказать будущее — изобрести его.", author: "Алан Кей" },
+        { text: "Не бойтесь совершенства, вам его не достичь.", author: "Сальвадор Дали" }
+    ];
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+    const quoteText = document.getElementById('philosophyQuoteText');
+    const quoteAuthor = document.getElementById('philosophyQuoteAuthor');
+    if (quoteText) quoteText.textContent = quote.text;
+    if (quoteAuthor) quoteAuthor.textContent = `— ${quote.author}`;
+}
 // ============================================
 // ЭКСПОРТ
 // ============================================
@@ -1174,6 +1244,8 @@ window.initBlockParticles = initBlockParticles;
 window.stopBlockParticles = stopBlockParticles;
 window.toggleDashboardSettings = toggleDashboardSettings;
 window.initSettingsTabs = initSettingsTabs;
+window.loadActivity = loadActivity;
+window.refreshPhilosophyQuote = refreshPhilosophyQuote;
 
 const particleBlockStyle = document.createElement('style');
 particleBlockStyle.textContent = `
