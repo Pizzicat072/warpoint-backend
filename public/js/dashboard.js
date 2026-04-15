@@ -259,19 +259,110 @@ function loadActivity() {
 }
 
 function loadHolidaysAndBirthdays() {
-    const container = document.getElementById('holidaysAndBirthdaysList'); if (!container) return;
-    const today = getTobolskNow(); const currentYear = today.getFullYear(); const currentMonth = today.getMonth(); const currentDate = today.getDate();
-    const holidays = [{ date: '01-01', name: 'Новый год' }, { date: '01-07', name: 'Рождество' }, { date: '02-23', name: 'День защитника' }, { date: '03-08', name: '8 Марта' }, { date: '05-01', name: 'Праздник Весны' }, { date: '05-09', name: 'День Победы' }, { date: '06-12', name: 'День России' }, { date: '11-04', name: 'День единства' }, { date: '12-31', name: 'Новый год' }];
-    const employees = window.app.employees || []; const birthdays = [];
-    for (const emp of employees) { const profile = window.app.profiles[emp]; if (profile && profile.birthday) { let birthDate = new Date(profile.birthday); if (birthDate && !isNaN(birthDate.getTime())) { let nextBirthday = new Date(currentYear, birthDate.getMonth(), birthDate.getDate()); if (nextBirthday < today) { nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate()); } const daysUntil = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24)); birthdays.push({ name: emp, daysUntil, isToday: nextBirthday.getDate() === currentDate && nextBirthday.getMonth() === currentMonth }); } } }
-    birthdays.sort((a, b) => a.daysUntil - b.daysUntil); const upcomingBirthdays = birthdays.filter(b => b.daysUntil <= 30).slice(0, 10);
+    const container = document.getElementById('holidaysAndBirthdaysList');
+    if (!container) return;
+    
+    const today = getTobolskNow();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentDate = today.getDate();
+    
+    const holidays = [
+        { date: '01-01', name: 'Новый год' },
+        { date: '01-07', name: 'Рождество' },
+        { date: '02-23', name: 'День защитника' },
+        { date: '03-08', name: '8 Марта' },
+        { date: '05-01', name: 'Праздник Весны' },
+        { date: '05-09', name: 'День Победы' },
+        { date: '06-12', name: 'День России' },
+        { date: '11-04', name: 'День единства' },
+        { date: '12-31', name: 'Новый год' }
+    ];
+    
+    const employees = window.app?.employees || [];
+    const birthdays = [];
+    
+    for (const emp of employees) {
+        const profile = window.app?.profiles?.[emp];
+        if (profile && profile.birthday) {
+            let birthDate = new Date(profile.birthday);
+            if (birthDate && !isNaN(birthDate.getTime())) {
+                let nextBirthday = new Date(currentYear, birthDate.getMonth(), birthDate.getDate());
+                if (nextBirthday < today) {
+                    nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate());
+                }
+                const daysUntil = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24));
+                birthdays.push({
+                    name: emp,
+                    daysUntil: daysUntil,
+                    isToday: nextBirthday.getDate() === currentDate && nextBirthday.getMonth() === currentMonth
+                });
+            }
+        }
+    }
+    
+    birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+    const upcomingBirthdays = birthdays.filter(b => b.daysUntil <= 30).slice(0, 10);
+    
     const events = [];
-    for (const holiday of holidays) { const [month, day] = holiday.date.split('-'); const holidayDate = new Date(currentYear, parseInt(month) - 1, parseInt(day)); let daysUntil, eventDate; if (holidayDate < today) { eventDate = new Date(currentYear + 1, parseInt(month) - 1, parseInt(day)); daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24)); } else { eventDate = holidayDate; daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24)); } if (daysUntil <= 30) { events.push({ type: 'holiday', name: holiday.name, daysUntil, isToday: eventDate.getDate() === currentDate && eventDate.getMonth() === currentMonth }); } }
-    for (const birthday of upcomingBirthdays) { events.push({ type: 'birthday', name: `🎂 ${birthday.name}`, daysUntil: birthday.daysUntil, isToday: birthday.isToday }); }
-    events.sort((a, b) => a.daysUntil - b.daysUntil); const upcomingEvents = events.slice(0, 10);
-    if (upcomingEvents.length === 0) { container.innerHTML = `<div style="text-align: center; padding: 16px; color: #64748b;">Нет ближайших событий</div>`; return; }
+    
+    for (const holiday of holidays) {
+        const [month, day] = holiday.date.split('-');
+        const holidayDate = new Date(currentYear, parseInt(month) - 1, parseInt(day));
+        let daysUntil, eventDate;
+        if (holidayDate < today) {
+            eventDate = new Date(currentYear + 1, parseInt(month) - 1, parseInt(day));
+            daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+        } else {
+            eventDate = holidayDate;
+            daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+        }
+        if (daysUntil <= 30) {
+            events.push({
+                type: 'holiday',
+                name: holiday.name,
+                date: eventDate,
+                daysUntil: daysUntil,
+                isToday: eventDate.getDate() === currentDate && eventDate.getMonth() === currentMonth
+            });
+        }
+    }
+    
+    for (const birthday of upcomingBirthdays) {
+        const birthDate = new Date(currentYear, birthday.month, birthday.day);
+        events.push({
+            type: 'birthday',
+            name: `🎂 ${birthday.name}`,
+            date: birthDate,
+            daysUntil: birthday.daysUntil,
+            isToday: birthday.isToday
+        });
+    }
+    
+    events.sort((a, b) => a.daysUntil - b.daysUntil);
+    const upcomingEvents = events.slice(0, 10);
+    
+    if (upcomingEvents.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 16px; color: #64748b;">Нет ближайших событий</div>`;
+        return;
+    }
+    
     let html = '';
-    for (const event of upcomingEvents) { let dateStr = ''; if (event.daysUntil === 0) { dateStr = '<span style="color: #fbbf24;">СЕГОДНЯ!</span>'; } else if (event.daysUntil === 1) { dateStr = 'ЗАВТРА'; } else { const options = { day: 'numeric', month: 'long' }; dateStr = event.date.toLocaleDateString('ru-RU', options); } const eventColor = event.type === 'birthday' ? '#ec4899' : '#6366f1'; html += `<div style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border-left: 2px solid ${event.isToday ? '#fbbf24' : eventColor}; margin-bottom: 8px;"><div style="flex: 1;"><div style="font-weight: 500;">${event.name}</div><div style="font-size: 11px; color: #64748b; margin-top: 2px;">${dateStr}</div></div>${event.isToday ? '<div style="font-size: 18px;">🎉</div>' : ''}</div>`; }
+    for (const event of upcomingEvents) {
+        let dateStr = '';
+        if (event.daysUntil === 0) {
+            dateStr = '<span style="color: #fbbf24;">СЕГОДНЯ!</span>';
+        } else if (event.daysUntil === 1) {
+            dateStr = 'ЗАВТРА';
+        } else if (event.date) {
+            const options = { day: 'numeric', month: 'long' };
+            dateStr = event.date.toLocaleDateString('ru-RU', options);
+        } else {
+            dateStr = `через ${event.daysUntil} дн.`;
+        }
+        const eventColor = event.type === 'birthday' ? '#ec4899' : '#6366f1';
+        html += `<div style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border-left: 2px solid ${event.isToday ? '#fbbf24' : eventColor}; margin-bottom: 8px;"><div style="flex: 1;"><div style="font-weight: 500;">${event.name}</div><div style="font-size: 11px; color: #64748b; margin-top: 2px;">${dateStr}</div></div>${event.isToday ? '<div style="font-size: 18px;">🎉</div>' : ''}</div>`;
+    }
     container.innerHTML = html;
 }
 
