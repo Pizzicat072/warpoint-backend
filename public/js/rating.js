@@ -20,7 +20,7 @@ function initRating() {
     
     // Вызываем загрузку достижений
     if (typeof loadAchievements === 'function') {
-        loadAchievements();
+        // loadAchievements();
     }
     
     // Вызываем рендер достижений

@@ -88,10 +88,9 @@ async function login() {
             startHeartbeat();
             initActivityTracker();
             
-            if (typeof initPusher === 'function' \&\& !window.pusher) {
-                initPusher();
-            }
-            
+       if (typeof initPusher === 'function' \&\& !window.pusher) {
+    initPusher();
+}
             renderMainMenu();
             
             showNotif(`Добро пожаловать, ${window.app.currentUser}!`, 'success');

@@ -1,7 +1,5 @@
 // public/js/dashboard.js - ПОЛНАЯ ОБНОВЛЁННАЯ ВЕРСИЯ БЕЗ ЗВУКОВ
 
-// public/js/dashboard.js - ДОБАВИТЬ В НАЧАЛО
-
 // 🔥 ЗАЩИТА ОТ РЕКУРСИИ
 let isUpdatingDashboard = false;
 let dashboardUpdateTimeout = null;
