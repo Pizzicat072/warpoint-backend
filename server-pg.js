@@ -27,23 +27,29 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // ============================================
-// POSTGRESQL CONNECTION (ОПТИМИЗИРОВАНО)
+// POSTGRESQL CONNECTION
 // ============================================
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 5,
+    max: 3,
+    min: 0,
     idleTimeoutMillis: 10000,
-    connectionTimeoutMillis: 5000,
-    statement_timeout: 10000
+    connectionTimeoutMillis: 8000,
+    statement_timeout: 15000,
+    allowExitOnIdle: true
 });
 
-pool.on('connect', () => console.log('📊 Database connected'));
-pool.on('error', (err) => console.error('❌ Database error:', err));
+pool.on('error', (err) => console.error('❌ Database pool error:', err.message));
+
+// Мониторинг пула
+setInterval(() => {
+    console.log(`📊 Пул БД: всего=${pool.totalCount}, свободных=${pool.idleCount}, ожидают=${pool.waitingCount}`);
+}, 120000);
 
 // ============================================
-// PUSHER CONFIG (С ОГРАНИЧЕНИЕМ РЕКОННЕКТОВ)
+// PUSHER CONFIG
 // ============================================
 
 const pusher = new Pusher({
@@ -59,7 +65,7 @@ const pusher = new Pusher({
 app.set('pusher', pusher);
 
 // ============================================
-// WEATHER PARSING
+// WEATHER PARSING (ОПТИМИЗИРОВАННЫЙ)
 // ============================================
 
 const { fetchWeather, getLastWeather } = require('./parsing-weather.js');
@@ -73,7 +79,6 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
 
-// Таймаут для всех запросов
 app.use((req, res, next) => {
     const timeout = setTimeout(() => {
         if (!res.headersSent) {
@@ -155,19 +160,12 @@ function transliterate(name) {
     let result = '';
     for (let i = 0; i < name.length; i++) {
         const char = name[i];
-        if (ru[char]) {
-            result += ru[char];
-        } else if (char.match(/[a-zA-Z0-9]/)) {
-            result += char.toLowerCase();
-        }
+        if (ru[char]) result += ru[char];
+        else if (char.match(/[a-zA-Z0-9]/)) result += char.toLowerCase();
     }
     result = result.replace(/[^a-z0-9]/g, '');
     if (result === '' || result.length < 3) {
-        const defaultNames = {
-            'Денис': 'denis', 'Андрей': 'andrey', 'Максим': 'maxim',
-            'Иван': 'ivan', 'Анна': 'anna', 'Катя': 'katya',
-            'Сергей': 'sergey', 'Алексей': 'alexey'
-        };
+        const defaultNames = {'Денис':'denis','Андрей':'andrey','Максим':'maxim','Иван':'ivan','Анна':'anna','Катя':'katya','Сергей':'sergey','Алексей':'alexey'};
         result = defaultNames[name] || name.toLowerCase().replace(/[^a-z]/g, '');
     }
     if (result === '') result = 'user';
@@ -175,6 +173,7 @@ function transliterate(name) {
 }
 
 const femaleNames = ['Анна', 'Катя', 'Екатерина', 'Ольга', 'Мария', 'Елена', 'Татьяна', 'Наталья', 'Ирина', 'Светлана', 'Виктория', 'Юлия', 'Анастасия', 'Дарья', 'Алина', 'Ксения', 'Полина', 'Валерия', 'Евгения'];
+
 // ============================================
 // ФУНКЦИЯ ОТПРАВКИ ГЛОБАЛЬНЫХ УВЕДОМЛЕНИЙ
 // ============================================
@@ -208,7 +207,7 @@ async function sendGlobalNotification(type, data, excludeUser = null) {
 }
 
 // ============================================
-// INIT DATABASE (С МИГРАЦИЯМИ)
+// INIT DATABASE (ПОЛНАЯ С МИГРАЦИЯМИ)
 // ============================================
 
 async function initDatabase() {
@@ -283,7 +282,6 @@ async function initDatabase() {
     
     console.log('✅ Database initialized');
 }
-
 // ============================================
 // INIT ACHIEVEMENTS
 // ============================================
@@ -529,52 +527,18 @@ async function autoExpireExchangeRequests() {
             await pool.query(`UPDATE exchange_requests SET status = 'expired' WHERE id = $1`, [req.id]);
             const pusherInstance = app.get('pusher');
             if (pusherInstance) {
-                await pool.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.from_employee, '⏰ Система', `Ваше предложение обмена сменами для ${req.to_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.\n\nСотрудник не ответил в течение 24 часов.`, Date.now()]);
-                pusherInstance.trigger(`private-user-${transliterate(req.from_employee)}`, 'client-private-message', { message: { sender: '⏰ Система', text: `Ваше предложение обмена сменами для ${req.to_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.\n\nСотрудник не ответил в течение 24 часов.`, time: Date.now() }, from: 'Система' });
-                await pool.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.to_employee, '⏰ Система', `Предложение обмена сменами от ${req.from_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.\n\nВы не ответили в течение 24 часов.`, Date.now()]);
-                pusherInstance.trigger(`private-user-${transliterate(req.to_employee)}`, 'client-private-message', { message: { sender: '⏰ Система', text: `Предложение обмена сменами от ${req.from_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.\n\nВы не ответили в течение 24 часов.`, time: Date.now() }, from: 'Система' });
+                await pool.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.from_employee, '⏰ Система', `Ваше предложение обмена сменами для ${req.to_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.`, Date.now()]);
+                pusherInstance.trigger(`private-user-${transliterate(req.from_employee)}`, 'client-private-message', { message: { sender: '⏰ Система', text: `Ваше предложение обмена для ${req.to_employee} автоматически отменено.`, time: Date.now() }, from: 'Система' });
+                await pool.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.to_employee, '⏰ Система', `Предложение обмена от ${req.from_employee} автоматически отменено.`, Date.now()]);
+                pusherInstance.trigger(`private-user-${transliterate(req.to_employee)}`, 'client-private-message', { message: { sender: '⏰ Система', text: `Предложение обмена от ${req.from_employee} автоматически отменено.`, time: Date.now() }, from: 'Система' });
             }
         }
         if (expiredRequests.rows.length > 0) console.log(`✅ Автоматически отменено ${expiredRequests.rows.length} просроченных запросов`);
     } catch (err) { console.error('Ошибка авто-отмены запросов:', err); }
 }
 // ============================================
-// API ЭНДПОИНТЫ
+// AUTH API
 // ============================================
-
-app.get('/api/schedule/special-cases', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT date, cases FROM schedule_special_cases`); const data = {}; result.rows.forEach(row => { data[row.date] = row.cases; }); res.json({ success: true, data }); } catch (err) { res.json({ success: true, data: {} }); } });
-app.post('/api/schedule/special-cases', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); const { date, cases } = req.body; try { await pool.query(`INSERT INTO schedule_special_cases (date, cases, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (date) DO UPDATE SET cases = EXCLUDED.cases, updated_at = CURRENT_TIMESTAMP`, [date, cases]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); } });
-
-app.post('/api/exchange/create', authMiddleware, async (req, res) => {
-    const { toEmployee, toDate, toShiftTime, fromDate, fromShiftTime, comment } = req.body;
-    const fromEmployee = req.user.username;
-    if (fromEmployee === toEmployee) return res.status(400).json({ error: 'Нельзя обменяться с самим собой' });
-    const fromDateFormatted = formatDateToYMD(fromDate); const toDateFormatted = formatDateToYMD(toDate);
-    const existingRequest = await pool.query(`SELECT id FROM exchange_requests WHERE ((from_employee = $1 AND to_employee = $2) OR (from_employee = $2 AND to_employee = $1)) AND status = 'pending'`, [fromEmployee, toEmployee]);
-    if (existingRequest.rows.length > 0) return res.status(400).json({ error: 'Активный запрос на обмен уже существует' });
-    const expiresAt = new Date(); expiresAt.setHours(expiresAt.getHours() + 24);
-    const result = await pool.query(`INSERT INTO exchange_requests (from_employee, to_employee, from_date, to_date, from_shift_time, to_shift_time, comment, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`, [fromEmployee, toEmployee, fromDateFormatted, toDateFormatted, fromShiftTime, toShiftTime, comment, expiresAt]);
-    const requestId = result.rows[0].id;
-    const pusherInstance = app.get('pusher');
-    if (pusherInstance) {
-        const isFemale = femaleNames.includes(fromEmployee); const hisHer = isFemale ? 'Её' : 'Его';
-        const message = { sender: '🔄 Система', text: `📅 **Предложение обмена сменами**\n\n👤 ${fromEmployee} хочет обменяться с вами!\n\n📌 ${hisHer} смена: ${formatDateRussian(fromDateFormatted)} в ${fromShiftTime}\n📌 Ваша смена: ${formatDateRussian(toDateFormatted)} в ${toShiftTime}\n\n💬 Комментарий: ${comment || 'Без комментария'}`, time: Date.now(), action_data: { type: 'exchange_request', request_id: requestId, from_employee: fromEmployee, to_employee: toEmployee, from_date: fromDateFormatted, to_date: toDateFormatted, from_time: fromShiftTime, to_time: toShiftTime, comment, status: 'pending' } };
-        await pool.query(`INSERT INTO messages (room, sender, text, time, action_data) VALUES ($1, $2, $3, $4, $5)`, [toEmployee, message.sender, message.text, message.time, message.action_data]);
-        pusherInstance.trigger(`private-user-${transliterate(toEmployee)}`, 'client-private-message', { message, from: fromEmployee });
-    }
-    res.json({ success: true, requestId });
-});
-
-app.post('/api/exchange/accept/:id', authMiddleware, async (req, res) => { /* полный код обмена - оставлен как есть */ res.json({ success: true }); });
-app.post('/api/exchange/reject/:id', authMiddleware, async (req, res) => { /* полный код отклонения */ res.json({ success: true }); });
-app.get('/api/exchange/pending', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT *, from_date::text as from_date_str, to_date::text as to_date_str FROM exchange_requests WHERE to_employee = $1 AND status = 'pending' ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: result.rows.map(row => ({ ...row, from_date: row.from_date_str, to_date: row.to_date_str })) }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.get('/api/exchange/my', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT *, from_date::text as from_date_str, to_date::text as to_date_str FROM exchange_requests WHERE from_employee = $1 ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: result.rows.map(row => ({ ...row, from_date: row.from_date_str, to_date: row.to_date_str })) }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => { const { id } = req.params; await pool.query(`UPDATE exchange_requests SET status = 'cancelled' WHERE id = $1 AND from_employee = $2`, [id, req.user.username]); res.json({ success: true }); });
-
-app.get('/api/statuses', authMiddleware, async (req, res) => { res.json({ success: true, data: [{ id: 'lazy', name: '🦥 Профессиональный ленивец', icon: '🦥', price: 300, rating: 8 }] }); });
-app.get('/api/user/statuses', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT * FROM user_statuses WHERE employee_id = $1', [req.user.id]); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); } });
-app.post('/api/statuses/buy', authMiddleware, async (req, res) => { /* код покупки статуса */ res.json({ success: true }); });
-app.post('/api/statuses/activate', authMiddleware, async (req, res) => { const { statusId } = req.body; await pool.query('UPDATE user_statuses SET is_active = FALSE WHERE employee_id = $1', [req.user.id]); await pool.query('UPDATE user_statuses SET is_active = TRUE WHERE employee_id = $1 AND status_id = $2', [req.user.id, statusId]); res.json({ success: true }); });
 
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
@@ -591,10 +555,9 @@ app.post('/api/auth/login', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.get('/api/user/login-streak', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT last_bonus_claimed_at, bonus_streak FROM employees WHERE id = $1`, [req.user.id]); const streak = result.rows[0]?.bonus_streak || 1; const lastClaimed = result.rows[0]?.last_bonus_claimed_at; const today = getTobolskNow().toISOString().split('T')[0]; const hasClaimedToday = lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === today; res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: streak + 1 }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/user/claim-daily-bonus', authMiddleware, async (req, res) => { try { const result = await updateLoginStreak(req.user.id, req.user.username); res.json(result); } catch (err) { res.status(500).json({ error: err.message }); } });
-
-app.get('/api/transactions', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`, [req.user.id]); res.json({ success: true, transactions: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); } });
+// ============================================
+// DATA API
+// ============================================
 
 app.get('/api/data', authMiddleware, async (req, res) => {
     try {
@@ -609,73 +572,255 @@ app.get('/api/data', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/schedule/shift', authMiddleware, async (req, res) => { /* код сохранения смены */ res.json({ success: true }); });
-app.get('/api/schedule', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT id, date::text as date, employee, shift_time, shift_status, is_special, special_end_time, shift_paid FROM schedule ORDER BY date DESC, employee`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.delete('/api/schedule/shift', authMiddleware, async (req, res) => { const { date, employee } = req.body; await pool.query('DELETE FROM schedule WHERE date = $1::date AND employee = $2', [date, employee]); res.json({ success: true }); });
+// ============================================
+// TASKS API
+// ============================================
 
-app.get('/api/tasks', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT t.*, COALESCE(json_agg(s.*) FILTER (WHERE s.id IS NOT NULL), '[]') as subtasks FROM tasks t LEFT JOIN subtasks s ON s.task_id = t.id GROUP BY t.id ORDER BY t.created_at DESC`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/tasks', authMiddleware, async (req, res) => { /* код создания задачи */ res.json({ success: true }); });
-app.put('/api/tasks/:id', authMiddleware, async (req, res) => { const { id } = req.params; await pool.query(`UPDATE tasks SET status = $1 WHERE id = $2`, [req.body.status, id]); res.json({ success: true }); });
-app.delete('/api/tasks/:id', authMiddleware, async (req, res) => { await pool.query('DELETE FROM tasks WHERE id = $1', [req.params.id]); res.json({ success: true }); });
+app.get('/api/tasks', authMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT t.*, COALESCE(json_agg(s.*) FILTER (WHERE s.id IS NOT NULL), '[]') as subtasks FROM tasks t LEFT JOIN subtasks s ON s.task_id = t.id GROUP BY t.id ORDER BY t.created_at DESC`);
+        res.json(result.rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/fines', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT * FROM fines ORDER BY date DESC'); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/fines', authMiddleware, async (req, res) => { /* код создания штрафа */ res.json({ success: true }); });
-app.put('/api/fines/:id', authMiddleware, async (req, res) => { const { id } = req.params; await pool.query(`UPDATE fines SET status = $1 WHERE id = $2`, [req.body.status, id]); res.json({ success: true }); });
-app.delete('/api/fines/:id', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); await pool.query('DELETE FROM fines WHERE id = $1', [req.params.id]); res.json({ success: true }); });
+app.post('/api/tasks', authMiddleware, async (req, res) => {
+    const { task } = req.body;
+    if (!task || !task.name) return res.status(400).json({ error: 'Не указано название задачи' });
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        let groupMembersJson = null;
+        if (task.group_members && Array.isArray(task.group_members)) { groupMembersJson = JSON.stringify(task.group_members); }
+        const result = await client.query(`INSERT INTO tasks (name, author, executor, priority, deadline, progress, comment, recurring, status, is_group_task, group_members) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`, [task.name, task.author || req.user.username, task.executor, task.priority || 'medium', task.deadline || null, task.progress || 0, task.comment || null, task.recurring || 'none', task.status || 'in_progress', task.is_group_task || null, groupMembersJson]);
+        const newTask = result.rows[0];
+        if (task.subtasks && task.subtasks.length > 0) {
+            for (const sub of task.subtasks) { await client.query(`INSERT INTO subtasks (task_id, name, completed) VALUES ($1, $2, $3)`, [newTask.id, sub.name, sub.completed || false]); }
+        }
+        await client.query('COMMIT');
+        const finalTask = await pool.query(`SELECT t.*, COALESCE(json_agg(s.*) FILTER (WHERE s.id IS NOT NULL), '[]') as subtasks FROM tasks t LEFT JOIN subtasks s ON s.task_id = t.id WHERE t.id = $1 GROUP BY t.id`, [newTask.id]);
+        res.json({ success: true, task: finalTask.rows[0] });
+        if (task.executor) { const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [task.executor]); if (executorRes.rows.length > 0) { await checkAndGrantAchievements(executorRes.rows[0].id, task.executor); } }
+    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); }
+});
 
-app.post('/api/chat', authMiddleware, async (req, res) => { const { room, message } = req.body; await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', [room, message.sender, message.text, Date.now()]); res.json({ success: true }); });
-app.post('/api/chat/delete', authMiddleware, async (req, res) => { const { room, messageTime } = req.body; await pool.query('DELETE FROM messages WHERE room = $1 AND time = $2', [room, messageTime]); res.json({ success: true }); });
-app.get('/api/chat/history/:room', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT * FROM messages WHERE room = $1 ORDER BY time ASC LIMIT 500', [req.params.room]); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
+app.put('/api/tasks/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params; const updates = req.body;
+    try {
+        const existingTask = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
+        if (existingTask.rows.length === 0) return res.status(404).json({ error: 'Задача не найдена' });
+        const oldTask = existingTask.rows[0]; let newAchievements = [];
+        if (updates.status === 'completed' && oldTask.status !== 'completed') {
+            let wpReward = 0;
+            if (oldTask.priority === 'high') wpReward = 15; else if (oldTask.priority === 'medium') wpReward = 8; else if (oldTask.priority === 'low') wpReward = 3;
+            if (wpReward > 0) {
+                const executor = await pool.query('SELECT id, coins FROM employees WHERE name = $1', [oldTask.executor]);
+                if (executor.rows.length > 0) {
+                    const balanceBefore = executor.rows[0].coins; const balanceAfter = balanceBefore + wpReward;
+                    await pool.query('UPDATE employees SET coins = coins + $1 WHERE name = $2', [wpReward, oldTask.executor]);
+                    await logTransaction(executor.rows[0].id, 'task_reward', wpReward, balanceBefore, balanceAfter, oldTask.id, `Выполнена задача "${oldTask.name}"`);
+                    const pusherInstance = app.get('pusher');
+                    if (pusherInstance) { pusherInstance.trigger(`private-user-${transliterate(oldTask.author)}`, 'personal-notification', { type: 'task_completed', icon: '✅', title: 'Задача выполнена!', text: `${oldTask.executor} выполнил(а) задачу «${oldTask.name}»`, time: Date.now() }); }
+                    try { await sendGlobalNotification('task_completed', { executor: oldTask.executor, taskName: oldTask.name }); } catch (err) {}
+                }
+            }
+            const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [oldTask.executor]);
+            if (executorRes.rows.length > 0) { const result = await checkAndGrantAchievements(executorRes.rows[0].id, oldTask.executor); newAchievements = result.achievements; }
+        }
+        const allowedFields = ['name', 'executor', 'priority', 'deadline', 'progress', 'comment', 'status', 'recurring', 'is_archived', 'completed_at'];
+        const setClauses = []; const values = []; let paramIndex = 1;
+        for (const field of allowedFields) { if (updates[field] !== undefined) { setClauses.push(`${field} = $${paramIndex}`); values.push(updates[field]); paramIndex++; } }
+        setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
+        if (setClauses.length > 1) { values.push(id); await pool.query(`UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`, values); }
+        const updatedTask = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
+        res.json({ success: true, task: updatedTask.rows[0], newAchievements });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT e.name, COUNT(ua.achievement_id) as achievements_count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id GROUP BY e.id, e.name ORDER BY e.name`); const counts = {}; result.rows.forEach(row => { counts[row.name] = parseInt(row.achievements_count) || 0; }); res.json({ success: true, counts }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/employees', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); const { name, role, password } = req.body; await pool.query(`INSERT INTO employees (name, role) VALUES ($1, $2)`, [name, role]); await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); res.json({ success: true }); });
-app.delete('/api/employees/:name', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); await pool.query('DELETE FROM employees WHERE name = $1', [req.params.name]); res.json({ success: true }); });
-app.put('/api/employees/:name/role', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' }); await pool.query('UPDATE employees SET role = $1 WHERE name = $2', [req.body.role, req.params.name]); res.json({ success: true }); });
-app.put('/api/profiles/:name', authMiddleware, async (req, res) => { const updates = req.body; const setClause = Object.keys(updates).map((key, i) => `${key} = $${i + 2}`).join(', '); await pool.query(`UPDATE employees SET ${setClause} WHERE name = $1`, [req.params.name, ...Object.values(updates)]); res.json({ success: true }); });
+app.delete('/api/tasks/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const taskCheck = await pool.query('SELECT id, author, status FROM tasks WHERE id = $1', [id]);
+        if (taskCheck.rows.length === 0) return res.status(404).json({ error: 'Задача не найдена' });
+        const task = taskCheck.rows[0]; const currentUser = req.user.username; const currentUserRole = req.user.role;
+        const canDelete = currentUserRole === 'director' || currentUserRole === 'manager' || (task.author === currentUser && task.status !== 'completed');
+        if (!canDelete) return res.status(403).json({ error: 'Нет прав на удаление' });
+        await pool.query('DELETE FROM subtasks WHERE task_id = $1', [id]);
+        await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/last-activity', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT name, EXTRACT(EPOCH FROM last_active) * 1000 as last_active FROM employees'); const lastActivity = {}; result.rows.forEach(row => { lastActivity[row.name] = row.last_active; }); res.json({ success: true, data: lastActivity }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/heartbeat', authMiddleware, async (req, res) => { await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [req.user.username]); res.json({ success: true }); });
+// ============================================
+// FINES API
+// ============================================
 
-app.post('/api/gifts', authMiddleware, async (req, res) => { const { recipient, giftId, quantity } = req.body; await pool.query(`INSERT INTO stickers (employee, gift_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (employee, gift_id) DO UPDATE SET quantity = stickers.quantity + $3`, [recipient, giftId, quantity]); res.json({ success: true }); });
-app.post('/api/admin/bonus/employee', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); const { name, coins, rating } = req.body; await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2 WHERE name = $3', [coins, rating, name]); res.json({ success: true }); });
+app.get('/api/fines', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT * FROM fines ORDER BY date DESC'); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-let cachedWeather = null;
-app.get('/api/weather', async (req, res) => { try { const weather = await fetchWeather(); res.json({ success: true, temp: weather.temperature, tempDisplay: weather.temperatureDisplay, feelsLike: weather.feelsLike, feelsLikeDisplay: weather.feelsLikeDisplay, desc: weather.description, icon: weather.icon }); } catch (err) { res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' }); } });
+app.post('/api/fines', authMiddleware, async (req, res) => {
+    const { fine } = req.body;
+    if (!fine || !fine.employee) return res.status(400).json({ error: 'Не указан сотрудник' });
+    try {
+        const date = fine.date || new Date().toISOString().split('T')[0];
+        const result = await pool.query(`INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`, [date, fine.employee, fine.type || 'other', fine.amount || 0, fine.coins || 0, fine.rating || 0, fine.description || '', fine.status || 'pending', fine.createdBy || req.user.username]);
+        res.json({ success: true, fine: result.rows[0] });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/salary', authMiddleware, async (req, res) => { try { const employees = await pool.query('SELECT id, name, role FROM employees WHERE role != $1', ['director']); res.json({ success: true, employees: employees.rows, dailyData: [] }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/salary/day/save', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); res.json({ success: true }); });
+app.put('/api/fines/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params; const { status, amount, coins, rating, director_comment } = req.body;
+    try {
+        const fineResult = await pool.query('SELECT * FROM fines WHERE id = $1', [id]);
+        if (fineResult.rows.length === 0) return res.status(404).json({ error: 'Штраф не найден' });
+        const oldFine = fineResult.rows[0];
+        const result = await pool.query(`UPDATE fines SET status = COALESCE($1, status), amount = COALESCE($2, amount), coins = COALESCE($3, coins), rating = COALESCE($4, rating), director_comment = COALESCE($5, director_comment), updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *`, [status, amount, coins, rating, director_comment, id]);
+        const updatedFine = result.rows[0];
+        if (status === 'approved' && oldFine.status !== 'approved') {
+            if (updatedFine.amount > 0) { await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [updatedFine.amount]); }
+            if (updatedFine.coins > 0) { await pool.query('UPDATE employees SET coins = GREATEST(coins - $1, 0) WHERE name = $2', [updatedFine.coins, oldFine.employee]); }
+            if (updatedFine.rating !== 0) { await pool.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [updatedFine.rating, oldFine.employee]); }
+            const pusherInstance = app.get('pusher');
+            if (pusherInstance) { pusherInstance.trigger(`private-user-${transliterate(oldFine.employee)}`, 'personal-notification', { type: 'fine_approved', icon: '⚠️', title: 'Штраф подтверждён', text: `Вам назначен штраф: ${oldFine.description || 'Нарушение'}`, time: Date.now() }); }
+            try { await sendGlobalNotification('fine_approved', { employee: oldFine.employee, reason: oldFine.description || 'Нарушение' }); } catch (err) {}
+        }
+        res.json({ success: true, fine: updatedFine });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/vp', authMiddleware, async (req, res) => { try { const result = await pool.query(`SELECT * FROM vp_bookings ORDER BY event_date DESC`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/vp', authMiddleware, async (req, res) => { if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' }); const { vp } = req.body; await pool.query(`INSERT INTO vp_bookings (admin, event_date, event_time, customer_name, amount, payment_type, booking_date, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [vp.admin, vp.eventDate, vp.eventTime, vp.customerName, vp.amount, vp.paymentType, vp.bookingDate, req.user.username]); res.json({ success: true }); });
-app.put('/api/vp/:id', authMiddleware, async (req, res) => { if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' }); res.json({ success: true }); });
-app.delete('/api/vp/:id', authMiddleware, async (req, res) => { if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' }); await pool.query('DELETE FROM vp_bookings WHERE id = $1', [req.params.id]); res.json({ success: true }); });
+app.delete('/api/fines/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    try { await pool.query('DELETE FROM fines WHERE id = $1', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/knowledge/categories', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT * FROM knowledge_categories ORDER BY name'); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); } });
-app.post('/api/knowledge/categories', authMiddleware, async (req, res) => { if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' }); const { name, icon } = req.body; await pool.query('INSERT INTO knowledge_categories (name, icon) VALUES ($1, $2)', [name, icon]); res.json({ success: true }); });
-app.get('/api/knowledge/articles', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT * FROM knowledge_articles ORDER BY created_at DESC'); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); } });
-app.post('/api/knowledge/articles', authMiddleware, async (req, res) => { const { category_id, title, content } = req.body; await pool.query('INSERT INTO knowledge_articles (category_id, title, content, created_by) VALUES ($1, $2, $3, $4)', [category_id, title, content, req.user.username]); res.json({ success: true }); });
+// ============================================
+// SCHEDULE API
+// ============================================
+
+app.get('/api/schedule', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT id, date::text as date, employee, shift_time, shift_status, is_special, special_end_time, shift_paid FROM schedule ORDER BY date DESC, employee`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/schedule/shift', authMiddleware, async (req, res) => {
+    const { date, employee, shift_time, shift_status, is_special, special_end_time } = req.body;
+    const currentUserRole = req.user.role; const currentUserName = req.user.username;
+    if (currentUserRole !== 'director' && currentUserRole !== 'manager' && employee !== currentUserName) return res.status(403).json({ error: 'Нет прав' });
+    try {
+        const dateForDb = formatDateToYMD(date);
+        const existing = await pool.query('SELECT id FROM schedule WHERE date = $1::date AND employee = $2', [dateForDb, employee]);
+        let result;
+        if (existing.rows.length > 0) {
+            result = await pool.query(`UPDATE schedule SET shift_time = $1, shift_status = $2, is_special = $3, special_end_time = $4, shift_paid = false, updated_at = CURRENT_TIMESTAMP WHERE date = $5::date AND employee = $6 RETURNING *`, [shift_time || null, shift_status || 'working', is_special || false, special_end_time || null, dateForDb, employee]);
+        } else {
+            result = await pool.query(`INSERT INTO schedule (date, employee, shift_time, shift_status, is_special, special_end_time) VALUES ($1::date, $2, $3, $4, $5, $6) RETURNING *`, [dateForDb, employee, shift_time || null, shift_status || 'working', is_special || false, special_end_time || null]);
+        }
+        const pusherInstance = app.get('pusher');
+        if (pusherInstance) { pusherInstance.trigger('private-warpoint-sync', 'schedule-updated', { date, employee, shift_time, shift_status, timestamp: Date.now() }); }
+        res.json({ success: true, data: result.rows[0] });
+        const empRes = await pool.query('SELECT id FROM employees WHERE name = $1', [employee]);
+        if (empRes.rows.length > 0) { await checkAndGrantAchievements(empRes.rows[0].id, employee); }
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/schedule/shift', authMiddleware, async (req, res) => {
+    const { date, employee } = req.body;
+    const currentUserRole = req.user.role; const currentUserName = req.user.username;
+    if (currentUserRole !== 'director' && currentUserRole !== 'manager' && employee !== currentUserName) return res.status(403).json({ error: 'Нет прав' });
+    try { await pool.query('DELETE FROM schedule WHERE date = $1::date AND employee = $2', [date, employee]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================
+// EMPLOYEES API
+// ============================================
+
+app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT e.name, COUNT(ua.achievement_id) as achievements_count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id GROUP BY e.id, e.name`); const counts = {}; result.rows.forEach(row => { counts[row.name] = parseInt(row.achievements_count) || 0; }); res.json({ success: true, counts }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/employees', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { name, role, password, birthday, phone } = req.body;
+    try { await pool.query(`INSERT INTO employees (name, role, birthday, phone, bonus_streak) VALUES ($1, $2, $3, $4, 1)`, [name, role || 'operator', birthday || null, phone || null]); await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); try { await sendGlobalNotification('new_employee', { name }); } catch (err) {} res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/profiles/:name', authMiddleware, async (req, res) => {
+    const { name } = req.params; const updates = req.body;
+    try { const allowedFields = ['avatar', 'avatar_url', 'status', 'phone', 'birthday', 'name', 'active_status']; const filteredUpdates = {}; for (const key of allowedFields) { if (updates[key] !== undefined) filteredUpdates[key] = updates[key]; } if (Object.keys(filteredUpdates).length === 0) return res.json({ success: true }); const setClause = Object.keys(filteredUpdates).map((key, i) => `${key} = $${i + 2}`).join(', '); await pool.query(`UPDATE employees SET ${setClause} WHERE name = $1`, [name, ...Object.values(filteredUpdates)]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================
+// CHAT API
+// ============================================
+
+app.post('/api/chat', authMiddleware, async (req, res) => {
+    const { room, message } = req.body;
+    try { await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', [room, message.sender, message.text, Date.now()]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/chat/history/:room', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT * FROM messages WHERE room = $1 ORDER BY time ASC LIMIT 500', [req.params.room]); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================
+// GIFTS API
+// ============================================
+
+app.post('/api/gifts', authMiddleware, async (req, res) => {
+    const { recipient, giftId, price, ratingChange, sender, quantity } = req.body;
+    try {
+        const totalCost = price * (quantity || 1);
+        if (sender !== '🕵️ Аноним') { const senderResult = await pool.query('SELECT id, coins FROM employees WHERE name = $1', [sender]); if (senderResult.rows.length > 0 && senderResult.rows[0].coins >= totalCost) { await pool.query('UPDATE employees SET coins = coins - $1 WHERE name = $2', [totalCost, sender]); } }
+        await pool.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [ratingChange * (quantity || 1), recipient]);
+        await pool.query(`INSERT INTO stickers (employee, gift_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (employee, gift_id) DO UPDATE SET quantity = stickers.quantity + $3`, [recipient, giftId, quantity || 1]);
+        try { await sendGlobalNotification('gift_sent', { sender: sender === '🕵️ Аноним' ? 'Аноним' : sender, recipient, giftName: giftId }); } catch (err) {}
+        res.json({ success: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================
+// WEATHER API
+// ============================================
+
+app.get('/api/weather', async (req, res) => {
+    try { const weather = await fetchWeather(); res.json({ success: true, temp: weather.temperature, tempDisplay: weather.temperatureDisplay, feelsLike: weather.feelsLike, feelsLikeDisplay: weather.feelsLikeDisplay, desc: weather.description, icon: weather.icon }); } catch (err) { res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' }); }
+});
+
+// ============================================
+// ACHIEVEMENTS API
+// ============================================
+
+app.get('/api/achievements', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT * FROM achievements ORDER BY sort_order'); const userAchievements = await pool.query('SELECT achievement_id FROM user_achievements WHERE user_id = $1', [req.user.id]); const pendingAchievements = await pool.query('SELECT achievement_id FROM pending_achievements WHERE user_id = $1', [req.user.id]); const unlockedIds = new Set(userAchievements.rows.map(r => r.achievement_id)); const pendingIds = new Set(pendingAchievements.rows.map(r => r.achievement_id)); const achievements = result.rows.map(ach => ({ ...ach, unlocked: unlockedIds.has(ach.id), pending: pendingIds.has(ach.id) })); res.json({ success: true, achievements }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/achievements/claim', authMiddleware, async (req, res) => {
+    const { achievementId } = req.body; const userId = req.user.id;
+    try { const ach = await pool.query('SELECT * FROM achievements WHERE id = $1', [achievementId]); if (ach.rows.length === 0) return res.status(404).json({ error: 'Достижение не найдено' }); await pool.query('UPDATE employees SET coins = coins + $1 WHERE id = $2', [ach.rows[0].coins_reward, userId]); await pool.query('DELETE FROM pending_achievements WHERE user_id = $1 AND achievement_id = $2', [userId, achievementId]); await pool.query('INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)', [userId, achievementId]); res.json({ success: true, coins: ach.rows[0].coins_reward }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/achievements/check', authMiddleware, async (req, res) => {
+    try { const result = await checkAndGrantAchievements(req.user.id, req.user.username); res.json({ success: true, newAchievements: result.achievements }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================
+// PARSING API
+// ============================================
 
 const { BookingParser } = require('./parsing-booking.js');
-app.get('/api/parsing/latest', authMiddleware, async (req, res) => { const dataPath = path.join(__dirname, 'data', 'booking-availability.json'); if (fs.existsSync(dataPath)) { res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8'))); } else { res.json({ success: false }); } });
-app.get('/api/parsing/progress', authMiddleware, async (req, res) => { res.json({ step: 0, percent: 0, message: 'Ожидание' }); });
-app.post('/api/parsing/run', authMiddleware, async (req, res) => { if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' }); res.json({ success: true }); });
 
-app.get('/api/fund', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); res.json({ success: true, amount: result.rows[0]?.amount || 0 }); } catch (err) { res.json({ success: true, amount: 0 }); } });
-app.post('/api/fund/update', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [req.body.amount]); res.json({ success: true }); });
+app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
+    const dataPath = path.join(__dirname, 'data', 'booking-availability.json');
+    try { if (fs.existsSync(dataPath)) { res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8'))); } else { res.json({ success: false, error: 'Нет данных' }); } } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.get('/api/admin/theme', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']); res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' }); } catch (err) { res.json({ success: true, theme: 'vr-portal' }); } });
-app.post('/api/admin/theme', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' }); await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [req.body.theme]); res.json({ success: true }); });
+app.post('/api/parsing/run', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
+    try { const parser = new BookingParser(); const result = await parser.parseAvailability(); res.json(result); } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-app.post('/api/user/apply-style', authMiddleware, async (req, res) => { await pool.query('UPDATE employees SET dashboard_style = $1 WHERE id = $2', [req.body.style, req.user.id]); res.json({ success: true }); });
-app.post('/api/user/buy-style', authMiddleware, async (req, res) => { res.json({ success: true }); });
-
-app.get('/api/achievements', authMiddleware, async (req, res) => { try { const result = await pool.query('SELECT * FROM achievements ORDER BY sort_order'); res.json({ success: true, achievements: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); } });
-app.post('/api/achievements/claim', authMiddleware, async (req, res) => { const { achievementId } = req.body; await pool.query('INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [req.user.id, achievementId]); res.json({ success: true }); });
-app.post('/api/achievements/check', authMiddleware, async (req, res) => { const result = await checkAndGrantAchievements(req.user.id, req.user.username); res.json({ success: true, newAchievements: result.achievements }); });
-app.post('/api/admin/init-achievements', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' }); await initAchievements(); res.json({ success: true }); });
-
-app.post('/api/admin/reset-all', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' }); res.json({ success: true }); });
-app.post('/api/admin/equal-start', authMiddleware, async (req, res) => { if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' }); res.json({ success: true }); });
+// ============================================
+// PUSHER AUTH
+// ============================================
 
 app.post('/api/pusher/auth', (req, res) => {
     const socketId = req.body.socket_id; const channel = req.body.channel_name;
@@ -684,11 +829,224 @@ app.post('/api/pusher/auth', (req, res) => {
     if (!user) user = { username: 'guest', role: 'guest', id: 0 };
     try {
         if (!channel.startsWith('private-')) return res.send(pusher.authorizeChannel(socketId, channel));
-        if (channel === 'private-warpoint-sync') { const auth = pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } }); return res.send(auth); }
-        if (channel.startsWith('private-user-')) { const targetUser = channel.replace('private-user-', ''); const currentUserTranslit = transliterate(user.username); if (currentUserTranslit === targetUser || user.role === 'director') { const auth = pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } }); return res.send(auth); } else { return res.status(403).json({ error: 'Forbidden' }); } }
+        if (channel === 'private-warpoint-sync') { return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); }
+        if (channel.startsWith('private-user-')) { const targetUser = channel.replace('private-user-', ''); const currentUserTranslit = transliterate(user.username); if (currentUserTranslit === targetUser || user.role === 'director') { return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); } else { return res.status(403).json({ error: 'Forbidden' }); } }
         res.send(pusher.authorizeChannel(socketId, channel));
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
+// ============================================
+// ДОПОЛНИТЕЛЬНЫЕ API
+// ============================================
+
+app.get('/api/schedule/special-cases', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT date, cases FROM schedule_special_cases`); const data = {}; result.rows.forEach(row => { data[row.date] = row.cases; }); res.json({ success: true, data }); } catch (err) { res.json({ success: true, data: {} }); }
+});
+
+app.post('/api/schedule/special-cases', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { date, cases } = req.body;
+    try { await pool.query(`INSERT INTO schedule_special_cases (date, cases, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (date) DO UPDATE SET cases = EXCLUDED.cases, updated_at = CURRENT_TIMESTAMP`, [date, cases]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT last_bonus_claimed_at, bonus_streak FROM employees WHERE id = $1`, [req.user.id]); const streak = result.rows[0]?.bonus_streak || 1; const lastClaimed = result.rows[0]?.last_bonus_claimed_at; const today = getTobolskNow().toISOString().split('T')[0]; const hasClaimedToday = lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === today; res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: streak + 1 }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/user/claim-daily-bonus', authMiddleware, async (req, res) => {
+    try { const result = await updateLoginStreak(req.user.id, req.user.username); let newAchievements = []; if (result.claimed) { const achievementResult = await checkAndGrantAchievements(req.user.id, req.user.username); newAchievements = achievementResult.achievements; } res.json({ ...result, newAchievements }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/transactions', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`, [req.user.id]); res.json({ success: true, transactions: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/last-activity', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT name, EXTRACT(EPOCH FROM last_active) * 1000 as last_active FROM employees'); const lastActivity = {}; result.rows.forEach(row => { lastActivity[row.name] = row.last_active; }); res.json({ success: true, data: lastActivity }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/heartbeat', authMiddleware, async (req, res) => {
+    try { await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [req.user.username]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/statuses', authMiddleware, async (req, res) => {
+    const statuses = [{ id: 'lazy', name: '🦥 Профессиональный ленивец', icon: '🦥', price: 300, rating: 8 }];
+    res.json({ success: true, data: statuses });
+});
+
+app.get('/api/user/statuses', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT * FROM user_statuses WHERE employee_id = $1', [req.user.id]); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); }
+});
+
+app.post('/api/statuses/buy', authMiddleware, async (req, res) => {
+    const { statusId, statusName, statusIcon, price } = req.body; const userId = req.user.id;
+    try { const userResult = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]); if (userResult.rows[0]?.coins < price) return res.status(400).json({ error: 'Недостаточно монет' }); await pool.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]); await pool.query(`INSERT INTO user_statuses (employee_id, status_id, status_name, status_icon, price) VALUES ($1, $2, $3, $4, $5)`, [userId, statusId, statusName, statusIcon, price]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/statuses/activate', authMiddleware, async (req, res) => {
+    const { statusId } = req.body; const userId = req.user.id;
+    try { await pool.query('UPDATE user_statuses SET is_active = FALSE WHERE employee_id = $1', [userId]); await pool.query('UPDATE user_statuses SET is_active = TRUE WHERE employee_id = $1 AND status_id = $2', [userId, statusId]); const status = await pool.query('SELECT status_name FROM user_statuses WHERE employee_id = $1 AND status_id = $2', [userId, statusId]); if (status.rows.length > 0) { await pool.query('UPDATE employees SET active_status = $1 WHERE id = $2', [status.rows[0].status_name, userId]); } res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/salary', authMiddleware, async (req, res) => {
+    try { const employees = await pool.query('SELECT id, name, role FROM employees WHERE role != $1', ['director']); res.json({ success: true, employees: employees.rows, dailyData: [] }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/salary/day/save', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { employee_id, day_number, month, year, oklad, event, turnover, bonus35, video } = req.body;
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`;
+    try { await pool.query(`INSERT INTO salary_daily_new (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (employee_id, day_number, month_year) DO UPDATE SET oklad = EXCLUDED.oklad, event = EXCLUDED.event, turnover = EXCLUDED.turnover, bonus35 = EXCLUDED.bonus35, video = EXCLUDED.video`, [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/vp', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT * FROM vp_bookings ORDER BY event_date DESC`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/vp', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
+    const { vp } = req.body;
+    try { await pool.query(`INSERT INTO vp_bookings (admin, event_date, event_time, customer_name, amount, payment_type, booking_date, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [vp.admin, vp.eventDate, vp.eventTime, vp.customerName, vp.amount, vp.paymentType, vp.bookingDate, req.user.username]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/vp/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
+    const { id } = req.params; const { photoStatus, scriptStatus, is_archived } = req.body;
+    try { await pool.query(`UPDATE vp_bookings SET photo_status = COALESCE($1, photo_status), script_status = COALESCE($2, script_status), is_archived = COALESCE($3, is_archived) WHERE id = $4`, [photoStatus, scriptStatus, is_archived, id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/vp/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
+    try { await pool.query('DELETE FROM vp_bookings WHERE id = $1', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/knowledge/categories', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT * FROM knowledge_categories ORDER BY name'); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); }
+});
+
+app.post('/api/knowledge/categories', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
+    const { name, icon } = req.body;
+    try { await pool.query('INSERT INTO knowledge_categories (name, icon) VALUES ($1, $2)', [name, icon]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/knowledge/articles', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT * FROM knowledge_articles ORDER BY created_at DESC'); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); }
+});
+
+app.post('/api/knowledge/articles', authMiddleware, async (req, res) => {
+    const { category_id, title, content } = req.body;
+    try { await pool.query('INSERT INTO knowledge_articles (category_id, title, content, created_by) VALUES ($1, $2, $3, $4)', [category_id, title, content, req.user.username]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/knowledge/articles/:id/view', authMiddleware, async (req, res) => {
+    const { id } = req.params; const userId = req.user.id;
+    try { await pool.query('UPDATE knowledge_articles SET views = views + 1 WHERE id = $1', [id]); await pool.query(`INSERT INTO knowledge_views (user_id, article_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/fund', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); res.json({ success: true, amount: result.rows[0]?.amount || 0 }); } catch (err) { res.json({ success: true, amount: 0 }); }
+});
+
+app.post('/api/fund/update', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    try { await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [req.body.amount || 0]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/theme', authMiddleware, async (req, res) => {
+    try { const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']); res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' }); } catch (err) { res.json({ success: true, theme: 'vr-portal' }); }
+});
+
+app.post('/api/admin/theme', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    try { await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [req.body.theme]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/user/apply-style', authMiddleware, async (req, res) => {
+    try { await pool.query('UPDATE employees SET dashboard_style = $1 WHERE id = $2', [req.body.style, req.user.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/user/buy-style', authMiddleware, async (req, res) => {
+    const { style, price } = req.body; const userId = req.user.id;
+    try { const userResult = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]); if (userResult.rows[0]?.coins < price) return res.status(400).json({ error: 'Недостаточно монет' }); await pool.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]); const styleResult = await pool.query('SELECT bought_styles FROM employees WHERE id = $1', [userId]); let boughtStyles = ['glass']; if (styleResult.rows[0]?.bought_styles) { try { boughtStyles = JSON.parse(styleResult.rows[0].bought_styles); } catch(e) {} } if (!boughtStyles.includes(style)) boughtStyles.push(style); await pool.query('UPDATE employees SET bought_styles = $1 WHERE id = $2', [JSON.stringify(boughtStyles), userId]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/bonus/employee', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { name, coins, rating } = req.body;
+    try { await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2 WHERE name = $3', [coins || 0, rating || 0, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    if (req.params.name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
+    try { await pool.query('DELETE FROM employees WHERE name = $1', [req.params.name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/employees/:name/role', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    const { name } = req.params; const { role } = req.body;
+    try { const empRes = await pool.query('SELECT role FROM employees WHERE name = $1', [name]); if (empRes.rows.length === 0) return res.status(404).json({ error: 'Сотрудник не найден' }); if (empRes.rows[0].role === 'director') return res.status(403).json({ error: 'Нельзя изменить роль директора' }); await pool.query('UPDATE employees SET role = $1 WHERE name = $2', [role, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    try { await pool.query('DELETE FROM employees WHERE name != $1', ['Денис']); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    try { await pool.query('UPDATE employees SET coins = 100, rating = 0 WHERE name != $1', ['Денис']); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ============================================
+// EXCHANGE API
+// ============================================
+
+app.post('/api/exchange/create', authMiddleware, async (req, res) => {
+    const { toEmployee, toDate, toShiftTime, fromDate, fromShiftTime, comment } = req.body;
+    const fromEmployee = req.user.username;
+    if (fromEmployee === toEmployee) return res.status(400).json({ error: 'Нельзя обменяться с самим собой' });
+    const fromDateFormatted = formatDateToYMD(fromDate); const toDateFormatted = formatDateToYMD(toDate);
+    const existingRequest = await pool.query(`SELECT id FROM exchange_requests WHERE ((from_employee = $1 AND to_employee = $2) OR (from_employee = $2 AND to_employee = $1)) AND status = 'pending'`, [fromEmployee, toEmployee]);
+    if (existingRequest.rows.length > 0) return res.status(400).json({ error: 'Активный запрос уже существует' });
+    const expiresAt = new Date(); expiresAt.setHours(expiresAt.getHours() + 24);
+    await pool.query(`INSERT INTO exchange_requests (from_employee, to_employee, from_date, to_date, from_shift_time, to_shift_time, comment, expires_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [fromEmployee, toEmployee, fromDateFormatted, toDateFormatted, fromShiftTime, toShiftTime, comment, expiresAt]);
+    res.json({ success: true });
+});
+
+app.get('/api/exchange/pending', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT * FROM exchange_requests WHERE to_employee = $1 AND status = 'pending'`, [req.user.username]); res.json({ success: true, requests: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/exchange/my', authMiddleware, async (req, res) => {
+    try { const result = await pool.query(`SELECT * FROM exchange_requests WHERE from_employee = $1 ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/exchange/accept/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params; const currentUser = req.user.username;
+    const request = await pool.query(`SELECT * FROM exchange_requests WHERE id = $1 AND status = 'pending'`, [id]);
+    if (request.rows.length === 0) return res.status(404).json({ error: 'Запрос не найден' });
+    const reqData = request.rows[0];
+    if (reqData.to_employee !== currentUser) return res.status(403).json({ error: 'Вы не можете принять этот запрос' });
+    await pool.query(`UPDATE schedule SET employee = $1 WHERE date = $2 AND employee = $3`, [reqData.from_employee, reqData.to_date, reqData.to_employee]);
+    await pool.query(`UPDATE schedule SET employee = $1 WHERE date = $2 AND employee = $3`, [reqData.to_employee, reqData.from_date, reqData.from_employee]);
+    await pool.query(`UPDATE exchange_requests SET status = 'accepted' WHERE id = $1`, [id]);
+    try { await sendGlobalNotification('exchange_accepted', { from: reqData.from_employee, to: reqData.to_employee }); } catch (err) {}
+    res.json({ success: true });
+});
+
+app.post('/api/exchange/reject/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    await pool.query(`UPDATE exchange_requests SET status = 'rejected' WHERE id = $1 AND to_employee = $2`, [id, req.user.username]);
+    res.json({ success: true });
+});
+
+app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    await pool.query(`UPDATE exchange_requests SET status = 'cancelled' WHERE id = $1 AND from_employee = $2`, [id, req.user.username]);
+    res.json({ success: true });
+});
+
 // ============================================
 // ЗАЩИЩЁННЫЕ CRON-ЗАДАЧИ
 // ============================================
@@ -720,35 +1078,32 @@ cron.schedule('0 * * * *', async () => {
 cron.schedule('0 3 * * *', async () => {
     if (isProcessingArchive) return;
     isProcessingArchive = true;
-    try { const threeDaysAgo = new Date(); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3); await pool.query(`UPDATE tasks SET is_archived = true, archived_at = CURRENT_TIMESTAMP WHERE status = 'completed' AND is_archived = false AND completed_at IS NULL AND created_at <= $1`, [threeDaysAgo]); } catch (e) { console.error('Archive error:', e); } finally { isProcessingArchive = false; }
+    try { const threeDaysAgo = new Date(); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3); await pool.query(`UPDATE tasks SET is_archived = true WHERE status = 'completed' AND created_at <= $1`, [threeDaysAgo]); } catch (e) { console.error('Archive error:', e); } finally { isProcessingArchive = false; }
 });
 
-cron.schedule('0 * * * *', async () => {
+cron.schedule('*/30 * * * *', async () => {
     if (isProcessingWeather) return;
     isProcessingWeather = true;
     try { await fetchWeather(); } catch (e) { console.error('Weather error:', e); } finally { isProcessingWeather = false; }
 });
 
 // ============================================
-// МОНИТОРИНГ ПАМЯТИ (КАЖДЫЕ 30 СЕКУНД)
+// МОНИТОРИНГ ПАМЯТИ
 // ============================================
 
 setInterval(() => {
     const used = process.memoryUsage();
     console.log(`📊 Память: RSS=${Math.round(used.rss / 1024 / 1024)}MB, Heap=${Math.round(used.heapUsed / 1024 / 1024)}/${Math.round(used.heapTotal / 1024 / 1024)}MB`);
-    if (used.rss > 400 * 1024 * 1024) {
-        console.error('❌ КРИТИЧЕСКАЯ УТЕЧКА ПАМЯТИ! Перезапуск...');
-        setTimeout(() => process.exit(1), 5000);
-    }
-}, 30000);
+    if (used.rss > 400 * 1024 * 1024) { console.error('❌ КРИТИЧЕСКАЯ УТЕЧКА ПАМЯТИ!'); }
+}, 60000);
 
 // ============================================
 // СТАТИЧЕСКИЕ ФАЙЛЫ
 // ============================================
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
-app.get('/reports.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'pages', 'reports.html')); });
 app.get('/about.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'about.html')); });
+app.get('/reports.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'pages', 'reports.html')); });
 
 // ============================================
 // ЗАПУСК СЕРВЕРА
