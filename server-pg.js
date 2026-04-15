@@ -3416,22 +3416,17 @@ app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.
 app.get('/reports.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'pages', 'reports.html')); });
 app.get('/about.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'about.html')); });
 
-// Экспорт для Vercel serverless
-module.exports = app;
-
 // Инициализация базы данных и достижений при запуске
-if (require.main === module) {
-    (async () => {
-        await initDatabase();
-        await initAchievements();
-        
-        app.listen(PORT, '0.0.0.0', () => {
-            console.log(`\n🚀 WARPOINT Server running on port ${PORT}`);
-            console.log(`👤 Директор: Денис / denis_1`);
-            console.log(`💰 Новая экономика WP-коинов активна!`);
-            console.log(`🔄 Автоматический обмен сменами активен!`);
-            console.log(`📊 Вкладки: Задачи, Нарушения, График, ВП, Зарплата`);
-            console.log(`🏆 Система достижений: 235+ достижений!\n`);
-        });
-    })();
-}
+(async () => {
+    await initDatabase();
+    await initAchievements();
+    
+    app.listen(PORT, '0.0.0.0', () => {
+        console.log(`\n🚀 WARPOINT Server running on port ${PORT}`);
+        console.log(`👤 Директор: Денис / denis_1`);
+        console.log(`💰 Новая экономика WP-коинов активна!`);
+        console.log(`🔄 Автоматический обмен сменами активен!`);
+        console.log(`📊 Вкладки: Задачи, Нарушения, График, ВП, Зарплата`);
+        console.log(`🏆 Система достижений: 235+ достижений!\n`);
+    });
+})();
