@@ -489,7 +489,304 @@ function initDashboard() {
 }
 function cleanupDashboard() { if (dashboardInterval) { clearInterval(dashboardInterval); dashboardInterval = null; } if (window.bonusCheckInterval) { clearInterval(window.bonusCheckInterval); window.bonusCheckInterval = null; } if (particlesInterval) { clearInterval(particlesInterval); particlesInterval = null; } }
 window.addEventListener('beforeunload', cleanupDashboard);
+// ============================================
+// ОБМЕН СМЕНАМИ
+// ============================================
 
+let pendingExchanges = [];
+
+async function loadPendingExchanges() {
+    try {
+        const response = await apiCall('/exchange/pending');
+        if (response && response.success) {
+            pendingExchanges = response.requests || [];
+            renderExchangeNotifications();
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки запросов на обмен:', err);
+    }
+}
+
+function renderExchangeNotifications() {
+    const container = document.getElementById('exchangeNotificationsContainer');
+    if (!container) return;
+    
+    if (pendingExchanges.length === 0) {
+        container.innerHTML = '<div class="exchange-empty">Нет новых предложений</div>';
+        return;
+    }
+    
+    let html = '';
+    for (const req of pendingExchanges) {
+        const fromDate = formatDateSimple(req.from_date);
+        const toDate = formatDateSimple(req.to_date);
+        
+        html += `
+            <div class="exchange-notification">
+                <div class="exchange-header">
+                    <span class="exchange-icon">🔄</span>
+                    <span class="exchange-title">Предложение обмена</span>
+                </div>
+                <div class="exchange-body">
+                    <div class="exchange-employee">👤 ${escapeHtml(req.from_employee)} хочет обменяться</div>
+                    <div class="exchange-details">
+                        <div>📌 Его смена: ${fromDate} — ${req.from_shift_time}</div>
+                        <div>📌 Ваша смена: ${toDate} — ${req.to_shift_time}</div>
+                        ${req.comment ? `<div class="exchange-comment">💬 ${escapeHtml(req.comment)}</div>` : ''}
+                    </div>
+                    <div class="exchange-actions">
+                        <button class="exchange-accept" onclick="acceptExchange(${req.id})">✅ Принять</button>
+                        <button class="exchange-reject" onclick="rejectExchange(${req.id})">❌ Отклонить</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+async function acceptExchange(requestId) {
+    try {
+        const response = await apiCall(`/exchange/accept/${requestId}`, 'POST');
+        if (response && response.success) {
+            showNotif('✅ Обмен смен подтверждён!', 'success');
+            await loadScheduleData();
+            if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
+            await loadPendingExchanges();
+            await loadMyActiveExchanges();
+        } else {
+            showNotif(response?.error || 'Ошибка при подтверждении', 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('Ошибка соединения', 'error');
+    }
+}
+
+async function rejectExchange(requestId) {
+    try {
+        const response = await apiCall(`/exchange/reject/${requestId}`, 'POST');
+        if (response && response.success) {
+            showNotif('❌ Запрос отклонён', 'success');
+            await loadPendingExchanges();
+        } else {
+            showNotif(response?.error || 'Ошибка при отклонении', 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('Ошибка соединения', 'error');
+    }
+}
+
+async function loadMyActiveExchanges() {
+    try {
+        const response = await apiCall('/exchange/my?status=pending');
+        if (response && response.success) {
+            const myRequests = response.requests || [];
+            renderMyExchangesWidget(myRequests);
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки своих запросов:', err);
+    }
+}
+
+function renderMyExchangesWidget(requests) {
+    const container = document.getElementById('myExchangesContainer');
+    if (!container) return;
+    
+    if (requests.length === 0) {
+        container.innerHTML = '<div class="exchange-empty">Нет активных запросов</div>';
+        return;
+    }
+    
+    let html = '';
+    for (const req of requests) {
+        const toDate = formatDateSimple(req.to_date);
+        const fromDate = formatDateSimple(req.from_date);
+        
+        html += `
+            <div class="my-exchange-request">
+                <div class="my-exchange-header">
+                    <span>📤 Запрос отправлен</span>
+                    <span class="my-exchange-status">⏳ ожидает</span>
+                </div>
+                <div class="my-exchange-body">
+                    <div>Кому: ${escapeHtml(req.to_employee)}</div>
+                    <div>Моя смена: ${fromDate} — ${req.from_shift_time}</div>
+                    <div>Его смена: ${toDate} — ${req.to_shift_time}</div>
+                    ${req.comment ? `<div class="my-exchange-comment">💬 ${escapeHtml(req.comment)}</div>` : ''}
+                </div>
+                <div class="my-exchange-actions">
+                    <button class="my-exchange-cancel" onclick="cancelExchangeRequest(${req.id})">❌ Отменить</button>
+                </div>
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
+async function cancelExchangeRequest(requestId) {
+    if (!confirm('Отменить запрос на обмен?')) return;
+    try {
+        const response = await apiCall(`/exchange/cancel/${requestId}`, 'POST');
+        if (response && response.success) {
+            showNotif('✅ Запрос отменён', 'success');
+            await loadMyActiveExchanges();
+            if (typeof loadScheduleData === 'function') loadScheduleData();
+        } else {
+            showNotif(response?.error || 'Ошибка при отмене', 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('Ошибка соединения', 'error');
+    }
+}
+
+// ============================================
+// ТРАНЗАКЦИИ
+// ============================================
+
+async function openTransactionsModal() {
+    try {
+        const response = await apiCall('/transactions?limit=20&offset=0&type=all');
+        if (!response || !response.success) {
+            showNotif('Ошибка загрузки истории', 'error');
+            return;
+        }
+        
+        const transactions = response.transactions || [];
+        const grouped = {};
+        transactions.forEach(tx => {
+            const date = tx.date_only;
+            if (!grouped[date]) grouped[date] = [];
+            grouped[date].push(tx);
+        });
+        
+        const sortedDates = Object.keys(grouped).sort().reverse();
+        let html = '';
+        
+        for (const date of sortedDates) {
+            const txList = grouped[date];
+            html += `<div class="modal-transaction-group"><div class="modal-transaction-date">${formatTransactionDateSimple(date)}</div>`;
+            
+            for (const tx of txList) {
+                const isPositive = tx.amount > 0;
+                const typeNames = { 'login_streak': '🎁 Бонус', 'task_reward': '✅ Задача', 'shift_earn': '⏱️ Смена', 'gift_send': '🎁 Подарок', 'shop_purchase': '🛒 Покупка', 'fine': '⚠️ Штраф', 'admin_bonus': '👑 Бонус', 'achievement': '🏆 Достижение' };
+                const typeName = typeNames[tx.type] || tx.type;
+                
+                html += `<div class="modal-transaction-item">
+                    <div class="modal-transaction-icon ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : '-'}</div>
+                    <div class="modal-transaction-info"><div class="modal-transaction-title">${typeName}</div>${tx.comment ? `<div class="modal-transaction-comment">${escapeHtml(tx.comment.substring(0, 50))}</div>` : ''}</div>
+                    <div class="modal-transaction-amount ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : '-'}${Math.abs(tx.amount)} WP</div>
+                </div>`;
+            }
+            html += `</div>`;
+        }
+        
+        if (transactions.length === 0) {
+            html = `<div class="modal-empty-state"><div class="modal-empty-icon">💰</div><div>Нет операций</div></div>`;
+        }
+        
+        const modalHtml = `
+            <div id="transactionsModal" class="modal active">
+                <div class="modal-window" style="max-width: 500px; padding: 0;">
+                    <div class="modal-header" style="padding: 16px 20px; border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; justify-content: space-between; align-items: center;">
+                        <h3 style="margin:0;"><i class="fas fa-history"></i> История операций</h3>
+                        <button onclick="closeTransactionsModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">&times;</button>
+                    </div>
+                    <div style="padding: 16px; max-height: 400px; overflow-y: auto;">${html}</div>
+                    <div class="modal-footer" style="padding: 12px 20px; border-top: 1px solid rgba(99,102,241,0.1); display: flex; justify-content: flex-end;">
+                        <button class="btn-secondary" onclick="closeTransactionsModal()">Закрыть</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    } catch (err) {
+        console.error('Ошибка загрузки транзакций:', err);
+        showNotif('Ошибка загрузки истории', 'error');
+    }
+}
+
+function closeTransactionsModal() {
+    const modal = document.getElementById('transactionsModal');
+    if (modal) modal.remove();
+}
+
+function formatTransactionDateSimple(dateStr) {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    if (date.toDateString() === today.toDateString()) return 'Сегодня';
+    if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
+    const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    return `${date.getDate()} ${months[date.getMonth()]}`;
+}
+
+// ============================================
+// НАСТРОЙКИ ДАШБОРДА
+// ============================================
+
+function toggleDashboardSettings() {
+    const content = document.getElementById('settingsContent');
+    const icon = document.getElementById('settingsToggleIcon');
+    if (!content) return;
+    if (content.style.display === 'none') {
+        content.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+function applyDashboardPreset(presetName) {
+    const presets = {
+        default: ['welcome-panel', 'info-grid', 'quick-start', 'key-stats', 'events-section', 'activity-grid', 'quote-card'],
+        compact: ['welcome-panel', 'key-stats', 'activity-grid'],
+        focus: ['welcome-panel', 'quick-start', 'key-stats', 'events-section'],
+        minimal: ['welcome-panel', 'key-stats']
+    };
+    const visibleBlocks = presets[presetName] || presets.default;
+    const allBlocks = ['welcome-panel', 'info-grid', 'quick-start', 'key-stats', 'events-section', 'activity-grid', 'quote-card'];
+    
+    hiddenBlocks.clear();
+    allBlocks.forEach(blockId => { if (!visibleBlocks.includes(blockId)) hiddenBlocks.add(blockId); });
+    saveHiddenBlocks();
+    applyHiddenBlocks();
+    showNotif(`Пресет "${presetName}" применён`, 'success');
+}
+
+function showAllHiddenBlocks() {
+    hiddenBlocks.clear();
+    saveHiddenBlocks();
+    applyHiddenBlocks();
+    showNotif('Все скрытые блоки восстановлены', 'success');
+}
+
+function resetAllDashboardSettings() {
+    hiddenBlocks.clear();
+    saveHiddenBlocks();
+    applyHiddenBlocks();
+    localStorage.removeItem('dashboardPreset');
+    showNotif('Все настройки дашборда сброшены', 'success');
+}
+function toggleDashboardSettings() {
+    const content = document.getElementById('settingsContent');
+    const icon = document.getElementById('settingsToggleIcon');
+    if (!content) return;
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        if (icon) icon.style.transform = 'rotate(180deg)';
+    } else {
+        content.style.display = 'none';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+window.toggleDashboardSettings = toggleDashboardSettings;
 window.initDashboard = initDashboard;
 window.refreshPhilosophyQuote = refreshPhilosophyQuote;
 window.quickAction = quickAction;
@@ -520,6 +817,17 @@ window.loadMyActiveExchanges = loadMyActiveExchanges;
 window.cancelExchangeRequest = cancelExchangeRequest;
 window.initBlockParticles = initBlockParticles;
 window.stopBlockParticles = stopBlockParticles;
+window.loadPendingExchanges = loadPendingExchanges;
+window.acceptExchange = acceptExchange;
+window.rejectExchange = rejectExchange;
+window.loadMyActiveExchanges = loadMyActiveExchanges;
+window.cancelExchangeRequest = cancelExchangeRequest;
+window.openTransactionsModal = openTransactionsModal;
+window.closeTransactionsModal = closeTransactionsModal;
+window.toggleDashboardSettings = toggleDashboardSettings;
+window.applyDashboardPreset = applyDashboardPreset;
+window.showAllHiddenBlocks = showAllHiddenBlocks;
+window.resetAllDashboardSettings = resetAllDashboardSettings;
 
 const particleBlockStyle = document.createElement('style');
 particleBlockStyle.textContent = `@keyframes particleFloatBlock { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { transform: translateY(-30px) scale(1); opacity: 0; } } @keyframes coinRain { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(150px) rotate(360deg); opacity: 0; } } @keyframes floatUp { 0% { transform: translateY(0) scale(0.8); opacity: 1; } 100% { transform: translateY(-60px) scale(1.2); opacity: 0; } }`;

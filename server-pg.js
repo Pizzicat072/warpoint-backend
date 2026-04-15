@@ -70,6 +70,24 @@ app.set('pusher', pusher);
 
 const { fetchWeather, getLastWeather } = require('./parsing-weather.js');
 
+app.get('/api/weather', async (req, res) => {
+    try {
+        const weather = await fetchWeather();
+        res.json({ 
+            success: true, 
+            temp: weather.temperature, 
+            tempDisplay: weather.temperatureDisplay, 
+            feelsLike: weather.feelsLike, 
+            feelsLikeDisplay: weather.feelsLikeDisplay, 
+            desc: weather.description, 
+            icon: weather.icon 
+        });
+    } catch (err) {
+        console.error('❌ Ошибка погоды:', err.message);
+        res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' });
+    }
+});
+
 // ============================================
 // MIDDLEWARE
 // ============================================
@@ -268,6 +286,7 @@ await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_befo
 await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_after INTEGER DEFAULT 0`);
 await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id INTEGER DEFAULT NULL`);
 await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
+await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
         console.log('✅ Миграции: добавлены все недостающие колонки');
     } catch (err) {
         console.log('⚠️ Ошибка миграций:', err.message);
