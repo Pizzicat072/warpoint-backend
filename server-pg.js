@@ -757,6 +757,17 @@ app.post('/api/chat', authMiddleware, async (req, res) => {
     try { await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', [room, message.sender, message.text, Date.now()]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.post('/api/chat/delete', authMiddleware, async (req, res) => {
+    const { room, messageTime } = req.body;
+    try { await pool.query('DELETE FROM messages WHERE room = $1 AND time = $2', [room, messageTime]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/chat/delete-bulk', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    const { room, timeThreshold } = req.body;
+    try { const result = await pool.query('DELETE FROM messages WHERE room = $1 AND time < $2', [room, timeThreshold]); res.json({ success: true, deletedCount: result.rowCount }); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.get('/api/chat/history/:room', authMiddleware, async (req, res) => {
     try { const result = await pool.query('SELECT * FROM messages WHERE room = $1 ORDER BY time ASC LIMIT 500', [req.params.room]); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -813,9 +824,20 @@ app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
     try { if (fs.existsSync(dataPath)) { res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8'))); } else { res.json({ success: false, error: 'Нет данных' }); } } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/parsing/progress', authMiddleware, async (req, res) => {
+    const progressPath = path.join(__dirname, 'data', 'parsing-progress.json');
+    try { if (fs.existsSync(progressPath)) { res.json(JSON.parse(fs.readFileSync(progressPath, 'utf8'))); } else { res.json({ step: 0, percent: 0, message: 'Ожидание запуска' }); } } catch (err) { res.json({ step: 0, percent: 0, message: 'Ошибка' }); }
+});
+
 app.post('/api/parsing/run', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
     try { const parser = new BookingParser(); const result = await parser.parseAvailability(); res.json(result); } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/parsing/reset', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
+    const progressPath = path.join(__dirname, 'data', 'parsing-progress.json');
+    try { if (fs.existsSync(progressPath)) fs.unlinkSync(progressPath); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ============================================
