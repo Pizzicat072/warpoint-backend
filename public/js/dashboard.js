@@ -362,7 +362,6 @@ function initDashboardSettings() {
 // ============================================
 // ПОГОДА И ВРЕМЯ
 // ============================================
-let lastWeatherFetch = 0;
 const WEATHER_FETCH_INTERVAL = 300000; // 5 минут
 
 async function fetchWeather() {
