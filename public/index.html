@@ -290,14 +290,15 @@
         }
 
         .login-particles {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 0;
-        }
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 100; /* 🔥 ПОВЕРХ ВСЕХ ЭЛЕМЕНТОВ */
+    overflow: hidden;
+}
 
         @media (max-width: 480px) {
             .login-premium-window {
@@ -446,11 +447,12 @@
 </div>
         
         <div class="login-logo-wrapper">
-            <div class="login-logo-ring"></div>
-            <div class="login-logo">
-                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
-            </div>
-        </div>
+    <div class="login-logo-ring"></div>
+    <div class="login-logo-ring2"></div>
+    <div class="login-logo">
+        <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" style="background: transparent;">
+    </div>
+</div>
         
         <h2 class="login-title">
             <span class="login-title-gradient">WARPOINT</span>
