@@ -3409,6 +3409,27 @@ app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
     }
 });
 // ============================================
+// АНТИ-ЗАСЫПАНИЕ ДЛЯ RENDER
+// ============================================
+
+// 1. Оптимизация пула соединений
+pool.options.max = 5;
+
+// 2. Таймаут запросов
+app.use((req, res, next) => {
+    res.setTimeout(30000, () => {
+        res.status(408).json({ error: 'Timeout' });
+    });
+    next();
+});
+
+// 3. Само-пинг (если Render даёт внешний URL)
+if (process.env.RENDER_EXTERNAL_URL) {
+    setInterval(() => {
+        require('https').get(`${process.env.RENDER_EXTERNAL_URL}/api/heartbeat`, () => {});
+    }, 4 * 60 * 1000);
+}
+// ============================================
 // STATIC & START
 // ============================================
 
