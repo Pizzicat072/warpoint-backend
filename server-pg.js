@@ -524,7 +524,7 @@ async function initDatabase() {
         }
     }
     
-    // Индексы для производительности
+    // Индексы
     try {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room, time DESC)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_tasks_executor_status ON tasks(executor, status)`);
@@ -533,23 +533,15 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_views_user ON knowledge_views(user_id)`);
     } catch (err) {}
     
-    // 🔥 МИГРАЦИИ: Добавляем недостающие колонки (если таблицы уже существовали)
+    // Миграции
     try {
-        // tasks
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
-        
-        // schedule
         await pool.query(`ALTER TABLE schedule ADD COLUMN IF NOT EXISTS shift_paid BOOLEAN DEFAULT FALSE`);
-        
-        // exchange_requests
         await pool.query(`ALTER TABLE exchange_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL`);
-        
-        // vp_bookings
         await pool.query(`ALTER TABLE vp_bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
-        
         console.log('✅ Миграции: добавлены недостающие колонки');
     } catch (err) {
         console.log('⚠️ Ошибка миграций:', err.message);
@@ -577,13 +569,12 @@ async function initDatabase() {
         }
     } catch (err) {}
     
-    // Обновляем существующих сотрудников
+    // Обновляем сотрудников
     try {
         await pool.query(`UPDATE employees SET bonus_streak = 1 WHERE bonus_streak IS NULL`);
     } catch (err) {}
     
     console.log('✅ Database initialized');
-}
 }
 // ============================================
 // INIT ACHIEVEMENTS - ПОЛНЫЙ СПИСОК
