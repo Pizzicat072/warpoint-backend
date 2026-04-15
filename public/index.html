@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>WARPOINT — Хаб сотрудников</title>
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
+    
+    <!-- ПРЕДЗАГРУЗКА ФОНА ДЛЯ МГНОВЕННОГО ОТОБРАЖЕНИЯ -->
+    <link rel="preload" as="image" href="/2026-04-02_03-45-56.png">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
+    
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
@@ -25,16 +30,293 @@
             overflow-x: hidden;
             background: #0a0c12;
         }
+        
+        /* ============================================ */
+        /* PREMIUM LOGIN MODAL                           */
+        /* ============================================ */
         #loginModal {
             background-image: url('/2026-04-02_03-45-56.png');
-            background-size: cover; background-position: center; background-repeat: no-repeat;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: #0a0c12;
         }
-        #loginModal .modal-window {
-            background: rgba(17, 20, 28, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(99, 102, 241, 0.5);
-            border-radius: 28px;
+        
+        .login-premium-window {
+            position: relative;
+            max-width: 420px;
+            width: 90%;
+            padding: 40px 32px;
+            background: rgba(17, 20, 28, 0.85);
+            backdrop-filter: blur(25px);
+            border-radius: 48px;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.1) inset, 0 0 40px rgba(99, 102, 241, 0.2);
+            overflow: hidden;
+            animation: loginModalFadeIn 0.5s cubic-bezier(0.2, 0.9, 0.4, 1);
         }
+
+        @keyframes loginModalFadeIn {
+            from { opacity: 0; transform: scale(0.95) translateY(-20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .login-glow {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .login-glow-1 {
+            width: 300px;
+            height: 300px;
+            background: #6366f1;
+            top: -150px;
+            right: -100px;
+            animation: loginGlowFloat 8s ease-in-out infinite;
+        }
+
+        .login-glow-2 {
+            width: 250px;
+            height: 250px;
+            background: #ec4899;
+            bottom: -100px;
+            left: -80px;
+            animation: loginGlowFloat 10s ease-in-out infinite reverse;
+        }
+
+        @keyframes loginGlowFloat {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(-30px, 20px); }
+        }
+
+        .login-logo-wrapper {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 24px;
+        }
+
+        .login-logo-ring {
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            border-radius: 30px;
+            background: linear-gradient(135deg, #6366f1, #ec4899, #fbbf24, #6366f1);
+            background-size: 300% 300%;
+            animation: loginRingRotate 4s linear infinite;
+            filter: blur(8px);
+            opacity: 0.6;
+        }
+
+        @keyframes loginRingRotate {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 300% 50%; }
+        }
+
+        .login-logo {
+            position: relative;
+            width: 80px;
+            height: 80px;
+            margin: 0 auto;
+            border-radius: 24px;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .login-title {
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .login-title-gradient {
+            background: linear-gradient(135deg, #fff, #a78bfa, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .login-title-badge {
+            display: inline-block;
+            margin-left: 10px;
+            padding: 3px 10px;
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: 600;
+            color: white;
+            vertical-align: middle;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            font-size: 13px;
+            color: #94a3b8;
+            margin-bottom: 32px;
+        }
+
+        .login-input-wrapper {
+            position: relative;
+            margin-bottom: 18px;
+        }
+
+        .login-input-icon {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #a78bfa;
+            font-size: 16px;
+            z-index: 2;
+        }
+
+        .login-input {
+            width: 100%;
+            padding: 16px 20px 16px 50px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 20px;
+            color: #e2e8f0;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.3s;
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-input:focus {
+            border-color: #a78bfa;
+            background: rgba(0, 0, 0, 0.5);
+        }
+
+        .login-input::placeholder {
+            color: #64748b;
+        }
+
+        .login-input-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            opacity: 0;
+            filter: blur(8px);
+            transition: opacity 0.3s;
+            z-index: 0;
+        }
+
+        .login-input:focus + .login-input-glow {
+            opacity: 0.3;
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 16px 24px;
+            margin-top: 16px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: 40px;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
+        }
+
+        .login-btn-shine {
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .login-btn:hover .login-btn-shine {
+            opacity: 1;
+            animation: loginBtnShine 1.5s infinite;
+        }
+
+        @keyframes loginBtnShine {
+            0% { transform: translate(-100%, -100%); }
+            100% { transform: translate(100%, 100%); }
+        }
+
+        .login-hint {
+            text-align: center;
+            margin-top: 24px;
+            margin-bottom: 0;
+            font-size: 12px;
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .login-hint i {
+            color: #10b981;
+        }
+
+        .login-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        @media (max-width: 480px) {
+            .login-premium-window {
+                padding: 30px 20px;
+            }
+            .login-logo-wrapper {
+                width: 70px;
+                height: 70px;
+            }
+            .login-logo {
+                width: 60px;
+                height: 60px;
+            }
+            .login-title {
+                font-size: 26px;
+            }
+        }
+        
+        /* Основные стили */
         #mainContainer { min-height: 100vh; }
         .header { background: #0d1016 !important; border-bottom: 1px solid #1e2430 !important; }
         .main-menu { background: #0d1016 !important; border-bottom: 1px solid #1e2430 !important; }
@@ -93,11 +375,11 @@
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
         ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 10px; }
+        
         @media (max-width: 768px) {
             .header { padding: 12px 16px; }
             .user-info { display: none; }
             .main-menu { top: 60px; }
-            .modal-window { max-width: 95%; padding: 20px; }
             .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
         }
     </style>
@@ -150,20 +432,50 @@
     <div id="pageContainer"></div>
 </div>
 
+<!-- ПРЕМИУМ МОДАЛКА АВТОРИЗАЦИИ -->
 <div id="loginModal" class="modal active">
-    <div class="modal-window">
-        <div style="text-align: center; margin-bottom: 24px;">
-            <div class="logo-icon" style="width: 80px; height: 80px; margin: 0 auto 16px;">
+    <div class="modal-window login-premium-window">
+        <div class="login-glow login-glow-1"></div>
+        <div class="login-glow login-glow-2"></div>
+        <div class="login-particles"></div>
+        
+        <div class="login-logo-wrapper">
+            <div class="login-logo-ring"></div>
+            <div class="login-logo">
                 <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
             </div>
-            <h2 style="font-size: 28px; color: #e2e8f0;">🔐 WARPOINT</h2>
-            <p style="opacity: 0.7; margin-top: 8px; color: #94a3b8;">Войдите в корпоративный портал</p>
         </div>
+        
+        <h2 class="login-title">
+            <span class="login-title-gradient">WARPOINT</span>
+            <span class="login-title-badge">ХАБ</span>
+        </h2>
+        <p class="login-subtitle">Войдите в корпоративный портал</p>
+        
         <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
-            <input type="text" id="loginName" class="edit-input" placeholder="Логин" autocomplete="username">
-            <input type="password" id="loginPassword" class="edit-input" placeholder="Пароль" autocomplete="current-password">
-            <button type="submit" class="btn-primary" style="width: 100%; padding: 14px; background: #6366f1; border: none;">Войти</button>
+            <div class="login-input-wrapper">
+                <i class="fas fa-user login-input-icon"></i>
+                <input type="text" id="loginName" class="login-input" placeholder="Логин" autocomplete="username">
+                <span class="login-input-glow"></span>
+            </div>
+            
+            <div class="login-input-wrapper">
+                <i class="fas fa-lock login-input-icon"></i>
+                <input type="password" id="loginPassword" class="login-input" placeholder="Пароль" autocomplete="current-password">
+                <span class="login-input-glow"></span>
+            </div>
+            
+            <button type="submit" class="login-btn">
+                <span>Войти</span>
+                <i class="fas fa-arrow-right"></i>
+                <div class="login-btn-shine"></div>
+            </button>
         </form>
+        
+        <p class="login-hint">
+            <i class="fas fa-shield-alt"></i>
+            <span>Доступ только для сотрудников</span>
+        </p>
     </div>
 </div>
 
@@ -194,7 +506,6 @@
     const PUSHER_CLUSTER = 'ap1';
     const CHANNEL_NAME = 'private-warpoint-sync';
     
-    // 🔥 ЗАЩИТА ОТ БЕСКОНЕЧНЫХ ВЫЗОВОВ
     let pusherInitAttempts = 0;
     const MAX_PUSHER_ATTEMPTS = 3;
     let isPusherInitializing = false;
@@ -216,31 +527,15 @@
     }
     
     function initPusher() {
-        // 🔥 ЗАЩИТА ОТ ПОВТОРНЫХ ВЫЗОВОВ
-        if (isPusherInitializing) {
-            console.log('⏳ Pusher уже инициализируется');
-            return;
-        }
-        
-        if (pusherInitAttempts >= MAX_PUSHER_ATTEMPTS) {
-            console.error('❌ Превышено количество попыток подключения Pusher');
-            document.getElementById('syncIndicator').classList.add('offline');
-            document.getElementById('syncIndicator').classList.remove('online');
-            document.getElementById('syncText').innerHTML = 'Синхронизация недоступна';
-            return;
-        }
+        if (isPusherInitializing) { console.log('⏳ Pusher уже инициализируется'); return; }
+        if (pusherInitAttempts >= MAX_PUSHER_ATTEMPTS) { console.error('❌ Превышено количество попыток'); return; }
         
         const token = localStorage.getItem('token');
-        if (!token) {
-            console.log('⏳ Нет токена, Pusher не инициализирован');
-            return;
-        }
+        if (!token) { console.log('⏳ Нет токена'); return; }
         
-        // Если уже подключен - не переподключаем
         if (window.pusher && window.pusher.connection && window.pusher.connection.state === 'connected') {
             console.log('✅ Pusher уже подключен');
             document.getElementById('syncIndicator').classList.add('online');
-            document.getElementById('syncIndicator').classList.remove('offline');
             document.getElementById('syncText').innerHTML = 'Синхронизация активна';
             return;
         }
@@ -250,14 +545,10 @@
         console.log(`📡 Попытка инициализации Pusher (${pusherInitAttempts}/${MAX_PUSHER_ATTEMPTS})`);
         
         try {
-            // Отключаем старое подключение
-            if (window.pusher) {
-                try { window.pusher.disconnect(); } catch(e) {}
-            }
+            if (window.pusher) { try { window.pusher.disconnect(); } catch(e) {} }
             
             window.pusher = new Pusher(PUSHER_KEY, {
-                cluster: PUSHER_CLUSTER, 
-                forceTLS: true,
+                cluster: PUSHER_CLUSTER, forceTLS: true,
                 authEndpoint: '/api/pusher/auth',
                 auth: { headers: { 'Authorization': 'Bearer ' + token } }
             });
@@ -284,30 +575,22 @@
             window.pusher.connection.bind('error', (err) => {
                 console.error('❌ Pusher error:', err);
                 document.getElementById('syncIndicator').classList.add('offline');
-                document.getElementById('syncIndicator').classList.remove('online');
                 document.getElementById('syncText').innerHTML = 'Ошибка синхронизации';
                 isPusherInitializing = false;
-                
-                // 🔥 ПОВТОРНАЯ ПОПЫТКА ТОЛЬКО ОДИН РАЗ И С ЗАДЕРЖКОЙ
                 if (pusherInitAttempts < MAX_PUSHER_ATTEMPTS) {
-                    setTimeout(() => {
-                        isPusherInitializing = false;
-                        initPusher();
-                    }, 5000);
+                    setTimeout(() => { isPusherInitializing = false; initPusher(); }, 5000);
                 }
             });
             
             window.pusher.connection.bind('disconnected', () => {
                 console.log('🔌 Pusher отключен');
                 document.getElementById('syncIndicator').classList.add('offline');
-                document.getElementById('syncIndicator').classList.remove('online');
                 document.getElementById('syncText').innerHTML = 'Синхронизация прервана';
             });
             
             channel.bind('pusher:subscription_succeeded', function() {
                 console.log('✅ Канал подписан');
                 document.getElementById('syncIndicator').classList.add('online');
-                document.getElementById('syncIndicator').classList.remove('offline');
                 document.getElementById('syncText').innerHTML = 'Синхронизация активна';
             });
             
@@ -322,9 +605,6 @@
         } catch (err) {
             console.error('Pusher error:', err);
             isPusherInitializing = false;
-            document.getElementById('syncIndicator').classList.add('offline');
-            document.getElementById('syncIndicator').classList.remove('online');
-            document.getElementById('syncText').innerHTML = 'Синхронизация недоступна';
         }
     }
     
@@ -347,11 +627,7 @@
                 document.getElementById('headerName').textContent = user.name;
                 
                 loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
-                
-                // 🔥 ИНИЦИАЛИЗИРУЕМ PUSHER ТОЛЬКО ОДИН РАЗ И С ЗАДЕРЖКОЙ
-                setTimeout(() => {
-                    initPusher();
-                }, 1000);
+                setTimeout(() => { initPusher(); }, 1000);
             }
         }
     });
