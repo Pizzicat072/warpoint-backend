@@ -227,7 +227,6 @@ async function sendGlobalNotification(type, data, excludeUser = null) {
 // ============================================
 // INIT DATABASE
 // ============================================
-
 async function initDatabase() {
     const tableQueries = [
         `CREATE TABLE IF NOT EXISTS achievements (
@@ -269,7 +268,6 @@ async function initDatabase() {
             rating INTEGER DEFAULT 0,
             role VARCHAR(50) DEFAULT 'operator',
             hours INTEGER DEFAULT 0,
-          
             birthday DATE,
             phone VARCHAR(20),
             last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -526,7 +524,7 @@ async function initDatabase() {
         }
     }
     
-     // Индексы
+    // Индексы для производительности
     try {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room, time DESC)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_tasks_executor_status ON tasks(executor, status)`);
@@ -535,15 +533,26 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_views_user ON knowledge_views(user_id)`);
     } catch (err) {}
     
-    // 🔥 МИГРАЦИЯ: Добавляем недостающие колонки (внутри async функции!)
+    // 🔥 МИГРАЦИИ: Добавляем недостающие колонки (если таблицы уже существовали)
     try {
+        // tasks
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
-        console.log('✅ Миграция: добавлены недостающие колонки в tasks');
+        
+        // schedule
+        await pool.query(`ALTER TABLE schedule ADD COLUMN IF NOT EXISTS shift_paid BOOLEAN DEFAULT FALSE`);
+        
+        // exchange_requests
+        await pool.query(`ALTER TABLE exchange_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL`);
+        
+        // vp_bookings
+        await pool.query(`ALTER TABLE vp_bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
+        
+        console.log('✅ Миграции: добавлены недостающие колонки');
     } catch (err) {
-        console.log('⚠️ Ошибка миграции колонок:', err.message);
+        console.log('⚠️ Ошибка миграций:', err.message);
     }
     
     // Создаём директора
@@ -551,10 +560,10 @@ async function initDatabase() {
         const directorCheck = await pool.query('SELECT * FROM employees WHERE role = $1 LIMIT 1', ['director']);
         if (directorCheck.rows.length === 0) {
             await pool.query(
-    `INSERT INTO employees (name, avatar, coins, rating, role, birthday, phone, dashboard_style, bought_styles, bonus_streak) 
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
-    ['Денис', '👑', 100, 0, 'director', '', '', 'glass', '["glass"]', 1]
-);
+                `INSERT INTO employees (name, avatar, coins, rating, role, birthday, phone, dashboard_style, bought_styles, bonus_streak) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, 
+                ['Денис', '👑', 100, 0, 'director', '', '', 'glass', '["glass"]', 1]
+            );
             await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', ['Денис', 'denis_1']);
             console.log('✅ Директор Денис создан');
         }
@@ -574,6 +583,7 @@ async function initDatabase() {
     } catch (err) {}
     
     console.log('✅ Database initialized');
+}
 }
 // ============================================
 // INIT ACHIEVEMENTS - ПОЛНЫЙ СПИСОК

@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const chromium = require('@sparticuz/chromium');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,18 +19,15 @@ const weatherSources = [
                 let temperature = null;
                 let feelsLike = null;
                 
-                // Парсим температуру: <span class="AppFactTemperature_value__2qhsG">3</span>
                 const tempSpan = document.querySelector('.AppFactTemperature_value__2qhsG');
                 if (tempSpan) {
                     const tempValue = parseInt(tempSpan.innerText.trim());
                     if (!isNaN(tempValue)) {
-                        // Проверяем знак минус
                         const signSpan = document.querySelector('.AppFactTemperature_sign__1MeN4');
                         temperature = signSpan && signSpan.innerText.trim() === '−' ? -tempValue : tempValue;
                     }
                 }
                 
-                // Парсим "ощущается как": <span class="AppFact_feels__base__bw86b">Ощущается как −6°</span>
                 const feelsSpan = document.querySelector('.AppFact_feels__base__bw86b');
                 if (feelsSpan) {
                     const feelsText = feelsSpan.innerText;
@@ -40,21 +38,20 @@ const weatherSources = [
                     }
                 }
                 
-                // Определяем иконку по температуре
-let icon = '🌡️';
-if (temperature !== null) {
-    const hour = new Date().getHours();
-    const isNight = hour < 6 || hour >= 20;
-    
-    if (temperature <= -20) icon = isNight ? '🌙❄️' : '❄️🥶';
-    else if (temperature <= -10) icon = isNight ? '🌙❄️' : '❄️';
-    else if (temperature <= -5) icon = isNight ? '🌙☁️❄️' : '☁️❄️';
-    else if (temperature <= 0) icon = isNight ? '🌙🧥' : '🧥';
-    else if (temperature <= 5) icon = isNight ? '🌙☁️' : '☁️';
-    else if (temperature <= 15) icon = isNight ? '🌙☀️' : '☀️';
-    else if (temperature <= 25) icon = isNight ? '🌙😎' : '😎🔥';
-    else icon = isNight ? '🌙🥵' : '🥵';
-}
+                let icon = '🌡️';
+                if (temperature !== null) {
+                    const hour = new Date().getHours();
+                    const isNight = hour < 6 || hour >= 20;
+                    
+                    if (temperature <= -20) icon = isNight ? '🌙❄️' : '❄️🥶';
+                    else if (temperature <= -10) icon = isNight ? '🌙❄️' : '❄️';
+                    else if (temperature <= -5) icon = isNight ? '🌙☁️❄️' : '☁️❄️';
+                    else if (temperature <= 0) icon = isNight ? '🌙🧥' : '🧥';
+                    else if (temperature <= 5) icon = isNight ? '🌙☁️' : '☁️';
+                    else if (temperature <= 15) icon = isNight ? '🌙☀️' : '☀️';
+                    else if (temperature <= 25) icon = isNight ? '🌙😎' : '😎🔥';
+                    else icon = isNight ? '🌙🥵' : '🥵';
+                }
                 
                 return { temperature, feelsLike, description: 'Яндекс.Погода', icon };
             });
@@ -68,7 +65,6 @@ if (temperature !== null) {
                 let temperature = null;
                 let feelsLike = null;
                 
-                // Парсим температуру: <temperature-value value="-5">-5</temperature-value>
                 const tempElement = document.querySelector('temperature-value');
                 if (tempElement) {
                     const value = tempElement.getAttribute('value');
@@ -80,7 +76,6 @@ if (temperature !== null) {
                     }
                 }
                 
-                // Альтернативный селектор на случай изменения
                 if (temperature === null) {
                     const weatherValue = document.querySelector('.weather-value');
                     if (weatherValue) {
@@ -89,14 +84,12 @@ if (temperature !== null) {
                     }
                 }
                 
-                // Парсим "ощущается как"
                 const feelElement = document.querySelector('.weather-feel');
                 if (feelElement) {
                     const match = feelElement.innerText.match(/[−-]?\d+/);
                     if (match) feelsLike = parseInt(match[0].replace('−', '-'));
                 }
                 
-                // Определяем описание и иконку
                 let description = 'Gismeteo';
                 let icon = '🌡️';
                 if (temperature !== null) {
@@ -122,7 +115,6 @@ if (temperature !== null) {
                 let temperature = null;
                 let feelsLike = null;
                 
-                // Парсим температуру: <span class="text text_block text_bold_medium margin_bottom_10">-2°</span>
                 const tempElements = document.querySelectorAll('.text.text_block.text_bold_medium.margin_bottom_10');
                 for (const el of tempElements) {
                     const match = el.innerText.match(/[−-]?\d+/);
@@ -132,7 +124,6 @@ if (temperature !== null) {
                     }
                 }
                 
-                // Парсим "ощущается как": <span class="text text_block text_light_normal text_fixed color_gray">ощущается как -4°</span>
                 const feelElements = document.querySelectorAll('.text.text_block.text_light_normal.text_fixed.color_gray');
                 for (const el of feelElements) {
                     const text = el.innerText;
@@ -145,7 +136,6 @@ if (temperature !== null) {
                     }
                 }
                 
-                // Определяем иконку
                 let icon = '🌡️';
                 if (temperature !== null) {
                     const hour = new Date().getHours();
@@ -197,16 +187,12 @@ async function fetchWeather() {
     let browser = null;
     
     try {
+        // 🔥 ИСПОЛЬЗУЕМ @sparticuz/chromium ДЛЯ RENDER
         browser = await puppeteer.launch({
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage', 
-                '--disable-gpu',
-                '--disable-software-rasterizer'
-            ],
-            headless: true,
-            timeout: 30000
+            args: chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: await chromium.executablePath(),
+            headless: chromium.headless,
         });
         
         // Пробуем каждый источник по очереди
@@ -230,7 +216,6 @@ async function fetchWeather() {
                 const weatherData = await source.parser(page);
                 await page.close();
                 
-                // Проверяем, удалось ли получить температуру
                 if (weatherData.temperature !== null && !isNaN(weatherData.temperature)) {
                     weatherData.temperatureDisplay = weatherData.temperature > 0 ? '+' + weatherData.temperature : '' + weatherData.temperature;
                     weatherData.feelsLikeDisplay = weatherData.feelsLike !== null && !isNaN(weatherData.feelsLike)
@@ -255,7 +240,7 @@ async function fetchWeather() {
                 
             } catch (sourceErr) {
                 console.log(`❌ ${source.name} не удался: ${sourceErr.message}`);
-                if (page) await page.close();
+                if (page) await page.close().catch(() => {});
                 continue;
             }
         }
@@ -287,7 +272,6 @@ async function fetchWeather() {
             source: 'fallback'
         };
         
-        // Сохраняем заглушку в кэш
         try {
             fs.writeFileSync(cachePath, JSON.stringify(fallbackData, null, 2));
         } catch(e) {}
@@ -295,7 +279,7 @@ async function fetchWeather() {
         return fallbackData;
         
     } finally {
-        if (browser) await browser.close();
+        if (browser) await browser.close().catch(() => {});
     }
 }
 

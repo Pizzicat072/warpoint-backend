@@ -1,4 +1,5 @@
 const puppeteer = require('puppeteer');
+const chromium = require('@sparticuz/chromium');
 const fs = require('fs');
 const path = require('path');
 
@@ -153,15 +154,12 @@ class BookingParser {
         };
         
         try {
+            // 🔥 ИСПОЛЬЗУЕМ @sparticuz/chromium ДЛЯ RENDER
             browser = await puppeteer.launch({
-                args: [
-                    '--no-sandbox', 
-                    '--disable-setuid-sandbox', 
-                    '--disable-dev-shm-usage', 
-                    '--disable-gpu'
-                ],
-                headless: true,
-                defaultViewport: { width: 1280, height: 800 }
+                args: chromium.args,
+                defaultViewport: chromium.defaultViewport,
+                executablePath: await chromium.executablePath(),
+                headless: chromium.headless,
             });
             
             await this.saveProgress(2, 10, 'Браузер запущен');
@@ -296,7 +294,7 @@ class BookingParser {
             isParsing = false;
             return { success: false, error: err.message };
         } finally {
-            if (browser) await browser.close();
+            if (browser) await browser.close().catch(() => {});
         }
     }
     
