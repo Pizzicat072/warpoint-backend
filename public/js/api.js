@@ -6,11 +6,16 @@
 async function originalApiCall(endpoint, method = 'GET', body = null) {
     const token = localStorage.getItem('token');
     
+    // 🔥 ТАЙМАУТ 15 СЕКУНД
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    
     const options = { 
         method, 
         headers: { 
             'Content-Type': 'application/json'
-        } 
+        },
+        signal: controller.signal
     };
     
     if (token) {
@@ -27,6 +32,7 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
     
     try {
         const response = await fetch(`/api${endpoint}`, options);
+        clearTimeout(timeoutId);
         console.log(`📡 Response status: ${response.status}`);
         
         if (response.status === 401) {
@@ -39,6 +45,12 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
         console.log(`📡 Response data:`, data);
         return data;
     } catch (e) {
+        clearTimeout(timeoutId);
+        if (e.name === 'AbortError') {
+            console.error('❌ API timeout:', endpoint);
+            showNotif('Сервер долго не отвечает. Попробуйте позже.', 'error');
+            return { success: false, error: 'Таймаут запроса' };
+        }
         console.error('❌ API error:', e);
         showNotif('Ошибка соединения с сервером', 'error');
         return null;

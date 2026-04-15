@@ -27,26 +27,36 @@ async function loadPage(pageId) {
     const container = document.getElementById('pageContainer');
     if (!container) return;
     
-    // 🔥 ОЧИСТКА ПРЕДЫДУЩЕЙ СТРАНИЦЫ
+    // 🔥 ТАЙМАУТ НА СЛУЧАЙ ЗАВИСАНИЯ
+    const loadingTimeout = setTimeout(() => {
+        console.error('❌ Загрузка страницы зависла:', pageId);
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 60px; text-align: center;">
+                <div class="empty-state-icon">⚠️</div>
+                <h3>Не удалось загрузить страницу</h3>
+                <p style="margin-bottom: 20px;">Проверьте соединение или обновите страницу</p>
+                <button class="btn-primary" onclick="location.reload()" style="margin-right: 10px;">
+                    <i class="fas fa-sync-alt"></i> Обновить
+                </button>
+                <button class="btn-secondary" onclick="window.loadPage('dashboard')">
+                    <i class="fas fa-home"></i> На главную
+                </button>
+            </div>
+        `;
+    }, 15000);
+    
+    // Очистка предыдущей страницы
     if (currentPage) {
         console.log(`🧹 Очистка страницы: ${currentPage}`);
-        
-        // Очистка отчётов (интервалы)
         if (currentPage === 'reports' && typeof cleanupReports === 'function') {
             cleanupReports();
         }
-        
-        // Очистка дашборда (интервалы)
         if (currentPage === 'dashboard' && typeof cleanupDashboard === 'function') {
             cleanupDashboard();
         }
-        
-        // Очистка чата (Pusher подписки)
         if (currentPage === 'chat' && typeof cleanupChat === 'function') {
             cleanupChat();
         }
-        
-        // Очистка задач (интервалы)
         if (currentPage === 'tasks' && typeof cleanupTasks === 'function') {
             cleanupTasks();
         }
@@ -57,6 +67,7 @@ async function loadPage(pageId) {
     
     const url = routes[pageId];
     if (!url) {
+        clearTimeout(loadingTimeout);
         container.innerHTML = '<div class="empty-state">Страница не найдена</div>';
         return;
     }
@@ -71,51 +82,39 @@ async function loadPage(pageId) {
         currentPage = pageId;
         localStorage.setItem('activeTab', pageId);
         
-        // 🔥 ИНИЦИАЛИЗАЦИЯ СТРАНИЦ
-        if (pageId === 'dashboard' && typeof initDashboard === 'function') {
-            setTimeout(() => initDashboard(), 100);
-        }
-        if (pageId === 'employees' && typeof initEmployees === 'function') {
-            setTimeout(() => initEmployees(), 50);
-        }
-        if (pageId === 'schedule') {
-            if (typeof loadScheduleData === 'function') await loadScheduleData();
-            if (typeof initSchedule === 'function') setTimeout(() => initSchedule(), 50);
-        }
-        if (pageId === 'salary' && typeof initSalary === 'function') {
-            setTimeout(() => initSalary(), 50);
-        }
-        if (pageId === 'tasks' && typeof initTasks === 'function') {
-            setTimeout(() => initTasks(), 50);
-        }
-        if (pageId === 'knowledge' && typeof initKnowledge === 'function') {
-            setTimeout(() => initKnowledge(), 100);
-        }
-        if (pageId === 'rating' && typeof initRating === 'function') {
-            setTimeout(() => initRating(), 50);
-        }
-        if (pageId === 'fines' && typeof initFines === 'function') {
-            setTimeout(() => initFines(), 50);
-        }
-        if (pageId === 'chat' && typeof initChat === 'function') {
-            setTimeout(() => initChat(), 100);
-        }
-        if (pageId === 'shop' && typeof initShop === 'function') {
-            setTimeout(() => initShop(), 50);
-        }
-        if (pageId === 'vp' && typeof initVp === 'function') {
-            setTimeout(() => initVp(), 50);
-        }
-        if (pageId === 'admin' && typeof initAdmin === 'function') {
-            setTimeout(() => initAdmin(), 100);
-        }
-        if (pageId === 'reports' && typeof initReports === 'function') {
-            setTimeout(() => initReports(), 100);
-        }
+        // Инициализация страниц
+        setTimeout(() => {
+            if (pageId === 'dashboard' && typeof initDashboard === 'function') initDashboard();
+            if (pageId === 'employees' && typeof initEmployees === 'function') initEmployees();
+            if (pageId === 'schedule') {
+                if (typeof loadScheduleData === 'function') loadScheduleData();
+                if (typeof initSchedule === 'function') setTimeout(() => initSchedule(), 50);
+            }
+            if (pageId === 'salary' && typeof initSalary === 'function') initSalary();
+            if (pageId === 'tasks' && typeof initTasks === 'function') initTasks();
+            if (pageId === 'knowledge' && typeof initKnowledge === 'function') initKnowledge();
+            if (pageId === 'rating' && typeof initRating === 'function') initRating();
+            if (pageId === 'fines' && typeof initFines === 'function') initFines();
+            if (pageId === 'chat' && typeof initChat === 'function') initChat();
+            if (pageId === 'shop' && typeof initShop === 'function') initShop();
+            if (pageId === 'vp' && typeof initVp === 'function') initVp();
+            if (pageId === 'admin' && typeof initAdmin === 'function') initAdmin();
+            if (pageId === 'reports' && typeof initReports === 'function') initReports();
+        }, 100);
+        
+        clearTimeout(loadingTimeout);
         
     } catch (error) {
+        clearTimeout(loadingTimeout);
         console.error('Error loading page:', error);
-        container.innerHTML = '<div class="empty-state">Ошибка загрузки страницы</div>';
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">❌</div>
+                <h3>Ошибка загрузки страницы</h3>
+                <p>${error.message}</p>
+                <button class="btn-primary" onclick="location.reload()">🔄 Обновить</button>
+            </div>
+        `;
     }
 }
 
