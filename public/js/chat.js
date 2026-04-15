@@ -1,4 +1,8 @@
-// public/js/chat.js
+// public/js/chat.js - ПОЛНЫЙ ФАЙЛ С ЗАЩИТОЙ
+
+// ============================================
+// ЗАЩИТА ОТ РЕКУРСИИ И СПАМА
+// ============================================
 
 let currentChatRoom = 'general';
 let chatMessages = {};
@@ -7,14 +11,37 @@ let lastProcessedTime = {};
 let currentAnnouncementStyle = 'director';
 let lastBulkDeleteTime = 0;
 
+// Защита от повторной инициализации
+let chatInitialized = false;
+let isLoadingHistory = false;
+let isSendingMessage = false;
+let isSwitchingChat = false;
+let pusherListenersSetup = false;
+
+// Защита от спама
+let lastMessageTime = 0;
+const MESSAGE_COOLDOWN = 500;
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================
+
 function initChat() {
+    if (chatInitialized) {
+        console.log('💬 Чат уже инициализирован');
+        return;
+    }
+    
     console.log('💬 Инициализация чата');
     var picker = document.getElementById('emojiPicker');
     if (picker) picker.style.display = 'none';
+    
     loadChatHistory();
     setupEmojiPickerClose();
     initAnnouncementButton();
     initChatSettings();
+    
+    chatInitialized = true;
 }
 
 function setupEmojiPickerClose() {
@@ -29,10 +56,21 @@ function setupEmojiPickerClose() {
     });
 }
 
+// ============================================
+// ЗАГРУЗКА ИСТОРИИ
+// ============================================
+
 async function loadChatHistory() {
+    if (isLoadingHistory) {
+        console.log('⏳ История чата уже загружается');
+        return;
+    }
+    
     console.log('📜 Загрузка истории чата...');
     var token = localStorage.getItem('token');
     if (!token) return;
+    
+    isLoadingHistory = true;
     
     try {
         var generalRes = await fetch('/api/chat/history/general', {
@@ -82,6 +120,8 @@ async function loadChatHistory() {
         
     } catch (err) {
         console.error('Ошибка загрузки:', err);
+    } finally {
+        isLoadingHistory = false;
     }
     
     renderChatContacts();
@@ -89,6 +129,10 @@ async function loadChatHistory() {
     initChatInput();
     setupPusherListeners();
 }
+
+// ============================================
+// РЕНДЕР КОНТАКТОВ
+// ============================================
 
 function renderChatContacts() {
     var container = document.getElementById('chatContacts');
@@ -136,6 +180,10 @@ function renderChatContacts() {
     
     container.innerHTML = html;
 }
+
+// ============================================
+// РЕНДЕР СООБЩЕНИЙ
+// ============================================
 
 function renderChatMessages() {
     var container = document.getElementById('chatMessages');
@@ -259,72 +307,6 @@ function renderExchangeRequestMessage(msg) {
     return html;
 }
 
-async function acceptExchangeFromChat(requestId, room, messageTime) {
-    try {
-        const response = await apiCall('/exchange/accept/' + requestId, 'POST');
-        if (response && response.success) {
-            showNotif('✅ Обмен смен подтверждён! Смены автоматически обменяны.', 'success');
-            updateExchangeMessageInChat(room, messageTime, 'accepted');
-            if (typeof loadScheduleData === 'function') loadScheduleData();
-            if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
-            if (typeof updateDashboardStats === 'function') updateDashboardStats();
-            if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
-            if (typeof loadPendingExchanges === 'function') loadPendingExchanges();
-        } else {
-            showNotif(response?.error || 'Ошибка при подтверждении обмена', 'error');
-        }
-    } catch (err) {
-        console.error('Ошибка:', err);
-        showNotif('Ошибка соединения', 'error');
-    }
-}
-
-async function rejectExchangeFromChat(requestId, room, messageTime) {
-    try {
-        const response = await apiCall('/exchange/reject/' + requestId, 'POST');
-        if (response && response.success) {
-            showNotif('❌ Запрос на обмен отклонён', 'success');
-            updateExchangeMessageInChat(room, messageTime, 'rejected');
-            if (typeof loadPendingExchanges === 'function') loadPendingExchanges();
-        } else {
-            showNotif(response?.error || 'Ошибка при отклонении запроса', 'error');
-        }
-    } catch (err) {
-        console.error('Ошибка:', err);
-        showNotif('Ошибка соединения', 'error');
-    }
-}
-
-function updateExchangeMessageInChat(room, messageTime, status) {
-    if (!chatMessages[room]) return;
-    
-    var index = -1;
-    for (var i = 0; i < chatMessages[room].length; i++) {
-        if (chatMessages[room][i].time === messageTime) {
-            index = i;
-            break;
-        }
-    }
-    
-    if (index !== -1) {
-        var msg = chatMessages[room][index];
-        if (msg.action_data && msg.action_data.type === 'exchange_request') {
-            msg.action_data.status = status;
-            if (status === 'accepted') {
-                msg.text = '✅ **Обмен смен подтверждён!** Смены успешно обменяны.';
-            } else if (status === 'rejected') {
-                msg.text = '❌ **Запрос на обмен отклонён.**';
-            }
-            chatMessages[room][index] = msg;
-            window.app.messages = chatMessages;
-            
-            if (currentChatRoom === room) {
-                renderChatMessages();
-            }
-        }
-    }
-}
-
 function renderAnnouncement(announcement) {
     var roleIcon = '📢';
     var roleName = 'Объявление';
@@ -357,6 +339,10 @@ function renderAnnouncement(announcement) {
     '</div>';
 }
 
+// ============================================
+// ОТПРАВКА СООБЩЕНИЙ
+// ============================================
+
 function initChatInput() {
     var input = document.getElementById('chatInput');
     var sendBtn = document.getElementById('chatSendBtn');
@@ -376,6 +362,19 @@ function initChatInput() {
 }
 
 async function sendChatMessage() {
+    var now = Date.now();
+    
+    if (isSendingMessage) {
+        console.log('⚠️ Сообщение уже отправляется');
+        return;
+    }
+    
+    if (now - lastMessageTime < MESSAGE_COOLDOWN) {
+        console.log('⏳ Слишком частые сообщения, подождите');
+        showNotif('Подождите немного перед отправкой', 'warning');
+        return;
+    }
+    
     var input = document.getElementById('chatInput');
     var text = input.value.trim();
     if (!text) return;
@@ -385,6 +384,9 @@ async function sendChatMessage() {
         showNotif('Ошибка: не авторизован', 'error');
         return;
     }
+    
+    isSendingMessage = true;
+    lastMessageTime = now;
     
     var message = {
         sender: window.app.currentUser,
@@ -429,11 +431,25 @@ async function sendChatMessage() {
     } catch (err) {
         console.error('Ошибка:', err);
         showNotif('Ошибка соединения', 'error');
+    } finally {
+        isSendingMessage = false;
     }
 }
 
+// ============================================
+// ПЕРЕКЛЮЧЕНИЕ ЧАТА
+// ============================================
+
 function switchChat(roomId) {
+    if (isSwitchingChat) {
+        console.log('⚠️ Чат уже переключается');
+        return;
+    }
+    
     console.log('🔄 Переключение на чат: ' + roomId);
+    
+    isSwitchingChat = true;
+    
     currentChatRoom = roomId;
     
     var picker = document.getElementById('emojiPicker');
@@ -460,15 +476,28 @@ function switchChat(roomId) {
     
     renderChatContacts();
     renderChatMessages();
+    
+    isSwitchingChat = false;
 }
 
+// ============================================
+// PUSHER СЛУШАТЕЛИ
+// ============================================
+
 function setupPusherListeners() {
+    if (pusherListenersSetup) {
+        console.log('🔌 Pusher слушатели уже настроены');
+        return;
+    }
+    
     console.log('🔌 ===== НАСТРОЙКА PUSHER СЛУШАТЕЛЕЙ =====');
     
     if (window.channel) {
-        console.log('✅ Настраиваем ОБЩИЙ канал');
-        
         window.channel.unbind('client-new-message');
+        window.channel.unbind('client-announcement');
+        window.channel.unbind('client-delete-message');
+        window.channel.unbind('client-bulk-delete');
+        
         window.channel.bind('client-new-message', function(data) {
             if (data.room !== 'general') return;
             var msgTime = data.message.time;
@@ -490,7 +519,6 @@ function setupPusherListeners() {
             }
         });
         
-        window.channel.unbind('client-announcement');
         window.channel.bind('client-announcement', function(data) {
             var announcement = data.announcement;
             var msgTime = announcement.time;
@@ -511,9 +539,7 @@ function setupPusherListeners() {
             }
         });
         
-        window.channel.unbind('client-delete-message');
         window.channel.bind('client-delete-message', function(data) {
-            console.log('🗑️ Удаление сообщения:', data);
             var room = data.room;
             var messageTime = data.messageTime;
             if (chatMessages[room]) {
@@ -526,9 +552,7 @@ function setupPusherListeners() {
             }
         });
         
-        window.channel.unbind('client-bulk-delete');
         window.channel.bind('client-bulk-delete', function(data) {
-            console.log('🗑️ Массовое удаление:', data);
             var period = data.period;
             var timeThreshold = data.timeThreshold;
             var timestamp = data.timestamp;
@@ -554,10 +578,10 @@ function setupPusherListeners() {
     }
     
     if (window.privateChannel) {
-        console.log('✅ Настраиваем ЛИЧНЫЙ канал');
         window.privateChannel.unbind('client-private-message');
+        window.privateChannel.unbind('client-delete-private');
+        
         window.privateChannel.bind('client-private-message', function(data) {
-            console.log('📨 Личное сообщение получено:', data);
             var msgTime = data.message.time;
             var roomId = data.from;
             if (msgTime <= (lastProcessedTime[roomId] || 0)) return;
@@ -578,9 +602,7 @@ function setupPusherListeners() {
             }
         });
         
-        window.privateChannel.unbind('client-delete-private');
         window.privateChannel.bind('client-delete-private', function(data) {
-            console.log('🗑️ Удаление личного сообщения:', data);
             var room = data.room;
             var messageTime = data.messageTime;
             if (chatMessages[room]) {
@@ -594,8 +616,13 @@ function setupPusherListeners() {
         });
     }
     
+    pusherListenersSetup = true;
     console.log('🔌 ===== НАСТРОЙКА PUSHER ЗАВЕРШЕНА =====');
 }
+
+// ============================================
+// ЭМОДЗИ
+// ============================================
 
 function toggleEmojiPicker() {
     var picker = document.getElementById('emojiPicker');
@@ -613,6 +640,10 @@ function addEmoji(emoji) {
     var picker = document.getElementById('emojiPicker');
     if (picker) picker.style.display = 'none';
 }
+
+// ============================================
+// ОБЪЯВЛЕНИЯ
+// ============================================
 
 function initAnnouncementButton() {
     var btn = document.getElementById('announcementBtn');
@@ -733,9 +764,11 @@ async function sendAnnouncement() {
     }
 }
 
+// ============================================
+// УДАЛЕНИЕ СООБЩЕНИЙ
+// ============================================
+
 async function deleteMessage(messageTime, room) {
-    console.log('🗑️ deleteMessage вызван: time=' + messageTime + ', room=' + room);
-    
     var timeValue = typeof messageTime === 'string' ? parseInt(messageTime) : messageTime;
     var messages = chatMessages[room] || [];
     var messageToDelete = null;
@@ -810,13 +843,16 @@ async function deleteMessage(messageTime, room) {
     }
 }
 
+// ============================================
+// НАСТРОЙКИ ЧАТА
+// ============================================
+
 function initChatSettings() {
     var settingsBtn = document.getElementById('chatSettingsBtn');
     if (!settingsBtn) return;
     if (window.app.currentUserRole === 'director') {
         settingsBtn.style.display = 'flex';
         settingsBtn.onclick = function() { openChatSettingsModal(); };
-        console.log('⚙️ Кнопка настроек чата добавлена для директора');
     } else {
         settingsBtn.style.display = 'none';
     }
@@ -895,6 +931,80 @@ async function deleteMessagesByPeriod(period) {
     }
 }
 
+// ============================================
+// ОБМЕН СМЕНАМИ В ЧАТЕ
+// ============================================
+
+async function acceptExchangeFromChat(requestId, room, messageTime) {
+    try {
+        const response = await apiCall('/exchange/accept/' + requestId, 'POST');
+        if (response && response.success) {
+            showNotif('✅ Обмен смен подтверждён! Смены автоматически обменяны.', 'success');
+            updateExchangeMessageInChat(room, messageTime, 'accepted');
+            if (typeof loadScheduleData === 'function') loadScheduleData();
+            if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
+            if (typeof loadPendingExchanges === 'function') loadPendingExchanges();
+        } else {
+            showNotif(response?.error || 'Ошибка при подтверждении обмена', 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('Ошибка соединения', 'error');
+    }
+}
+
+async function rejectExchangeFromChat(requestId, room, messageTime) {
+    try {
+        const response = await apiCall('/exchange/reject/' + requestId, 'POST');
+        if (response && response.success) {
+            showNotif('❌ Запрос на обмен отклонён', 'success');
+            updateExchangeMessageInChat(room, messageTime, 'rejected');
+            if (typeof loadPendingExchanges === 'function') loadPendingExchanges();
+        } else {
+            showNotif(response?.error || 'Ошибка при отклонении запроса', 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('Ошибка соединения', 'error');
+    }
+}
+
+function updateExchangeMessageInChat(room, messageTime, status) {
+    if (!chatMessages[room]) return;
+    
+    var index = -1;
+    for (var i = 0; i < chatMessages[room].length; i++) {
+        if (chatMessages[room][i].time === messageTime) {
+            index = i;
+            break;
+        }
+    }
+    
+    if (index !== -1) {
+        var msg = chatMessages[room][index];
+        if (msg.action_data && msg.action_data.type === 'exchange_request') {
+            msg.action_data.status = status;
+            if (status === 'accepted') {
+                msg.text = '✅ **Обмен смен подтверждён!** Смены успешно обменяны.';
+            } else if (status === 'rejected') {
+                msg.text = '❌ **Запрос на обмен отклонён.**';
+            }
+            chatMessages[room][index] = msg;
+            window.app.messages = chatMessages;
+            
+            if (currentChatRoom === room) {
+                renderChatMessages();
+            }
+        }
+    }
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
 function formatDateSimple(dateStr) {
     if (!dateStr) return '—';
     var parts = dateStr.split('-');
@@ -903,6 +1013,33 @@ function formatDateSimple(dateStr) {
     var monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
     return day + ' ' + monthNames[month - 1];
 }
+
+// ============================================
+// ОЧИСТКА ПРИ УХОДЕ
+// ============================================
+
+function cleanupChat() {
+    console.log('🧹 Очистка чата');
+    
+    if (window.channel) {
+        window.channel.unbind('client-new-message');
+        window.channel.unbind('client-announcement');
+        window.channel.unbind('client-delete-message');
+        window.channel.unbind('client-bulk-delete');
+    }
+    
+    if (window.privateChannel) {
+        window.privateChannel.unbind('client-private-message');
+        window.privateChannel.unbind('client-delete-private');
+    }
+    
+    pusherListenersSetup = false;
+    chatInitialized = false;
+}
+
+// ============================================
+// ЭКСПОРТ
+// ============================================
 
 window.initChat = initChat;
 window.switchChat = switchChat;
@@ -916,3 +1053,6 @@ window.deleteMessagesByPeriod = deleteMessagesByPeriod;
 window.closeChatSettingsModal = closeChatSettingsModal;
 window.acceptExchangeFromChat = acceptExchangeFromChat;
 window.rejectExchangeFromChat = rejectExchangeFromChat;
+window.cleanupChat = cleanupChat;
+
+console.log('✅ chat.js загружен (с защитой от рекурсии)');
