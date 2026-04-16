@@ -1,4 +1,4 @@
-// public/js/router.js - ПОЛНАЯ ВЕРСИЯ С CLEANUP
+// public/js/router.js - С ЗАЩИТОЙ ОТ БЕСКОНЕЧНОЙ ЗАГРУЗКИ
 
 const routes = {
     dashboard: '/pages/dashboard.html',
@@ -17,37 +17,50 @@ const routes = {
 };
 
 let currentPage = null;
+let isLoadingPage = false;
+let pageLoadTimeout = null;
 
 // ============================================
-// ЗАГРУЗКА СТРАНИЦЫ
+// ЗАГРУЗКА СТРАНИЦЫ (С ЗАЩИТОЙ)
 // ============================================
+
 async function loadPage(pageId) {
+    // 🔥 ЗАЩИТА ОТ ПОВТОРНОЙ ЗАГРУЗКИ ТОЙ ЖЕ СТРАНИЦЫ
+    if (currentPage === pageId) {
+        console.log(`📄 Страница ${pageId} уже загружена`);
+        return;
+    }
+    
+    // 🔥 ЗАЩИТА ОТ ОДНОВРЕМЕННОЙ ЗАГРУЗКИ
+    if (isLoadingPage) {
+        console.log('⚠️ Страница уже загружается, подождите...');
+        return;
+    }
+    
     console.log('📄 Загрузка страницы:', pageId);
     
     const container = document.getElementById('pageContainer');
     if (!container) return;
     
+    isLoadingPage = true;
+    
     // 🔥 ТАЙМАУТ НА СЛУЧАЙ ЗАВИСАНИЯ
-    const loadingTimeout = setTimeout(() => {
+    if (pageLoadTimeout) clearTimeout(pageLoadTimeout);
+    pageLoadTimeout = setTimeout(() => {
         console.error('❌ Загрузка страницы зависла:', pageId);
         container.innerHTML = `
             <div class="empty-state" style="padding: 60px; text-align: center;">
                 <div class="empty-state-icon">⚠️</div>
                 <h3>Не удалось загрузить страницу</h3>
-                <p style="margin-bottom: 20px;">Проверьте соединение или обновите страницу</p>
-                <button class="btn-primary" onclick="location.reload()" style="margin-right: 10px;">
-                    <i class="fas fa-sync-alt"></i> Обновить
-                </button>
-                <button class="btn-secondary" onclick="window.loadPage('dashboard')">
-                    <i class="fas fa-home"></i> На главную
-                </button>
+                <button class="btn-primary" onclick="location.reload()">🔄 Обновить</button>
+                <button class="btn-secondary" onclick="window.loadPage('dashboard')">🏠 На главную</button>
             </div>
         `;
+        isLoadingPage = false;
     }, 15000);
     
     // Очистка предыдущей страницы
     if (currentPage) {
-        console.log(`🧹 Очистка страницы: ${currentPage}`);
         if (currentPage === 'reports' && typeof cleanupReports === 'function') {
             cleanupReports();
         }
@@ -57,18 +70,15 @@ async function loadPage(pageId) {
         if (currentPage === 'chat' && typeof cleanupChat === 'function') {
             cleanupChat();
         }
-        if (currentPage === 'tasks' && typeof cleanupTasks === 'function') {
-            cleanupTasks();
-        }
     }
     
-    // Показываем загрузку
     container.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 60px;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
     
     const url = routes[pageId];
     if (!url) {
-        clearTimeout(loadingTimeout);
+        clearTimeout(pageLoadTimeout);
         container.innerHTML = '<div class="empty-state">Страница не найдена</div>';
+        isLoadingPage = false;
         return;
     }
     
@@ -82,14 +92,11 @@ async function loadPage(pageId) {
         currentPage = pageId;
         localStorage.setItem('activeTab', pageId);
         
-        // Инициализация страниц
+        // Инициализация страниц с задержкой
         setTimeout(() => {
             if (pageId === 'dashboard' && typeof initDashboard === 'function') initDashboard();
             if (pageId === 'employees' && typeof initEmployees === 'function') initEmployees();
-            if (pageId === 'schedule') {
-                if (typeof loadScheduleData === 'function') loadScheduleData();
-                if (typeof initSchedule === 'function') setTimeout(() => initSchedule(), 50);
-            }
+            if (pageId === 'schedule' && typeof initSchedule === 'function') initSchedule();
             if (pageId === 'salary' && typeof initSalary === 'function') initSalary();
             if (pageId === 'tasks' && typeof initTasks === 'function') initTasks();
             if (pageId === 'knowledge' && typeof initKnowledge === 'function') initKnowledge();
@@ -102,25 +109,27 @@ async function loadPage(pageId) {
             if (pageId === 'reports' && typeof initReports === 'function') initReports();
         }, 100);
         
-        clearTimeout(loadingTimeout);
+        clearTimeout(pageLoadTimeout);
         
     } catch (error) {
-        clearTimeout(loadingTimeout);
+        clearTimeout(pageLoadTimeout);
         console.error('Error loading page:', error);
         container.innerHTML = `
             <div class="empty-state">
                 <div class="empty-state-icon">❌</div>
                 <h3>Ошибка загрузки страницы</h3>
-                <p>${error.message}</p>
                 <button class="btn-primary" onclick="location.reload()">🔄 Обновить</button>
             </div>
         `;
+    } finally {
+        isLoadingPage = false;
     }
 }
 
 // ============================================
 // РЕНДЕР ГЛАВНОГО МЕНЮ
 // ============================================
+
 function renderMainMenu() {
     const menu = document.getElementById('mainMenu');
     if (!menu) return;
@@ -170,12 +179,8 @@ function renderMainMenu() {
     loadPage(activeId);
 }
 
-// ============================================
-// ПЕРЕКЛЮЧЕНИЕ НА ВКЛАДКУ (для вызова из других модулей)
-// ============================================
 function switchToTab(tabId) {
     if (routes[tabId]) {
-        // Обновляем активную кнопку в меню
         document.querySelectorAll('.menu-item').forEach(btn => {
             btn.classList.remove('active');
             if (btn.dataset.tab === tabId) {
@@ -189,15 +194,13 @@ function switchToTab(tabId) {
 // ============================================
 // ЭКСПОРТ
 // ============================================
+
 window.loadPage = loadPage;
 window.renderMainMenu = renderMainMenu;
 window.switchToTab = switchToTab;
 window.routes = routes;
 window.getCurrentPage = () => currentPage;
 
-// ============================================
-// ОБРАБОТЧИК ЗАКРЫТИЯ/ОБНОВЛЕНИЯ СТРАНИЦЫ
-// ============================================
 window.addEventListener('beforeunload', () => {
     if (currentPage === 'reports' && typeof cleanupReports === 'function') {
         cleanupReports();

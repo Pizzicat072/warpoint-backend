@@ -189,24 +189,28 @@ function hasEnoughWP(requiredAmount) {
 }
 
 function refreshAllBalanceDisplays() {
-    const balance = getCurrentBalance();
-    const formatted = formatWP(balance);
+    const currentUser = window.app?.currentUser;
+    if (!currentUser) return;
     
-    const headerBalance = document.getElementById('userCoinsAmount');
-    if (headerBalance) {
-        headerBalance.textContent = balance.toLocaleString();
-    }
+    const balance = window.app?.profiles?.[currentUser]?.coins || 0;
     
-    const dashboardBalance = document.querySelector('.user-coins-display');
-    if (dashboardBalance) {
-        dashboardBalance.textContent = balance.toLocaleString() + ' 🪙';
-    }
+    // Дашборд
+    const userCoinsHeader = document.getElementById('userCoinsAmountHeader');
+    if (userCoinsHeader) userCoinsHeader.textContent = balance.toLocaleString();
     
+    // Магазин
+    const shopBalance = document.getElementById('userCoinsAmount');
+    if (shopBalance) shopBalance.textContent = balance.toLocaleString();
+    
+    // Профиль
     const profileCoins = document.getElementById('profileCoins');
-    if (profileCoins) {
-        profileCoins.textContent = balance;
-    }
+    if (profileCoins) profileCoins.textContent = balance;
+    
+    // Карточки сотрудников (если открыты)
+    if (typeof renderEmployees === 'function') renderEmployees();
 }
+
+window.refreshAllBalanceDisplays = refreshAllBalanceDisplays;
 
 function showWPEarnedNotification(amount, source, targetElement = null) {
     if (!targetElement) {

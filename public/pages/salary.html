@@ -16,6 +16,12 @@
             <h1>Зарплата и мотивация</h1>
             <p>Управление начислениями и премиями сотрудников</p>
         </div>
+        <!-- 🔥 НОВОЕ: Отображение фонда -->
+        <div class="salary-fund-display" id="salaryFundDisplay">
+            <i class="fas fa-landmark"></i>
+            <span>Корпоративный фонд: </span>
+            <strong id="salaryFundAmount">0 ₽</strong>
+        </div>
         <div class="salary-role-badge" id="salaryRoleBadge">
             <i class="fas fa-user-shield"></i>
             <span id="salaryRoleText">Режим просмотра</span>
@@ -126,6 +132,18 @@
                     <div class="salary-field-input">
                         <span class="currency-symbol">₽</span>
                         <input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0">
+                    </div>
+                </div>
+                
+                <!-- 🔥 НОВОЕ: Доп. мотивация -->
+                <div class="salary-field">
+                    <div class="salary-field-label">
+                        <i class="fas fa-gift"></i>
+                        <span>ДОП. МОТИВАЦИЯ</span>
+                    </div>
+                    <div class="salary-field-input">
+                        <span class="currency-symbol">₽</span>
+                        <input type="number" id="salaryExtraMotivation" class="salary-number-input" placeholder="0" value="0">
                     </div>
                 </div>
             </div>
@@ -294,6 +312,34 @@
     font-size: 13px;
     color: #94a3b8;
     margin: 0;
+}
+
+/* 🔥 НОВОЕ: Стиль для отображения фонда */
+.salary-fund-display {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 24px;
+    background: rgba(251, 191, 36, 0.1);
+    border-radius: 40px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+    margin-left: auto;
+}
+
+.salary-fund-display i {
+    color: #fbbf24;
+    font-size: 18px;
+}
+
+.salary-fund-display span {
+    font-size: 13px;
+    color: #94a3b8;
+}
+
+.salary-fund-display strong {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fbbf24;
 }
 
 .salary-role-badge {
@@ -532,6 +578,12 @@
     min-width: 100px;
     font-size: 12px;
     white-space: nowrap;
+    cursor: pointer;
+}
+
+.salary-total-cell:hover {
+    background: rgba(251, 191, 36, 0.2);
+    transform: scale(1.02);
 }
 
 /* Разделитель */
@@ -597,7 +649,7 @@
    ============================================ */
 
 .day-modal {
-    max-width: 550px;
+    max-width: 580px;
     width: 90%;
     padding: 0;
     background: linear-gradient(135deg, #1a1f2e, #0f1222);
@@ -866,6 +918,46 @@
     color: #e2e8f0;
 }
 
+/* 🔥 НОВОЕ: Стили для детализации итога */
+.breakdown-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.breakdown-item span {
+    color: #94a3b8;
+    font-size: 14px;
+}
+
+.breakdown-item strong {
+    color: #e2e8f0;
+    font-size: 16px;
+}
+
+.breakdown-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0 8px;
+    margin-top: 8px;
+    border-top: 2px solid rgba(251, 191, 36, 0.3);
+}
+
+.breakdown-total span {
+    font-weight: 600;
+    color: #fbbf24;
+    font-size: 16px;
+}
+
+.breakdown-total strong {
+    font-size: 22px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .salary-container {
@@ -886,6 +978,12 @@
     
     .salary-header-info h1 {
         font-size: 20px;
+    }
+    
+    .salary-fund-display {
+        margin-left: 0;
+        width: 100%;
+        justify-content: center;
     }
     
     .salary-controls {

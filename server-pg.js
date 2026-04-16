@@ -287,6 +287,7 @@ await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_afte
 await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id INTEGER DEFAULT NULL`);
 await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
 await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
+await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_motivation INTEGER DEFAULT 0`);
         console.log('✅ Миграции: добавлены все недостающие колонки');
     } catch (err) {
         console.log('⚠️ Ошибка миграций:', err.message);
@@ -952,9 +953,36 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
 
 app.post('/api/salary/day/save', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    const { employee_id, day_number, month, year, oklad, event, turnover, bonus35, video } = req.body;
+    const { employee_id, day_number, month, year, oklad, event, turnover, bonus35, video, extra_motivation } = req.body;
     const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-    try { await pool.query(`INSERT INTO salary_daily_new (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (employee_id, day_number, month_year) DO UPDATE SET oklad = EXCLUDED.oklad, event = EXCLUDED.event, turnover = EXCLUDED.turnover, bonus35 = EXCLUDED.bonus35, video = EXCLUDED.video`, [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try {
+        await pool.query(
+            `INSERT INTO salary_daily_new (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+             ON CONFLICT (employee_id, day_number, month_year) 
+             DO UPDATE SET oklad = EXCLUDED.oklad, event = EXCLUDED.event, turnover = EXCLUDED.turnover, 
+                           bonus35 = EXCLUDED.bonus35, video = EXCLUDED.video, extra_motivation = EXCLUDED.extra_motivation`,
+            [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]
+        );
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+app.get('/api/salary/day', authMiddleware, async (req, res) => {
+    const { employee_id, day, month, year } = req.query;
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`;
+    try {
+        const result = await pool.query(
+            `SELECT oklad, event, turnover, bonus35, video, extra_motivation 
+             FROM salary_daily_new 
+             WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`,
+            [employee_id, day, monthYear]
+        );
+        res.json(result.rows[0] || { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.get('/api/vp', authMiddleware, async (req, res) => {
@@ -1274,6 +1302,84 @@ app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message });
     } finally {
         client.release();
+    }
+});
+// ============================================
+// ГЛОБАЛЬНАЯ ТЕМА API
+// ============================================
+
+app.get('/api/admin/theme', authMiddleware, async (req, res) => {
+    try {
+        const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']);
+        let theme = 'vr-portal';
+        if (result.rows.length > 0 && result.rows[0].setting_value) {
+            theme = result.rows[0].setting_value;
+        }
+        res.json({ success: true, theme: theme });
+    } catch (err) {
+        res.json({ success: true, theme: 'vr-portal' });
+    }
+});
+
+app.post('/api/admin/theme', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { theme } = req.body;
+    const validThemes = ['vr-portal', 'hacker', 'glitch', 'explosion', 'depth', 'charge'];
+    if (!validThemes.includes(theme)) return res.status(400).json({ error: 'Неверное название темы' });
+    try {
+        await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP`, [theme]);
+        res.json({ success: true, theme: theme });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+// ============================================
+// USER STYLES API (ДАШБОРД)
+// ============================================
+
+app.post('/api/user/apply-style', authMiddleware, async (req, res) => {
+    const { style } = req.body;
+    const userId = req.user.id;
+    try {
+        await pool.query('UPDATE employees SET dashboard_style = $1 WHERE id = $2', [style, userId]);
+        res.json({ success: true, style: style });
+    } catch (err) {
+        res.json({ success: true, style: style });
+    }
+});
+
+app.post('/api/user/buy-style', authMiddleware, async (req, res) => {
+    const { style, price } = req.body;
+    const userId = req.user.id;
+    try {
+        const userResult = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]);
+        const currentCoins = userResult.rows[0]?.coins || 0;
+        if (currentCoins < price) return res.status(400).json({ error: 'Недостаточно монет' });
+        
+        const balanceBefore = currentCoins;
+        const balanceAfter = balanceBefore - price;
+        
+        await pool.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]);
+        await logTransaction(userId, 'shop_purchase', -price, balanceBefore, balanceAfter, null, `Покупка стиля "${style}"`);
+        
+        let boughtStyles = ['glass'];
+        const styleResult = await pool.query('SELECT bought_styles FROM employees WHERE id = $1', [userId]);
+        if (styleResult.rows[0]?.bought_styles) {
+            try { boughtStyles = JSON.parse(styleResult.rows[0].bought_styles); } catch(e) {}
+        }
+        if (!boughtStyles.includes(style)) boughtStyles.push(style);
+        await pool.query('UPDATE employees SET bought_styles = $1 WHERE id = $2', [JSON.stringify(boughtStyles), userId]);
+        
+        const achievementResult = await checkAndGrantAchievements(userId, req.user.username);
+        
+        res.json({ 
+            success: true, 
+            boughtStyles: boughtStyles, 
+            remainingCoins: balanceAfter,
+            newAchievements: achievementResult.achievements
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
     }
 });
 // ============================================

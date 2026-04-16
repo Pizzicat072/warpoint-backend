@@ -294,8 +294,12 @@ async function buyAvatar(icon) {
 // ОБНОВЛЕНИЕ БАЛАНСА
 // ============================================
 function updateBalance() {
-    const el = document.getElementById('userCoinsAmount');
-    if (el) el.innerText = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
+    if (typeof refreshAllBalanceDisplays === 'function') {
+        refreshAllBalanceDisplays();
+    } else {
+        const el = document.getElementById('userCoinsAmount');
+        if (el) el.innerText = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
+    }
 }
 
 // ============================================

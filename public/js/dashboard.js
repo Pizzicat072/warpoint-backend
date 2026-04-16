@@ -1,24 +1,23 @@
-// public/js/dashboard.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/dashboard.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 // ============================================
 // ЗАЩИТА ОТ РЕКУРСИИ И ЧАСТЫХ ЗАПРОСОВ
 // ============================================
 
 let dashboardInterval = null;
+let bonusCheckInterval = null;
+let shiftTimerInterval = null;
 let hiddenBlocks = new Set();
 
-// Защита от рекурсии
 let isUpdatingDashboard = false;
 let dashboardUpdateTimeout = null;
 let lastDashboardUpdate = 0;
 const MIN_UPDATE_INTERVAL = 5000;
 
-// Защита от частых запросов погоды
 let isFetchingWeather = false;
 let lastWeatherFetch = 0;
 const WEATHER_FETCH_INTERVAL = 300000;
 
-// Защита для бонуса
 let isClaimingBonus = false;
 
 // ============================================
@@ -50,6 +49,31 @@ const availableStyles = [
 ];
 
 window.availableStyles = availableStyles;
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function getTobolskNow() {
+    if (typeof window.getTobolskNow === 'function') {
+        return window.getTobolskNow();
+    }
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+}
+
+function formatDateSimple(dateStr) {
+    if (!dateStr) return '—';
+    const parts = dateStr.split('-');
+    const day = parseInt(parts[2]);
+    const month = parseInt(parts[1]);
+    const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    return `${day} ${monthNames[month - 1]}`;
+}
+
+// ============================================
+// СТИЛИ
+// ============================================
 
 function renderStylesShop() {
     const container = document.getElementById('stylesShopGrid');
@@ -147,9 +171,7 @@ async function buyStyle(styleId, price) {
                 window.app.profiles[currentUser].coins = response.remainingCoins;
             }
             renderStylesShop();
-            if (typeof refreshAllBalanceDisplays === 'function') {
-                refreshAllBalanceDisplays();
-            }
+            refreshAllBalanceDisplays();
             showNotif(`✨ Стиль "${getStyleName(styleId)}" куплен!`, 'success');
             return true;
         } else {
@@ -198,9 +220,7 @@ async function applyBoughtStyle(styleId) {
                 'dashboard-style-frozen', 'dashboard-style-shadow', 'dashboard-style-toxic',
                 'dashboard-style-plasma', 'dashboard-style-void', 'dashboard-style-carbon'
             ];
-            dashboardClasses.forEach(cls => {
-                document.body.classList.remove(cls);
-            });
+            dashboardClasses.forEach(cls => document.body.classList.remove(cls));
             
             if (styleId !== 'standart') {
                 document.body.classList.add(`dashboard-style-${styleId}`);
@@ -208,8 +228,8 @@ async function applyBoughtStyle(styleId) {
                 document.body.classList.add('dashboard-style-standart');
             }
             
-            if (typeof stopBlockParticles === 'function') stopBlockParticles();
-            if (typeof initBlockParticles === 'function') setTimeout(() => initBlockParticles(), 100);
+            stopBlockParticles();
+            setTimeout(() => initBlockParticles(), 100);
             
             renderStylesShop();
             showNotif(`🎨 Стиль "${getStyleName(styleId)}" применён!`, 'success');
@@ -246,7 +266,7 @@ function previewStyle(styleId) {
 function cancelPreview() {
     if (previewTimeout) clearTimeout(previewTimeout);
     previewTimeout = setTimeout(() => {
-        if (window.app.userStyle && window.app.userStyle !== 'standart') {
+        if (window.app?.userStyle && window.app.userStyle !== 'standart') {
             document.body.classList.remove('style-neon', 'style-premium', 'style-aurora', 'style-cyber', 'style-royal', 'style-cosmic', 'style-hologram');
             document.body.classList.add(`style-${window.app.userStyle}`);
         } else {
@@ -255,6 +275,7 @@ function cancelPreview() {
         lastPreviewStyle = null;
     }, 100);
 }
+
 // ============================================
 // НАСТРОЙКИ БЛОКОВ
 // ============================================
@@ -401,7 +422,7 @@ async function fetchWeather() {
         
         if (data && data.success) {
             const temp = data.temp;
-            const nowTime = new Date();
+            const nowTime = getTobolskNow();
             const hour = nowTime.getHours();
             
             let mainIcon = data.icon || '🌡️';
@@ -473,10 +494,6 @@ async function fetchWeather() {
     }
 }
 
-function getTobolskNow() {
-    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
-}
-
 function updateDateTime() {
     const timeElement = document.getElementById('currentTime');
     const dateElement = document.getElementById('currentDate');
@@ -530,10 +547,27 @@ function updateUserAvatarAndStatus() {
 }
 
 // ============================================
-// СТАТИСТИКА ДАШБОРДА
+// СТАТИСТИКА ДАШБОРДА (СИНХРОНИЗИРОВАНО)
 // ============================================
 
-function updateDashboardStats() {
+// 🔥 ГЛОБАЛЬНЫЙ КЭШ ФОНДА
+let cachedFundAmount = 0;
+
+async function loadFundAmount() {
+    try {
+        const response = await apiCall('/fund');
+        if (response && response.amount !== undefined) {
+            cachedFundAmount = response.amount;
+            window.fundAmount = response.amount;
+            return response.amount;
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки фонда:', err);
+    }
+    return cachedFundAmount;
+}
+
+async function updateDashboardStats() {
     const now = Date.now();
     
     if (now - lastDashboardUpdate < MIN_UPDATE_INTERVAL) {
@@ -554,7 +588,7 @@ function updateDashboardStats() {
         const totalHint = document.getElementById('statTotalEmployeesHint');
         if (totalHint) totalHint.innerHTML = `из ${totalEmployees} сотрудников`;
         
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTobolskNow().toISOString().split('T')[0];
         const todaySchedule = window.app?.schedule?.[today] || {};
         
         const onShiftCount = Object.keys(todaySchedule).filter(emp => {
@@ -578,34 +612,34 @@ function updateDashboardStats() {
         const tasksInProgressSpan = document.getElementById('tasksInProgress');
         if (tasksInProgressSpan) tasksInProgressSpan.textContent = tasksInProgress;
         
-        // Штрафы
         const fines = window.app?.fines || [];
         const finesCount = fines.filter(f => {
             const fineDate = new Date(f.date);
-            const now = new Date();
+            const now = getTobolskNow();
             return fineDate.getMonth() === now.getMonth() && fineDate.getFullYear() === now.getFullYear();
         }).length;
         
         const statFinesCount = document.getElementById('statFinesCount');
         if (statFinesCount) statFinesCount.textContent = finesCount;
         
-        // Фонд
-        fetch('/api/fund', {
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
-        })
-        .then(res => res.json())
-        .then(fundData => {
-            const fundAmountSpan = document.getElementById('statFundAmount');
-            if (fundAmountSpan && fundData.amount !== undefined) {
-                fundAmountSpan.textContent = fundData.amount.toLocaleString() + ' ₽';
-            }
-        })
-        .catch(err => console.error('Ошибка загрузки фонда:', err));
+        // 🔥 СИНХРОНИЗИРОВАНО: Фонд из кэша
+        const fundAmount = await loadFundAmount();
+        const fundAmountSpan = document.getElementById('statFundAmount');
+        if (fundAmountSpan) {
+            fundAmountSpan.textContent = fundAmount.toLocaleString() + ' ₽';
+        }
+        
+        // Обновляем фонд в salary если открыт
+        const salaryFundEl = document.getElementById('salaryFundAmount');
+        if (salaryFundEl) {
+            salaryFundEl.textContent = fundAmount.toLocaleString() + ' ₽';
+        }
         
     } finally {
         isUpdatingDashboard = false;
     }
 }
+
 // ============================================
 // ОБМЕН СМЕНАМИ
 // ============================================
@@ -767,7 +801,7 @@ async function cancelExchangeRequest(requestId) {
 
 async function openTransactionsModal() {
     try {
-        const response = await apiCall('/transactions?limit=20&offset=0&type=all');
+        const response = await apiCall('/transactions?limit=50&offset=0&type=all');
         
         if (!response || !response.success) {
             showNotif('Ошибка загрузки истории', 'error');
@@ -778,7 +812,7 @@ async function openTransactionsModal() {
         
         const grouped = {};
         transactions.forEach(tx => {
-            const date = tx.date_only;
+            const date = tx.created_at?.split('T')[0] || new Date().toISOString().split('T')[0];
             if (!grouped[date]) grouped[date] = [];
             grouped[date].push(tx);
         });
@@ -906,6 +940,115 @@ function getCurrentBalance() {
 }
 
 // ============================================
+// ЕЖЕДНЕВНЫЙ БОНУС
+// ============================================
+
+async function loadDailyBonusInfo() {
+    try {
+        const response = await apiCall('/user/login-streak');
+        if (response && response.success) {
+            const streakDays = document.getElementById('streakDays');
+            const bonusAmount = document.getElementById('bonusAmount');
+            const claimBtn = document.getElementById('claimBonusBtn');
+            
+            if (streakDays) streakDays.textContent = response.streak || 1;
+            if (bonusAmount) bonusAmount.textContent = `+${response.nextBonusAmount || 1} WP`;
+            if (claimBtn) {
+                if (response.hasClaimedToday) {
+                    claimBtn.disabled = true;
+                    claimBtn.innerHTML = '✅ Получено';
+                } else {
+                    claimBtn.disabled = false;
+                    claimBtn.innerHTML = '🎁 Забрать';
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки бонуса:', err);
+    }
+}
+
+async function claimDailyBonus() {
+    if (isClaimingBonus) return;
+    
+    const claimBtn = document.getElementById('claimBonusBtn');
+    if (!claimBtn) return;
+    
+    isClaimingBonus = true;
+    const originalText = claimBtn.innerHTML;
+    claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
+    claimBtn.disabled = true;
+    
+    try {
+        const response = await apiCall('/user/claim-daily-bonus', 'POST');
+        if (response && response.success) {
+            if (response.claimed) {
+                showBonusAnimation(response.bonus);
+                showNotif(`🎉 Получен ежедневный бонус +${response.bonus} WP!`, 'success');
+                
+                if (response.newAchievements && response.newAchievements.length > 0) {
+                    for (const ach of response.newAchievements) {
+                        showNotif(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success');
+                    }
+                }
+                
+                await loadEmployees();
+                updateUserBalance();
+                loadDailyBonusInfo();
+                refreshAllBalanceDisplays();
+            } else {
+                showNotif('Бонус уже получен сегодня', 'info');
+            }
+        } else {
+            showNotif(response?.error || 'Ошибка', 'error');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showNotif('Ошибка соединения', 'error');
+    } finally {
+        isClaimingBonus = false;
+        claimBtn.innerHTML = originalText;
+        loadDailyBonusInfo();
+    }
+}
+
+function showBonusAnimation(amount) {
+    const container = document.querySelector('.daily-bonus-card');
+    if (!container) return;
+    
+    for (let i = 0; i < 10; i++) {
+        setTimeout(() => {
+            const particle = document.createElement('div');
+            particle.className = 'bonus-floating-text';
+            particle.textContent = `+${amount}`;
+            particle.style.cssText = `
+                position: absolute;
+                left: ${50 + (Math.random() - 0.5) * 80}%;
+                top: ${50 + (Math.random() - 0.5) * 60}%;
+                color: #fbbf24;
+                font-weight: 700;
+                font-size: 20px;
+                pointer-events: none;
+                z-index: 100;
+                animation: floatUp 1.5s ease-out forwards;
+            `;
+            container.style.position = 'relative';
+            container.appendChild(particle);
+            setTimeout(() => particle.remove(), 1500);
+        }, i * 80);
+    }
+}
+
+function updateUserBalance() {
+    const currentUser = window.app?.currentUser;
+    if (currentUser && window.app?.profiles?.[currentUser]) {
+        const balance = window.app.profiles[currentUser].coins || 0;
+        const userCoinsHeader = document.getElementById('userCoinsAmountHeader');
+        if (userCoinsHeader) userCoinsHeader.textContent = balance;
+    }
+}
+
+// ============================================
 // НАСТРОЙКИ ДАШБОРДА (ДОПОЛНИТЕЛЬНЫЕ)
 // ============================================
 
@@ -999,9 +1142,7 @@ function initBlockParticles() {
                 block.style.position = 'relative';
                 block.appendChild(particle);
                 
-                setTimeout(() => {
-                    if (particle && particle.remove) particle.remove();
-                }, 4000);
+                setTimeout(() => { if (particle && particle.remove) particle.remove(); }, 4000);
             }
         });
     }, 800);
@@ -1015,49 +1156,258 @@ function stopBlockParticles() {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ ДАШБОРДА
+// СЛЕДУЮЩАЯ СМЕНА
 // ============================================
 
-function initDashboard() {
-    console.log('📊 Инициализация дашборда');
-    
+function updateNextShiftInfo() {
     const currentUser = window.app?.currentUser;
-    if (currentUser && window.app?.profiles?.[currentUser]) {
-        const savedStyle = window.app.profiles[currentUser].dashboard_style || 'standart';
-        window.app.userStyle = savedStyle;
+    if (!currentUser) return;
+    
+    const nextShiftEl = document.getElementById('nextShiftInfo');
+    const shiftTimerEl = document.getElementById('shiftTimer');
+    if (!nextShiftEl || !shiftTimerEl) return;
+    
+    const schedule = window.app?.schedule || {};
+    const now = getTobolskNow();
+    const today = now.toISOString().split('T')[0];
+    
+    let nextShiftDate = null;
+    let nextShiftTime = null;
+    
+    const dates = Object.keys(schedule).sort();
+    for (const date of dates) {
+        if (date < today) continue;
+        
+        const daySchedule = schedule[date];
+        const myShift = daySchedule[currentUser];
+        
+        if (myShift && myShift.time && myShift.status !== 'dayoff' && myShift.status !== 'sick') {
+            nextShiftDate = date;
+            nextShiftTime = myShift.time;
+            break;
+        }
     }
     
-    loadHiddenBlocks();
-    applyHiddenBlocks();
-    loadMyActiveExchanges();
-    
-    setTimeout(() => {
-        initDashboardSettings();
-    }, 100);
-    
-    const savedPreset = localStorage.getItem('dashboardPreset');
-    if (savedPreset && ['default', 'compact', 'focus', 'minimal'].includes(savedPreset)) {
-        applyDashboardPreset(savedPreset);
+    if (nextShiftDate && nextShiftTime) {
+        const shiftDate = new Date(nextShiftDate);
+        const formattedDate = shiftDate.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        nextShiftEl.textContent = `${formattedDate} в ${nextShiftTime}`;
+        
+        const [hours, minutes] = nextShiftTime.split(':').map(Number);
+        const shiftDateTime = new Date(nextShiftDate);
+        shiftDateTime.setHours(hours, minutes, 0, 0);
+        
+        const updateTimer = () => {
+            const now = getTobolskNow();
+            const diff = shiftDateTime - now;
+            
+            if (diff <= 0) {
+                shiftTimerEl.textContent = 'Уже началась!';
+                return;
+            }
+            
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            
+            if (days > 0) {
+                shiftTimerEl.textContent = `${days} дн ${hours} ч`;
+            } else {
+                shiftTimerEl.textContent = `${hours} ч ${mins} мин`;
+            }
+        };
+        
+        updateTimer();
+        
+        if (shiftTimerInterval) clearInterval(shiftTimerInterval);
+        shiftTimerInterval = setInterval(updateTimer, 60000);
+        
+    } else {
+        nextShiftEl.textContent = 'Нет запланированных смен';
+        shiftTimerEl.textContent = '—';
+    }
+}
+
+// ============================================
+// БЫСТРЫЕ ДЕЙСТВИЯ
+// ============================================
+
+function quickAction(action) {
+    if (typeof window.loadPage === 'function') {
+        window.loadPage(action);
+    }
+}
+
+async function quickChangeStatus(status) {
+    const currentUser = window.app?.currentUser;
+    if (!currentUser) {
+        showNotif('Ошибка: пользователь не определён', 'error');
+        return;
     }
     
-    updateGreetingByTime();
+    const success = await updateEmployeeStatus(currentUser, status);
+    if (success) {
+        showNotif(`Статус изменён на ${status}`, 'success');
+        
+        if (window.app?.profiles?.[currentUser]) {
+            window.app.profiles[currentUser].status = status;
+        }
+        
+        const statusSelect = document.getElementById('quickStatusSelect');
+        if (statusSelect) statusSelect.value = status;
+        
+        if (typeof renderEmployees === 'function') {
+            renderEmployees();
+        }
+    } else {
+        showNotif('Ошибка при смене статуса', 'error');
+    }
+}
+
+function switchToTab(tabId) {
+    if (typeof window.loadPage === 'function') {
+        window.loadPage(tabId);
+    }
+}
+
+// ============================================
+// ЦИТАТА ДНЯ
+// ============================================
+
+function refreshPhilosophyQuote() {
+    const quotes = [
+        { text: "Работа избавляет нас от трёх великих зол: скуки, порока и нужды.", author: "Вольтер" },
+        { text: "Успех — это способность двигаться от неудачи к неудаче, не теряя энтузиазма.", author: "Черчилль" },
+        { text: "Единственный способ сделать великую работу — любить то, что вы делаете.", author: "Стив Джобс" },
+        { text: "Секрет успеха — начать.", author: "Марк Твен" },
+        { text: "Лучший способ предсказать будущее — изобрести его.", author: "Алан Кей" },
+        { text: "Не бойтесь совершенства, вам его не достичь.", author: "Сальвадор Дали" }
+    ];
+    const quote = quotes[Math.floor(Math.random() * quotes.length)];
+    const quoteText = document.getElementById('philosophyQuoteText');
+    const quoteAuthor = document.getElementById('philosophyQuoteAuthor');
+    if (quoteText) quoteText.textContent = quote.text;
+    if (quoteAuthor) quoteAuthor.textContent = `— ${quote.author}`;
+}
+
+// ============================================
+// ПРАЗДНИКИ И СОБЫТИЯ
+// ============================================
+
+function loadHolidaysAndBirthdays() {
+    const container = document.getElementById('holidaysAndBirthdaysList');
+    if (!container) return;
     
-    const userName = window.app?.currentUser || 'Гость';
-    const welcomeSpan = document.getElementById('welcomeUserName');
-    if (welcomeSpan) welcomeSpan.textContent = userName;
+    const today = getTobolskNow();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth();
+    const currentDate = today.getDate();
     
-    updateUserAvatarAndStatus();
+    const holidays = [
+        { date: '01-01', name: 'Новый год' },
+        { date: '01-07', name: 'Рождество' },
+        { date: '02-23', name: 'День защитника' },
+        { date: '03-08', name: '8 Марта' },
+        { date: '05-01', name: 'Праздник Весны' },
+        { date: '05-09', name: 'День Победы' },
+        { date: '06-12', name: 'День России' },
+        { date: '11-04', name: 'День единства' },
+        { date: '12-31', name: 'Новый год' }
+    ];
     
-    const userRole = window.app?.currentUserRole || 'operator';
-    const roleBadge = document.getElementById('userRoleBadge');
-    if (roleBadge) {
-        if (userRole === 'director') roleBadge.innerHTML = '👑 Директор';
-        else if (userRole === 'manager') roleBadge.innerHTML = '📋 Управляющий';
-        else if (userRole === 'admin') roleBadge.innerHTML = '⚙️ Админ';
-        else roleBadge.innerHTML = '👤 Оператор';
+    const employees = window.app?.employees || [];
+    const birthdays = [];
+    
+    for (const emp of employees) {
+        const profile = window.app?.profiles?.[emp];
+        if (profile && profile.birthday) {
+            let birthDate = new Date(profile.birthday);
+            if (birthDate && !isNaN(birthDate.getTime())) {
+                let nextBirthday = new Date(currentYear, birthDate.getMonth(), birthDate.getDate());
+                if (nextBirthday < today) {
+                    nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate());
+                }
+                const daysUntil = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24));
+                birthdays.push({
+                    name: emp,
+                    daysUntil: daysUntil,
+                    isToday: nextBirthday.getDate() === currentDate && nextBirthday.getMonth() === currentMonth
+                });
+            }
+        }
     }
     
-    updateDashboardStats();
+    birthdays.sort((a, b) => a.daysUntil - b.daysUntil);
+    const upcomingBirthdays = birthdays.filter(b => b.daysUntil <= 30).slice(0, 10);
+    
+    const events = [];
+    
+    for (const holiday of holidays) {
+        const [month, day] = holiday.date.split('-');
+        const holidayDate = new Date(currentYear, parseInt(month) - 1, parseInt(day));
+        let daysUntil, eventDate;
+        if (holidayDate < today) {
+            eventDate = new Date(currentYear + 1, parseInt(month) - 1, parseInt(day));
+            daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+        } else {
+            eventDate = holidayDate;
+            daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24));
+        }
+        if (daysUntil <= 30) {
+            events.push({
+                type: 'holiday',
+                name: holiday.name,
+                date: eventDate,
+                daysUntil: daysUntil,
+                isToday: eventDate.getDate() === currentDate && eventDate.getMonth() === currentMonth
+            });
+        }
+    }
+    
+    for (const birthday of upcomingBirthdays) {
+        events.push({
+            type: 'birthday',
+            name: `🎂 ${birthday.name}`,
+            daysUntil: birthday.daysUntil,
+            isToday: birthday.isToday
+        });
+    }
+    
+    events.sort((a, b) => a.daysUntil - b.daysUntil);
+    const upcomingEvents = events.slice(0, 10);
+    
+    if (upcomingEvents.length === 0) {
+        container.innerHTML = `<div style="text-align: center; padding: 16px; color: #64748b;">Нет ближайших событий</div>`;
+        return;
+    }
+    
+    let html = '';
+    for (const event of upcomingEvents) {
+        let dateStr = '';
+        if (event.daysUntil === 0) {
+            dateStr = '<span style="color: #fbbf24;">СЕГОДНЯ!</span>';
+        } else if (event.daysUntil === 1) {
+            dateStr = 'ЗАВТРА';
+        } else if (event.date) {
+            const options = { day: 'numeric', month: 'long' };
+            dateStr = event.date.toLocaleDateString('ru-RU', options);
+        } else {
+            dateStr = `через ${event.daysUntil} дн.`;
+        }
+        const eventColor = event.type === 'birthday' ? '#ec4899' : '#6366f1';
+        html += `
+            <div style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border-left: 2px solid ${event.isToday ? '#fbbf24' : eventColor}; margin-bottom: 8px;">
+                <div style="flex: 1;">
+                    <div style="font-weight: 500;">${event.name}</div>
+                    <div style="font-size: 11px; color: #64748b; margin-top: 2px;">${dateStr}</div>
+                </div>
+                ${event.isToday ? '<div style="font-size: 18px;">🎉</div>' : ''}
+            </div>
+        `;
+    }
+    container.innerHTML = html;
+}
+
 // ============================================
 // АКТИВНОСТЬ
 // ============================================
@@ -1110,6 +1460,55 @@ function loadActivity() {
         }
     }
 }
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ ДАШБОРДА
+// ============================================
+
+function initDashboard() {
+    console.log('📊 Инициализация дашборда');
+    
+    const currentUser = window.app?.currentUser;
+    if (currentUser && window.app?.profiles?.[currentUser]) {
+        const savedStyle = window.app.profiles[currentUser].dashboard_style || 'standart';
+        window.app.userStyle = savedStyle;
+    }
+    
+    loadHiddenBlocks();
+    applyHiddenBlocks();
+    loadMyActiveExchanges();
+    
+    setTimeout(() => {
+        initDashboardSettings();
+    }, 100);
+    
+    const savedPreset = localStorage.getItem('dashboardPreset');
+    if (savedPreset && ['default', 'compact', 'focus', 'minimal'].includes(savedPreset)) {
+        applyDashboardPreset(savedPreset);
+    }
+    
+    updateGreetingByTime();
+    
+    const userName = window.app?.currentUser || 'Гость';
+    const welcomeSpan = document.getElementById('welcomeUserName');
+    if (welcomeSpan) welcomeSpan.textContent = userName;
+    
+    updateUserAvatarAndStatus();
+    
+    const userRole = window.app?.currentUserRole || 'operator';
+    const roleBadge = document.getElementById('userRoleBadge');
+    if (roleBadge) {
+        if (userRole === 'director') roleBadge.innerHTML = '👑 Директор';
+        else if (userRole === 'manager') roleBadge.innerHTML = '📋 Управляющий';
+        else if (userRole === 'admin') roleBadge.innerHTML = '⚙️ Админ';
+        else roleBadge.innerHTML = '👤 Оператор';
+    }
+    
+    // 🔥 Сначала загружаем фонд
+    loadFundAmount().then(() => {
+        updateDashboardStats();
+    });
+    
     loadActivity();
     loadHolidaysAndBirthdays();
     refreshPhilosophyQuote();
@@ -1137,8 +1536,8 @@ function loadActivity() {
         loadPendingExchanges();
     }, 60000);
     
-    if (window.bonusCheckInterval) clearInterval(window.bonusCheckInterval);
-    window.bonusCheckInterval = setInterval(() => {
+    if (bonusCheckInterval) clearInterval(bonusCheckInterval);
+    bonusCheckInterval = setInterval(() => {
         loadDailyBonusInfo();
         loadPendingExchanges();
     }, 300000);
@@ -1173,9 +1572,13 @@ function cleanupDashboard() {
         clearInterval(dashboardInterval);
         dashboardInterval = null;
     }
-    if (window.bonusCheckInterval) {
-        clearInterval(window.bonusCheckInterval);
-        window.bonusCheckInterval = null;
+    if (bonusCheckInterval) {
+        clearInterval(bonusCheckInterval);
+        bonusCheckInterval = null;
+    }
+    if (shiftTimerInterval) {
+        clearInterval(shiftTimerInterval);
+        shiftTimerInterval = null;
     }
     if (particlesInterval) {
         clearInterval(particlesInterval);
@@ -1184,34 +1587,17 @@ function cleanupDashboard() {
 }
 
 window.addEventListener('beforeunload', cleanupDashboard);
-// ============================================
-// ЦИТАТА ДНЯ
-// ============================================
 
-function refreshPhilosophyQuote() {
-    const quotes = [
-        { text: "Работа избавляет нас от трёх великих зол: скуки, порока и нужды.", author: "Вольтер" },
-        { text: "Успех — это способность двигаться от неудачи к неудаче, не теряя энтузиазма.", author: "Черчилль" },
-        { text: "Единственный способ сделать великую работу — любить то, что вы делаете.", author: "Стив Джобс" },
-        { text: "Секрет успеха — начать.", author: "Марк Твен" },
-        { text: "Лучший способ предсказать будущее — изобрести его.", author: "Алан Кей" },
-        { text: "Не бойтесь совершенства, вам его не достичь.", author: "Сальвадор Дали" }
-    ];
-    const quote = quotes[Math.floor(Math.random() * quotes.length)];
-    const quoteText = document.getElementById('philosophyQuoteText');
-    const quoteAuthor = document.getElementById('philosophyQuoteAuthor');
-    if (quoteText) quoteText.textContent = quote.text;
-    if (quoteAuthor) quoteAuthor.textContent = `— ${quote.author}`;
-}
 // ============================================
 // ЭКСПОРТ
 // ============================================
 
 window.initDashboard = initDashboard;
+window.cleanupDashboard = cleanupDashboard;
 window.refreshPhilosophyQuote = refreshPhilosophyQuote;
 window.quickAction = quickAction;
-window.switchToTab = switchToTab;
 window.quickChangeStatus = quickChangeStatus;
+window.switchToTab = switchToTab;
 window.updateUserAvatarAndStatus = updateUserAvatarAndStatus;
 window.applyDashboardPreset = applyDashboardPreset;
 window.showAllHiddenBlocks = showAllHiddenBlocks;
@@ -1245,7 +1631,7 @@ window.stopBlockParticles = stopBlockParticles;
 window.toggleDashboardSettings = toggleDashboardSettings;
 window.initSettingsTabs = initSettingsTabs;
 window.loadActivity = loadActivity;
-window.refreshPhilosophyQuote = refreshPhilosophyQuote;
+window.loadFundAmount = loadFundAmount;
 
 const particleBlockStyle = document.createElement('style');
 particleBlockStyle.textContent = `
@@ -1270,4 +1656,4 @@ if (!document.querySelector('#particleBlockStyles')) {
     document.head.appendChild(particleBlockStyle);
 }
 
-console.log('✅ dashboard.js полностью загружен');
+console.log('✅ dashboard.js полностью загружен (исправленная версия)');

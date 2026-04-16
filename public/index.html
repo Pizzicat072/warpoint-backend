@@ -8,12 +8,89 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
+        /* ===== СТИЛИ ПРЕЛОАДЕРА ===== */
+        #globalLoader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0c12;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        #globalLoader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .loader-content {
+            text-align: center;
+        }
+        .loader-logo {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 24px;
+            animation: loaderPulse 1.5s ease-in-out infinite;
+        }
+        .loader-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 20px;
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+        @keyframes loaderPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .loader-spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: loaderSpin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes loaderSpin {
+            to { transform: rotate(360deg); }
+        }
+        .loader-text {
+            color: #94a3b8;
+            font-size: 14px;
+            margin-top: 16px;
+        }
+        .loader-progress {
+            width: 200px;
+            height: 3px;
+            background: rgba(99, 102, 241, 0.2);
+            border-radius: 3px;
+            margin: 20px auto 0;
+            overflow: hidden;
+        }
+        .loader-progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #8b5cf6, #ec4899);
+            border-radius: 3px;
+            animation: loaderProgress 2.5s ease-in-out forwards;
+        }
+        @keyframes loaderProgress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        
+        /* ===== ОСТАЛЬНЫЕ СТИЛИ ===== */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             color: #ffffff;
@@ -21,8 +98,6 @@
             -webkit-font-smoothing: antialiased;
             position: relative;
         }
-
-        /* Фоновая картинка на весь сайт */
         body::before {
             content: '';
             position: fixed;
@@ -34,8 +109,6 @@
             filter: brightness(0.4) saturate(0.8);
             z-index: -2;
         }
-
-        /* Тёмный оверлей для читаемости */
         body::after {
             content: '';
             position: fixed;
@@ -46,8 +119,6 @@
             background: rgba(0, 0, 0, 0.5);
             z-index: -1;
         }
-
-        /* ===== ЛОГИН (СОВРЕМЕННЫЙ МИНИМАЛИЗМ) ===== */
         #loginModal {
             position: fixed;
             top: 0;
@@ -60,7 +131,6 @@
             z-index: 1000;
             padding: 20px;
         }
-
         .login-card {
             width: 400px;
             max-width: 100%;
@@ -74,13 +144,10 @@
             text-align: center;
             animation: cardAppear 0.5s ease-out;
         }
-
         @keyframes cardAppear {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* Логотип — чистый, без фона и фигур */
         .login-logo-clean {
             width: 100px;
             height: 100px;
@@ -90,7 +157,6 @@
             box-shadow: none;
             background: transparent;
         }
-
         .login-logo-clean img {
             width: 100%;
             height: 100%;
@@ -98,8 +164,6 @@
             display: block;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
-
-        /* Бренд */
         .login-brand-name {
             font-size: 28px;
             font-weight: 700;
@@ -107,20 +171,16 @@
             margin-bottom: 8px;
             color: #ffffff;
         }
-
         .login-brand-sub {
             font-size: 13px;
             color: #9ca3af;
             margin-bottom: 40px;
             font-weight: 400;
         }
-
-        /* Поля ввода — чистые */
         .login-field {
             position: relative;
             margin-bottom: 16px;
         }
-
         .login-field i {
             position: absolute;
             left: 16px;
@@ -129,7 +189,6 @@
             color: #9ca3af;
             font-size: 16px;
         }
-
         .login-field input {
             width: 100%;
             padding: 14px 16px 14px 48px;
@@ -141,18 +200,14 @@
             outline: none;
             transition: all 0.2s;
         }
-
         .login-field input:focus {
             border-color: #6366f1;
             background: rgba(0, 0, 0, 0.4);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
-
         .login-field input::placeholder {
             color: #6b7280;
         }
-
-        /* Кнопка — чистая */
         .login-submit-btn {
             width: 100%;
             padding: 14px 20px;
@@ -170,18 +225,14 @@
             gap: 8px;
             transition: all 0.2s;
         }
-
         .login-submit-btn:hover {
             background: #7c3aed;
             transform: translateY(-1px);
             box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
         }
-
         .login-submit-btn i {
             font-size: 14px;
         }
-
-        /* Футер */
         .login-footer-note {
             margin-top: 24px;
             font-size: 12px;
@@ -191,19 +242,14 @@
             justify-content: center;
             gap: 6px;
         }
-
         .login-footer-note i {
             color: #10b981;
         }
-
-        /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
         #mainContainer {
             position: relative;
             z-index: 10;
             min-height: 100vh;
         }
-
-        /* ===== СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ, ИКОНКА) ===== */
         #syncIndicator {
             position: fixed;
             bottom: 20px;
@@ -221,30 +267,23 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-
         #syncIndicator i {
             font-size: 18px;
             color: #ef4444;
         }
-
         #syncIndicator.online {
             border-color: #10b981;
         }
-
         #syncIndicator.online i {
             color: #10b981;
         }
-
         #syncIndicator.connecting i {
             color: #f59e0b;
             animation: syncSpin 1.5s linear infinite;
         }
-
         @keyframes syncSpin {
             to { transform: rotate(360deg); }
         }
-
-        /* ===== ХЕДЕР ===== */
         .header {
             display: flex;
             justify-content: space-between;
@@ -257,32 +296,27 @@
             top: 0;
             z-index: 100;
         }
-
         .logo-area {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-
         .logo-icon {
             width: 40px;
             height: 40px;
             border-radius: 12px;
             overflow: hidden;
         }
-
         .logo-icon img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-
         .logo-text {
             font-size: 22px;
             font-weight: 700;
             color: #ffffff;
         }
-
         .logo-badge {
             background: #6366f1;
             padding: 2px 8px;
@@ -292,7 +326,6 @@
             color: white;
             margin-left: 8px;
         }
-
         .user-card {
             display: flex;
             align-items: center;
@@ -302,7 +335,6 @@
             padding: 4px 16px 4px 8px;
             border: 1px solid rgba(255, 255, 255, 0.04);
         }
-
         .user-avatar {
             width: 36px;
             height: 36px;
@@ -315,27 +347,22 @@
             cursor: pointer;
             overflow: hidden;
         }
-
         .user-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-
         .user-info {
             text-align: right;
         }
-
         .user-name {
             font-weight: 600;
             font-size: 13px;
         }
-
         .user-status {
             font-size: 10px;
             color: #9ca3af;
         }
-
         .logout-btn {
             background: transparent;
             border: 1px solid rgba(239, 68, 68, 0.3);
@@ -346,11 +373,9 @@
             font-size: 11px;
             transition: all 0.2s;
         }
-
         .logout-btn:hover {
             background: rgba(239, 68, 68, 0.1);
         }
-
         .notifications-icon {
             position: relative;
             cursor: pointer;
@@ -362,7 +387,6 @@
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.04);
         }
-
         .notifications-icon .badge {
             position: absolute;
             top: -4px;
@@ -379,7 +403,6 @@
             justify-content: center;
             padding: 0 4px;
         }
-
         .notifications-dropdown {
             position: absolute;
             top: 60px;
@@ -394,11 +417,9 @@
             overflow: hidden;
             display: none;
         }
-
         .notifications-dropdown.show {
             display: block;
         }
-
         .main-menu {
             background: rgba(11, 14, 20, 0.8);
             backdrop-filter: blur(12px);
@@ -409,7 +430,6 @@
             padding: 0 16px;
             overflow-x: auto;
         }
-
         .menu-container {
             display: flex;
             align-items: center;
@@ -418,7 +438,6 @@
             margin: 0 auto;
             padding: 8px 0;
         }
-
         .menu-item {
             display: flex;
             flex-direction: column;
@@ -432,110 +451,49 @@
             transition: all 0.2s;
             white-space: nowrap;
         }
-
         .menu-item i {
             font-size: 18px;
             color: #9ca3af;
         }
-
         .menu-item .menu-tooltip {
             font-size: 10px;
             color: #9ca3af;
         }
-
         .menu-item:hover {
             background: rgba(255, 255, 255, 0.04);
         }
-
         .menu-item:hover i,
         .menu-item:hover .menu-tooltip {
             color: #d1d5db;
         }
-
         .menu-item.active {
             background: rgba(99, 102, 241, 0.1);
         }
-
         .menu-item.active i,
         .menu-item.active .menu-tooltip {
             color: #818cf8;
         }
-
-        /* ===== ПРЕЛОАДЕР ===== */
-        #globalLoader {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #0b0e14;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 99999;
-            transition: opacity 0.4s ease, visibility 0.4s ease;
-        }
-
-        #globalLoader.fade-out {
-            opacity: 0;
-            visibility: hidden;
-        }
-
-        .loader-logo {
-            width: 70px;
-            height: 70px;
-            margin-bottom: 24px;
-        }
-
-        .loader-logo img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            border-radius: 16px;
-        }
-
-        .loader-spinner {
-            width: 40px;
-            height: 40px;
-            border: 2px solid rgba(99, 102, 241, 0.2);
-            border-top-color: #6366f1;
-            border-radius: 50%;
-            animation: loaderSpin 0.8s linear infinite;
-        }
-
-        @keyframes loaderSpin {
-            to { transform: rotate(360deg); }
-        }
-
-        /* Адаптив */
         @media (max-width: 768px) {
             .header {
                 padding: 12px 16px;
             }
-            
             .logo-text {
                 font-size: 18px;
             }
-            
             .user-info {
                 display: none;
             }
-            
             .main-menu {
                 top: 60px;
             }
-            
             .menu-item .menu-tooltip {
                 display: none;
             }
-            
             .notifications-dropdown {
                 width: calc(100% - 40px);
                 right: 20px;
                 left: 20px;
             }
-            
             .login-card {
                 padding: 36px 28px;
             }
@@ -544,12 +502,18 @@
 </head>
 <body>
 
-<!-- ПРЕЛОАДЕР -->
+<!-- ПРЕЛОАДЕР С РЕАЛЬНОЙ ЗАГРУЗКОЙ -->
 <div id="globalLoader">
-    <div class="loader-logo">
-        <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+    <div class="loader-content">
+        <div class="loader-logo">
+            <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+        </div>
+        <div class="loader-spinner"></div>
+        <div class="loader-text" id="loaderStatus">Загрузка модулей...</div>
+        <div class="loader-progress">
+            <div class="loader-progress-bar" id="loaderProgressBar"></div>
+        </div>
     </div>
-    <div class="loader-spinner"></div>
 </div>
 
 <!-- СИНХРОНИЗАЦИЯ -->
@@ -632,7 +596,6 @@
     <div class="main-menu" id="mainMenu"></div>
     <div id="pageContainer"></div>
 </div>
-
 <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
 <script src="/js/utils.js"></script>
 <script src="/js/api.js"></script>
@@ -661,8 +624,41 @@
     const CHANNEL_NAME = 'private-warpoint-sync';
     
     let pusherInitAttempts = 0;
-    const MAX_PUSHER_ATTEMPTS = 3;
+    const MAX_PUSHER_ATTEMPTS = 5;
     let isPusherInitializing = false;
+    let pusherReconnectTimer = null;
+    
+    // 🔥 РЕАЛЬНЫЙ ПРЕЛОАДЕР С ОТСЛЕЖИВАНИЕМ ЗАГРУЗКИ
+    const requiredModules = [
+        'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
+        'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
+        'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
+        'vp.js', 'salary.js', 'admin.js', 'reports.js'
+    ];
+    
+    let loadedModules = 0;
+    const loaderStatus = document.getElementById('loaderStatus');
+    const loaderProgressBar = document.getElementById('loaderProgressBar');
+    
+    function updateLoaderProgress() {
+        loadedModules++;
+        const percent = Math.round((loadedModules / requiredModules.length) * 100);
+        if (loaderStatus) {
+            loaderStatus.textContent = `Загрузка модулей... ${loadedModules}/${requiredModules.length}`;
+        }
+        if (loaderProgressBar) {
+            loaderProgressBar.style.width = percent + '%';
+        }
+    }
+    
+    // Отслеживаем загрузку скриптов
+    document.querySelectorAll('script[src*="/js/"]').forEach(script => {
+        script.addEventListener('load', updateLoaderProgress);
+        script.addEventListener('error', () => {
+            console.error('❌ Ошибка загрузки:', script.src);
+            updateLoaderProgress();
+        });
+    });
     
     window.addEventListener('load', function() {
         setTimeout(function() {
@@ -671,7 +667,7 @@
                 loader.classList.add('fade-out');
                 setTimeout(() => loader.remove(), 400);
             }
-        }, 400);
+        }, 600);
     });
     
     function transliterateForChannel(name) {
@@ -690,7 +686,6 @@
     
     function initPusher() {
         if (isPusherInitializing) return;
-        if (pusherInitAttempts >= MAX_PUSHER_ATTEMPTS) return;
         
         const token = localStorage.getItem('token');
         if (!token) return;
@@ -710,7 +705,6 @@
         }
         
         isPusherInitializing = true;
-        pusherInitAttempts++;
         
         try {
             if (window.pusher) window.pusher.disconnect();
@@ -730,22 +724,35 @@
             }
             
             window.pusher.connection.bind('connected', () => {
+                console.log('🟢 Pusher подключён');
                 if (syncIndicator) {
                     syncIndicator.classList.add('online');
                     syncIndicator.classList.remove('connecting');
                 }
                 pusherInitAttempts = 0;
                 isPusherInitializing = false;
+                if (pusherReconnectTimer) {
+                    clearTimeout(pusherReconnectTimer);
+                    pusherReconnectTimer = null;
+                }
             });
             
-            window.pusher.connection.bind('error', () => {
+            window.pusher.connection.bind('disconnected', () => {
+                console.log('🔴 Pusher отключён');
                 if (syncIndicator) {
                     syncIndicator.classList.remove('online', 'connecting');
                 }
                 isPusherInitializing = false;
-                if (pusherInitAttempts < MAX_PUSHER_ATTEMPTS) {
-                    setTimeout(() => initPusher(), 5000);
+                schedulePusherReconnect();
+            });
+            
+            window.pusher.connection.bind('error', (err) => {
+                console.error('❌ Pusher error:', err);
+                if (syncIndicator) {
+                    syncIndicator.classList.remove('online', 'connecting');
                 }
+                isPusherInitializing = false;
+                schedulePusherReconnect();
             });
             
             window.channel.bind('schedule-updated', (data) => {
@@ -760,6 +767,17 @@
             console.error('Pusher error:', err);
             if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
             isPusherInitializing = false;
+            schedulePusherReconnect();
+        }
+    }
+    
+    function schedulePusherReconnect() {
+        if (pusherReconnectTimer) clearTimeout(pusherReconnectTimer);
+        pusherInitAttempts++;
+        if (pusherInitAttempts <= MAX_PUSHER_ATTEMPTS) {
+            const delay = Math.min(30000, 2000 * Math.pow(2, pusherInitAttempts));
+            console.log(`🔄 Переподключение Pusher через ${delay}ms (попытка ${pusherInitAttempts}/${MAX_PUSHER_ATTEMPTS})`);
+            pusherReconnectTimer = setTimeout(() => initPusher(), delay);
         }
     }
     

@@ -1,17 +1,31 @@
-// public/js/schedule.js - БЕЗ ЗВУКОВ
+// public/js/schedule.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let currentScheduleMonth = new Date().getMonth();
 let currentScheduleYear = new Date().getFullYear();
 let currentScheduleData = {};
 let isSavingShift = false;
 let specialCases = {};
+let isLoadingSchedule = false;
+let scheduleLoadTimeout = null;
 
 // ============================================
-// ЗАГРУЗКА ДАННЫХ
+// ЗАГРУЗКА ДАННЫХ (С ЗАЩИТОЙ ОТ ЧАСТЫХ ЗАПРОСОВ)
 // ============================================
 
 async function loadScheduleData() {
+    if (isLoadingSchedule) {
+        console.log('⏳ График уже загружается');
+        return;
+    }
+    
     console.log('🔄 Загрузка данных графика с сервера...');
+    isLoadingSchedule = true;
+    
+    if (scheduleLoadTimeout) clearTimeout(scheduleLoadTimeout);
+    scheduleLoadTimeout = setTimeout(() => {
+        console.error('❌ Таймаут загрузки графика');
+        isLoadingSchedule = false;
+    }, 15000);
     
     try {
         const response = await apiCall('/schedule?_=' + Date.now());
@@ -38,6 +52,10 @@ async function loadScheduleData() {
         }
     } catch (err) {
         console.error('❌ Ошибка загрузки графика:', err);
+    } finally {
+        clearTimeout(scheduleLoadTimeout);
+        scheduleLoadTimeout = null;
+        isLoadingSchedule = false;
     }
 }
 
@@ -48,14 +66,21 @@ function initSchedule() {
 }
 
 // ============================================
-// ОСОБЫЕ СЛУЧАИ
+// ОСОБЫЕ СЛУЧАИ (С КЭШИРОВАНИЕМ)
 // ============================================
 
+let specialCasesLoaded = false;
+
 async function loadSpecialCases() {
+    if (specialCasesLoaded) {
+        return;
+    }
+    
     try {
         const response = await apiCall('/schedule/special-cases');
         if (response && response.success) {
             specialCases = response.data || {};
+            specialCasesLoaded = true;
         }
     } catch (err) {
         console.error('Ошибка загрузки особых случаев:', err);
@@ -89,7 +114,7 @@ function getSpecialCasesDescription(date) {
 }
 
 // ============================================
-// ПРОВЕРКА ЛИМИТА ОПЕРАТОРОВ
+// ПРОВЕРКА ЛИМИТА ОПЕРАТОРОВ (ИСПРАВЛЕНО)
 // ============================================
 
 async function checkOperatorsLimit(date, time, excludeEmployee = null) {
@@ -99,6 +124,7 @@ async function checkOperatorsLimit(date, time, excludeEmployee = null) {
     for (const [emp, shift] of Object.entries(schedule)) {
         if (excludeEmployee && emp === excludeEmployee) continue;
         const profile = window.app.profiles[emp];
+        // 🔥 ИСПРАВЛЕНО: Только операторы, админы не считаются
         if (profile && profile.role === 'operator' && shift.time === time && shift.status === 'working') {
             operatorsOnShift++;
         }
@@ -153,7 +179,16 @@ function formatMonthYear() {
     return `${months[currentScheduleMonth]} ${currentScheduleYear}`;
 }
 
+let isChangingMonth = false;
+
 function changeMonth(delta) {
+    if (isChangingMonth) {
+        console.log('⚠️ Месяц уже меняется');
+        return;
+    }
+    
+    isChangingMonth = true;
+    
     currentScheduleMonth += delta;
     if (currentScheduleMonth < 0) {
         currentScheduleMonth = 11;
@@ -163,7 +198,9 @@ function changeMonth(delta) {
         currentScheduleMonth = 0;
         currentScheduleYear++;
     }
+    
     renderMonthSchedule();
+    isChangingMonth = false;
 }
 
 function resetMonthSchedule() {
@@ -212,7 +249,6 @@ function getAvatarHtmlForSchedule(profile) {
         return `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 20px;">👤</div>`;
     }
 }
-
 function renderMonthSchedule() {
     const container = document.getElementById('scheduleWeeksContainer');
     if (!container) return;
@@ -347,7 +383,7 @@ function renderMonthSchedule() {
 }
 
 // ============================================
-// РЕДАКТОР СМЕНЫ
+// РЕДАКТОР СМЕНЫ (ИСПРАВЛЕНО)
 // ============================================
 
 function openShiftModalForEmployee(dateStr, employee) {
@@ -414,18 +450,9 @@ function openShiftModalForEmployee(dateStr, employee) {
                             <div class="glass-hint">Администратор работает с 10:00</div>
                         ` : `
                             <select id="shiftTime" class="glass-select">
-                                <option value="10:00" ${shiftData.time === '10:00' ? 'selected' : ''}>10:00</option>
-                                <option value="11:00" ${shiftData.time === '11:00' ? 'selected' : ''}>11:00</option>
-                                <option value="12:00" ${shiftData.time === '12:00' ? 'selected' : ''}>12:00</option>
-                                <option value="13:00" ${shiftData.time === '13:00' ? 'selected' : ''}>13:00</option>
-                                <option value="14:00" ${shiftData.time === '14:00' ? 'selected' : ''}>14:00</option>
-                                <option value="15:00" ${shiftData.time === '15:00' ? 'selected' : ''}>15:00</option>
-                                <option value="16:00" ${shiftData.time === '16:00' ? 'selected' : ''}>16:00</option>
-                                <option value="17:00" ${shiftData.time === '17:00' ? 'selected' : ''}>17:00</option>
-                                <option value="18:00" ${shiftData.time === '18:00' ? 'selected' : ''}>18:00</option>
-                                <option value="19:00" ${shiftData.time === '19:00' ? 'selected' : ''}>19:00</option>
-                                <option value="20:00" ${shiftData.time === '20:00' ? 'selected' : ''}>20:00</option>
-                                <option value="21:00" ${shiftData.time === '21:00' ? 'selected' : ''}>21:00</option>
+                                ${['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'].map(t => 
+                                    `<option value="${t}" ${shiftData.time === t ? 'selected' : ''}>${t}</option>`
+                                ).join('')}
                             </select>
                         `}
                     </div>
@@ -531,7 +558,7 @@ async function deleteMyShift() {
 }
 
 // ============================================
-// СОХРАНЕНИЕ СМЕНЫ
+// СОХРАНЕНИЕ СМЕНЫ (ИСПРАВЛЕНО)
 // ============================================
 
 async function saveShift() {
@@ -566,13 +593,19 @@ async function saveShift() {
         
         const shiftTime = time || null;
         
+        // 🔥 ИСПРАВЛЕНО: Проверка лимита операторов
         if (status === 'working' && shiftTime && profile?.role === 'operator') {
             const daySpecial = specialCases[date];
             const allowThree = daySpecial?.allowThreeOperators || false;
             const isLimitOk = await checkOperatorsLimit(date, shiftTime, employee);
             
-            if (!isLimitOk && !allowThree && !isDirector) {
+            if (!isLimitOk && !allowThree && isDirector) {
                 showNotif('❌ Нельзя! В этой смене уже 2 оператора.', 'error');
+                isSavingShift = false;
+                if (saveBtn) {
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+                }
                 return;
             }
         }
@@ -670,7 +703,6 @@ function closeShiftModal() {
     const modal = document.getElementById('shiftModal');
     if (modal) modal.remove();
 }
-
 // ============================================
 // ОБМЕН СМЕНАМИ
 // ============================================
@@ -782,15 +814,6 @@ async function sendExchangeRequest(targetDate, targetEmployee) {
     
     const [myDate, myTime] = exchangeValue.split('|');
     
-    console.log('Отправка запроса на обмен:', {
-        fromEmployee: window.app.currentUser,
-        toEmployee: targetEmployee,
-        fromDate: myDate,
-        toDate: targetDate,
-        fromTime: myTime,
-        toTime: currentScheduleData[targetDate]?.[targetEmployee]?.time || null
-    });
-    
     const response = await apiCall('/exchange/create', 'POST', {
         toEmployee: targetEmployee,
         toDate: targetDate,
@@ -849,18 +872,9 @@ function openMassEditor(dateStr) {
                         </div>
                     ` : `
                         <select class="mass-editor-time-select" data-employee="${escapeHtml(emp)}">
-                            <option value="10:00" ${shiftData.time === '10:00' ? 'selected' : ''}>10:00</option>
-                            <option value="11:00" ${shiftData.time === '11:00' ? 'selected' : ''}>11:00</option>
-                            <option value="12:00" ${shiftData.time === '12:00' ? 'selected' : ''}>12:00</option>
-                            <option value="13:00" ${shiftData.time === '13:00' ? 'selected' : ''}>13:00</option>
-                            <option value="14:00" ${shiftData.time === '14:00' ? 'selected' : ''}>14:00</option>
-                            <option value="15:00" ${shiftData.time === '15:00' ? 'selected' : ''}>15:00</option>
-                            <option value="16:00" ${shiftData.time === '16:00' ? 'selected' : ''}>16:00</option>
-                            <option value="17:00" ${shiftData.time === '17:00' ? 'selected' : ''}>17:00</option>
-                            <option value="18:00" ${shiftData.time === '18:00' ? 'selected' : ''}>18:00</option>
-                            <option value="19:00" ${shiftData.time === '19:00' ? 'selected' : ''}>19:00</option>
-                            <option value="20:00" ${shiftData.time === '20:00' ? 'selected' : ''}>20:00</option>
-                            <option value="21:00" ${shiftData.time === '21:00' ? 'selected' : ''}>21:00</option>
+                            ${['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'].map(t => 
+                                `<option value="${t}" ${shiftData.time === t ? 'selected' : ''}>${t}</option>`
+                            ).join('')}
                         </select>
                     `}
                 </div>
@@ -1097,6 +1111,7 @@ async function saveMassEditor(dateStr) {
     });
     
     specialCases[dateStr] = specialCasesData;
+    specialCasesLoaded = true;
     
     showNotif('✅ Все изменения сохранены', 'success');
     closeMassEditor();
@@ -1127,3 +1142,5 @@ window.closeExchangeModal = closeExchangeModal;
 window.sendExchangeRequest = sendExchangeRequest;
 window.loadScheduleData = loadScheduleData;
 window.checkOperatorsLimit = checkOperatorsLimit;
+
+console.log('✅ schedule.js загружен (исправленная версия)');

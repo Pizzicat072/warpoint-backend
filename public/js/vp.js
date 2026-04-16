@@ -1,10 +1,11 @@
-// public/js/vp.js - ФИНАЛЬНАЯ ВЕРСИЯ
+// public/js/vp.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let vpData = [];
-let vpCurrentYear = 2026;
-let vpCurrentMonth = 3;
+let vpCurrentYear = new Date().getFullYear();
+let vpCurrentMonth = new Date().getMonth() + 1;
 let canEditVp = false;
 let isLoadingVp = false;
+let vpFilters = { search: '', showArchived: false };
 
 const VP_START_YEAR = 2026;
 const VP_START_MONTH = 3;
@@ -26,7 +27,7 @@ function initVp() {
         return;
     }
     
-    const now = new Date();
+    const now = getTobolskNow ? getTobolskNow() : new Date();
     let todayYear = now.getFullYear();
     let todayMonth = now.getMonth() + 1;
     
@@ -56,26 +57,41 @@ function initVp() {
         addBtn.onclick = () => openVpModal();
     }
     if (searchInput) {
-        searchInput.oninput = () => renderVpTable();
+        searchInput.oninput = (e) => {
+            vpFilters.search = e.target.value.toLowerCase();
+            renderVpTable();
+        };
     }
     if (showArchivedCheckbox) {
         showArchivedCheckbox.onchange = (e) => {
-            window.showArchived = e.target.checked;
+            vpFilters.showArchived = e.target.checked;
             loadVpData();
         };
     }
     
-    if (window.notificationCheckInterval) clearInterval(window.notificationCheckInterval);
-    window.notificationCheckInterval = setInterval(() => {
-        if (typeof renderVpTable === 'function') {
+    // 🔥 ИСПРАВЛЕНО: Очистка старого интервала
+    if (window.vpNotificationInterval) {
+        clearInterval(window.vpNotificationInterval);
+    }
+    window.vpNotificationInterval = setInterval(() => {
+        if (typeof renderVpTable === 'function' && document.getElementById('vpTableBody')) {
             renderVpTable();
         }
-    }, 60 * 1000);
+    }, 60000);
 }
 
-window.showArchived = false;
+// 🔥 ДОБАВЛЕНО: getTobolskNow
+function getTobolskNow() {
+    if (typeof window.getTobolskNow === 'function') {
+        return window.getTobolskNow();
+    }
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+}
 
 function changeVpMonth(delta) {
+    if (isLoadingVp) return;
+    
     let newMonth = vpCurrentMonth + delta;
     let newYear = vpCurrentYear;
     
@@ -122,26 +138,17 @@ function updateVpInterface() {
     }
 }
 
-function checkEditAccess() {
-    if (!canEditVp) {
-        showNotif('🔒 У вас нет прав на редактирование', 'warning');
-        return false;
-    }
-    return true;
-}
-
 async function loadVpData() {
     if (isLoadingVp) return;
     isLoadingVp = true;
     
     const tbody = document.getElementById('vpTableBody');
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="9" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...<\/td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>';
     }
     
     try {
-        const archivedParam = window.showArchived ? 'true' : 'false';
-        const url = `/vp?month=${vpCurrentMonth}&year=${vpCurrentYear}&archived=${archivedParam}`;
+        const url = `/vp?month=${vpCurrentMonth}&year=${vpCurrentYear}&archived=${vpFilters.showArchived}`;
         const data = await apiCall(url);
         
         if (data && Array.isArray(data)) {
@@ -151,13 +158,13 @@ async function loadVpData() {
         } else if (data && data.success === false) {
             console.error('Ошибка:', data.error);
             if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="9" class="empty-state">❌ ${data.error}<\/td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="empty-state">❌ ${data.error}</td></tr>`;
             }
         }
     } catch (err) {
         console.error('Ошибка загрузки ВП:', err);
         if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных<\/td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
         }
     } finally {
         isLoadingVp = false;
@@ -197,98 +204,45 @@ function updateVpStats() {
     }
 }
 
-function isUnpaidOverdue(vp) {
-    // Только если статус оплаты "Не оплачено"
-    if (vp.payment_type !== 'not_paid') return false;
-    // Если в архиве — не подсвечиваем
-    if (vp.is_archived) return false;
-    
-    const bookingDate = new Date(vp.booking_date);
-    const daysAfterBooking = (new Date() - bookingDate) / (1000 * 60 * 60 * 24);
-    
-    // Если прошло 2 и более дня
-    return daysAfterBooking >= 2;
-}
-
+// 🔥 ИСПРАВЛЕНО: Проверка доступности фото
 function isPhotoActionAvailable(vp) {
-    // Если уже отмечено - не активна
     if (vp.photo_status === 'sent') return false;
-    // Если в архиве - не активна
     if (vp.is_archived) return false;
+    if (!vp.event_time || vp.event_time === 'null' || vp.event_time === '') return false;
     
-    // Проверяем, есть ли время мероприятия
-    if (!vp.event_time || vp.event_time === 'null' || vp.event_time === '') {
-        return false;
-    }
-    
-    const now = new Date();
-    
-    // Берем event_date из строки (только YYYY-MM-DD)
+    const now = getTobolskNow();
     let dateStr = vp.event_date;
-    if (dateStr.includes('T')) {
-        dateStr = dateStr.split('T')[0];
-    }
+    if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
-    // Формируем правильную дату и время начала мероприятия
     const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
     const eventStartTime = new Date(eventDateTimeStr);
+    if (isNaN(eventStartTime.getTime())) return false;
     
-    // Проверяем, корректная ли дата
-    if (isNaN(eventStartTime.getTime())) {
-        return false;
-    }
-    
-    const minutesBeforeEnd = 5;
-    const eventEndTime = new Date(eventStartTime.getTime() + minutesBeforeEnd * 60 * 1000);
-    
-    // ЖЁСТКАЯ ПРОВЕРКА: мероприятие должно быть сегодня или в прошлом
+    const eventEndTime = new Date(eventStartTime.getTime() + 5 * 60 * 1000);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const eventDate = new Date(dateStr);
     eventDate.setHours(0, 0, 0, 0);
     
-    // Если мероприятие в будущем (завтра или позже) - кнопка не активна
-    if (eventDate > today) {
-        console.log('Мероприятие в будущем, кнопка не активна');
-        return false;
-    }
-    
-    // Если мероприятие сегодня или в прошлом - проверяем время
-    // Кнопка активна только если сейчас >= (время окончания - 5 минут)
-    const result = now >= eventEndTime;
-    
-    console.log('Сейчас:', now);
-    console.log('Начало мероприятия:', eventStartTime);
-    console.log('Окончание мероприятия (мин. до конца):', eventEndTime);
-    console.log('Можно отметить:', result);
-    
-    return result;
+    if (eventDate > today) return false;
+    return now >= eventEndTime;
 }
+
+// 🔥 ИСПРАВЛЕНО: Проверка доступности скрипта
 function isScriptActionAvailable(vp) {
     if (vp.script_status === 'sent') return false;
     if (vp.is_archived) return false;
+    if (!vp.event_time || vp.event_time === 'null' || vp.event_time === '') return false;
     
-    if (!vp.event_time || vp.event_time === 'null' || vp.event_time === '') {
-        return false;
-    }
-    
-    const now = new Date();
-    
+    const now = getTobolskNow();
     let dateStr = vp.event_date;
-    if (dateStr.includes('T')) {
-        dateStr = dateStr.split('T')[0];
-    }
+    if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
     const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
     const eventDateTime = new Date(eventDateTimeStr);
+    if (isNaN(eventDateTime.getTime())) return false;
     
-    if (isNaN(eventDateTime.getTime())) {
-        return false;
-    }
-    
-    const daysAfterEvent = 2;
-    const availableDate = new Date(eventDateTime.getTime() + daysAfterEvent * 24 * 60 * 60 * 1000);
-    
+    const availableDate = new Date(eventDateTime.getTime() + 2 * 24 * 60 * 60 * 1000);
     return now >= availableDate;
 }
 
@@ -332,7 +286,7 @@ async function updatePhotoStatus(id) {
     }
     
     if (!isPhotoActionAvailable(vp)) {
-        showNotif('❌ Сейчас нельзя отметить фото. Кнопка станет доступна за 5 минут до окончания мероприятия и останется доступной после.', 'warning');
+        showNotif('❌ Сейчас нельзя отметить фото. Кнопка станет доступна за 5 минут до окончания мероприятия.', 'warning');
         return;
     }
     
@@ -341,9 +295,7 @@ async function updatePhotoStatus(id) {
         return;
     }
     
-    const response = await apiCall(`/vp/${id}`, 'PUT', {
-        photoStatus: 'sent'
-    });
+    const response = await apiCall(`/vp/${id}`, 'PUT', { photoStatus: 'sent' });
     
     if (response && response.success) {
         showNotif('📸 Фото отмечено как отправленное!', 'success');
@@ -374,9 +326,7 @@ async function updateScriptStatus(id) {
         return;
     }
     
-    const response = await apiCall(`/vp/${id}`, 'PUT', {
-        scriptStatus: 'sent'
-    });
+    const response = await apiCall(`/vp/${id}`, 'PUT', { scriptStatus: 'sent' });
     
     if (response && response.success) {
         showNotif('📝 Скрипт отзыва отмечен как отправленный!', 'success');
@@ -386,162 +336,23 @@ async function updateScriptStatus(id) {
     }
 }
 
-function showBookingDetails(vp) {
-    const paymentTypeMap = {
-        'evotor_card': '💳 Эвотор (карта)',
-        'evotor_cash': '💵 Эвотор (нал)',
-        'vtb': '🏦 ВТБ',
-        'sber': '🏦 Сбер',
-        'not_paid': '⏳ Не оплачено'
-    };
-    
-    const photoStatusText = getPhotoStatusText(vp);
-    const scriptStatusText = getScriptStatusText(vp);
-    const eventTimeFormatted = vp.event_time ? vp.event_time.slice(0, 5) : '—';
-    const bookingDateFormatted = vp.booking_date ? new Date(vp.booking_date).toLocaleDateString() : '—';
-    const createdAtFormatted = vp.created_at ? new Date(vp.created_at).toLocaleDateString() : '—';
-    const updatedAtFormatted = vp.updated_at ? new Date(vp.updated_at).toLocaleDateString() : '—';
-    
-    const hasComment = vp.comment && vp.comment.trim() !== '';
-    
-    const modalHtml = `
-        <div id="bookingDetailsModal" class="modal active">
-            <div class="modal-window" style="max-width: 650px; width: 90%; max-height: 85vh; display: flex; flex-direction: column; padding: 0;">
-                <div class="modal-header" style="flex-shrink: 0;">
-                    <div class="modal-icon">
-                        <i class="fas fa-info-circle"></i>
-                    </div>
-                    <div class="modal-title">
-                        <h3>Детали мероприятия</h3>
-                        <p>${escapeHtml(vp.customer_name)}</p>
-                    </div>
-                    <button class="modal-close" onclick="closeBookingDetailsModal()" style="background: rgba(255,255,255,0.1); border-radius: 50%; width: 32px; height: 32px;">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body" style="flex: 1; overflow-y: auto; padding: 20px 24px;">
-                    <div class="details-section" style="margin-bottom: 16px; padding-bottom: 12px;">
-                        <div class="section-title" style="font-size: 12px; margin-bottom: 8px;">
-                            <i class="fas fa-calendar-alt"></i> Дата и время
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Дата мероприятия:</span>
-                            <span class="detail-value">${formatDate(vp.event_date)}</span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Время:</span>
-                            <span class="detail-value">${eventTimeFormatted}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="details-section" style="margin-bottom: 16px; padding-bottom: 12px;">
-                        <div class="section-title" style="font-size: 12px; margin-bottom: 8px;">
-                            <i class="fas fa-user"></i> Клиент и админ
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Клиент:</span>
-                            <span class="detail-value"><strong>${escapeHtml(vp.customer_name)}</strong></span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Админ:</span>
-                            <span class="detail-value">${escapeHtml(vp.admin || '—')}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="details-section" style="margin-bottom: 16px; padding-bottom: 12px;">
-                        <div class="section-title" style="font-size: 12px; margin-bottom: 8px;">
-                            <i class="fas fa-credit-card"></i> Финансы
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Сумма предоплаты:</span>
-                            <span class="detail-value amount" style="color: #fbbf24;">${vp.amount || 0} ₽</span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Тип оплаты:</span>
-                            <span class="detail-value">${paymentTypeMap[vp.payment_type] || vp.payment_type}</span>
-                        </div>
-                    </div>
-                    
-                    <div class="details-section" style="margin-bottom: 16px; padding-bottom: 12px;">
-                        <div class="section-title" style="font-size: 12px; margin-bottom: 8px;">
-                            <i class="fas fa-camera"></i> Статусы
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Фото:</span>
-                            <span class="detail-value"><span class="status-badge ${getPhotoStatusClass(vp)}" style="padding: 2px 8px; font-size: 10px;">${photoStatusText}</span></span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Скрипт отзыва:</span>
-                            <span class="detail-value"><span class="status-badge ${getScriptStatusClass(vp)}" style="padding: 2px 8px; font-size: 10px;">${scriptStatusText}</span></span>
-                        </div>
-                    </div>
-                    
-                    <div class="details-section" style="margin-bottom: 16px; padding-bottom: 12px;">
-                        <div class="section-title" style="font-size: 12px; margin-bottom: 8px;">
-                            <i class="fas fa-history"></i> История
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Дата бронирования:</span>
-                            <span class="detail-value">${bookingDateFormatted}</span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Кто создал:</span>
-                            <span class="detail-value">${escapeHtml(vp.created_by || '—')}</span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Дата создания:</span>
-                            <span class="detail-value">${createdAtFormatted}</span>
-                        </div>
-                        <div class="detail-row" style="margin-bottom: 6px;">
-                            <span class="detail-label" style="min-width: 110px;">Последнее изменение:</span>
-                            <span class="detail-value">${updatedAtFormatted}</span>
-                        </div>
-                    </div>
-                    
-                    ${hasComment ? `
-                        <div class="details-section">
-                            <div class="section-title" style="font-size: 12px; margin-bottom: 8px;">
-                                <i class="fas fa-comment"></i> Комментарий
-                            </div>
-                            <div class="comment-box" style="background: rgba(0,0,0,0.2); padding: 10px 12px; border-radius: 10px; font-size: 12px;">
-                                ${escapeHtml(vp.comment)}
-                            </div>
-                        </div>
-                    ` : ''}
-                </div>
-                <div class="modal-footer" style="flex-shrink: 0; padding: 12px 20px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; justify-content: flex-end;">
-                    <button class="btn-secondary" onclick="closeBookingDetailsModal()" style="padding: 8px 20px;">Закрыть</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-function closeBookingDetailsModal() {
-    const modal = document.getElementById('bookingDetailsModal');
-    if (modal) modal.remove();
-}
-
 function renderVpTable() {
     const tbody = document.getElementById('vpTableBody');
     if (!tbody) return;
     
-    const search = document.getElementById('vpSearch')?.value.toLowerCase() || '';
-    
     let filtered = [...vpData];
     
-    if (search) {
+    if (vpFilters.search) {
         filtered = filtered.filter(v => 
-            (v.customer_name && v.customer_name.toLowerCase().includes(search)) ||
-            (v.admin && v.admin.toLowerCase().includes(search))
+            (v.customer_name && v.customer_name.toLowerCase().includes(vpFilters.search)) ||
+            (v.admin && v.admin.toLowerCase().includes(vpFilters.search))
         );
     }
     
     filtered.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
     
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px;">${window.showArchived ? '📦 В архиве нет мероприятий' : '🎮 Нет мероприятий за выбранный период'}<\/td></td>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px;">${vpFilters.showArchived ? '📦 В архиве нет мероприятий' : '🎮 Нет мероприятий за выбранный период'}</td></tr>`;
         return;
     }
     
@@ -554,7 +365,8 @@ function renderVpTable() {
         const scriptStatusText = getScriptStatusText(vp);
         const isScriptActive = !vp.is_archived && isScriptActionAvailable(vp) && vp.script_status !== 'sent';
         
-        const isUnpaid = isUnpaidOverdue(vp);
+        const isUnpaid = !vp.is_archived && vp.payment_type === 'not_paid' && 
+            (new Date() - new Date(vp.booking_date)) / (1000 * 60 * 60 * 24) >= 2;
         const rowClass = isUnpaid ? 'vp-row-unpaid' : '';
         
         const paymentTypeMap = {
@@ -567,7 +379,6 @@ function renderVpTable() {
         const paymentText = paymentTypeMap[vp.payment_type] || vp.payment_type;
         
         const eventTimeFormatted = vp.event_time ? vp.event_time.slice(0, 5) : '—';
-        
         const vpJson = JSON.stringify(vp).replace(/"/g, '&quot;');
         
         return `
@@ -579,7 +390,7 @@ function renderVpTable() {
                 <td>${vp.amount || 0} ₽</td>
                 <td>${paymentText}</td>
                 <td class="quick-action-cell">
-                    ${canEditVp && isPhotoActive && !vp.is_archived ? `
+                    ${canEditVp && isPhotoActive ? `
                         <button class="btn-action btn-photo" onclick="event.stopPropagation(); updatePhotoStatus(${vp.id})">
                             <i class="fas fa-camera"></i> Отметить фото
                         </button>
@@ -588,7 +399,7 @@ function renderVpTable() {
                     `}
                 </td>
                 <td class="quick-action-cell">
-                    ${canEditVp && isScriptActive && !vp.is_archived ? `
+                    ${canEditVp && isScriptActive ? `
                         <button class="btn-action btn-script" onclick="event.stopPropagation(); updateScriptStatus(${vp.id})">
                             <i class="fas fa-paper-plane"></i> Отметить скрипт
                         </button>
@@ -601,24 +412,76 @@ function renderVpTable() {
                     ${canEditVp && !vp.is_archived ? `<button class="btn-small btn-delete" onclick="cancelVp(${vp.id})"><i class="fas fa-archive"></i> В архив</button>` : ''}
                     ${canEditVp && vp.is_archived ? `<button class="btn-small btn-restore" onclick="restoreVp(${vp.id})"><i class="fas fa-undo"></i> Восстановить</button>` : ''}
                     ${canEditVp && vp.is_archived ? `<button class="btn-small btn-danger" onclick="deleteVpPermanently(${vp.id})"><i class="fas fa-trash-alt"></i> Удалить</button>` : ''}
-                    ${!canEditVp && !vp.is_archived ? '<span style="color:#64748b; font-size:11px;">🔍 Только просмотр</span>' : ''}
                 </td>
             </tr>
         `;
     }).join('');
 }
 
+function showBookingDetails(vp) {
+    const paymentTypeMap = {
+        'evotor_card': '💳 Эвотор (карта)',
+        'evotor_cash': '💵 Эвотор (нал)',
+        'vtb': '🏦 ВТБ',
+        'sber': '🏦 Сбер',
+        'not_paid': '⏳ Не оплачено'
+    };
+    
+    const modalHtml = `
+        <div id="bookingDetailsModal" class="modal active">
+            <div class="modal-window" style="max-width: 650px;">
+                <div class="modal-header">
+                    <div class="modal-icon"><i class="fas fa-info-circle"></i></div>
+                    <div class="modal-title">
+                        <h3>Детали мероприятия</h3>
+                        <p>${escapeHtml(vp.customer_name)}</p>
+                    </div>
+                    <button class="modal-close" onclick="closeBookingDetailsModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="details-section">
+                        <div class="section-title"><i class="fas fa-calendar-alt"></i> Дата и время</div>
+                        <div class="detail-row"><span class="detail-label">Дата мероприятия:</span><span class="detail-value">${formatDate(vp.event_date)}</span></div>
+                        <div class="detail-row"><span class="detail-label">Время:</span><span class="detail-value">${vp.event_time?.slice(0, 5) || '—'}</span></div>
+                    </div>
+                    <div class="details-section">
+                        <div class="section-title"><i class="fas fa-user"></i> Клиент и админ</div>
+                        <div class="detail-row"><span class="detail-label">Клиент:</span><span class="detail-value"><strong>${escapeHtml(vp.customer_name)}</strong></span></div>
+                        <div class="detail-row"><span class="detail-label">Админ:</span><span class="detail-value">${escapeHtml(vp.admin || '—')}</span></div>
+                    </div>
+                    <div class="details-section">
+                        <div class="section-title"><i class="fas fa-credit-card"></i> Финансы</div>
+                        <div class="detail-row"><span class="detail-label">Сумма предоплаты:</span><span class="detail-value amount">${vp.amount || 0} ₽</span></div>
+                        <div class="detail-row"><span class="detail-label">Тип оплаты:</span><span class="detail-value">${paymentTypeMap[vp.payment_type] || vp.payment_type}</span></div>
+                    </div>
+                    <div class="details-section">
+                        <div class="section-title"><i class="fas fa-camera"></i> Статусы</div>
+                        <div class="detail-row"><span class="detail-label">Фото:</span><span class="detail-value"><span class="status-badge ${getPhotoStatusClass(vp)}">${getPhotoStatusText(vp)}</span></span></div>
+                        <div class="detail-row"><span class="detail-label">Скрипт отзыва:</span><span class="detail-value"><span class="status-badge ${getScriptStatusClass(vp)}">${getScriptStatusText(vp)}</span></span></div>
+                    </div>
+                    ${vp.comment ? `<div class="details-section"><div class="section-title"><i class="fas fa-comment"></i> Комментарий</div><div class="comment-box">${escapeHtml(vp.comment)}</div></div>` : ''}
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-secondary" onclick="closeBookingDetailsModal()">Закрыть</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeBookingDetailsModal() {
+    const modal = document.getElementById('bookingDetailsModal');
+    if (modal) modal.remove();
+}
+
 async function restoreVp(vpId) {
     if (!canEditVp) return;
-    
     if (!confirm('Восстановить мероприятие из архива?')) return;
     
-    const response = await apiCall(`/vp/${vpId}`, 'PUT', {
-        is_archived: false
-    });
-    
+    const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: false });
     if (response && response.success) {
-        showNotif('📦 Мероприятие восстановлено из архива', 'success');
+        showNotif('📦 Мероприятие восстановлено', 'success');
         await loadVpData();
     } else {
         showNotif('Ошибка при восстановлении', 'error');
@@ -627,15 +490,14 @@ async function restoreVp(vpId) {
 
 async function deleteVpPermanently(vpId) {
     if (!canEditVp) return;
-    
-    if (!confirm('⚠️ ВНИМАНИЕ! Вы уверены, что хотите НАВСЕГДА удалить мероприятие? Это действие необратимо.')) return;
+    if (!confirm('⚠️ Навсегда удалить мероприятие?')) return;
     
     const response = await apiCall(`/vp/${vpId}`, 'DELETE');
     if (response && response.success) {
-        showNotif('🗑️ Мероприятие удалено навсегда', 'success');
+        showNotif('🗑️ Мероприятие удалено', 'success');
         await loadVpData();
     } else {
-        showNotif('Ошибка при удалении: ' + (response?.error || 'неизвестная ошибка'), 'error');
+        showNotif('Ошибка: ' + (response?.error || 'неизвестная'), 'error');
     }
 }
 
@@ -643,36 +505,27 @@ function openVpModal(vpId = null) {
     if (!canEditVp) return;
     
     const vp = vpId ? vpData.find(v => v.id === vpId) : null;
-    
     const employees = window.app.employees || [];
     const profiles = window.app.profiles || {};
     const admins = employees.filter(emp => profiles[emp]?.role === 'admin');
-    
-    const eventDateValue = vp?.event_date || '';
     
     const modalHtml = `
         <div id="vpModal" class="modal active">
             <div class="modal-window" style="max-width: 550px;">
                 <div class="modal-header">
-                    <div class="modal-icon">
-                        <i class="fas fa-gamepad"></i>
-                    </div>
+                    <div class="modal-icon"><i class="fas fa-gamepad"></i></div>
                     <div class="modal-title">
-                        <h3>${vp ? '✏️ Редактирование мероприятия' : '➕ Новое мероприятие'}</h3>
-                        <p>${vp ? 'Измените данные мероприятия' : 'Заполните информацию о мероприятии'}</p>
+                        <h3>${vp ? '✏️ Редактирование' : '➕ Новое мероприятие'}</h3>
+                        <p>${vp ? 'Измените данные' : 'Заполните информацию'}</p>
                     </div>
-                    <button class="modal-close" onclick="closeVpModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <button class="modal-close" onclick="closeVpModal()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="vpId" value="${vp?.id || ''}">
-                    
                     <div class="form-group">
                         <label>Дата мероприятия</label>
-                        <input type="date" id="vpEventDate" class="form-input" value="${eventDateValue}">
+                        <input type="date" id="vpEventDate" class="form-input" value="${vp?.event_date || ''}">
                     </div>
-                    
                     <div class="form-group">
                         <label>Время</label>
                         <select id="vpEventTime" class="form-select">
@@ -681,28 +534,21 @@ function openVpModal(vpId = null) {
                             ).join('')}
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label>Имя клиента</label>
                         <input type="text" id="vpCustomerName" class="form-input" value="${escapeHtml(vp?.customer_name || '')}">
                     </div>
-                    
                     <div class="form-group">
                         <label>Админ</label>
                         <select id="vpAdmin" class="form-select">
                             <option value="">Выберите админа</option>
-                            ${admins.map(emp => 
-                                `<option value="${escapeHtml(emp)}" ${vp?.admin === emp ? 'selected' : ''}>${escapeHtml(emp)}</option>`
-                            ).join('')}
-                            ${admins.length === 0 ? '<option disabled>Нет доступных админов</option>' : ''}
+                            ${admins.map(emp => `<option value="${escapeHtml(emp)}" ${vp?.admin === emp ? 'selected' : ''}>${escapeHtml(emp)}</option>`).join('')}
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label>Сумма предоплаты</label>
                         <input type="number" id="vpAmount" class="form-input" value="${vp?.amount || 2000}">
                     </div>
-                    
                     <div class="form-group">
                         <label>Тип оплаты</label>
                         <select id="vpPaymentType" class="form-select">
@@ -713,10 +559,9 @@ function openVpModal(vpId = null) {
                             <option value="not_paid" ${vp?.payment_type === 'not_paid' ? 'selected' : ''}>⏳ Не оплачено</option>
                         </select>
                     </div>
-                    
                     <div class="form-group">
                         <label>Комментарий</label>
-                        <textarea id="vpComment" class="form-textarea" rows="3" placeholder="Дополнительная информация о брони...">${escapeHtml(vp?.comment || '')}</textarea>
+                        <textarea id="vpComment" class="form-textarea" rows="3">${escapeHtml(vp?.comment || '')}</textarea>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -726,7 +571,6 @@ function openVpModal(vpId = null) {
             </div>
         </div>
     `;
-    
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
@@ -747,34 +591,11 @@ async function saveVp() {
     const paymentType = document.getElementById('vpPaymentType')?.value;
     const comment = document.getElementById('vpComment')?.value || '';
     
-    if (!customerName) {
-        showNotif('Введите имя клиента', 'error');
-        return;
-    }
+    if (!customerName) { showNotif('Введите имя клиента', 'error'); return; }
+    if (!admin) { showNotif('Выберите админа', 'error'); return; }
+    if (!eventDate) { showNotif('Выберите дату', 'error'); return; }
     
-    if (!admin) {
-        showNotif('Выберите админа', 'error');
-        return;
-    }
-    
-    if (!eventDate) {
-        showNotif('Выберите дату мероприятия', 'error');
-        return;
-    }
-    
-    if (eventTime && eventTime.length > 5) {
-        eventTime = eventTime.slice(0, 5);
-    }
-    
-    const vpDataToSend = {
-        eventDate: eventDate,
-        eventTime: eventTime,
-        customerName: customerName,
-        admin: admin,
-        amount: amount,
-        paymentType: paymentType,
-        comment: comment
-    };
+    const vpDataToSend = { eventDate, eventTime, customerName, admin, amount, paymentType, comment };
     
     let response;
     if (vpId) {
@@ -791,29 +612,21 @@ async function saveVp() {
         closeVpModal();
         await loadVpData();
     } else {
-        showNotif('❌ Ошибка при сохранении: ' + (response?.error || 'неизвестная ошибка'), 'error');
+        showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
     }
 }
 
 async function cancelVp(vpId) {
     if (!canEditVp) return;
+    if (!confirm('Отправить мероприятие в архив?')) return;
     
-    if (!confirm('Отправить мероприятие в архив? Оно будет скрыто из основного списка.')) return;
-    
-    const response = await apiCall(`/vp/${vpId}`, 'PUT', {
-        is_archived: true
-    });
-    
+    const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: true });
     if (response && response.success) {
-        showNotif('📦 Мероприятие отправлено в архив', 'success');
+        showNotif('📦 Отправлено в архив', 'success');
         await loadVpData();
     } else {
-        showNotif('❌ Ошибка при отправке в архив: ' + (response?.error || 'неизвестная ошибка'), 'error');
+        showNotif('❌ Ошибка', 'error');
     }
-}
-
-function exportVpToExcel() {
-    showNotif('📊 Экспорт в Excel будет доступен в следующей версии', 'info');
 }
 
 function resetVpFilters() {
@@ -823,11 +636,21 @@ function resetVpFilters() {
     if (searchInput) searchInput.value = '';
     if (showArchivedCheckbox) {
         showArchivedCheckbox.checked = false;
-        window.showArchived = false;
+        vpFilters.showArchived = false;
     }
-    
-    loadVpData();
+    vpFilters.search = '';
+    renderVpTable();
 }
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU');
+}
+
+// ============================================
+// ЭКСПОРТ
+// ============================================
 
 window.initVp = initVp;
 window.openVpModal = openVpModal;
@@ -836,9 +659,10 @@ window.saveVp = saveVp;
 window.cancelVp = cancelVp;
 window.restoreVp = restoreVp;
 window.deleteVpPermanently = deleteVpPermanently;
-window.exportVpToExcel = exportVpToExcel;
 window.updatePhotoStatus = updatePhotoStatus;
 window.updateScriptStatus = updateScriptStatus;
 window.resetVpFilters = resetVpFilters;
 window.showBookingDetails = showBookingDetails;
 window.closeBookingDetailsModal = closeBookingDetailsModal;
+
+console.log('✅ vp.js загружен (исправленная версия)');

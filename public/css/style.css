@@ -22,7 +22,7 @@
     --accent-hover: #8b5cf6;
     --success: #10b981;
     --warning: #f59e0b;
-    --danger: #34d399;
+    --danger: #ef4444;
     --info: #3b82f6;
     --gold: #fbbf24;
     --font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
@@ -763,403 +763,7 @@ a { text-decoration: none; color: inherit; }
     .stats-grid { grid-template-columns: 1fr; }
     .quick-grid { grid-template-columns: repeat(2, 1fr); }
 }
-/* ============================================ */
-/* PREMIUM LOGIN MODAL                           */
-/* ============================================ */
 
-#loginModal {
-    background-image: url('/2026-04-02_03-45-56.png');
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
-    background-color: #0a0c12;
-}
-
-.login-premium-window {
-    position: relative;
-    max-width: 420px;
-    width: 90%;
-    padding: 40px 32px;
-    background: rgba(17, 20, 28, 0.85);
-    backdrop-filter: blur(25px);
-    border-radius: 48px;
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.1) inset, 0 0 40px rgba(99, 102, 241, 0.2);
-    overflow: hidden;
-    animation: loginModalFadeIn 0.5s cubic-bezier(0.2, 0.9, 0.4, 1);
-    z-index: 10;
-}
-
-@keyframes loginModalFadeIn {
-    from { opacity: 0; transform: scale(0.95) translateY(-20px); }
-    to { opacity: 1; transform: scale(1) translateY(0); }
-}
-
-/* Декоративные свечения */
-.login-glow {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(60px);
-    opacity: 0.3;
-    pointer-events: none;
-}
-
-.login-glow-1 {
-    width: 300px;
-    height: 300px;
-    background: #6366f1;
-    top: -150px;
-    right: -100px;
-    animation: loginGlowFloat 8s ease-in-out infinite;
-}
-
-.login-glow-2 {
-    width: 250px;
-    height: 250px;
-    background: #ec4899;
-    bottom: -100px;
-    left: -80px;
-    animation: loginGlowFloat 10s ease-in-out infinite reverse;
-}
-
-@keyframes loginGlowFloat {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(-30px, 20px); }
-}
-
-/* Логотип — без фона, только переливающееся свечение (синий ↔ красный) */
-.login-logo-wrapper {
-    position: relative;
-    width: 90px;
-    height: 90px;
-    margin: 0 auto 24px;
-}
-
-.login-logo-ring {
-    position: absolute;
-    top: -8px;
-    left: -8px;
-    right: -8px;
-    bottom: -8px;
-    border-radius: 30px;
-    background: linear-gradient(135deg, #6366f1, #ef4444, #6366f1);
-    background-size: 300% 300%;
-    animation: loginRingRotate 3s linear infinite;
-    filter: blur(15px);
-    opacity: 0.9;
-    z-index: 0;
-}
-
-.login-logo-ring2 {
-    position: absolute;
-    top: -12px;
-    left: -12px;
-    right: -12px;
-    bottom: -12px;
-    border-radius: 34px;
-    background: linear-gradient(225deg, #ef4444, #6366f1, #ef4444);
-    background-size: 300% 300%;
-    animation: loginRingRotate2 4s linear infinite reverse;
-    filter: blur(10px);
-    opacity: 0.5;
-    z-index: 0;
-}
-
-@keyframes loginRingRotate {
-    0% { background-position: 0% 50%; }
-    25% { background-position: 100% 50%; }
-    50% { background-position: 100% 100%; }
-    75% { background-position: 0% 100%; }
-    100% { background-position: 0% 50%; }
-}
-
-@keyframes loginRingRotate2 {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 100%; }
-    100% { background-position: 0% 50%; }
-}
-
-.login-logo {
-    position: relative;
-    width: 74px;
-    height: 74px;
-    margin: 0 auto;
-    border-radius: 22px;
-    overflow: hidden;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-    z-index: 1;
-    background: transparent !important;
-    border: none !important;
-}
-
-.login-logo img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-    background: transparent;
-}
-
-/* Заголовок */
-.login-title {
-    text-align: center;
-    margin-bottom: 8px;
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -0.5px;
-}
-
-.login-title-gradient {
-    background: linear-gradient(135deg, #fff, #a78bfa, #f472b6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-}
-
-.login-title-badge {
-    display: inline-block;
-    margin-left: 10px;
-    padding: 3px 10px;
-    background: linear-gradient(135deg, #6366f1, #ec4899);
-    border-radius: 30px;
-    font-size: 12px;
-    font-weight: 600;
-    color: white;
-    vertical-align: middle;
-}
-
-.login-subtitle {
-    text-align: center;
-    font-size: 13px;
-    color: #94a3b8;
-    margin-bottom: 32px;
-}
-
-/* Поля ввода */
-.login-input-wrapper {
-    position: relative;
-    margin-bottom: 18px;
-}
-
-.login-input-icon {
-    position: absolute;
-    left: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #a78bfa;
-    font-size: 16px;
-    z-index: 2;
-}
-
-.login-input {
-    width: 100%;
-    padding: 16px 20px 16px 50px;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    border-radius: 20px;
-    color: #e2e8f0;
-    font-size: 15px;
-    outline: none;
-    transition: all 0.3s;
-    position: relative;
-    z-index: 1;
-}
-
-.login-input:focus {
-    border-color: #a78bfa;
-    background: rgba(0, 0, 0, 0.5);
-}
-
-.login-input::placeholder {
-    color: #64748b;
-}
-
-.login-input-glow {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #6366f1, #ec4899);
-    opacity: 0;
-    filter: blur(8px);
-    transition: opacity 0.3s;
-    z-index: 0;
-}
-
-.login-input-wrapper:focus-within .login-input-glow {
-    opacity: 0.5;
-    animation: inputGlowPulse 2s ease-in-out infinite;
-}
-
-@keyframes inputGlowPulse {
-    0%, 100% { filter: blur(8px); opacity: 0.3; }
-    50% { filter: blur(12px); opacity: 0.6; }
-}
-
-/* Кнопка */
-.login-btn {
-    width: 100%;
-    padding: 16px 24px;
-    margin-top: 16px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    border: none;
-    border-radius: 40px;
-    color: white;
-    font-weight: 600;
-    font-size: 16px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s;
-    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
-}
-
-.login-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
-}
-
-.login-btn-shine {
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
-    opacity: 0;
-    transition: opacity 0.3s;
-    pointer-events: none;
-}
-
-.login-btn:hover .login-btn-shine {
-    opacity: 1;
-    animation: loginBtnShine 1.5s infinite;
-}
-
-@keyframes loginBtnShine {
-    0% { transform: translate(-100%, -100%); }
-    100% { transform: translate(100%, 100%); }
-}
-
-/* Подсказка */
-.login-hint {
-    text-align: center;
-    margin-top: 24px;
-    margin-bottom: 0;
-    font-size: 12px;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.login-hint i {
-    color: #10b981;
-}
-
-/* Частицы — ПОВЕРХ ВСЕГО */
-.login-particles {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 100;
-    overflow: hidden;
-}
-
-.login-particles::before,
-.login-particles::after {
-    content: '';
-    position: absolute;
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: #a78bfa;
-    box-shadow: 0 0 15px #a78bfa, 0 0 30px #6366f1;
-    animation: particleFloat1 6s ease-in-out infinite;
-}
-
-.login-particles::before {
-    top: 20%;
-    left: 10%;
-    background: #6366f1;
-    box-shadow: 0 0 15px #6366f1, 0 0 30px #8b5cf6;
-    animation: particleFloat2 8s ease-in-out infinite;
-}
-
-.login-particles::after {
-    top: 70%;
-    left: 85%;
-    background: #ec4899;
-    box-shadow: 0 0 15px #ec4899, 0 0 30px #f472b6;
-    animation: particleFloat3 7s ease-in-out infinite;
-}
-
-@keyframes particleFloat1 {
-    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.4; }
-    25% { transform: translate(50px, -30px) scale(1.3); opacity: 0.8; }
-    50% { transform: translate(100px, 20px) scale(0.9); opacity: 0.5; }
-    75% { transform: translate(30px, 50px) scale(1.2); opacity: 0.7; }
-}
-
-@keyframes particleFloat2 {
-    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-    33% { transform: translate(-40px, 60px) scale(1.4); opacity: 0.7; }
-    66% { transform: translate(-80px, -20px) scale(0.8); opacity: 0.5; }
-}
-
-@keyframes particleFloat3 {
-    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-    50% { transform: translate(-60px, -40px) scale(1.2); opacity: 0.9; }
-}
-
-.login-particles span {
-    position: absolute;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: #fbbf24;
-    box-shadow: 0 0 10px #fbbf24, 0 0 20px #f59e0b;
-    animation: particleFloat4 5s ease-in-out infinite;
-}
-
-.login-particles span:nth-child(1) { top: 40%; left: 80%; animation-delay: 0s; }
-.login-particles span:nth-child(2) { top: 60%; left: 15%; background: #10b981; box-shadow: 0 0 10px #10b981; animation-delay: 1s; }
-.login-particles span:nth-child(3) { top: 80%; left: 50%; background: #3b82f6; box-shadow: 0 0 10px #3b82f6; animation-delay: 2s; }
-.login-particles span:nth-child(4) { top: 15%; left: 40%; background: #ec4899; animation-delay: 0.5s; }
-.login-particles span:nth-child(5) { top: 50%; left: 90%; background: #a78bfa; animation-delay: 1.5s; }
-
-@keyframes particleFloat4 {
-    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-    50% { transform: translate(-30px, -50px) scale(1.5); opacity: 0.9; }
-}
-
-/* Адаптив */
-@media (max-width: 480px) {
-    .login-premium-window {
-        padding: 30px 20px;
-    }
-    .login-logo-wrapper {
-        width: 70px;
-        height: 70px;
-    }
-    .login-logo {
-        width: 60px;
-        height: 60px;
-    }
-    .login-title {
-        font-size: 26px;
-    }
-}
 /* ============================================ */
 /* ДОСТИЖЕНИЯ - ИСПРАВЛЕННЫЕ СТИЛИ               */
 /* ============================================ */
@@ -1381,5 +985,368 @@ a { text-decoration: none; color: inherit; }
     
     .category-achievements-grid {
         grid-template-columns: 1fr;
+    }
+}
+/* ===== МОДАЛКА АВТОРИЗАЦИИ (РЕАЛЬНО КРУТАЯ) ===== */
+#loginModal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: #05070f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    overflow: hidden;
+}
+
+/* Анимированный градиентный фон */
+.login-bg-gradient {
+    position: absolute;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle at 30% 40%, #1a1040, #0a0a1a, #020108);
+    animation: bgMove 15s ease-in-out infinite;
+    z-index: 0;
+}
+
+@keyframes bgMove {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33% { transform: translate(-5%, -3%) scale(1.05); }
+    66% { transform: translate(3%, 5%) scale(0.98); }
+}
+
+/* Плавающие частицы */
+.login-particles-container {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.login-particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    background: #a78bfa;
+    border-radius: 50%;
+    box-shadow: 0 0 20px #a78bfa, 0 0 40px #6366f1;
+    animation: particleFloat 8s ease-in-out infinite;
+}
+
+.login-particle:nth-child(1) { top: 15%; left: 20%; background: #6366f1; animation-delay: 0s; }
+.login-particle:nth-child(2) { top: 70%; left: 80%; background: #ec4899; animation-delay: 1.5s; }
+.login-particle:nth-child(3) { top: 40%; left: 10%; background: #3b82f6; animation-delay: 3s; }
+.login-particle:nth-child(4) { top: 80%; left: 30%; background: #f59e0b; animation-delay: 4.5s; }
+.login-particle:nth-child(5) { top: 25%; left: 85%; background: #8b5cf6; animation-delay: 2s; }
+.login-particle:nth-child(6) { top: 60%; left: 50%; background: #10b981; animation-delay: 5s; }
+
+@keyframes particleFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+    25% { transform: translate(60px, -40px) scale(1.5); opacity: 0.8; }
+    50% { transform: translate(-30px, 50px) scale(0.8); opacity: 0.5; }
+    75% { transform: translate(40px, 30px) scale(1.2); opacity: 0.7; }
+}
+
+/* Основное окно - стекло */
+#loginModal .modal-window {
+    position: relative;
+    width: 420px;
+    max-width: 90%;
+    padding: 48px 40px;
+    background: rgba(15, 20, 35, 0.4);
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+    border-radius: 48px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 
+        0 30px 60px rgba(0, 0, 0, 0.7),
+        0 0 0 1px rgba(167, 139, 250, 0.1) inset,
+        0 0 50px rgba(99, 102, 241, 0.2);
+    text-align: center;
+    z-index: 10;
+    animation: windowAppear 0.8s cubic-bezier(0.16, 1, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+@keyframes windowAppear {
+    from { 
+        opacity: 0; 
+        transform: perspective(1000px) rotateX(5deg) translateY(40px) scale(0.9);
+    }
+    to { 
+        opacity: 1; 
+        transform: perspective(1000px) rotateX(0) translateY(0) scale(1);
+    }
+}
+
+/* Логотип с 3D и орбитами */
+.login-logo-3d {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 32px;
+    transform-style: preserve-3d;
+    animation: logo3dFloat 4s ease-in-out infinite;
+}
+
+@keyframes logo3dFloat {
+    0%, 100% { transform: perspective(500px) translateZ(0) rotateY(0deg); }
+    50% { transform: perspective(500px) translateZ(15px) rotateY(3deg); }
+}
+
+.logo-glow-orbit {
+    position: absolute;
+    top: -15px;
+    left: -15px;
+    right: -15px;
+    bottom: -15px;
+    border-radius: 30px;
+    border: 2px solid transparent;
+    background: linear-gradient(135deg, #6366f1, #ec4899, #3b82f6, #6366f1) border-box;
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    filter: blur(4px);
+    opacity: 0.7;
+    animation: orbitRotate 4s linear infinite;
+}
+
+.logo-glow-orbit2 {
+    position: absolute;
+    top: -25px;
+    left: -25px;
+    right: -25px;
+    bottom: -25px;
+    border-radius: 40px;
+    border: 1.5px solid rgba(167, 139, 250, 0.4);
+    box-shadow: 0 0 30px #a78bfa;
+    animation: orbitRotate 6s linear infinite reverse;
+}
+
+@keyframes orbitRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.login-logo-3d img {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 24px;
+    box-shadow: 
+        0 15px 35px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.1),
+        0 0 40px rgba(99, 102, 241, 0.3);
+    z-index: 2;
+}
+
+/* Неоновый заголовок */
+.login-title-neon {
+    margin-bottom: 12px;
+}
+
+.neon-text {
+    font-size: 42px;
+    font-weight: 900;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #fff;
+    position: relative;
+    text-shadow: 
+        0 0 10px #6366f1,
+        0 0 20px #6366f1,
+        0 0 40px #8b5cf6,
+        0 0 80px #8b5cf6;
+    animation: neonPulse 2s ease-in-out infinite;
+}
+
+.neon-text::before {
+    content: attr(data-text);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    color: #a78bfa;
+    filter: blur(8px);
+    opacity: 0.7;
+    z-index: -1;
+}
+
+@keyframes neonPulse {
+    0%, 100% { text-shadow: 0 0 10px #6366f1, 0 0 20px #6366f1, 0 0 40px #8b5cf6; }
+    50% { text-shadow: 0 0 15px #ec4899, 0 0 30px #ec4899, 0 0 60px #a78bfa; }
+}
+
+.login-subtitle-glass {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 6px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 40px;
+    font-weight: 300;
+}
+
+/* Поля ввода - стекло */
+.input-field-glass {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.input-field-glass i {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #a78bfa;
+    font-size: 16px;
+    z-index: 2;
+    transition: all 0.3s;
+}
+
+.input-field-glass input {
+    width: 100%;
+    padding: 16px 20px 16px 50px;
+    background: rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 20px;
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.3s;
+    backdrop-filter: blur(10px);
+}
+
+.input-field-glass input:focus {
+    border-color: transparent;
+    background: rgba(20, 30, 50, 0.5);
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.2);
+}
+
+.input-field-glass input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 300;
+}
+
+.input-focus-border {
+    position: absolute;
+    bottom: 0;
+    left: 20px;
+    right: 20px;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #a78bfa, #ec4899, transparent);
+    transform: scaleX(0);
+    transition: transform 0.4s ease;
+}
+
+.input-field-glass input:focus ~ .input-focus-border {
+    transform: scaleX(1);
+}
+
+/* Кнопка 3D */
+.login-btn-3d {
+    width: 100%;
+    padding: 16px 24px;
+    margin-top: 32px;
+    background: linear-gradient(135deg, #1a1f2e, #0f1222);
+    border: none;
+    border-radius: 40px;
+    color: white;
+    font-weight: 600;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s;
+    box-shadow: 
+        0 8px 0 #0a0c14,
+        0 10px 30px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(99, 102, 241, 0.3);
+    transform: translateY(-3px);
+}
+
+.login-btn-3d:hover {
+    transform: translateY(-5px);
+    box-shadow: 
+        0 10px 0 #0a0c14,
+        0 15px 40px rgba(0, 0, 0, 0.6),
+        0 0 30px rgba(167, 139, 250, 0.5);
+    background: linear-gradient(135deg, #2a2f3e, #1a1f2e);
+}
+
+.login-btn-3d:active {
+    transform: translateY(2px);
+    box-shadow: 
+        0 4px 0 #0a0c14,
+        0 8px 20px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(99, 102, 241, 0.3);
+}
+
+.btn-hover-effect {
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    transition: left 0.5s;
+}
+
+.login-btn-3d:hover .btn-hover-effect {
+    left: 100%;
+}
+
+/* Футер */
+.login-footer {
+    margin-top: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.footer-line {
+    width: 30px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+}
+
+.login-footer i {
+    color: #10b981;
+    font-size: 12px;
+}
+
+/* Адаптив */
+@media (max-width: 480px) {
+    #loginModal .modal-window {
+        padding: 36px 24px;
+    }
+    
+    .neon-text {
+        font-size: 32px;
+        letter-spacing: 2px;
+    }
+    
+    .login-subtitle-glass {
+        letter-spacing: 4px;
+        font-size: 11px;
+    }
+    
+    .login-logo-3d {
+        width: 80px;
+        height: 80px;
     }
 }

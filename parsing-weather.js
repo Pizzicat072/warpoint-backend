@@ -1,8 +1,6 @@
 const puppeteer = require('puppeteer');
 const chromium = require('@sparticuz/chromium');
 
-let lastWeatherData = null;
-
 let sharedBrowser = null;
 
 async function getBrowser() {
@@ -12,8 +10,17 @@ async function getBrowser() {
     if (sharedBrowser) {
         try { await sharedBrowser.close(); } catch(e) {}
     }
+    
     sharedBrowser = await puppeteer.launch({
-        args: [...chromium.args, '--single-process', '--disable-dev-shm-usage', '--disable-gpu'],
+        args: [
+            ...chromium.args,
+            '--single-process',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--no-sandbox',
+            '--disable-setuid-sandbox'
+        ],
         defaultViewport: { width: 800, height: 600 },
         executablePath: await chromium.executablePath(),
         headless: true,
