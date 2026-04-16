@@ -452,57 +452,63 @@
     <div id="pageContainer"></div>
 </div>
 
-<!-- ПРЕМИУМ МОДАЛКА АВТОРИЗАЦИИ -->
-<div id="loginModal" class="modal active">
-    <div class="modal-window login-premium-window">
-        <div class="login-glow login-glow-1"></div>
-        <div class="login-glow login-glow-2"></div>
-        <div class="login-particles">
-    <span></span>
-    <span></span>
-    <span></span>
-    <span></span>
-    <span></span>
-</div>
-        
-        <div class="login-logo-wrapper">
-    <div class="login-logo-ring"></div>
-    <div class="login-logo-ring2"></div>
-    <div class="login-logo">
-        <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" style="background: transparent;">
+<!-- МОДАЛКА АВТОРИЗАЦИИ (РЕАЛЬНО КРУТАЯ) -->
+<div id="loginModal">
+    <!-- Анимированный градиентный фон -->
+    <div class="login-bg-gradient"></div>
+    
+    <!-- Плавающие частицы в модалке -->
+    <div class="login-particles-container">
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
+        <div class="login-particle"></div>
     </div>
-</div>
+    
+    <div class="modal-window">
+        <!-- Логотип с 3D эффектом -->
+        <div class="login-logo-3d">
+            <div class="logo-glow-orbit"></div>
+            <div class="logo-glow-orbit2"></div>
+            <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+        </div>
         
-        <h2 class="login-title">
-            <span class="login-title-gradient">WARPOINT</span>
-            <span class="login-title-badge">ХАБ</span>
+        <!-- Заголовок с неоновым эффектом -->
+        <h2 class="login-title-neon">
+            <span class="neon-text" data-text="WARPOINT">WARPOINT</span>
         </h2>
-        <p class="login-subtitle">Войдите в корпоративный портал</p>
+        <p class="login-subtitle-glass">корпоративный портал</p>
         
+        <!-- Форма -->
         <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
-            <div class="login-input-wrapper">
-                <i class="fas fa-user login-input-icon"></i>
-                <input type="text" id="loginName" class="login-input" placeholder="Логин" autocomplete="username">
-                <span class="login-input-glow"></span>
+            <div class="input-field-glass">
+                <i class="fas fa-user"></i>
+                <input type="text" id="loginName" placeholder="Логин" autocomplete="username">
+                <span class="input-focus-border"></span>
             </div>
             
-            <div class="login-input-wrapper">
-                <i class="fas fa-lock login-input-icon"></i>
-                <input type="password" id="loginPassword" class="login-input" placeholder="Пароль" autocomplete="current-password">
-                <span class="login-input-glow"></span>
+            <div class="input-field-glass">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
+                <span class="input-focus-border"></span>
             </div>
             
-            <button type="submit" class="login-btn">
+            <button type="submit" class="login-btn-3d">
                 <span>Войти</span>
                 <i class="fas fa-arrow-right"></i>
-                <div class="login-btn-shine"></div>
+                <div class="btn-hover-effect"></div>
             </button>
         </form>
         
-        <p class="login-hint">
+        <!-- Подсказка -->
+        <div class="login-footer">
+            <span class="footer-line"></span>
             <i class="fas fa-shield-alt"></i>
-            <span>Доступ только для сотрудников</span>
-        </p>
+            <span>только для сотрудников</span>
+            <span class="footer-line"></span>
+        </div>
     </div>
 </div>
 
