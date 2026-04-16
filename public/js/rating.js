@@ -1,11 +1,23 @@
-// public/js/rating.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/rating.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let ratingData = [];
 let currentRatingSort = 'rating';
 let currentRatingOrder = 'desc';
+let isLoadingRating = false;
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// ============================================
 
 function initRating() {
     console.log('🏆 Инициализация рейтинга');
+    
+    const tbody = document.getElementById('ratingTableBody');
+    if (!tbody) {
+        console.warn('⚠️ ratingTableBody не найден, ждём...');
+        setTimeout(initRating, 100);
+        return;
+    }
     
     const searchInput = document.getElementById('ratingSearch');
     const sortSelect = document.getElementById('ratingSort');
@@ -18,12 +30,6 @@ function initRating() {
     
     loadRatingData();
     
-    // Вызываем загрузку достижений
-    if (typeof loadAchievements === 'function') {
-        // loadAchievements();
-    }
-    
-    // Вызываем рендер достижений
     setTimeout(() => {
         if (typeof renderAchievements === 'function') {
             renderAchievements();
@@ -35,7 +41,14 @@ function initRating() {
     updateRatingStats();
 }
 
+// ============================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================
+
 async function loadRatingData() {
+    if (isLoadingRating) return;
+    isLoadingRating = true;
+    
     const employees = window.app?.employees || [];
     const profiles = window.app?.profiles || {};
     
@@ -76,8 +89,13 @@ async function loadRatingData() {
         };
     }).filter(r => r !== null);
     
+    isLoadingRating = false;
     renderRatingTable();
 }
+
+// ============================================
+// РЕНДЕР ТАБЛИЦЫ
+// ============================================
 
 function renderRatingTable() {
     const tbody = document.getElementById('ratingTableBody');
@@ -111,8 +129,15 @@ function renderRatingTable() {
         }[item.rank] || '#64748b';
         
         const avatarHtml = item.avatar_url 
-            ? `<img src="${item.avatar_url}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;">`
-            : `<span style="font-size: 22px;">${item.avatar || '👤'}</span>`;
+            ? `<img src="${escapeHtml(item.avatar_url)}" style="width: 32px; height: 32px; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML='👤'">`
+            : `<span style="font-size: 22px;">${escapeHtml(item.avatar || '👤')}</span>`;
+        
+        const roleNames = {
+            director: 'Директор',
+            manager: 'Управляющий',
+            admin: 'Админ',
+            operator: 'Оператор'
+        };
         
         return `
             <tr onclick="openProfile('${escapeHtml(item.name)}')">
@@ -146,6 +171,10 @@ function renderRatingTable() {
     }).join('');
 }
 
+// ============================================
+// СОРТИРОВКА
+// ============================================
+
 function changeRatingOrder(order) {
     currentRatingOrder = order;
     renderRatingTable();
@@ -158,6 +187,10 @@ function changeRatingOrder(order) {
         }
     });
 }
+
+// ============================================
+// СТАТИСТИКА
+// ============================================
 
 function updateRatingStats() {
     const employees = window.app?.employees || [];
@@ -183,8 +216,14 @@ function updateRatingStats() {
     if (userRankEl) userRankEl.textContent = rank;
 }
 
+// ============================================
+// ЭКСПОРТ
+// ============================================
+
 window.initRating = initRating;
 window.loadRatingData = loadRatingData;
 window.renderRatingTable = renderRatingTable;
 window.changeRatingOrder = changeRatingOrder;
 window.updateRatingStats = updateRatingStats;
+
+console.log('✅ rating.js загружен (исправленная версия)');

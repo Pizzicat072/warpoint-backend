@@ -1,33 +1,28 @@
-// public/js/knowledge.js
+// public/js/knowledge.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let knowledgeCategories = [];
 let knowledgeArticles = [];
 let knowledgeSearchQuery = '';
 let editingArticleId = null;
 let editingCategoryId = null;
+let isLoadingKnowledge = false;
 
 // ============================================
 // ПРОВЕРКА ПРАВ ДОСТУПА
 // ============================================
 
 function canManageCategories() {
-    const role = window.app.currentUserRole;
-    console.log('🔍 Проверка прав на категории. Роль пользователя:', role);
-    const hasAccess = role === 'director' || role === 'manager';
-    console.log('📁 Доступ к категориям:', hasAccess);
-    return hasAccess;
+    const role = window.app?.currentUserRole;
+    return role === 'director' || role === 'manager';
 }
 
 function canManageArticles() {
-    const role = window.app.currentUserRole;
-    console.log('🔍 Проверка прав на статьи. Роль пользователя:', role);
-    const hasAccess = role === 'director' || role === 'manager' || role === 'admin' || role === 'operator';
-    console.log('📝 Доступ к статьям:', hasAccess);
-    return hasAccess;
+    const role = window.app?.currentUserRole;
+    return role === 'director' || role === 'manager' || role === 'admin' || role === 'operator';
 }
 
 // ============================================
-// РАСШИРЕННЫЙ WYSIWYG РЕДАКТОР
+// РАСШИРЕННЫЙ WYSIWYG РЕДАКТОР (С XSS-ЗАЩИТОЙ)
 // ============================================
 
 function applyFormat(command, value = null) {
@@ -71,11 +66,17 @@ function setTextAlign(align) {
 function insertLink() {
     const url = prompt('Введите URL ссылки:', 'https://');
     if (url) {
+        // 🔥 Валидация URL для предотвращения javascript: и data:
+        const lowerUrl = url.toLowerCase().trim();
+        if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+            showNotif('❌ Недопустимый тип ссылки', 'error');
+            return;
+        }
         const text = prompt('Введите текст ссылки:', 'Ссылка');
         if (text) {
-            document.execCommand('insertHTML', false, `<a href="${url}" target="_blank" style="color: #a78bfa; text-decoration: none;">${escapeHtml(text)}</a>`);
+            document.execCommand('insertHTML', false, `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color: #a78bfa; text-decoration: none;">${escapeHtml(text)}</a>`);
         } else {
-            document.execCommand('createLink', false, url);
+            document.execCommand('createLink', false, escapeHtml(url));
         }
     }
     document.getElementById('articleContent')?.focus();
@@ -84,7 +85,12 @@ function insertLink() {
 function insertImage() {
     const url = prompt('Введите URL изображения:', 'https://');
     if (url) {
-        document.execCommand('insertImage', false, url);
+        const lowerUrl = url.toLowerCase().trim();
+        if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+            showNotif('❌ Недопустимый тип URL', 'error');
+            return;
+        }
+        document.execCommand('insertImage', false, escapeHtml(url));
     }
     document.getElementById('articleContent')?.focus();
 }
@@ -94,13 +100,13 @@ function insertVideo() {
     if (url) {
         let embedUrl = url;
         if (url.includes('youtube.com/watch?v=')) {
-            const videoId = url.split('v=')[1].split('&')[0];
-            embedUrl = `https://www.youtube.com/embed/${videoId}`;
+            const videoId = url.split('v=')[1]?.split('&')[0];
+            if (videoId) embedUrl = `https://www.youtube.com/embed/${escapeHtml(videoId)}`;
         } else if (url.includes('youtu.be/')) {
-            const videoId = url.split('youtu.be/')[1].split('?')[0];
-            embedUrl = `https://www.youtube.com/embed/${videoId}`;
+            const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+            if (videoId) embedUrl = `https://www.youtube.com/embed/${escapeHtml(videoId)}`;
         }
-        const iframe = `<iframe width="100%" height="400" src="${embedUrl}" frameborder="0" allowfullscreen style="border-radius: 12px;"></iframe><br>`;
+        const iframe = `<iframe width="100%" height="400" src="${escapeHtml(embedUrl)}" frameborder="0" allowfullscreen style="border-radius: 12px;"></iframe><br>`;
         document.execCommand('insertHTML', false, iframe);
     }
     document.getElementById('articleContent')?.focus();
@@ -133,7 +139,7 @@ function insertTable() {
                 const tag = isHeader ? 'th' : 'td';
                 table += `<${tag} style="border: 1px solid #475569; padding: 10px 12px; text-align: left; ${isHeader ? 'background: rgba(99,102,241,0.15); font-weight: 600;' : ''}">${isHeader ? `Заголовок ${j+1}` : `Ячейка ${i+1},${j+1}`}</${tag}>`;
             }
-            table += '</table>';
+            table += '</tr>';
         }
         table += '</table></div><br>';
         document.execCommand('insertHTML', false, table);
@@ -233,7 +239,7 @@ function insertEmoji(emoji) {
 }
 
 // ============================================
-// СПИСОК ИКОНОК
+// СПИСОК ИКОНОК И ЭМОДЗИ
 // ============================================
 
 const iconList = [
@@ -259,15 +265,13 @@ const iconList = [
     { icon: '🧹', name: 'Уборка / Дезинфекция' },
     { icon: '👋', name: 'Встреча гостей' },
     { icon: '💬', name: 'Общение / Скрипты' },
-    { icon: '⭐', name: 'Отзывы' },
     { icon: '🎫', name: 'Бронирования' },
     { icon: '🆕', name: 'Онбординг / Новичкам' },
     { icon: '💰', name: 'Финансы' },
     { icon: '📊', name: 'Отчёты' },
     { icon: '🌍', name: 'О WARPOINT' },
     { icon: '📢', name: 'Новости' },
-    { icon: '🤝', name: 'Команда' },
-    { icon: '💡', name: 'Фишки / Лайфхаки' }
+    { icon: '🤝', name: 'Команда' }
 ];
 
 const emojiList = ['😀', '😎', '🔥', '💪', '🎉', '✨', '💡', '⭐', '❤️', '👍', '👏', '🤝', '🚀', '🎯', '🏆', '💎', '🔔', '📌', '💬', '🤔'];
@@ -321,12 +325,20 @@ function isCategoryExists(name, excludeId = null) {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
 // ============================================
 
 function initKnowledge() {
     console.log('📚 Инициализация базы знаний');
-    console.log('👤 Роль пользователя:', window.app.currentUserRole);
+    
+    const container = document.getElementById('knowledgeContainer');
+    if (!container) {
+        console.warn('⚠️ knowledgeContainer не найден, ждём...');
+        setTimeout(initKnowledge, 100);
+        return;
+    }
+    
+    console.log('👤 Роль пользователя:', window.app?.currentUserRole);
     console.log('📝 Может управлять категориями:', canManageCategories());
     console.log('📄 Может управлять статьями:', canManageArticles());
     
@@ -339,9 +351,42 @@ function initKnowledge() {
             renderKnowledge();
         });
     }
+    
+    setupActionButtons();
 }
 
+function setupActionButtons() {
+    const actionButtons = document.getElementById('actionButtons');
+    if (!actionButtons) return;
+    
+    if (canManageCategories()) {
+        actionButtons.innerHTML = `
+            <button class="btn-secondary" onclick="openCreateCategoryModal()">
+                <i class="fas fa-folder-plus"></i> Новая категория
+            </button>
+            <button class="btn-secondary" onclick="showAddPresetModal()">
+                <i class="fas fa-magic"></i> Готовые категории
+            </button>
+        `;
+    } else if (canManageArticles()) {
+        actionButtons.innerHTML = `
+            <span style="font-size: 12px; color: #64748b;">
+                <i class="fas fa-info-circle"></i> Вы можете добавлять статьи
+            </span>
+        `;
+    } else {
+        actionButtons.innerHTML = '';
+    }
+}
+
+// ============================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================
+
 async function loadKnowledgeData() {
+    if (isLoadingKnowledge) return;
+    isLoadingKnowledge = true;
+    
     console.log('🔄 Загрузка данных...');
     
     const container = document.getElementById('knowledgeContainer');
@@ -384,6 +429,8 @@ async function loadKnowledgeData() {
                 </div>
             `;
         }
+    } finally {
+        isLoadingKnowledge = false;
     }
 }
 
@@ -435,13 +482,13 @@ function renderKnowledge() {
             <div class="knowledge-category" data-category-id="${cat.id}">
                 <div class="category-header" onclick="toggleCategory(${cat.id})">
                     <div class="category-title">
-                        <div class="category-icon">${cat.icon || '📁'}</div>
+                        <div class="category-icon">${escapeHtml(cat.icon || '📁')}</div>
                         <div class="category-name">${escapeHtml(cat.name)}</div>
                         <div class="category-count">${cat.articles.length}</div>
                     </div>
                     <div class="category-actions">
                         ${canEditCategories ? `
-                            <button class="category-edit" onclick="event.stopPropagation(); openEditCategoryModal(${cat.id}, '${escapeHtml(cat.name)}', '${cat.icon || '📁'}')" title="Редактировать категорию">
+                            <button class="category-edit" onclick="event.stopPropagation(); openEditCategoryModal(${cat.id}, '${escapeHtml(cat.name)}', '${escapeHtml(cat.icon || '📁')}')" title="Редактировать категорию">
                                 <i class="fas fa-edit"></i>
                             </button>
                             <button class="btn-icon-delete" onclick="event.stopPropagation(); deleteCategory(${cat.id})" title="Удалить категорию">
@@ -519,6 +566,12 @@ function renderKnowledge() {
     } catch(e) {}
 }
 
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU');
+}
+
 function toggleCategory(categoryId) {
     const category = document.querySelector(`.knowledge-category[data-category-id="${categoryId}"]`);
     const content = category?.querySelector('.category-content');
@@ -545,7 +598,6 @@ function toggleCategory(categoryId) {
     
     localStorage.setItem('knowledgeOpenCategories', JSON.stringify(openCategories));
 }
-
 // ============================================
 // ПРЕСЕТЫ
 // ============================================
@@ -557,8 +609,8 @@ function renderPresetSelector(container) {
         rowsHtml += `
             <div class="preset-row">
                 ${rowCategories.map(cat => `
-                    <div class="preset-item" onclick="createCategoryFromPreset('${cat.name}', '${cat.icon}')">
-                        <div class="preset-item-icon">${cat.icon}</div>
+                    <div class="preset-item" onclick="createCategoryFromPreset('${escapeHtml(cat.name)}', '${escapeHtml(cat.icon)}')">
+                        <div class="preset-item-icon">${escapeHtml(cat.icon)}</div>
                         <div class="preset-item-name">${escapeHtml(cat.name)}</div>
                     </div>
                 `).join('')}
@@ -595,8 +647,8 @@ function showAddPresetModal() {
         rowsHtml += `
             <div class="preset-row">
                 ${rowCategories.map(cat => `
-                    <div class="preset-item" onclick="createCategoryFromPresetAndClose('${cat.name}', '${cat.icon}')">
-                        <div class="preset-item-icon">${cat.icon}</div>
+                    <div class="preset-item" onclick="createCategoryFromPresetAndClose('${escapeHtml(cat.name)}', '${escapeHtml(cat.icon)}')">
+                        <div class="preset-item-icon">${escapeHtml(cat.icon)}</div>
                         <div class="preset-item-name">${escapeHtml(cat.name)}</div>
                     </div>
                 `).join('')}
@@ -609,12 +661,9 @@ function showAddPresetModal() {
             <div class="modal-window" style="max-width: 700px; max-height: 80vh; overflow-y: auto;">
                 <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15);">
                     <h3>🎨 Добавить готовые категории</h3>
-                    <p style="font-size: 12px; color: #64748b;">Нажмите на категорию, чтобы добавить её</p>
                 </div>
                 <div style="padding: 20px;">
-                    <div class="preset-grid">
-                        ${rowsHtml}
-                    </div>
+                    <div class="preset-grid">${rowsHtml}</div>
                     <div style="display: flex; gap: 12px; justify-content: center; margin-top: 16px;">
                         <button class="btn-create-all" onclick="createAllCategoriesWithProgress(); closePresetModal();">
                             <i class="fas fa-plus-circle"></i> Создать все категории
@@ -662,18 +711,14 @@ async function createAllCategoriesWithProgress() {
     
     showNotif(`⏳ Создание ${total} категорий...`, 'info');
     
-    for (let i = 0; i < presetCategories.length; i++) {
-        const cat = presetCategories[i];
-        
+    for (const cat of presetCategories) {
         if (isCategoryExists(cat.name)) {
             skipped++;
             continue;
         }
         
         const response = await apiCall('/knowledge/categories', 'POST', { name: cat.name, icon: cat.icon });
-        if (response && response.success) {
-            created++;
-        }
+        if (response && response.success) created++;
         await new Promise(r => setTimeout(r, 20));
     }
     
@@ -694,7 +739,7 @@ function openCreateCategoryModal() {
     editingCategoryId = null;
     
     const iconOptions = iconList.map(item => 
-        `<option value="${item.icon}">${item.icon} ${item.name}</option>`
+        `<option value="${escapeHtml(item.icon)}">${escapeHtml(item.icon)} ${escapeHtml(item.name)}</option>`
     ).join('');
     
     const modalHtml = `
@@ -705,14 +750,12 @@ function openCreateCategoryModal() {
                 </div>
                 <div style="padding: 20px;">
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Название категории</label>
+                        <label>Название категории</label>
                         <input type="text" id="categoryName" class="edit-input" style="width: 100%;" placeholder="Например: Инструкции">
                     </div>
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Иконка</label>
-                        <select id="categoryIcon" class="styled-select" style="width: 100%;">
-                            ${iconOptions}
-                        </select>
+                        <label>Иконка</label>
+                        <select id="categoryIcon" class="styled-select" style="width: 100%;">${iconOptions}</select>
                     </div>
                 </div>
                 <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
@@ -734,7 +777,7 @@ function openEditCategoryModal(id, name, icon) {
     editingCategoryId = id;
     
     const iconOptions = iconList.map(item => 
-        `<option value="${item.icon}" ${item.icon === icon ? 'selected' : ''}>${item.icon} ${item.name}</option>`
+        `<option value="${escapeHtml(item.icon)}" ${item.icon === icon ? 'selected' : ''}>${escapeHtml(item.icon)} ${escapeHtml(item.name)}</option>`
     ).join('');
     
     const modalHtml = `
@@ -745,14 +788,12 @@ function openEditCategoryModal(id, name, icon) {
                 </div>
                 <div style="padding: 20px;">
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Название категории</label>
+                        <label>Название категории</label>
                         <input type="text" id="categoryName" class="edit-input" style="width: 100%;" value="${escapeHtml(name)}">
                     </div>
                     <div style="margin-bottom: 16px;">
-                        <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Иконка</label>
-                        <select id="categoryIcon" class="styled-select" style="width: 100%;">
-                            ${iconOptions}
-                        </select>
+                        <label>Иконка</label>
+                        <select id="categoryIcon" class="styled-select" style="width: 100%;">${iconOptions}</select>
                     </div>
                 </div>
                 <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
@@ -814,9 +855,7 @@ async function deleteCategoryWithClose(categoryId) {
     const articlesCount = knowledgeArticles.filter(a => a.category_id === categoryId).length;
     
     let msg = `Удалить категорию "${category?.name}"?`;
-    if (articlesCount > 0) {
-        msg += `\n\n⚠️ В категории ${articlesCount} статей. Они тоже будут удалены.`;
-    }
+    if (articlesCount > 0) msg += `\n\n⚠️ В категории ${articlesCount} статей. Они тоже будут удалены.`;
     
     if (!confirm(msg)) return;
     
@@ -840,9 +879,7 @@ async function deleteCategory(categoryId) {
     const articlesCount = knowledgeArticles.filter(a => a.category_id === categoryId).length;
     
     let msg = `Удалить категорию "${category?.name}"?`;
-    if (articlesCount > 0) {
-        msg += `\n\n⚠️ В категории ${articlesCount} статей. Они тоже будут удалены.`;
-    }
+    if (articlesCount > 0) msg += `\n\n⚠️ В категории ${articlesCount} статей. Они тоже будут удалены.`;
     
     if (!confirm(msg)) return;
     
@@ -856,7 +893,7 @@ async function deleteCategory(categoryId) {
 }
 
 // ============================================
-// СТАТЬИ - С РАСШИРЕННЫМ РЕДАКТОРОМ
+// СТАТЬИ
 // ============================================
 
 async function openArticle(articleId) {
@@ -880,19 +917,19 @@ async function openArticle(articleId) {
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
                             <div style="display: inline-flex; align-items: center; gap: 10px; margin-bottom: 16px; background: rgba(99,102,241,0.15); padding: 6px 16px; border-radius: 40px;">
-                                <span style="font-size: 20px;">${category ? category.icon : '📁'}</span>
-                                <span style="font-size: 13px; font-weight: 500;">${category ? escapeHtml(category.name) : 'Статья'}</span>
+                                <span>${escapeHtml(category?.icon || '📁')}</span>
+                                <span>${escapeHtml(category?.name || 'Статья')}</span>
                             </div>
                             <h1 style="margin: 0; font-size: 36px; font-weight: 700; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent;">${escapeHtml(article.title)}</h1>
                         </div>
-                        <button onclick="closeArticleModal()" style="background: rgba(255,255,255,0.05); border: none; color: #94a3b8; font-size: 24px; cursor: pointer; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s;">&times;</button>
+                        <button onclick="closeArticleModal()" style="background: rgba(255,255,255,0.05); border: none; color: #94a3b8; font-size: 24px; cursor: pointer; width: 44px; height: 44px; border-radius: 50%;">&times;</button>
                     </div>
                 </div>
                 <div style="padding: 40px 48px;">
                     <div class="article-view-content" style="line-height: 1.8; color: #cbd5e1; font-size: 16px; max-width: 1100px; margin: 0 auto;">
                         ${article.content || '<p style="color: #64748b; text-align: center; padding: 60px;">Содержание не указано</p>'}
                     </div>
-                    <div class="article-footer" style="margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 32px; font-size: 13px; color: #64748b; justify-content: center; flex-wrap: wrap;">
+                    <div class="article-footer" style="margin-top: 48px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; gap: 32px; font-size: 13px; color: #64748b; justify-content: center;">
                         <span><i class="fas fa-eye"></i> ${article.views || 0} просмотров</span>
                         <span><i class="fas fa-calendar-alt"></i> Создано: ${formatDate(article.created_at)}</span>
                         ${article.updated_at ? `<span><i class="fas fa-edit"></i> Обновлено: ${formatDate(article.updated_at)}</span>` : ''}
@@ -907,98 +944,12 @@ async function openArticle(articleId) {
                             <i class="fas fa-trash-alt"></i> Удалить
                         </button>
                     ` : ''}
-                    <button class="btn-secondary" onclick="closeArticleModal()">
-                        <i class="fas fa-times"></i> Закрыть
-                    </button>
+                    <button class="btn-secondary" onclick="closeArticleModal()">Закрыть</button>
                 </div>
             </div>
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    const style = document.createElement('style');
-    style.textContent = `
-        .article-view-content {
-            font-size: 16px;
-            line-height: 1.8;
-        }
-        .article-view-content h1 { font-size: 32px; color: #f1f5f9; margin: 28px 0 16px; font-weight: 700; }
-        .article-view-content h2 { font-size: 28px; color: #f1f5f9; margin: 24px 0 14px; font-weight: 600; }
-        .article-view-content h3 { font-size: 24px; color: #f1f5f9; margin: 20px 0 12px; font-weight: 600; }
-        .article-view-content h4 { font-size: 20px; color: #f1f5f9; margin: 16px 0 10px; font-weight: 600; }
-        .article-view-content p { margin: 16px 0; line-height: 1.8; }
-        .article-view-content ul, .article-view-content ol { margin: 16px 0; padding-left: 28px; }
-        .article-view-content li { margin: 8px 0; line-height: 1.6; }
-        .article-view-content blockquote {
-            border-left: 4px solid #a78bfa;
-            margin: 20px 0;
-            padding: 16px 24px;
-            background: rgba(99,102,241,0.08);
-            border-radius: 16px;
-            font-style: italic;
-            color: #cbd5e1;
-        }
-        .article-view-content pre {
-            background: #1e1e1e;
-            padding: 20px;
-            border-radius: 16px;
-            overflow-x: auto;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-            color: #d4d4d4;
-            margin: 20px 0;
-        }
-        .article-view-content code {
-            background: #1e293b;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 13px;
-            color: #a78bfa;
-        }
-        .article-view-content table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-            background: #1e293b;
-            border-radius: 16px;
-            overflow: hidden;
-        }
-        .article-view-content th, .article-view-content td {
-            border: 1px solid #334155;
-            padding: 12px 16px;
-            text-align: left;
-        }
-        .article-view-content th {
-            background: rgba(99,102,241,0.15);
-            font-weight: 600;
-        }
-        .article-view-content img {
-            max-width: 100%;
-            border-radius: 16px;
-            margin: 20px 0;
-        }
-        .article-view-content a {
-            color: #a78bfa;
-            text-decoration: none;
-            border-bottom: 1px dashed #a78bfa;
-        }
-        .article-view-content a:hover {
-            border-bottom: 1px solid #a78bfa;
-        }
-        .article-view-content hr {
-            margin: 32px 0;
-            border: none;
-            height: 1px;
-            background: linear-gradient(90deg, transparent, #a78bfa, transparent);
-        }
-        .article-view-content iframe {
-            max-width: 100%;
-            border-radius: 16px;
-            margin: 20px 0;
-        }
-    `;
-    document.head.appendChild(style);
 }
 
 function closeArticleModal() {
@@ -1019,7 +970,6 @@ function openCreateArticleModal(categoryId) {
             <div class="modal-window" style="max-width: 1400px; width: 95%; max-height: 95vh; overflow-y: auto; padding: 0;">
                 <div style="position: sticky; top: 0; background: linear-gradient(135deg, #1a1f2e, #0f1222); padding: 20px 28px; border-bottom: 1px solid rgba(99,102,241,0.15); z-index: 10;">
                     <h3 style="margin: 0; font-size: 24px;">📝 Создать статью</h3>
-                    <p style="font-size: 13px; color: #64748b; margin: 6px 0 0;">Используйте мощный редактор для создания красивых статей</p>
                 </div>
                 <div style="padding: 28px 32px;">
                     <input type="hidden" id="articleCategoryId" value="${categoryId}">
@@ -1030,81 +980,20 @@ function openCreateArticleModal(categoryId) {
                     
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #a78bfa;">Редактор статьи</label>
-                        <div class="editor-toolbar">
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('bold')" title="Жирный"><b>B</b></button>
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('italic')" title="Курсив"><i>I</i></button>
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('underline')" title="Подчёркнутый"><u>U</u></button>
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('strikeThrough')" title="Зачёркнутый"><s>S</s></button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <select class="toolbar-select" onchange="setFontSize(this.value)" title="Размер шрифта">
-                                    <option value="1">Мелкий</option>
-                                    <option value="3" selected>Средний</option>
-                                    <option value="5">Крупный</option>
-                                    <option value="7">Огромный</option>
-                                </select>
-                                <select class="toolbar-select" onchange="setFontFamily(this.value)" title="Шрифт">
-                                    <option value="Arial">Arial</option>
-                                    <option value="'Segoe UI'">Segoe UI</option>
-                                    <option value="'Courier New'">Courier New</option>
-                                    <option value="Georgia">Georgia</option>
-                                    <option value="'Times New Roman'">Times New Roman</option>
-                                </select>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="setTextAlign('left')" title="Выровнять влево">⬅️</button>
-                                <button type="button" class="toolbar-btn" onclick="setTextAlign('center')" title="Выровнять по центру">⬌</button>
-                                <button type="button" class="toolbar-btn" onclick="setTextAlign('right')" title="Выровнять вправо">➡️</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <input type="color" class="toolbar-color" onchange="setTextColor(this.value)" title="Цвет текста" value="#ffffff">
-                                <input type="color" class="toolbar-color" onchange="setBackgroundColor(this.value)" title="Цвет фона" value="#333333">
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertUnorderedList()" title="Маркированный список">• 📋</button>
-                                <button type="button" class="toolbar-btn" onclick="insertOrderedList()" title="Нумерованный список">1. 📝</button>
-                                <button type="button" class="toolbar-btn" onclick="insertQuote()" title="Цитата">" 💬</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(1)" title="Заголовок H1">H1</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(2)" title="Заголовок H2">H2</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(3)" title="Заголовок H3">H3</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(4)" title="Заголовок H4">H4</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertLink()" title="Ссылка">🔗</button>
-                                <button type="button" class="toolbar-btn" onclick="insertImage()" title="Изображение">🖼️</button>
-                                <button type="button" class="toolbar-btn" onclick="insertVideo()" title="Видео">📹</button>
-                                <button type="button" class="toolbar-btn" onclick="insertTable()" title="Таблица">📊</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('info')" title="Инфо">ℹ️</button>
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('success')" title="Успех">✅</button>
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('warning')" title="Внимание">⚠️</button>
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('error')" title="Ошибка">❌</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertCard()" title="Карточка">📇</button>
-                                <button type="button" class="toolbar-btn" onclick="insertCode()" title="Код">&lt;/&gt;</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHorizontalRule()" title="Разделитель">─</button>
-                                <button type="button" class="toolbar-btn" onclick="clearFormatting()" title="Очистить формат">🗑️</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                ${emojiList.map(emoji => `<button type="button" class="toolbar-btn-emoji" onclick="insertEmoji('${emoji}')" title="${emoji}">${emoji}</button>`).join('')}
-                            </div>
+                        <div class="editor-toolbar" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; background: #0d1016; border-radius: 12px 12px 0 0;">
+                            <button type="button" class="toolbar-btn" onclick="applyFormat('bold')"><b>B</b></button>
+                            <button type="button" class="toolbar-btn" onclick="applyFormat('italic')"><i>I</i></button>
+                            <button type="button" class="toolbar-btn" onclick="applyFormat('underline')"><u>U</u></button>
+                            <button type="button" class="toolbar-btn" onclick="insertLink()">🔗</button>
+                            <button type="button" class="toolbar-btn" onclick="insertImage()">🖼️</button>
+                            <button type="button" class="toolbar-btn" onclick="insertUnorderedList()">• 📋</button>
+                            <button type="button" class="toolbar-btn" onclick="insertOrderedList()">1. 📝</button>
+                            <button type="button" class="toolbar-btn" onclick="insertQuote()">💬</button>
+                            <button type="button" class="toolbar-btn" onclick="insertCode()">&lt;/&gt;</button>
+                            <button type="button" class="toolbar-btn" onclick="clearFormatting()">🗑️</button>
                         </div>
-                        <div id="editorContainer" style="border: 1px solid #1e2430; border-radius: 16px; background: #0d1016; min-height: 550px;">
-                            <div id="articleContent" contenteditable="true" style="min-height: 550px; padding: 20px; color: #e2e8f0; font-size: 15px; line-height: 1.7; outline: none; overflow-y: auto;" placeholder="Введите текст статьи..."></div>
+                        <div id="editorContainer" style="border: 1px solid #1e2430; border-radius: 0 0 16px 16px; background: #0d1016; min-height: 400px;">
+                            <div id="articleContent" contenteditable="true" style="min-height: 400px; padding: 20px; color: #e2e8f0; font-size: 15px; line-height: 1.7; outline: none; overflow-y: auto;"></div>
                         </div>
                     </div>
                 </div>
@@ -1116,12 +1005,6 @@ function openCreateArticleModal(categoryId) {
         </div>
     `;
     document.body.insertAdjacentHTML('beforeend', modalHtml);
-    
-    const editor = document.getElementById('articleContent');
-    if (editor) {
-        editor.innerHTML = '';
-        editor.focus();
-    }
 }
 
 function openEditArticleModal(articleId) {
@@ -1140,7 +1023,6 @@ function openEditArticleModal(articleId) {
             <div class="modal-window" style="max-width: 1400px; width: 95%; max-height: 95vh; overflow-y: auto; padding: 0;">
                 <div style="position: sticky; top: 0; background: linear-gradient(135deg, #1a1f2e, #0f1222); padding: 20px 28px; border-bottom: 1px solid rgba(99,102,241,0.15); z-index: 10;">
                     <h3 style="margin: 0; font-size: 24px;">✏️ Редактировать статью</h3>
-                    <p style="font-size: 13px; color: #64748b; margin: 6px 0 0;">Используйте мощный редактор для редактирования статьи</p>
                 </div>
                 <div style="padding: 28px 32px;">
                     <input type="hidden" id="articleCategoryId" value="${article.category_id}">
@@ -1151,88 +1033,27 @@ function openEditArticleModal(articleId) {
                     
                     <div style="margin-bottom: 20px;">
                         <label style="display: block; margin-bottom: 10px; font-size: 14px; font-weight: 600; color: #a78bfa;">Редактор статьи</label>
-                        <div class="editor-toolbar">
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('bold')" title="Жирный"><b>B</b></button>
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('italic')" title="Курсив"><i>I</i></button>
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('underline')" title="Подчёркнутый"><u>U</u></button>
-                                <button type="button" class="toolbar-btn" onclick="applyFormat('strikeThrough')" title="Зачёркнутый"><s>S</s></button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <select class="toolbar-select" onchange="setFontSize(this.value)" title="Размер шрифта">
-                                    <option value="1">Мелкий</option>
-                                    <option value="3" selected>Средний</option>
-                                    <option value="5">Крупный</option>
-                                    <option value="7">Огромный</option>
-                                </select>
-                                <select class="toolbar-select" onchange="setFontFamily(this.value)" title="Шрифт">
-                                    <option value="Arial">Arial</option>
-                                    <option value="'Segoe UI'">Segoe UI</option>
-                                    <option value="'Courier New'">Courier New</option>
-                                    <option value="Georgia">Georgia</option>
-                                    <option value="'Times New Roman'">Times New Roman</option>
-                                </select>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="setTextAlign('left')" title="Выровнять влево">⬅️</button>
-                                <button type="button" class="toolbar-btn" onclick="setTextAlign('center')" title="Выровнять по центру">⬌</button>
-                                <button type="button" class="toolbar-btn" onclick="setTextAlign('right')" title="Выровнять вправо">➡️</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <input type="color" class="toolbar-color" onchange="setTextColor(this.value)" title="Цвет текста" value="#ffffff">
-                                <input type="color" class="toolbar-color" onchange="setBackgroundColor(this.value)" title="Цвет фона" value="#333333">
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertUnorderedList()" title="Маркированный список">• 📋</button>
-                                <button type="button" class="toolbar-btn" onclick="insertOrderedList()" title="Нумерованный список">1. 📝</button>
-                                <button type="button" class="toolbar-btn" onclick="insertQuote()" title="Цитата">" 💬</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(1)" title="Заголовок H1">H1</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(2)" title="Заголовок H2">H2</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(3)" title="Заголовок H3">H3</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHeading(4)" title="Заголовок H4">H4</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertLink()" title="Ссылка">🔗</button>
-                                <button type="button" class="toolbar-btn" onclick="insertImage()" title="Изображение">🖼️</button>
-                                <button type="button" class="toolbar-btn" onclick="insertVideo()" title="Видео">📹</button>
-                                <button type="button" class="toolbar-btn" onclick="insertTable()" title="Таблица">📊</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('info')" title="Инфо">ℹ️</button>
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('success')" title="Успех">✅</button>
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('warning')" title="Внимание">⚠️</button>
-                                <button type="button" class="toolbar-btn" onclick="insertAlert('error')" title="Ошибка">❌</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                <button type="button" class="toolbar-btn" onclick="insertCard()" title="Карточка">📇</button>
-                                <button type="button" class="toolbar-btn" onclick="insertCode()" title="Код">&lt;/&gt;</button>
-                                <button type="button" class="toolbar-btn" onclick="insertHorizontalRule()" title="Разделитель">─</button>
-                                <button type="button" class="toolbar-btn" onclick="clearFormatting()" title="Очистить формат">🗑️</button>
-                            </div>
-                            <span class="toolbar-divider"></span>
-                            <div class="toolbar-group">
-                                ${emojiList.map(emoji => `<button type="button" class="toolbar-btn-emoji" onclick="insertEmoji('${emoji}')" title="${emoji}">${emoji}</button>`).join('')}
-                            </div>
+                        <div class="editor-toolbar" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 8px; background: #0d1016; border-radius: 12px 12px 0 0;">
+                            <button type="button" class="toolbar-btn" onclick="applyFormat('bold')"><b>B</b></button>
+                            <button type="button" class="toolbar-btn" onclick="applyFormat('italic')"><i>I</i></button>
+                            <button type="button" class="toolbar-btn" onclick="applyFormat('underline')"><u>U</u></button>
+                            <button type="button" class="toolbar-btn" onclick="insertLink()">🔗</button>
+                            <button type="button" class="toolbar-btn" onclick="insertImage()">🖼️</button>
+                            <button type="button" class="toolbar-btn" onclick="insertUnorderedList()">• 📋</button>
+                            <button type="button" class="toolbar-btn" onclick="insertOrderedList()">1. 📝</button>
+                            <button type="button" class="toolbar-btn" onclick="insertQuote()">💬</button>
+                            <button type="button" class="toolbar-btn" onclick="insertCode()">&lt;/&gt;</button>
+                            <button type="button" class="toolbar-btn" onclick="clearFormatting()">🗑️</button>
                         </div>
-                        <div id="editorContainer" style="border: 1px solid #1e2430; border-radius: 16px; background: #0d1016; min-height: 550px;">
-                            <div id="articleContent" contenteditable="true" style="min-height: 550px; padding: 20px; color: #e2e8f0; font-size: 15px; line-height: 1.7; outline: none; overflow-y: auto;">${article.content || ''}</div>
+                        <div id="editorContainer" style="border: 1px solid #1e2430; border-radius: 0 0 16px 16px; background: #0d1016; min-height: 400px;">
+                            <div id="articleContent" contenteditable="true" style="min-height: 400px; padding: 20px; color: #e2e8f0; font-size: 15px; line-height: 1.7; outline: none; overflow-y: auto;">${article.content || ''}</div>
                         </div>
                     </div>
                 </div>
                 <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 20px 28px; border-top: 1px solid rgba(99,102,241,0.1); background: #0f1222;">
-                    <button class="btn-primary" onclick="saveArticle()">💾 Сохранить изменения</button>
+                    <button class="btn-primary" onclick="saveArticle()">💾 Сохранить</button>
                     <button class="btn-delete" onclick="deleteArticleWithClose(${articleId})">
-                        <i class="fas fa-trash-alt"></i> Удалить статью
+                        <i class="fas fa-trash-alt"></i> Удалить
                     </button>
                     <button class="btn-secondary" onclick="closeArticleEditModal()">Отмена</button>
                 </div>
@@ -1314,13 +1135,6 @@ async function deleteArticle(articleId) {
     }
 }
 
-function quickCreateArticle() {
-    const select = document.getElementById('quickCategorySelect');
-    if (select && select.value) {
-        openCreateArticleModal(parseInt(select.value));
-    }
-}
-
 // ============================================
 // ЭКСПОРТ
 // ============================================
@@ -1348,10 +1162,6 @@ window.createCategoryFromPresetAndClose = createCategoryFromPresetAndClose;
 window.createAllCategoriesWithProgress = createAllCategoriesWithProgress;
 window.showAddPresetModal = showAddPresetModal;
 window.closePresetModal = closePresetModal;
-window.quickCreateArticle = quickCreateArticle;
-window.isCategoryExists = isCategoryExists;
-window.canManageCategories = canManageCategories;
-window.canManageArticles = canManageArticles;
 
 // Экспорт функций редактора
 window.applyFormat = applyFormat;
@@ -1375,3 +1185,5 @@ window.insertCard = insertCard;
 window.insertDivider = insertDivider;
 window.insertEmoji = insertEmoji;
 window.clearFormatting = clearFormatting;
+
+console.log('✅ knowledge.js загружен (исправленная версия)');

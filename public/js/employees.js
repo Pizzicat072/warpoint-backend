@@ -1,4 +1,4 @@
-// public/js/employees.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/employees.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 (function() {
     'use strict';
@@ -10,10 +10,10 @@
     let pendingAvatarBase64 = null;
     
     // ============================================
-    // ВРЕМЯ ТОБОЛЬСК
+    // 🔥 ИСПРАВЛЕНО: getTobolskNow без рекурсии
     // ============================================
     function getTobolskNow() {
-        if (typeof window.getTobolskNow === 'function') {
+        if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
             return window.getTobolskNow();
         }
         const now = new Date();
@@ -131,11 +131,14 @@
     }
     
     // ============================================
-    // РЕНДЕР КАРТОЧЕК (ПРЕМИУМ ДИЗАЙН)
+    // РЕНДЕР КАРТОЧЕК (С ПРОВЕРКОЙ DOM)
     // ============================================
     function renderEmployees() {
         const grid = document.getElementById('employeesGrid');
-        if (!grid) return;
+        if (!grid) {
+            console.warn('⚠️ employeesGrid не найден, ждём...');
+            return;
+        }
         
         const employees = getEmployees();
         const profiles = getProfiles();
@@ -199,13 +202,11 @@
                 <div class="emp-card ${isCurrent ? 'current-user' : ''}" onclick="openProfile('${emp}')">
                     <div class="emp-card-glow"></div>
                     
-                    <!-- РЕЙТИНГ В ПРАВОМ ВЕРХНЕМ УГЛУ -->
                     <div class="emp-rating-corner ${ratingClass}">
                         <i class="fas fa-star"></i>
                         <span>${ratingPrefix}${rating}</span>
                     </div>
                     
-                    <!-- Верх карточки -->
                     <div class="emp-card-top">
                         <div class="emp-avatar">
                             ${avatarHtml}
@@ -223,7 +224,6 @@
                         </div>
                     </div>
                     
-                    <!-- Статусы -->
                     <div class="emp-status-row">
                         ${!isDirector ? `
                             <div class="emp-status">
@@ -237,7 +237,6 @@
                         </div>
                     </div>
                     
-                    <!-- Статистика -->
                     <div class="emp-stats">
                         <div class="emp-stat-item">
                             <div class="emp-stat-icon">✅</div>
@@ -269,7 +268,6 @@
                         </div>
                     </div>
                     
-                    <!-- Футер -->
                     <div class="emp-card-footer">
                         <span class="emp-active-status">
                             <i class="fas fa-circle" style="font-size: 6px; margin-right: 6px; color: #a78bfa;"></i>
@@ -283,8 +281,9 @@
             `;
         }).join('');
     }
+    
     // ============================================
-    // МОДАЛКА ПРОФИЛЯ (ПОЛНЫЙ ПРЕМИУМ ДИЗАЙН)
+    // МОДАЛКА ПРОФИЛЯ (С ПРОВЕРКОЙ DOM)
     // ============================================
     function openProfile(employeeName) {
         currentProfileEmployee = employeeName;
@@ -334,7 +333,10 @@
         const ratingColor = rating >= 0 ? '#10b981' : '#ef4444';
         
         const modalContent = document.getElementById('profileModalContent');
-        if (!modalContent) return;
+        if (!modalContent) {
+            console.warn('⚠️ profileModalContent не найден');
+            return;
+        }
         
         modalContent.innerHTML = `
             <div class="emp-modal-header">
@@ -350,7 +352,6 @@
                 <button class="emp-modal-close" onclick="closeProfileModal()">&times;</button>
             </div>
             
-            <!-- ТАБЫ -->
             <div class="emp-profile-tabs">
                 <button class="emp-profile-tab active" data-tab="main" onclick="switchProfileTab('main')">
                     <i class="fas fa-user"></i> Основное
@@ -372,105 +373,40 @@
             </div>
             
             <div class="emp-modal-body">
-                <!-- ТАБ: ОСНОВНОЕ -->
                 <div id="profileTabMain" class="emp-profile-tab-content active">
-                    <!-- Контактная информация -->
                     <div class="emp-info-grid">
-                        ${p.phone ? `
-                            <div class="emp-info-card">
-                                <i class="fas fa-phone"></i>
-                                <span>${p.phone}</span>
-                            </div>
-                        ` : ''}
-                        ${p.birthday ? `
-                            <div class="emp-info-card">
-                                <i class="fas fa-calendar"></i>
-                                <span>${new Date(p.birthday).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
-                            </div>
-                        ` : ''}
+                        ${p.phone ? `<div class="emp-info-card"><i class="fas fa-phone"></i><span>${p.phone}</span></div>` : ''}
+                        ${p.birthday ? `<div class="emp-info-card"><i class="fas fa-calendar"></i><span>${new Date(p.birthday).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>` : ''}
                     </div>
                     
-                    <!-- Статистика -->
                     <div class="emp-stats-grid">
-                        <div class="emp-stat-card">
-                            <div class="emp-stat-icon">💰</div>
-                            <div class="emp-stat-value">${p.coins || 0}</div>
-                            <div class="emp-stat-label">WP</div>
-                        </div>
-                        <div class="emp-stat-card">
-                            <div class="emp-stat-icon">⭐</div>
-                            <div class="emp-stat-value" style="color: ${ratingColor};">${ratingPrefix}${rating}</div>
-                            <div class="emp-stat-label">Рейтинг</div>
-                        </div>
+                        <div class="emp-stat-card"><div class="emp-stat-icon">💰</div><div class="emp-stat-value">${p.coins || 0}</div><div class="emp-stat-label">WP</div></div>
+                        <div class="emp-stat-card"><div class="emp-stat-icon">⭐</div><div class="emp-stat-value" style="color: ${ratingColor};">${ratingPrefix}${rating}</div><div class="emp-stat-label">Рейтинг</div></div>
                         ${!isDirector ? `
-                            <div class="emp-stat-card">
-                                <div class="emp-stat-icon">📅</div>
-                                <div class="emp-stat-value">${completedShifts}</div>
-                                <div class="emp-stat-label">Смен</div>
-                            </div>
-                            <div class="emp-stat-card">
-                                <div class="emp-stat-icon">⏱️</div>
-                                <div class="emp-stat-value">${p.hours || 0}ч</div>
-                                <div class="emp-stat-label">Часов</div>
-                            </div>
+                            <div class="emp-stat-card"><div class="emp-stat-icon">📅</div><div class="emp-stat-value">${completedShifts}</div><div class="emp-stat-label">Смен</div></div>
+                            <div class="emp-stat-card"><div class="emp-stat-icon">⏱️</div><div class="emp-stat-value">${p.hours || 0}ч</div><div class="emp-stat-label">Часов</div></div>
                         ` : `
-                            <div class="emp-stat-card">
-                                <div class="emp-stat-icon">🔥</div>
-                                <div class="emp-stat-value">${p.bonus_streak || 1}</div>
-                                <div class="emp-stat-label">Стрик</div>
-                            </div>
-                            <div class="emp-stat-card">
-                                <div class="emp-stat-icon">🏆</div>
-                                <div class="emp-stat-value">${achievements.length}</div>
-                                <div class="emp-stat-label">Достижений</div>
-                            </div>
+                            <div class="emp-stat-card"><div class="emp-stat-icon">🔥</div><div class="emp-stat-value">${p.bonus_streak || 1}</div><div class="emp-stat-label">Стрик</div></div>
+                            <div class="emp-stat-card"><div class="emp-stat-icon">🏆</div><div class="emp-stat-value">${achievements.length}</div><div class="emp-stat-label">Достижений</div></div>
                         `}
                     </div>
                     
-                    <!-- Статусы -->
                     <div class="emp-status-cards">
-                        ${!isDirector ? `
-                            <div class="emp-status-card ${onShift ? 'active' : ''}">
-                                <span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span>
-                                <span>${onShift ? 'На смене' : 'Не на смене'}</span>
-                            </div>
-                        ` : ''}
-                        <div class="emp-status-card ${online ? 'active' : ''}">
-                            <span class="emp-status-dot ${online ? 'online' : 'offline'}"></span>
-                            <span>${online ? 'В сети' : 'Не в сети'}</span>
-                        </div>
-                        <div class="emp-status-card active">
-                            <i class="fas fa-tag"></i>
-                            <span>${activeStatus}</span>
-                        </div>
+                        ${!isDirector ? `<div class="emp-status-card ${onShift ? 'active' : ''}"><span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span><span>${onShift ? 'На смене' : 'Не на смене'}</span></div>` : ''}
+                        <div class="emp-status-card ${online ? 'active' : ''}"><span class="emp-status-dot ${online ? 'online' : 'offline'}"></span><span>${online ? 'В сети' : 'Не в сети'}</span></div>
+                        <div class="emp-status-card active"><i class="fas fa-tag"></i><span>${activeStatus}</span></div>
                     </div>
                     
                     ${canEdit ? `
                         <div class="emp-action-buttons">
-                            ${isOwnProfile ? `
-                                <button class="emp-btn-secondary" onclick="closeProfileModal(); openAvatarModal()">
-                                    <i class="fas fa-camera"></i> Сменить аватар
-                                </button>
-                            ` : ''}
-                            <button class="emp-btn-secondary" onclick="toggleProfileEdit()">
-                                <i class="fas fa-edit"></i> Редактировать
-                            </button>
+                            ${isOwnProfile ? `<button class="emp-btn-secondary" onclick="closeProfileModal(); openAvatarModal()"><i class="fas fa-camera"></i> Сменить аватар</button>` : ''}
+                            <button class="emp-btn-secondary" onclick="toggleProfileEdit()"><i class="fas fa-edit"></i> Редактировать</button>
                         </div>
                         <div id="profileEditFields" class="emp-edit-fields" style="display: none;">
-                            <div class="emp-form-group">
-                                <label><i class="fas fa-user"></i> Имя</label>
-                                <input type="text" id="editName" value="${employeeName}">
-                            </div>
-                            <div class="emp-form-group">
-                                <label><i class="fas fa-phone"></i> Телефон</label>
-                                <input type="tel" id="editPhone" value="${p.phone || ''}" placeholder="+7 (___) ___-__-__">
-                            </div>
-                            <div class="emp-form-group">
-                                <label><i class="fas fa-calendar"></i> Дата рождения</label>
-                                <input type="date" id="editBirthday" value="${p.birthday || ''}">
-                            </div>
-                            <div class="emp-form-group">
-                                <label><i class="fas fa-tag"></i> Статус</label>
+                            <div class="emp-form-group"><label><i class="fas fa-user"></i> Имя</label><input type="text" id="editName" value="${employeeName}"></div>
+                            <div class="emp-form-group"><label><i class="fas fa-phone"></i> Телефон</label><input type="tel" id="editPhone" value="${p.phone || ''}" placeholder="+7 (___) ___-__-__"></div>
+                            <div class="emp-form-group"><label><i class="fas fa-calendar"></i> Дата рождения</label><input type="date" id="editBirthday" value="${p.birthday || ''}"></div>
+                            <div class="emp-form-group"><label><i class="fas fa-tag"></i> Статус</label>
                                 <select id="editStatus">
                                     <option value="💼 Работаю" ${p.status === '💼 Работаю' ? 'selected' : ''}>💼 Работаю</option>
                                     <option value="☕ Перерыв" ${p.status === '☕ Перерыв' ? 'selected' : ''}>☕ Перерыв</option>
@@ -487,74 +423,39 @@
                     ` : ''}
                 </div>
                 
-                <!-- ТАБ: СТАТИСТИКА -->
                 <div id="profileTabStats" class="emp-profile-tab-content">
                     <div class="emp-section">
                         <h4><i class="fas fa-tasks"></i> Задачи</h4>
                         <div class="emp-stats-row">
-                            <div class="emp-stat-item-detailed">
-                                <span class="label">Всего</span>
-                                <span class="value">${tasksTotal}</span>
-                            </div>
-                            <div class="emp-stat-item-detailed success">
-                                <span class="label">✅ Выполнено</span>
-                                <span class="value">${tasksDone}</span>
-                            </div>
-                            <div class="emp-stat-item-detailed info">
-                                <span class="label">⏳ В процессе</span>
-                                <span class="value">${tasksInProgress}</span>
-                            </div>
-                            <div class="emp-stat-item-detailed danger">
-                                <span class="label">⚠️ Просрочено</span>
-                                <span class="value">${tasksOverdue}</span>
-                            </div>
+                            <div class="emp-stat-item-detailed"><span class="label">Всего</span><span class="value">${tasksTotal}</span></div>
+                            <div class="emp-stat-item-detailed success"><span class="label">✅ Выполнено</span><span class="value">${tasksDone}</span></div>
+                            <div class="emp-stat-item-detailed info"><span class="label">⏳ В процессе</span><span class="value">${tasksInProgress}</span></div>
+                            <div class="emp-stat-item-detailed danger"><span class="label">⚠️ Просрочено</span><span class="value">${tasksOverdue}</span></div>
                         </div>
-                        ${tasksTotal > 0 ? `
-                            <div class="emp-progress-bar">
-                                <div class="emp-progress-fill" style="width: ${(tasksDone / tasksTotal) * 100}%;"></div>
-                            </div>
-                        ` : ''}
+                        ${tasksTotal > 0 ? `<div class="emp-progress-bar"><div class="emp-progress-fill" style="width: ${(tasksDone / tasksTotal) * 100}%;"></div></div>` : ''}
                     </div>
                     
                     ${!isDirector ? `
                         <div class="emp-section">
                             <h4><i class="fas fa-exclamation-triangle"></i> Штрафы</h4>
                             <div class="emp-stats-row">
-                                <div class="emp-stat-item-detailed">
-                                    <span class="label">Количество</span>
-                                    <span class="value">${finesCount}</span>
-                                </div>
-                                <div class="emp-stat-item-detailed warning">
-                                    <span class="label">Сумма (₽)</span>
-                                    <span class="value">${finesTotal} ₽</span>
-                                </div>
-                                <div class="emp-stat-item-detailed warning">
-                                    <span class="label">Списано WP</span>
-                                    <span class="value">${finesCoinsTotal} WP</span>
-                                </div>
+                                <div class="emp-stat-item-detailed"><span class="label">Количество</span><span class="value">${finesCount}</span></div>
+                                <div class="emp-stat-item-detailed warning"><span class="label">Сумма (₽)</span><span class="value">${finesTotal} ₽</span></div>
+                                <div class="emp-stat-item-detailed warning"><span class="label">Списано WP</span><span class="value">${finesCoinsTotal} WP</span></div>
                             </div>
                         </div>
-                        
                         <div class="emp-section">
                             <h4><i class="fas fa-clock"></i> Смены и часы</h4>
                             <div class="emp-stats-row">
-                                <div class="emp-stat-item-detailed">
-                                    <span class="label">Отработано смен</span>
-                                    <span class="value">${completedShifts}</span>
-                                </div>
-                                <div class="emp-stat-item-detailed">
-                                    <span class="label">Отработано часов</span>
-                                    <span class="value">${p.hours || 0} ч</span>
-                                </div>
+                                <div class="emp-stat-item-detailed"><span class="label">Отработано смен</span><span class="value">${completedShifts}</span></div>
+                                <div class="emp-stat-item-detailed"><span class="label">Отработано часов</span><span class="value">${p.hours || 0} ч</span></div>
                             </div>
                         </div>
                     ` : ''}
                 </div>
-                <!-- ТАБ: ДОСТИЖЕНИЯ -->
+                
                 <div id="profileTabAchievements" class="emp-profile-tab-content">
-                    <div class="emp-section-header">
-                        <h4>🏆 Достижения (${achievements.length})</h4>
-                    </div>
+                    <div class="emp-section-header"><h4>🏆 Достижения (${achievements.length})</h4></div>
                     ${achievements.length > 0 ? `
                         <div class="emp-achievements-list">
                             ${achievements.map(a => `
@@ -567,19 +468,11 @@
                                 </div>
                             `).join('')}
                         </div>
-                    ` : `
-                        <div class="emp-empty-section">
-                            <i class="fas fa-trophy"></i>
-                            <p>Пока нет достижений</p>
-                        </div>
-                    `}
+                    ` : `<div class="emp-empty-section"><i class="fas fa-trophy"></i><p>Пока нет достижений</p></div>`}
                 </div>
                 
-                <!-- ТАБ: ПОДАРКИ -->
                 <div id="profileTabGifts" class="emp-profile-tab-content">
-                    <div class="emp-section-header">
-                        <h4>🎁 Полученные подарки (${giftsReceived})</h4>
-                    </div>
+                    <div class="emp-section-header"><h4>🎁 Полученные подарки (${giftsReceived})</h4></div>
                     ${Object.keys(giftCounts).length > 0 ? `
                         <div class="emp-gifts-grid">
                             ${Object.entries(giftCounts).map(([id, count]) => `
@@ -590,32 +483,17 @@
                                 </div>
                             `).join('')}
                         </div>
-                    ` : `
-                        <div class="emp-empty-section">
-                            <i class="fas fa-gift"></i>
-                            <p>Пока нет подарков</p>
-                        </div>
-                    `}
+                    ` : `<div class="emp-empty-section"><i class="fas fa-gift"></i><p>Пока нет подарков</p></div>`}
                 </div>
                 
-                <!-- ТАБ: ДЕЙСТВИЯ (ДИРЕКТОР) -->
                 ${currentUserRole === 'director' ? `
                     <div id="profileTabActions" class="emp-profile-tab-content">
                         <div class="emp-section">
                             <h4><i class="fas fa-gift"></i> Выдать бонус</h4>
-                            <div class="emp-form-group">
-                                <label>Монеты WP</label>
-                                <input type="number" id="bonusCoins" value="0">
-                            </div>
-                            <div class="emp-form-group">
-                                <label>Рейтинг</label>
-                                <input type="number" id="bonusRating" value="0">
-                            </div>
-                            <button class="emp-btn-primary" onclick="giveBonus('${employeeName}')">
-                                <i class="fas fa-check"></i> Выдать
-                            </button>
+                            <div class="emp-form-group"><label>Монеты WP</label><input type="number" id="bonusCoins" value="0"></div>
+                            <div class="emp-form-group"><label>Рейтинг</label><input type="number" id="bonusRating" value="0"></div>
+                            <button class="emp-btn-primary" onclick="giveBonus('${employeeName}')"><i class="fas fa-check"></i> Выдать</button>
                         </div>
-                        
                         ${!isDirector ? `
                             <div class="emp-section">
                                 <h4><i class="fas fa-user-tag"></i> Сменить должность</h4>
@@ -624,17 +502,12 @@
                                     <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>⚙️ Администратор</option>
                                     <option value="manager" ${p.role === 'manager' ? 'selected' : ''}>📋 Управляющий</option>
                                 </select>
-                                <button class="emp-btn-primary" onclick="changeRole('${employeeName}')" style="margin-top: 12px;">
-                                    Сменить
-                                </button>
+                                <button class="emp-btn-primary" onclick="changeRole('${employeeName}')" style="margin-top: 12px;">Сменить</button>
                             </div>
-                            
                             <div class="emp-section danger">
                                 <h4><i class="fas fa-trash-alt"></i> Уволить</h4>
                                 <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Это действие необратимо</p>
-                                <button class="emp-btn-danger" onclick="deleteEmployee('${employeeName}')">
-                                    Уволить сотрудника
-                                </button>
+                                <button class="emp-btn-danger" onclick="deleteEmployee('${employeeName}')">Уволить сотрудника</button>
                             </div>
                         ` : ''}
                     </div>
@@ -645,7 +518,6 @@
         document.getElementById('profileModal').classList.add('active');
     }
     
-    // Переключение табов
     window.switchProfileTab = function(tabName) {
         document.querySelectorAll('.emp-profile-tab').forEach(btn => {
             btn.classList.remove('active');
@@ -654,7 +526,8 @@
         document.querySelectorAll('.emp-profile-tab-content').forEach(content => {
             content.classList.remove('active');
         });
-        document.getElementById(`profileTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`).classList.add('active');
+        const activeContent = document.getElementById(`profileTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+        if (activeContent) activeContent.classList.add('active');
     };
     
     function closeProfileModal() {
@@ -664,9 +537,7 @@
     
     function toggleProfileEdit() {
         const editFields = document.getElementById('profileEditFields');
-        if (editFields) {
-            editFields.style.display = editFields.style.display === 'none' ? 'block' : 'none';
-        }
+        if (editFields) editFields.style.display = editFields.style.display === 'none' ? 'block' : 'none';
     }
     
     async function saveProfileChanges() {
@@ -701,17 +572,13 @@
     function cancelProfileEdit() {
         toggleProfileEdit();
     }
-    // ============================================
-    // АВАТАР
-    // ============================================
+    
     function openAvatarModal() {
         const grid = document.getElementById('avatarGrid');
         if (!grid) return;
         
         const avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑'];
-        grid.innerHTML = avatars.map(a => 
-            `<div class="emp-avatar-item" onclick="selectAvatar('${a}')">${a}</div>`
-        ).join('');
+        grid.innerHTML = avatars.map(a => `<div class="emp-avatar-item" onclick="selectAvatar('${a}')">${a}</div>`).join('');
         
         document.getElementById('avatarModal').classList.add('active');
     }
@@ -779,14 +646,9 @@
     }
     
     function openMyProfile() {
-        if (window.app?.currentUser) {
-            openProfile(window.app.currentUser);
-        }
+        if (window.app?.currentUser) openProfile(window.app.currentUser);
     }
     
-    // ============================================
-    // СОЗДАНИЕ СОТРУДНИКА
-    // ============================================
     function openCreateEmployeeModal() {
         document.getElementById('createEmployeeModal').classList.add('active');
         selectRole('operator');
@@ -836,9 +698,6 @@
         }
     }
     
-    // ============================================
-    // ДЕЙСТВИЯ ДИРЕКТОРА
-    // ============================================
     async function giveBonus(employeeName) {
         const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
         const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
@@ -854,9 +713,7 @@
             closeProfileModal();
             await loadEmployees();
             renderEmployees();
-            if (typeof refreshAllBalanceDisplays === 'function') {
-                refreshAllBalanceDisplays();
-            }
+            if (typeof refreshAllBalanceDisplays === 'function') refreshAllBalanceDisplays();
         } else {
             showNotif('❌ Ошибка', 'error');
         }
@@ -892,10 +749,18 @@
     }
     
     // ============================================
-    // ИНИЦИАЛИЗАЦИЯ
+    // ИНИЦИАЛИЗАЦИЯ (С ОЖИДАНИЕМ DOM)
     // ============================================
     function initEmployees() {
-        console.log('👥 Инициализация команды (премиум дизайн)');
+        console.log('👥 Инициализация команды');
+        
+        const grid = document.getElementById('employeesGrid');
+        if (!grid) {
+            console.warn('⚠️ employeesGrid не найден, ждём...');
+            setTimeout(initEmployees, 100);
+            return;
+        }
+        
         renderEmployees();
         
         const createBtn = document.getElementById('createEmployeeBtn');

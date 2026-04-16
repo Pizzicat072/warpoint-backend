@@ -1,13 +1,36 @@
-// public/js/tasks.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ БЕЗ ЗВУКОВ
+// public/js/tasks.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let tasksData = [];
 let subtasksTemp = [];
 let attachmentsTemp = [];
 let selectedExecutors = [];
 let showArchived = false;
+let isLoadingTasks = false;
+let isSavingTask = false;
 
+const fineTypes = {
+    late: { name: 'Опоздание', defaultAmount: 0 },
+    task: { name: 'Невыполнение задачи', defaultAmount: 0 },
+    rudeness: { name: 'Грубость', defaultAmount: 0 },
+    damage: { name: 'Повреждение инвентаря', defaultAmount: 0 },
+    phone: { name: 'Телефон на смене', defaultAmount: 0 },
+    task_overdue: { name: 'Просрочка задачи', defaultAmount: 0 },
+    other: { name: 'Другое', defaultAmount: 0 }
+};
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// ============================================
 function initTasks() {
     console.log('📋 Инициализация задач');
+    
+    const container = document.getElementById('tasksList');
+    if (!container) {
+        console.warn('⚠️ tasksList не найден, ждём...');
+        setTimeout(initTasks, 100);
+        return;
+    }
+    
     loadTasksData();
     populateTaskSelects();
     
@@ -40,7 +63,9 @@ function initTasks() {
 }
 
 function setTaskPriority(priority) {
-    document.getElementById('taskPriority').value = priority;
+    const priorityInput = document.getElementById('taskPriority');
+    if (priorityInput) priorityInput.value = priority;
+    
     document.querySelectorAll('.priority-btn').forEach(btn => {
         btn.classList.remove('active');
         if (btn.dataset.priority === priority) {
@@ -88,9 +113,7 @@ function updateSelectedExecutorsDisplay() {
 
 function toggleExecutorSelection(emp, checkbox) {
     if (checkbox.checked) {
-        if (!selectedExecutors.includes(emp)) {
-            selectedExecutors.push(emp);
-        }
+        if (!selectedExecutors.includes(emp)) selectedExecutors.push(emp);
     } else {
         const index = selectedExecutors.indexOf(emp);
         if (index > -1) selectedExecutors.splice(index, 1);
@@ -101,12 +124,19 @@ function toggleExecutorSelection(emp, checkbox) {
 function removeSelectedExecutor(emp) {
     const index = selectedExecutors.indexOf(emp);
     if (index > -1) selectedExecutors.splice(index, 1);
+    
     const checkbox = document.querySelector(`#multiSelectOptions input[value="${escapeHtml(emp)}"]`);
     if (checkbox) checkbox.checked = false;
     updateSelectedExecutorsDisplay();
 }
 
+// ============================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================
 async function loadTasksData() {
+    if (isLoadingTasks) return;
+    isLoadingTasks = true;
+    
     try {
         const data = await apiCall('/tasks');
         if (data && Array.isArray(data)) {
@@ -119,6 +149,8 @@ async function loadTasksData() {
     } catch (err) {
         console.error('Ошибка загрузки задач:', err);
         showNotif('Ошибка загрузки задач', 'error');
+    } finally {
+        isLoadingTasks = false;
     }
 }
 
@@ -130,18 +162,14 @@ async function checkOverdueTasksAndCreateFines() {
     for (const task of tasksData) {
         if (!task.is_archived && task.status !== 'completed' && task.status !== 'failed' && task.status !== 'overdue') {
             if (task.deadline && task.deadline < today) {
-                const priorityNames = {
-                    low: 'Низкий',
-                    medium: 'Средний',
-                    high: 'Высокий'
-                };
+                const priorityNames = { low: 'Низкий', medium: 'Средний', high: 'Высокий' };
                 
                 let executors = [];
                 if (task.is_group_task === 'operators') {
-                    const operators = window.app.employees?.filter(emp => window.app.profiles[emp]?.role === 'operator') || [];
+                    const operators = window.app?.employees?.filter(emp => window.app.profiles[emp]?.role === 'operator') || [];
                     executors = operators;
                 } else if (task.is_group_task === 'admins') {
-                    const admins = window.app.employees?.filter(emp => window.app.profiles[emp]?.role === 'admin') || [];
+                    const admins = window.app?.employees?.filter(emp => window.app.profiles[emp]?.role === 'admin') || [];
                     executors = admins;
                 } else if (task.executor) {
                     executors = [task.executor];
@@ -173,7 +201,7 @@ async function checkOverdueTasksAndCreateFines() {
                     const response = await apiCall('/fines', 'POST', { fine: fineData });
                     if (response && response.success) {
                         finesCreated++;
-                        console.log(`⚠️ Создано нарушение для ${executor} за просрочку задачи "${task.name}", дедлайн: ${deadlineFormatted}`);
+                        console.log(`⚠️ Создано нарушение для ${executor} за просрочку задачи "${task.name}"`);
                     }
                 }
                 
@@ -245,10 +273,10 @@ function updateTasksStats() {
 }
 
 function populateTaskSelects() {
-    const employees = window.app.employees || [];
-    const employeesWithRoles = window.app.profiles || {};
-    const currentUserRole = window.app.currentUserRole;
-    const currentUser = window.app.currentUser;
+    const employees = window.app?.employees || [];
+    const employeesWithRoles = window.app?.profiles || {};
+    const currentUserRole = window.app?.currentUserRole;
+    const currentUser = window.app?.currentUser;
     
     const canSelectAuthor = currentUserRole === 'director' || currentUserRole === 'manager';
     
@@ -265,12 +293,8 @@ function populateTaskSelects() {
     const director = employees.find(emp => employeesWithRoles[emp]?.role === 'director');
     
     let executorOptions = '<optgroup label="👥 ГРУППОВЫЕ ЗАДАЧИ">';
-    if (operators.length > 0) {
-        executorOptions += '<option value="__GROUP_OPERATORS__">📢 Задача для операторов</option>';
-    }
-    if (admins.length > 0) {
-        executorOptions += '<option value="__GROUP_ADMINS__">⚙️ Задача для администраторов</option>';
-    }
+    if (operators.length > 0) executorOptions += '<option value="__GROUP_OPERATORS__">📢 Задача для операторов</option>';
+    if (admins.length > 0) executorOptions += '<option value="__GROUP_ADMINS__">⚙️ Задача для администраторов</option>';
     executorOptions += '<option value="__MULTI_SELECT__">✅ Выбрать нескольких сотрудников</option>';
     executorOptions += '</optgroup>';
     
@@ -342,6 +366,9 @@ function populateTaskSelects() {
     }
 }
 
+// ============================================
+// РЕНДЕР ТАБЛИЦЫ
+// ============================================
 function renderTasksTable() {
     const container = document.getElementById('tasksList');
     if (!container) return;
@@ -377,8 +404,8 @@ function renderTasksTable() {
         return;
     }
     
-    const currentUserRole = window.app.currentUserRole;
-    const currentUser = window.app.currentUser;
+    const currentUserRole = window.app?.currentUserRole;
+    const currentUser = window.app?.currentUser;
     const canEditAll = currentUserRole === 'director' || currentUserRole === 'manager';
     
     let html = '';
@@ -490,11 +517,18 @@ function renderTasksTable() {
 
 function toggleTaskExpand(taskId) {
     const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
-    if (card) {
-        card.classList.toggle('expanded');
-    }
+    if (card) card.classList.toggle('expanded');
 }
 
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU');
+}
+
+// ============================================
+// ДЕЙСТВИЯ С ЗАДАЧАМИ
+// ============================================
 async function markTaskComplete(taskId) {
     const task = tasksData.find(t => t.id === taskId);
     if (!task) return;
@@ -553,17 +587,19 @@ async function deleteTask(taskId) {
     const task = tasksData.find(t => t.id === taskId);
     if (!task) return;
     
-    if (!confirm(`Вы уверены, что хотите НАВСЕГДА удалить задачу "${task.name}"? Это действие необратимо.`)) return;
+    if (!confirm(`Вы уверены, что хотите НАВСЕГДА удалить задачу "${task.name}"?`)) return;
     
     const response = await apiCall(`/tasks/${taskId}`, 'DELETE');
     if (response && response.success) {
-        showNotif('🗑️ Задача удалена навсегда', 'success');
+        showNotif('🗑️ Задача удалена', 'success');
         await loadTasksData();
     } else {
         showNotif('Ошибка при удалении', 'error');
     }
 }
-
+// ============================================
+// ГРУППОВЫЕ ЗАДАЧИ
+// ============================================
 function openGroupTaskModal(taskId) {
     const task = tasksData.find(t => t.id === taskId);
     if (!task) return;
@@ -605,7 +641,7 @@ function openGroupTaskModal(taskId) {
                     </div>
                 </div>
                 <div style="padding: 20px; border-top: 1px solid rgba(99,102,241,0.15); display: flex; gap: 12px; justify-content: flex-end;">
-                    <button class="btn-primary" onclick="updateGroupTaskProgress(${taskId})">💾 Сохранить изменения</button>
+                    <button class="btn-primary" onclick="updateGroupTaskProgress(${taskId})">💾 Сохранить</button>
                     <button class="btn-secondary" onclick="closeGroupTaskModal()">❌ Закрыть</button>
                 </div>
             </div>
@@ -627,15 +663,18 @@ async function updateGroupTaskProgress(taskId) {
     const response = await apiCall(`/tasks/${taskId}/group-progress`, 'PUT', { completed_members: completedMembers });
     
     if (response && response.success) {
-        showNotif('✅ Прогресс групповой задачи обновлён', 'success');
+        showNotif('✅ Прогресс обновлён', 'success');
         closeGroupTaskModal();
         await loadTasksData();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } else {
-        showNotif('❌ Ошибка при обновлении прогресса', 'error');
+        showNotif('❌ Ошибка при обновлении', 'error');
     }
 }
 
+// ============================================
+// МОДАЛКА ЗАДАЧИ
+// ============================================
 function openTaskModal(taskId = null) {
     subtasksTemp = [];
     attachmentsTemp = [];
@@ -665,7 +704,7 @@ function openTaskModal(taskId = null) {
     document.querySelectorAll('#multiSelectOptions input[type="checkbox"]').forEach(cb => cb.checked = false);
     updateSelectedExecutorsDisplay();
     
-    const currentUserRole = window.app.currentUserRole;
+    const currentUserRole = window.app?.currentUserRole;
     const canSelectAuthor = currentUserRole === 'director' || currentUserRole === 'manager';
     
     if (taskId) {
@@ -716,7 +755,7 @@ function openTaskModal(taskId = null) {
             authorField.disabled = false;
             authorField.value = '';
         } else {
-            authorField.innerHTML = `<option value="${escapeHtml(window.app.currentUser)}">${escapeHtml(window.app.currentUser)}</option>`;
+            authorField.innerHTML = `<option value="${escapeHtml(window.app?.currentUser)}">${escapeHtml(window.app?.currentUser)}</option>`;
             authorField.disabled = true;
             authorHint.style.display = 'block';
         }
@@ -813,7 +852,12 @@ function renderAttachmentsList() {
     `).join('');
 }
 
+// ============================================
+// СОХРАНЕНИЕ ЗАДАЧИ
+// ============================================
 async function saveTask() {
+    if (isSavingTask) return;
+    
     const taskId = document.getElementById('taskId')?.value;
     const name = document.getElementById('taskName')?.value.trim();
     let author = document.getElementById('taskAuthor')?.value;
@@ -825,13 +869,28 @@ async function saveTask() {
     
     if (!name) { showNotif('Введите название задачи', 'error'); return; }
     if (!executor) { showNotif('Выберите исполнителя', 'error'); return; }
-    if (executor === '__MULTI_SELECT__' && selectedExecutors.length === 0) { showNotif('Выберите хотя бы одного сотрудника', 'error'); return; }
+    if (executor === '__MULTI_SELECT__' && selectedExecutors.length === 0) { 
+        showNotif('Выберите хотя бы одного сотрудника', 'error'); 
+        return; 
+    }
+    
+    // 🔥 ВАЛИДАЦИЯ: Дедлайн не в прошлом
+    if (deadline) {
+        const today = new Date().toISOString().split('T')[0];
+        if (deadline < today) {
+            showNotif('❌ Дедлайн не может быть в прошлом', 'error');
+            return;
+        }
+    }
     
     const authorField = document.getElementById('taskAuthor');
-    if (authorField && authorField.disabled && !author) author = window.app.currentUser;
+    if (authorField && authorField.disabled && !author) {
+        author = window.app?.currentUser;
+    }
     
+    isSavingTask = true;
     const saveBtn = document.querySelector('#taskModal .task-btn-save');
-    const originalText = saveBtn ? saveBtn.innerHTML : 'Сохранить';
+    const originalText = saveBtn?.innerHTML || 'Сохранить';
     if (saveBtn) {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
         saveBtn.disabled = true;
@@ -842,14 +901,14 @@ async function saveTask() {
         let taskData;
         
         if (isGroupTask) {
-            const employees = window.app.employees || [];
-            const profiles = window.app.profiles || {};
+            const employees = window.app?.employees || [];
+            const profiles = window.app?.profiles || {};
             const groupMembers = executor === '__GROUP_OPERATORS__' 
                 ? employees.filter(emp => profiles[emp]?.role === 'operator').map(name => ({ name, completed: false }))
                 : employees.filter(emp => profiles[emp]?.role === 'admin').map(name => ({ name, completed: false }));
             
             taskData = {
-                name, author: author || window.app.currentUser, executor, priority, deadline: deadline || null,
+                name, author: author || window.app?.currentUser, executor, priority, deadline: deadline || null,
                 progress: 0, comment, recurring, status: 'in_progress',
                 subtasks: subtasksTemp.filter(s => s.name && s.name.trim()),
                 is_group_task: executor === '__GROUP_OPERATORS__' ? 'operators' : 'admins',
@@ -857,14 +916,14 @@ async function saveTask() {
             };
         } else if (executor === '__MULTI_SELECT__') {
             taskData = {
-                name, author: author || window.app.currentUser, executor, priority, deadline: deadline || null,
+                name, author: author || window.app?.currentUser, executor, priority, deadline: deadline || null,
                 progress: 0, comment, recurring, status: 'in_progress',
                 subtasks: subtasksTemp.filter(s => s.name && s.name.trim()),
                 selected_executors: selectedExecutors
             };
         } else {
             taskData = {
-                name, author: author || window.app.currentUser, executor, priority, deadline: deadline || null,
+                name, author: author || window.app?.currentUser, executor, priority, deadline: deadline || null,
                 progress: 0, comment, recurring, status: 'in_progress',
                 subtasks: subtasksTemp.filter(s => s.name && s.name.trim())
             };
@@ -881,8 +940,9 @@ async function saveTask() {
         }
     } catch (err) {
         console.error(err);
-        showNotif('Ошибка соединения с сервером: ' + err.message, 'error');
+        showNotif('Ошибка соединения с сервером', 'error');
     } finally {
+        isSavingTask = false;
         if (saveBtn) {
             saveBtn.innerHTML = originalText;
             saveBtn.disabled = false;
@@ -890,6 +950,9 @@ async function saveTask() {
     }
 }
 
+// ============================================
+// ФИЛЬТРЫ И ЭКСПОРТ
+// ============================================
 function resetFilters() {
     const searchInput = document.getElementById('taskSearch');
     const statusFilter = document.getElementById('filterStatus');
@@ -918,7 +981,7 @@ function exportTasksToExcel() {
     }
     
     const csvRows = [];
-    const headers = ['ID', 'Название', 'Постановщик', 'Исполнитель', 'Приоритет', 'Статус', 'Дедлайн', 'Комментарий', 'Создана', 'Выполнена', 'В архиве'];
+    const headers = ['ID', 'Название', 'Постановщик', 'Исполнитель', 'Приоритет', 'Статус', 'Дедлайн', 'Комментарий'];
     csvRows.push(headers.join(';'));
     
     for (const task of tasksToExport) {
@@ -934,10 +997,7 @@ function exportTasksToExcel() {
             task.priority,
             task.status,
             task.deadline || '',
-            `"${(task.comment || '').replace(/"/g, '""')}"`,
-            task.created_at ? new Date(task.created_at).toLocaleDateString('ru-RU') : '',
-            task.completed_at ? new Date(task.completed_at).toLocaleDateString('ru-RU') : '',
-            task.is_archived ? 'Да' : 'Нет'
+            `"${(task.comment || '').replace(/"/g, '""')}"`
         ];
         csvRows.push(row.join(';'));
     }
@@ -955,97 +1015,15 @@ function exportTasksToExcel() {
     showNotif(`📊 Экспортировано ${tasksToExport.length} задач`, 'success');
 }
 
-function openTasksStatsModal() {
-    const activeTasks = tasksData.filter(t => !t.is_archived);
-    const archivedCount = tasksData.filter(t => t.is_archived).length;
-    const completedLastWeek = tasksData.filter(t => {
-        if (!t.completed_at) return false;
-        const completedDate = new Date(t.completed_at);
-        const weekAgo = new Date();
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        return completedDate >= weekAgo;
-    }).length;
-    
-    const byPriority = {
-        low: activeTasks.filter(t => t.priority === 'low').length,
-        medium: activeTasks.filter(t => t.priority === 'medium').length,
-        high: activeTasks.filter(t => t.priority === 'high').length
-    };
-    
-    const byStatus = {
-        in_progress: activeTasks.filter(t => t.status === 'in_progress').length,
-        completed: activeTasks.filter(t => t.status === 'completed').length,
-        overdue: activeTasks.filter(t => t.status === 'overdue').length
-    };
-    
-    const modalHtml = `
-        <div id="tasksStatsModal" class="modal active">
-            <div class="modal-window" style="max-width: 700px;">
-                <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0;"><i class="fas fa-chart-pie"></i> Статистика задач</h3>
-                    <button onclick="closeTasksStatsModal()" style="background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer;">&times;</button>
-                </div>
-                <div style="padding: 20px;">
-                    <div class="stats-grid" style="margin-bottom: 24px;">
-                        <div class="stat-card"><div class="stat-value">${activeTasks.length}</div><div class="stat-label">Активных задач</div></div>
-                        <div class="stat-card"><div class="stat-value">${archivedCount}</div><div class="stat-label">В архиве</div></div>
-                        <div class="stat-card"><div class="stat-value">${completedLastWeek}</div><div class="stat-label">Выполнено за неделю</div></div>
-                    </div>
-                    
-                    <h4 style="margin-bottom: 12px;">По приоритету</h4>
-                    <div style="display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;">
-                        <div style="background: rgba(16,185,129,0.1); border-radius: 16px; padding: 12px 20px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 700; color: #10b981;">${byPriority.low}</div>
-                            <div style="font-size: 11px;">Низкий</div>
-                        </div>
-                        <div style="background: rgba(245,158,11,0.1); border-radius: 16px; padding: 12px 20px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 700; color: #f59e0b;">${byPriority.medium}</div>
-                            <div style="font-size: 11px;">Средний</div>
-                        </div>
-                        <div style="background: rgba(239,68,68,0.1); border-radius: 16px; padding: 12px 20px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 700; color: #ef4444;">${byPriority.high}</div>
-                            <div style="font-size: 11px;">Высокий</div>
-                        </div>
-                    </div>
-                    
-                    <h4 style="margin-bottom: 12px;">По статусу</h4>
-                    <div style="display: flex; gap: 16px; flex-wrap: wrap;">
-                        <div style="background: rgba(59,130,246,0.1); border-radius: 16px; padding: 12px 20px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 700; color: #3b82f6;">${byStatus.in_progress}</div>
-                            <div style="font-size: 11px;">В процессе</div>
-                        </div>
-                        <div style="background: rgba(16,185,129,0.1); border-radius: 16px; padding: 12px 20px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 700; color: #10b981;">${byStatus.completed}</div>
-                            <div style="font-size: 11px;">Выполнено</div>
-                        </div>
-                        <div style="background: rgba(239,68,68,0.1); border-radius: 16px; padding: 12px 20px; text-align: center;">
-                            <div style="font-size: 24px; font-weight: 700; color: #ef4444;">${byStatus.overdue}</div>
-                            <div style="font-size: 11px;">Просрочено</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1); display: flex; justify-content: flex-end;">
-                    <button class="btn-secondary" onclick="closeTasksStatsModal()">Закрыть</button>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-
-function closeTasksStatsModal() {
-    const modal = document.getElementById('tasksStatsModal');
-    if (modal) modal.remove();
-}
-
+// ============================================
+// ШАБЛОНЫ
+// ============================================
 const taskTemplates = [
     { name: '🧹 Уборка', comment: 'Провести влажную уборку помещения', priority: 'medium' },
     { name: '🧴 Дезинфекция', comment: 'Обработать все шлемы и контроллеры', priority: 'high' },
     { name: '🔧 Ремонт оборудования', comment: 'Проверить и починить неисправности', priority: 'high' },
     { name: '📚 Обучение', comment: 'Изучить новые сценарии игр', priority: 'medium' },
-    { name: '📸 Отчётность', comment: 'Заполнить ежедневный отчёт', priority: 'low' },
-    { name: '🛒 Закупка', comment: 'Приобрести расходные материалы', priority: 'low' }
+    { name: '📸 Отчётность', comment: 'Заполнить ежедневный отчёт', priority: 'low' }
 ];
 
 function openTemplateModal() {
@@ -1056,10 +1034,9 @@ function openTemplateModal() {
         
         html += `
             <div class="template-item" onclick="useTemplate('${template.name.replace(/'/g, "\\'")}', '${template.comment.replace(/'/g, "\\'")}', '${template.priority}')" 
-                 style="padding: 14px 16px; background: rgba(0,0,0,0.2); border-radius: 14px; cursor: pointer; transition: all 0.2s; border-left: 3px solid ${priorityColor};">
+                 style="padding: 14px 16px; background: rgba(0,0,0,0.2); border-radius: 14px; cursor: pointer; border-left: 3px solid ${priorityColor};">
                 <div style="font-weight: 600; font-size: 15px;">${template.name}</div>
                 <div style="font-size: 12px; color: #94a3b8; margin-top: 4px;">${template.comment}</div>
-                <div style="font-size: 11px; color: ${priorityColor}; margin-top: 6px;">${template.priority === 'high' ? '🔴 Высокий приоритет' : (template.priority === 'medium' ? '🟡 Средний' : '🟢 Низкий')}</div>
             </div>
         `;
     }
@@ -1069,14 +1046,11 @@ function openTemplateModal() {
     const modalHtml = `
         <div id="templateModal" class="modal active">
             <div class="modal-window" style="max-width: 450px;">
-                <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15); display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="margin: 0;"><i class="fas fa-copy"></i> Шаблоны задач</h3>
-                    <button onclick="closeTemplateModal()" style="background: none; border: none; color: #94a3b8; font-size: 24px; cursor: pointer;">&times;</button>
+                <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15);">
+                    <h3><i class="fas fa-copy"></i> Шаблоны задач</h3>
                 </div>
-                <div style="padding: 20px;">
-                    ${html}
-                </div>
-                <div style="padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1); display: flex; justify-content: flex-end;">
+                <div style="padding: 20px;">${html}</div>
+                <div style="padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
                     <button class="btn-secondary" onclick="closeTemplateModal()">Закрыть</button>
                 </div>
             </div>
@@ -1100,18 +1074,12 @@ function useTemplate(name, comment, priority) {
         if (nameField) nameField.value = name;
         if (commentField) commentField.value = comment;
         setTaskPriority(priority);
-        
-        document.querySelectorAll('.priority-btn').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.priority === priority) {
-                btn.classList.add('active');
-            }
-        });
     }, 100);
 }
 
-window.addEventListener('dataUpdate', (e) => { if (e.detail.type === 'task') loadTasksData(); });
-
+// ============================================
+// ЭКСПОРТ
+// ============================================
 window.initTasks = initTasks;
 window.openTaskModal = openTaskModal;
 window.closeTaskModal = closeTaskModal;
@@ -1134,9 +1102,11 @@ window.closeGroupTaskModal = closeGroupTaskModal;
 window.updateGroupTaskProgress = updateGroupTaskProgress;
 window.toggleTaskExpand = toggleTaskExpand;
 window.setTaskPriority = setTaskPriority;
-window.openTasksStatsModal = openTasksStatsModal;
-window.closeTasksStatsModal = closeTasksStatsModal;
 window.openTemplateModal = openTemplateModal;
 window.closeTemplateModal = closeTemplateModal;
 window.useTemplate = useTemplate;
 window.renderTasksTable = renderTasksTable;
+
+window.addEventListener('dataUpdate', (e) => { if (e.detail.type === 'task') loadTasksData(); });
+
+console.log('✅ tasks.js загружен (исправленная версия)');

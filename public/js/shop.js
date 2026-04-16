@@ -1,4 +1,4 @@
-// public/js/shop.js - ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/shop.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 const giftList = [
     { id: 'flower', name: '🌸 Букет цветов', icon: '🌸', price: 25, rating: 8, desc: 'Красивый букет для настроения' },
@@ -46,9 +46,10 @@ let selectedGift = null;
 let selectedQuantity = 1;
 let isAnonymous = false;
 let myStatuses = [];
+let isLoadingShop = false;
 
 // ============================================
-// 🔥 ФУНКЦИЯ ОБРАБОТКИ НОВЫХ ДОСТИЖЕНИЙ
+// ОБРАБОТКА НОВЫХ ДОСТИЖЕНИЙ
 // ============================================
 function handleNewAchievements(achievements) {
     if (achievements && achievements.length > 0) {
@@ -65,28 +66,30 @@ function handleNewAchievements(achievements) {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
 // ============================================
+
 function initShop() {
     console.log('🛒 Инициализация магазина');
     
-    // 🔥 Ждём загрузку контейнеров
-    setTimeout(() => {
-        renderGifts();
-        renderAvatars();
-        renderPaidStatuses();
-        loadMyStatuses();
-        updateBalance();
-        initTabs();
-    }, 100);
+    const container = document.getElementById('giftsContainer');
+    if (!container) {
+        console.warn('⚠️ giftsContainer не найден, ждём...');
+        setTimeout(initShop, 100);
+        return;
+    }
+    
+    renderGifts();
+    renderAvatars();
+    renderPaidStatuses();
+    loadMyStatuses();
+    updateBalance();
+    initTabs();
 }
 
 function initTabs() {
     const tabs = document.querySelectorAll('.shop-tab');
-    if (tabs.length === 0) {
-        console.warn('⚠️ Вкладки магазина не найдены');
-        return;
-    }
+    if (tabs.length === 0) return;
     
     tabs.forEach(tab => {
         tab.onclick = () => {
@@ -108,19 +111,17 @@ function initTabs() {
 // ============================================
 // РЕНДЕР СТАТУСОВ
 // ============================================
+
 function renderPaidStatuses() {
     const container = document.getElementById('statusesContainer');
-    if (!container) {
-        console.warn('⚠️ statusesContainer не найден');
-        return;
-    }
+    if (!container) return;
     
     const userCoins = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
     
     container.innerHTML = paidStatuses.map(s => {
         const owned = myStatuses.some(m => m.status_id === s.id);
         return `
-            <div class="shop-card" ${!owned ? `onclick="buyStatus('${s.id}', '${s.name.replace(/'/g, "\\'")}', ${s.price}, ${s.rating})"` : ''}>
+            <div class="shop-card" ${!owned ? `onclick="buyStatus('${s.id}', '${escapeHtml(s.name)}', ${s.price}, ${s.rating})"` : ''}>
                 <div class="card-icon">${s.name.split(' ')[0]}</div>
                 <div class="card-name">${escapeHtml(s.name)}</div>
                 <div class="card-desc">${escapeHtml(s.desc)}</div>
@@ -133,15 +134,9 @@ function renderPaidStatuses() {
     }).join('');
 }
 
-// ============================================
-// РЕНДЕР ИНВЕНТАРЯ
-// ============================================
 function renderInventory() {
     const container = document.getElementById('inventoryContainer');
-    if (!container) {
-        console.warn('⚠️ inventoryContainer не найден');
-        return;
-    }
+    if (!container) return;
     
     const ownedPaid = myStatuses.filter(m => m.status_id);
     const allOwned = [
@@ -157,8 +152,8 @@ function renderInventory() {
     const active = window.app?.profiles?.[window.app?.currentUser]?.active_status;
     
     container.innerHTML = allOwned.map(s => `
-        <div class="shop-card" onclick="activateStatus('${s.status_id}', '${s.status_name.replace(/'/g, "\\'")}')">
-            <div class="card-icon">${s.icon}</div>
+        <div class="shop-card" onclick="activateStatus('${s.status_id}', '${escapeHtml(s.status_name)}')">
+            <div class="card-icon">${escapeHtml(s.icon)}</div>
             <div class="card-name">${escapeHtml(s.status_name)}</div>
             <div class="card-desc">${s.isFree ? 'Базовый статус' : 'Премиум статус'}</div>
             <div class="card-price">${s.isFree ? '🆓 Бесплатный' : '💰 Куплен'}</div>
@@ -171,12 +166,10 @@ function renderInventory() {
 // ============================================
 // РЕНДЕР ПОДАРКОВ
 // ============================================
+
 function renderGifts() {
     const container = document.getElementById('giftsContainer');
-    if (!container) {
-        console.warn('⚠️ giftsContainer не найден');
-        return;
-    }
+    if (!container) return;
     
     container.innerHTML = giftList.map(g => `
         <div class="shop-card" onclick="openGiftModal('${g.id}')">
@@ -192,15 +185,9 @@ function renderGifts() {
     console.log('✅ Подарки отрендерены:', giftList.length);
 }
 
-// ============================================
-// РЕНДЕР АВАТАРОВ
-// ============================================
 function renderAvatars() {
     const container = document.getElementById('avatarsContainer');
-    if (!container) {
-        console.warn('⚠️ avatarsContainer не найден');
-        return;
-    }
+    if (!container) return;
     
     const currentAvatar = window.app?.profiles?.[window.app?.currentUser]?.avatar || '👤';
     container.innerHTML = avatarList.map(a => `
@@ -212,13 +199,12 @@ function renderAvatars() {
             <button class="card-btn">🔄 Выбрать</button>
         </div>
     `).join('');
-    
-    console.log('✅ Аватары отрендерены:', avatarList.length);
 }
 
 // ============================================
 // ПОКУПКА СТАТУСА
 // ============================================
+
 async function buyStatus(id, name, price, rating) {
     const userCoins = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
     if (userCoins < price) {
@@ -233,11 +219,7 @@ async function buyStatus(id, name, price, rating) {
     
     if (res?.success) {
         showNotif(`✅ "${name}" куплен!`, 'success');
-        
-        if (res.newAchievements) {
-            handleNewAchievements(res.newAchievements);
-        }
-        
+        if (res.newAchievements) handleNewAchievements(res.newAchievements);
         await loadMyStatuses();
         await loadEmployees();
         renderPaidStatuses();
@@ -248,9 +230,6 @@ async function buyStatus(id, name, price, rating) {
     }
 }
 
-// ============================================
-// АКТИВАЦИЯ СТАТУСА
-// ============================================
 async function activateStatus(id, name) {
     const res = await apiCall('/statuses/activate', 'POST', { statusId: id });
     if (res?.success) {
@@ -263,22 +242,16 @@ async function activateStatus(id, name) {
     }
 }
 
-// ============================================
-// ЗАГРУЗКА МОИХ СТАТУСОВ
-// ============================================
 async function loadMyStatuses() {
     const res = await apiCall('/user/statuses');
     myStatuses = res?.data || [];
     renderInventory();
 }
 
-// ============================================
-// ПОКУПКА АВАТАРА
-// ============================================
 async function buyAvatar(icon) {
     const currentAvatar = window.app?.profiles?.[window.app?.currentUser]?.avatar;
     if (currentAvatar === icon) return showNotif('Уже используется', 'info');
-    const success = await updateEmployeeAvatar(window.app.currentUser, icon);
+    const success = await updateEmployeeAvatar(window.app?.currentUser, icon);
     if (success) {
         showNotif('✅ Аватар изменён!', 'success');
         await loadEmployees();
@@ -290,9 +263,6 @@ async function buyAvatar(icon) {
     }
 }
 
-// ============================================
-// ОБНОВЛЕНИЕ БАЛАНСА
-// ============================================
 function updateBalance() {
     if (typeof refreshAllBalanceDisplays === 'function') {
         refreshAllBalanceDisplays();
@@ -305,12 +275,13 @@ function updateBalance() {
 // ============================================
 // МОДАЛКА ПОДАРКА
 // ============================================
+
 function openGiftModal(giftId) {
     selectedGift = giftList.find(g => g.id === giftId);
     if (!selectedGift) return;
     selectedQuantity = 1;
     isAnonymous = false;
-    const employees = window.app?.employees?.filter(e => e !== window.app.currentUser) || [];
+    const employees = window.app?.employees?.filter(e => e !== window.app?.currentUser) || [];
     const select = document.getElementById('giftRecipient');
     if (select) select.innerHTML = '<option value="">Выберите сотрудника</option>' + employees.map(e => `<option value="${escapeHtml(e)}">${escapeHtml(e)}</option>`).join('');
     document.getElementById('giftQuantity').innerText = selectedQuantity;
@@ -320,7 +291,8 @@ function openGiftModal(giftId) {
 }
 
 function closeGiftModal() { 
-    document.getElementById('giftModal').style.display = 'none'; 
+    const modal = document.getElementById('giftModal');
+    if (modal) modal.style.display = 'none'; 
 }
 
 function changeQuantity(delta) {
@@ -349,9 +321,8 @@ async function sendGift() {
     const userCoins = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
     if (userCoins < total) return showNotif('Недостаточно монет', 'error');
     
-    const sender = isAnonymous ? '🕵️ Аноним' : window.app.currentUser;
+    const sender = isAnonymous ? '🕵️ Аноним' : window.app?.currentUser;
     
-    // 🔥 Показываем загрузку на кнопке
     const sendBtn = document.querySelector('#giftModal .btn-primary');
     const originalText = sendBtn?.innerHTML;
     if (sendBtn) {
@@ -374,18 +345,9 @@ async function sendGift() {
     }
     
     if (res?.success) {
-        // 🔥 Закрываем модалку
         closeGiftModal();
-        
-        // 🔥 Показываем уведомление поверх всего
         showNotif(`🎁 Вы подарили ${selectedGift.name} сотруднику ${recipient}!`, 'success');
-        
-        // 🔥 Обработка новых достижений
-        if (res.newAchievements) {
-            handleNewAchievements(res.newAchievements);
-        }
-        
-        // Обновляем данные
+        if (res.newAchievements) handleNewAchievements(res.newAchievements);
         await loadEmployees();
         updateBalance();
         if (typeof renderEmployees === 'function') renderEmployees();
@@ -393,9 +355,11 @@ async function sendGift() {
         showNotif(res?.error || 'Ошибка при отправке', 'error');
     }
 }
+
 // ============================================
 // ЭКСПОРТ
 // ============================================
+
 window.initShop = initShop;
 window.openGiftModal = openGiftModal;
 window.closeGiftModal = closeGiftModal;
@@ -410,4 +374,4 @@ window.renderAvatars = renderAvatars;
 window.updateBalance = updateBalance;
 window.handleNewAchievements = handleNewAchievements;
 
-console.log('✅ shop.js загружен');
+console.log('✅ shop.js загружен (исправленная версия)');

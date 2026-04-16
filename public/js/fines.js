@@ -1,10 +1,12 @@
-// public/js/fines.js - ПОЛНАЯ РАБОЧАЯ ВЕРСИЯ БЕЗ ЗВУКОВ
+// public/js/fines.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let finesData = [];
 let currentFineStatusFilter = 'all';
 let currentFineEmployeeFilter = 'all';
 let currentFineTypeFilter = 'all';
 let currentFineMonthFilter = 'all';
+let isLoadingFines = false;
+let isSavingFine = false;
 
 const fineTypes = {
     late: { name: 'Опоздание', defaultAmount: 0, defaultCoins: 0, defaultRating: 0 },
@@ -16,8 +18,19 @@ const fineTypes = {
     other: { name: 'Другое', defaultAmount: 0, defaultCoins: 0, defaultRating: 0 }
 };
 
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// ============================================
 function initFines() {
     console.log('⚠️ Инициализация нарушений');
+    
+    const tbody = document.getElementById('finesTableBody');
+    if (!tbody) {
+        console.warn('⚠️ finesTableBody не найден, ждём...');
+        setTimeout(initFines, 100);
+        return;
+    }
+    
     loadFinesData();
     
     const searchInput = document.getElementById('fineSearch');
@@ -47,7 +60,13 @@ function initFines() {
     populateFineFilters();
 }
 
+// ============================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================
 async function loadFinesData() {
+    if (isLoadingFines) return;
+    isLoadingFines = true;
+    
     try {
         const data = await apiCall('/fines');
         if (data && Array.isArray(data)) {
@@ -58,6 +77,8 @@ async function loadFinesData() {
     } catch (err) {
         console.error('Ошибка загрузки нарушений:', err);
         showNotif('Ошибка загрузки нарушений', 'error');
+    } finally {
+        isLoadingFines = false;
     }
 }
 
@@ -101,7 +122,7 @@ function populateFineFilters() {
     const monthFilter = document.getElementById('fineMonthFilter');
     
     if (employeeFilter) {
-        const employees = window.app.employees || [];
+        const employees = window.app?.employees || [];
         let options = '<option value="all">Все сотрудники</option>';
         employees.forEach(emp => {
             options += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
@@ -129,12 +150,16 @@ function populateFineFilters() {
 }
 
 function formatPenalty(fine) {
-    if (fine.amount > 0) return `${fine.amount} ₽`;
-    if (fine.coins > 0) return `${fine.coins} ВП-коины`;
-    if (fine.rating < 0) return `${Math.abs(fine.rating)} ⭐`;
-    return '—';
+    const parts = [];
+    if (fine.amount > 0) parts.push(`${fine.amount} ₽`);
+    if (fine.coins > 0) parts.push(`${fine.coins} WP`);
+    if (fine.rating < 0) parts.push(`${Math.abs(fine.rating)} ⭐`);
+    return parts.length > 0 ? parts.join(' + ') : '—';
 }
 
+// ============================================
+// РЕНДЕР ТАБЛИЦЫ
+// ============================================
 function renderFinesTable() {
     const tbody = document.getElementById('finesTableBody');
     if (!tbody) return;
@@ -166,8 +191,8 @@ function renderFinesTable() {
         return;
     }
     
-    const canManage = window.app.currentUserRole === 'director' || window.app.currentUserRole === 'manager';
-    const canDelete = window.app.currentUserRole === 'director';
+    const canManage = window.app?.currentUserRole === 'director' || window.app?.currentUserRole === 'manager';
+    const canDelete = window.app?.currentUserRole === 'director';
     
     tbody.innerHTML = filtered.map(fine => {
         const statusClass = {
@@ -194,7 +219,7 @@ function renderFinesTable() {
             <tr class="${isSystemFine ? 'fine-system-created' : ''}">
                 <td>${formatDate(fine.date)}</td>
                 <td><strong>${escapeHtml(fine.employee)} ${systemBadge}</strong></td>
-                <td>${typeName}</td>
+                <td>${escapeHtml(typeName)}</td>
                 <td class="penalty-cell">${penaltyText}</td>
                 <td><span class="status-badge ${statusClass}">${statusText}</span></td>
                 <td style="white-space: nowrap;">
@@ -207,19 +232,32 @@ function renderFinesTable() {
     }).join('');
 }
 
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('ru-RU');
+}
+
+// ============================================
+// УДАЛЕНИЕ
+// ============================================
 async function deleteFine(fineId) {
     if (!confirm('Удалить нарушение?')) return;
+    
     const response = await apiCall(`/fines/${fineId}`, 'DELETE');
     if (response && response.success) {
         showNotif('Нарушение удалено', 'success');
         await loadFinesData();
-        if (typeof loadEmployees === 'function') loadEmployees();
+        if (typeof loadEmployees === 'function') await loadEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
         showNotif('Ошибка при удалении', 'error');
     }
 }
 
+// ============================================
+// МОДАЛКА ШТРАФА
+// ============================================
 function openFineModal(fineId = null) {
     const fine = fineId ? finesData.find(f => f.id === fineId) : null;
     const isSystemFine = fine?.created_by === '🤖 Система';
@@ -252,7 +290,7 @@ function openFineModal(fineId = null) {
                             <label style="display: block; margin-bottom: 5px; font-size: 13px; color: #94a3b8;">Сотрудник</label>
                             <select id="fineEmployee" class="form-select" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
                                 <option value="">Выберите сотрудника</option>
-                                ${window.app.employees.map(emp => `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`).join('')}
+                                ${(window.app?.employees || []).map(emp => `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`).join('')}
                             </select>
                         </div>
                         
@@ -267,20 +305,20 @@ function openFineModal(fineId = null) {
                             <label style="display: block; margin-bottom: 5px; font-size: 13px; color: #94a3b8;">Тип штрафа</label>
                             <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                 <label><input type="radio" name="penaltyType" value="money" checked onchange="togglePenaltyFields()"> 💵 Деньги</label>
-                                <label><input type="radio" name="penaltyType" value="coins" onchange="togglePenaltyFields()"> 💰 ВП-коины</label>
+                                <label><input type="radio" name="penaltyType" value="coins" onchange="togglePenaltyFields()"> 💰 WP</label>
                                 <label><input type="radio" name="penaltyType" value="rating" onchange="togglePenaltyFields()"> ⭐ Рейтинг</label>
                                 <label><input type="radio" name="penaltyType" value="all" onchange="togglePenaltyFields()"> 💵💰⭐ Всё</label>
                             </div>
                         </div>
                         
                         <div id="moneyFields" style="margin-bottom: 15px;">
-                            <input type="number" id="fineAmount" class="form-input" value="0" step="100" placeholder="Сумма (₽)" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
+                            <input type="number" id="fineAmount" class="form-input" value="0" step="100" min="0" placeholder="Сумма (₽)" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
                         </div>
                         <div id="coinsFields" style="margin-bottom: 15px; display: none;">
-                            <input type="number" id="fineCoins" class="form-input" value="0" step="10" placeholder="ВП-коины" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
+                            <input type="number" id="fineCoins" class="form-input" value="0" step="10" min="0" placeholder="WP" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
                         </div>
                         <div id="ratingFields" style="margin-bottom: 15px; display: none;">
-                            <input type="number" id="fineRating" class="form-input" value="0" step="5" placeholder="Рейтинг" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
+                            <input type="number" id="fineRating" class="form-input" value="0" step="5" min="0" placeholder="Рейтинг (отрицательный)" style="width: 100%; padding: 10px; background: #0d1016; border: 1px solid #2a3240; border-radius: 8px; color: #fff;">
                         </div>
                         
                         <div style="margin-bottom: 15px;">
@@ -289,7 +327,7 @@ function openFineModal(fineId = null) {
                     ` : `
                         <div style="background: #0d1016; border-radius: 10px; padding: 15px; margin-bottom: 20px;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-                                <span style="font-weight: 600;">${fineTypes[fine.type]?.name || fine.type}</span>
+                                <span style="font-weight: 600;">${escapeHtml(fineTypes[fine.type]?.name || fine.type)}</span>
                                 <span class="status-badge ${statusClass}">${statusText}</span>
                             </div>
                             <div style="margin-bottom: 8px;"><span style="color: #94a3b8;">Сотрудник:</span> ${escapeHtml(fine.employee)}</div>
@@ -304,22 +342,18 @@ function openFineModal(fineId = null) {
                                     <div style="margin-bottom: 10px; font-weight: 600; color: #a78bfa;">Назначить штраф</div>
                                     <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
                                         <label><input type="radio" name="penaltyType" value="money" checked onchange="togglePenaltyFields()"> 💵 Деньги</label>
-                                        <label><input type="radio" name="penaltyType" value="coins" onchange="togglePenaltyFields()"> 💰 ВП-коины</label>
+                                        <label><input type="radio" name="penaltyType" value="coins" onchange="togglePenaltyFields()"> 💰 WP</label>
                                         <label><input type="radio" name="penaltyType" value="rating" onchange="togglePenaltyFields()"> ⭐ Рейтинг</label>
                                         <label><input type="radio" name="penaltyType" value="all" onchange="togglePenaltyFields()"> 💵💰⭐ Всё</label>
                                     </div>
-                                    <div id="moneyFields"><input type="number" id="fineAmount" class="form-input" value="0" step="100" placeholder="Сумма ₽" style="width: 100%; padding: 8px;"></div>
-                                    <div id="coinsFields" style="display: none;"><input type="number" id="fineCoins" class="form-input" value="0" step="10" placeholder="ВП-коины" style="width: 100%; padding: 8px;"></div>
-                                    <div id="ratingFields" style="display: none;"><input type="number" id="fineRating" class="form-input" value="0" step="5" placeholder="Рейтинг" style="width: 100%; padding: 8px;"></div>
+                                    <div id="moneyFields"><input type="number" id="fineAmount" class="form-input" value="0" step="100" min="0" placeholder="Сумма ₽" style="width: 100%; padding: 8px;"></div>
+                                    <div id="coinsFields" style="display: none;"><input type="number" id="fineCoins" class="form-input" value="0" step="10" min="0" placeholder="WP" style="width: 100%; padding: 8px;"></div>
+                                    <div id="ratingFields" style="display: none;"><input type="number" id="fineRating" class="form-input" value="0" step="5" min="0" placeholder="Рейтинг" style="width: 100%; padding: 8px;"></div>
                                 </div>
-                            ` : fine.amount > 0 || fine.coins > 0 || fine.rating !== 0 ? `
+                            ` : (fine.amount > 0 || fine.coins > 0 || fine.rating !== 0) ? `
                                 <div style="background: #0d1016; border-radius: 10px; padding: 15px; margin-bottom: 20px; border-left: 3px solid #fbbf24;">
                                     <div style="color: #fbbf24; margin-bottom: 5px;">💰 Предложенный штраф</div>
-                                    <div style="font-size: 18px; font-weight: 700; color: #fbbf24;">
-                                        ${fine.amount > 0 ? `${fine.amount} ₽` : ''}
-                                        ${fine.coins > 0 ? `${fine.coins} ВП-коины` : ''}
-                                        ${fine.rating < 0 ? `${Math.abs(fine.rating)} ⭐` : ''}
-                                    </div>
+                                    <div style="font-size: 18px; font-weight: 700; color: #fbbf24;">${formatPenalty(fine)}</div>
                                     <div style="font-size: 12px; color: #64748b;">Сумма предложена сотрудником</div>
                                 </div>
                             ` : `
@@ -373,13 +407,13 @@ function togglePenaltyFields() {
     if (coinsFields) coinsFields.style.display = 'none';
     if (ratingFields) ratingFields.style.display = 'none';
     
-    if (selected === 'money') moneyFields.style.display = 'block';
-    else if (selected === 'coins') coinsFields.style.display = 'block';
-    else if (selected === 'rating') ratingFields.style.display = 'block';
+    if (selected === 'money' && moneyFields) moneyFields.style.display = 'block';
+    else if (selected === 'coins' && coinsFields) coinsFields.style.display = 'block';
+    else if (selected === 'rating' && ratingFields) ratingFields.style.display = 'block';
     else if (selected === 'all') {
-        moneyFields.style.display = 'block';
-        coinsFields.style.display = 'block';
-        ratingFields.style.display = 'block';
+        if (moneyFields) moneyFields.style.display = 'block';
+        if (coinsFields) coinsFields.style.display = 'block';
+        if (ratingFields) ratingFields.style.display = 'block';
     }
 }
 
@@ -388,103 +422,125 @@ function closeFineModal() {
     if (modal) modal.remove();
 }
 
+// ============================================
+// СОХРАНЕНИЕ ШТРАФА
+// ============================================
 async function saveFine(fineId) {
-    if (fineId) {
-        const decision = document.getElementById('fineDecision')?.value;
-        const comment = document.getElementById('fineComment')?.value;
-        
-        const currentFine = finesData.find(f => f.id === fineId);
-        
-        let amount = currentFine?.amount || 0;
-        let coins = currentFine?.coins || 0;
-        let rating = currentFine?.rating || 0;
-        
-        if (currentFine?.created_by === '🤖 Система') {
+    if (isSavingFine) return;
+    isSavingFine = true;
+    
+    const saveBtn = document.querySelector('#fineModal button[onclick*="saveFine"]');
+    const originalText = saveBtn?.innerHTML;
+    if (saveBtn) {
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+        saveBtn.disabled = true;
+    }
+    
+    try {
+        if (fineId) {
+            const decision = document.getElementById('fineDecision')?.value;
+            const comment = document.getElementById('fineComment')?.value;
+            
+            const currentFine = finesData.find(f => f.id === fineId);
+            
+            let amount = currentFine?.amount || 0;
+            let coins = currentFine?.coins || 0;
+            let rating = currentFine?.rating || 0;
+            
+            if (currentFine?.created_by === '🤖 Система') {
+                const amountInput = document.getElementById('fineAmount');
+                const coinsInput = document.getElementById('fineCoins');
+                const ratingInput = document.getElementById('fineRating');
+                
+                let penaltyType = 'money';
+                const penaltyRadios = document.querySelectorAll('input[name="penaltyType"]');
+                for (let radio of penaltyRadios) {
+                    if (radio.checked) {
+                        penaltyType = radio.value;
+                        break;
+                    }
+                }
+                
+                amount = 0; coins = 0; rating = 0;
+                
+                if (penaltyType === 'money') {
+                    amount = amountInput ? Math.abs(parseInt(amountInput.value) || 0) : 0;
+                } else if (penaltyType === 'coins') {
+                    coins = coinsInput ? Math.abs(parseInt(coinsInput.value) || 0) : 0;
+                } else if (penaltyType === 'rating') {
+                    rating = ratingInput ? -Math.abs(parseInt(ratingInput.value) || 0) : 0;
+                } else if (penaltyType === 'all') {
+                    amount = amountInput ? Math.abs(parseInt(amountInput.value) || 0) : 0;
+                    coins = coinsInput ? Math.abs(parseInt(coinsInput.value) || 0) : 0;
+                    rating = ratingInput ? -Math.abs(parseInt(ratingInput.value) || 0) : 0;
+                }
+            }
+            
+            const response = await apiCall(`/fines/${fineId}`, 'PUT', { 
+                status: decision, 
+                director_comment: comment,
+                amount: amount,
+                coins: coins,
+                rating: rating
+            });
+            
+            if (response && response.success) {
+                showNotif('Нарушение рассмотрено', 'success');
+                closeFineModal();
+                await loadFinesData();
+                if (typeof loadEmployees === 'function') await loadEmployees();
+                if (typeof renderEmployees === 'function') renderEmployees();
+                if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            } else {
+                showNotif('Ошибка при рассмотрении', 'error');
+            }
+        } else {
+            const employee = document.getElementById('fineEmployee')?.value;
+            const type = document.getElementById('fineType')?.value;
+            const description = document.getElementById('fineDescription')?.value;
+            
+            if (!employee) {
+                showNotif('Выберите сотрудника', 'error');
+                return;
+            }
+            
             const amountInput = document.getElementById('fineAmount');
             const coinsInput = document.getElementById('fineCoins');
             const ratingInput = document.getElementById('fineRating');
             
-            let penaltyType = 'money';
-            const penaltyRadios = document.querySelectorAll('input[name="penaltyType"]');
-            for (let i = 0; i < penaltyRadios.length; i++) {
-                if (penaltyRadios[i].checked) {
-                    penaltyType = penaltyRadios[i].value;
-                    break;
-                }
-            }
+            const amount = amountInput ? Math.abs(parseInt(amountInput.value) || 0) : 0;
+            const coins = coinsInput ? Math.abs(parseInt(coinsInput.value) || 0) : 0;
+            let rating = ratingInput ? parseInt(ratingInput.value) || 0 : 0;
+            if (rating > 0) rating = -rating;
             
-            amount = 0; coins = 0; rating = 0;
+            const fineData = {
+                date: new Date().toISOString().split('T')[0],
+                employee, type, amount, coins, rating, description,
+                createdBy: window.app?.currentUser, status: 'pending'
+            };
             
-            if (penaltyType === 'money') {
-                amount = amountInput ? Math.abs(parseInt(amountInput.value) || 0) : 0;
-            } else if (penaltyType === 'coins') {
-                coins = coinsInput ? Math.abs(parseInt(coinsInput.value) || 0) : 0;
-            } else if (penaltyType === 'rating') {
-                rating = ratingInput ? -Math.abs(parseInt(ratingInput.value) || 0) : 0;
-            } else if (penaltyType === 'all') {
-                amount = amountInput ? Math.abs(parseInt(amountInput.value) || 0) : 0;
-                coins = coinsInput ? Math.abs(parseInt(coinsInput.value) || 0) : 0;
-                rating = ratingInput ? -Math.abs(parseInt(ratingInput.value) || 0) : 0;
+            const response = await apiCall('/fines', 'POST', { fine: fineData });
+            if (response && response.success) {
+                showNotif('Нарушение добавлено', 'success');
+                closeFineModal();
+                await loadFinesData();
+                if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            } else {
+                showNotif('Ошибка при создании: ' + (response?.error || 'неизвестная ошибка'), 'error');
             }
         }
-        
-        console.log('Отправка:', { status: decision, amount, coins, rating });
-        
-        const response = await apiCall(`/fines/${fineId}`, 'PUT', { 
-            status: decision, 
-            director_comment: comment,
-            amount: amount,
-            coins: coins,
-            rating: rating
-        });
-        
-        if (response && response.success) {
-            showNotif('Нарушение рассмотрено', 'success');
-            closeFineModal();
-            await loadFinesData();
-            if (typeof loadEmployees === 'function') await loadEmployees();
-            if (typeof renderEmployees === 'function') renderEmployees();
-            if (typeof updateDashboardStats === 'function') updateDashboardStats();
-        } else {
-            showNotif('Ошибка при рассмотрении', 'error');
-        }
-    } else {
-        const employee = document.getElementById('fineEmployee')?.value;
-        const type = document.getElementById('fineType')?.value;
-        const description = document.getElementById('fineDescription')?.value;
-        
-        if (!employee) {
-            showNotif('Выберите сотрудника', 'error');
-            return;
-        }
-        
-        const amountInput = document.getElementById('fineAmount');
-        const coinsInput = document.getElementById('fineCoins');
-        const ratingInput = document.getElementById('fineRating');
-        
-        const amount = amountInput ? Math.abs(parseInt(amountInput.value) || 0) : 0;
-        const coins = coinsInput ? Math.abs(parseInt(coinsInput.value) || 0) : 0;
-        let rating = ratingInput ? parseInt(ratingInput.value) || 0 : 0;
-        if (rating > 0) rating = -rating;
-        
-        const fineData = {
-            date: new Date().toISOString().split('T')[0],
-            employee, type, amount, coins, rating, description,
-            createdBy: window.app.currentUser, status: 'pending'
-        };
-        
-        const response = await apiCall('/fines', 'POST', { fine: fineData });
-        if (response && response.success) {
-            showNotif('Нарушение добавлено', 'success');
-            closeFineModal();
-            await loadFinesData();
-            if (typeof updateDashboardStats === 'function') updateDashboardStats();
-        } else {
-            showNotif('Ошибка при создании: ' + (response?.error || 'неизвестная ошибка'), 'error');
+    } finally {
+        isSavingFine = false;
+        if (saveBtn) {
+            saveBtn.innerHTML = originalText;
+            saveBtn.disabled = false;
         }
     }
 }
 
+// ============================================
+// ПРОСМОТР ДЕТАЛЕЙ
+// ============================================
 function viewFineDetails(fineId) {
     const fine = finesData.find(f => f.id === fineId);
     if (!fine) return;
@@ -512,7 +568,7 @@ function viewFineDetails(fineId) {
                 <div style="padding: 20px;">
                     <div style="margin-bottom: 10px;"><strong>Сотрудник:</strong> ${escapeHtml(fine.employee)}</div>
                     <div style="margin-bottom: 10px;"><strong>Дата:</strong> ${formatDate(fine.date)}</div>
-                    <div style="margin-bottom: 10px;"><strong>Тип:</strong> ${fineTypes[fine.type]?.name || fine.type}</div>
+                    <div style="margin-bottom: 10px;"><strong>Тип:</strong> ${escapeHtml(fineTypes[fine.type]?.name || fine.type)}</div>
                     <div style="margin-bottom: 10px;"><strong>Штраф:</strong> <span style="color: #fbbf24;">${formatPenalty(fine)}</span></div>
                     <div style="margin-bottom: 10px;"><strong>Описание:</strong> ${escapeHtml(fine.description || '—')}</div>
                     <div style="margin-bottom: 10px;"><strong>Статус:</strong> <span class="status-badge ${statusClass}">${statusText}</span></div>
@@ -533,12 +589,21 @@ function closeFineDetailsModal() {
     if (modal) modal.remove();
 }
 
+// ============================================
+// СБРОС ФИЛЬТРОВ
+// ============================================
 function resetFineFilters() {
-    document.getElementById('fineSearch').value = '';
-    document.getElementById('fineStatusFilter').value = 'all';
-    document.getElementById('fineEmployeeFilter').value = 'all';
-    document.getElementById('fineTypeFilter').value = 'all';
-    document.getElementById('fineMonthFilter').value = 'all';
+    const searchInput = document.getElementById('fineSearch');
+    const statusFilter = document.getElementById('fineStatusFilter');
+    const employeeFilter = document.getElementById('fineEmployeeFilter');
+    const typeFilter = document.getElementById('fineTypeFilter');
+    const monthFilter = document.getElementById('fineMonthFilter');
+    
+    if (searchInput) searchInput.value = '';
+    if (statusFilter) statusFilter.value = 'all';
+    if (employeeFilter) employeeFilter.value = 'all';
+    if (typeFilter) typeFilter.value = 'all';
+    if (monthFilter) monthFilter.value = 'all';
     
     currentFineStatusFilter = 'all';
     currentFineEmployeeFilter = 'all';
@@ -548,6 +613,9 @@ function resetFineFilters() {
     renderFinesTable();
 }
 
+// ============================================
+// ЭКСПОРТ
+// ============================================
 window.initFines = initFines;
 window.loadFinesData = loadFinesData;
 window.renderFinesTable = renderFinesTable;
@@ -559,3 +627,5 @@ window.deleteFine = deleteFine;
 window.viewFineDetails = viewFineDetails;
 window.closeFineDetailsModal = closeFineDetailsModal;
 window.resetFineFilters = resetFineFilters;
+
+console.log('✅ fines.js загружен (исправленная версия)');

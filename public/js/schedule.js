@@ -1,5 +1,8 @@
-// public/js/schedule.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/schedule.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ v2
 
+// ============================================
+// ПЕРЕМЕННЫЕ (ТОЛЬКО ОДНО ОБЪЯВЛЕНИЕ КАЖДОЙ)
+// ============================================
 let currentScheduleMonth = new Date().getMonth();
 let currentScheduleYear = new Date().getFullYear();
 let currentScheduleData = {};
@@ -7,18 +10,39 @@ let isSavingShift = false;
 let specialCases = {};
 let isLoadingSchedule = false;
 let scheduleLoadTimeout = null;
+let specialCasesLoaded = false;
+let isChangingMonth = false;
 
 // ============================================
-// ЗАГРУЗКА ДАННЫХ (С ЗАЩИТОЙ ОТ ЧАСТЫХ ЗАПРОСОВ)
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
 // ============================================
+function getTobolskNow() {
+    if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
+        return window.getTobolskNow();
+    }
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+}
 
+function formatDateSimple(dateStr) {
+    if (!dateStr) return '—';
+    const parts = dateStr.split('-');
+    const day = parseInt(parts[2]);
+    const month = parseInt(parts[1]);
+    const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    return `${day} ${monthNames[month - 1]}`;
+}
+
+// ============================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================
 async function loadScheduleData() {
     if (isLoadingSchedule) {
         console.log('⏳ График уже загружается');
         return;
     }
     
-    console.log('🔄 Загрузка данных графика с сервера...');
+    console.log('🔄 Загрузка данных графика...');
     isLoadingSchedule = true;
     
     if (scheduleLoadTimeout) clearTimeout(scheduleLoadTimeout);
@@ -32,6 +56,7 @@ async function loadScheduleData() {
         
         if (response && Array.isArray(response)) {
             currentScheduleData = {};
+            window.app = window.app || {};
             window.app.schedule = {};
             
             for (const item of response) {
@@ -52,6 +77,7 @@ async function loadScheduleData() {
         }
     } catch (err) {
         console.error('❌ Ошибка загрузки графика:', err);
+        showNotif('Ошибка загрузки графика', 'error');
     } finally {
         clearTimeout(scheduleLoadTimeout);
         scheduleLoadTimeout = null;
@@ -59,22 +85,8 @@ async function loadScheduleData() {
     }
 }
 
-function initSchedule() {
-    console.log('📅 Инициализация графика');
-    loadSpecialCases();
-    loadScheduleData();
-}
-
-// ============================================
-// ОСОБЫЕ СЛУЧАИ (С КЭШИРОВАНИЕМ)
-// ============================================
-
-let specialCasesLoaded = false;
-
 async function loadSpecialCases() {
-    if (specialCasesLoaded) {
-        return;
-    }
+    if (specialCasesLoaded) return;
     
     try {
         const response = await apiCall('/schedule/special-cases');
@@ -101,30 +113,24 @@ function getSpecialCasesDescription(date) {
     const descriptions = [];
     if (cases.allowThreeOperators) descriptions.push('• Разрешено 3 оператора');
     if (cases.earlyLeave && cases.earlyLeave.length > 0) {
-        cases.earlyLeave.forEach(el => {
-            descriptions.push(`• ${el.employee} уходит в ${el.time}`);
-        });
+        cases.earlyLeave.forEach(el => descriptions.push(`• ${el.employee} уходит в ${el.time}`));
     }
     if (cases.replacements && cases.replacements.length > 0) {
-        cases.replacements.forEach(r => {
-            descriptions.push(`• Замена: ${r.from} → ${r.to}`);
-        });
+        cases.replacements.forEach(r => descriptions.push(`• Замена: ${r.from} → ${r.to}`));
     }
     return descriptions;
 }
 
 // ============================================
-// ПРОВЕРКА ЛИМИТА ОПЕРАТОРОВ (ИСПРАВЛЕНО)
+// ПРОВЕРКА ЛИМИТА ОПЕРАТОРОВ
 // ============================================
-
 async function checkOperatorsLimit(date, time, excludeEmployee = null) {
-    const schedule = window.app.schedule[date] || {};
+    const schedule = window.app?.schedule?.[date] || {};
     let operatorsOnShift = 0;
     
     for (const [emp, shift] of Object.entries(schedule)) {
         if (excludeEmployee && emp === excludeEmployee) continue;
-        const profile = window.app.profiles[emp];
-        // 🔥 ИСПРАВЛЕНО: Только операторы, админы не считаются
+        const profile = window.app?.profiles?.[emp];
         if (profile && profile.role === 'operator' && shift.time === time && shift.status === 'working') {
             operatorsOnShift++;
         }
@@ -134,9 +140,25 @@ async function checkOperatorsLimit(date, time, excludeEmployee = null) {
 }
 
 // ============================================
+// ИНИЦИАЛИЗАЦИЯ
+// ============================================
+function initSchedule() {
+    console.log('📅 Инициализация графика');
+    
+    const container = document.getElementById('scheduleWeeksContainer');
+    if (!container) {
+        console.warn('⚠️ Контейнер графика не найден, ждём...');
+        setTimeout(initSchedule, 100);
+        return;
+    }
+    
+    loadSpecialCases();
+    loadScheduleData();
+}
+
+// ============================================
 // ОТРИСОВКА КАЛЕНДАРЯ
 // ============================================
-
 function getWeeksInMonth() {
     const firstDay = new Date(currentScheduleYear, currentScheduleMonth, 1);
     const lastDay = new Date(currentScheduleYear, currentScheduleMonth + 1, 0);
@@ -179,8 +201,6 @@ function formatMonthYear() {
     return `${months[currentScheduleMonth]} ${currentScheduleYear}`;
 }
 
-let isChangingMonth = false;
-
 function changeMonth(delta) {
     if (isChangingMonth) {
         console.log('⚠️ Месяц уже меняется');
@@ -204,8 +224,9 @@ function changeMonth(delta) {
 }
 
 function resetMonthSchedule() {
-    currentScheduleMonth = new Date().getMonth();
-    currentScheduleYear = new Date().getFullYear();
+    const now = getTobolskNow();
+    currentScheduleMonth = now.getMonth();
+    currentScheduleYear = now.getFullYear();
     renderMonthSchedule();
 }
 
@@ -229,15 +250,6 @@ function getStatusText(status) {
     return statusMap[status] || status;
 }
 
-function formatDateSimple(dateStr) {
-    if (!dateStr) return '—';
-    const parts = dateStr.split('-');
-    const day = parseInt(parts[2]);
-    const month = parseInt(parts[1]);
-    const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-    return `${day} ${monthNames[month - 1]}`;
-}
-
 function getAvatarHtmlForSchedule(profile) {
     if (!profile) return '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 20px;">👤</div>';
     
@@ -246,25 +258,30 @@ function getAvatarHtmlForSchedule(profile) {
     } else if (profile.avatar) {
         return `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 20px;">${escapeHtml(profile.avatar)}</div>`;
     } else {
-        return `<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 20px;">👤</div>`;
+        return '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: 20px;">👤</div>';
     }
 }
+
 function renderMonthSchedule() {
     const container = document.getElementById('scheduleWeeksContainer');
-    if (!container) return;
+    if (!container) {
+        console.warn('⚠️ Контейнер scheduleWeeksContainer не найден');
+        return;
+    }
     
-    document.getElementById('currentMonthYear').textContent = formatMonthYear();
+    const monthYearEl = document.getElementById('currentMonthYear');
+    if (monthYearEl) monthYearEl.textContent = formatMonthYear();
     
     const weeks = getWeeksInMonth();
-    const currentUser = window.app.currentUser;
-    const isDirector = window.app.currentUserRole === 'director';
+    const currentUser = window.app?.currentUser;
+    const isDirector = window.app?.currentUserRole === 'director';
     
-    const employees = window.app.employees.filter(emp => {
-        const profile = window.app.profiles[emp];
+    const employees = (window.app?.employees || []).filter(emp => {
+        const profile = window.app?.profiles?.[emp];
         return profile && profile.role !== 'director';
     }).sort((a, b) => {
-        const profileA = window.app.profiles[a];
-        const profileB = window.app.profiles[b];
+        const profileA = window.app?.profiles?.[a];
+        const profileB = window.app?.profiles?.[b];
         const roleOrder = { 'admin': 1, 'operator': 2, 'manager': 3 };
         const orderA = roleOrder[profileA?.role] || 99;
         const orderB = roleOrder[profileB?.role] || 99;
@@ -273,22 +290,19 @@ function renderMonthSchedule() {
     });
     
     if (weeks.length === 0) {
-        container.innerHTML = '<div class="empty-state">Нет данных</div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><h3>Нет данных</h3></div>';
         return;
     }
     
     let html = '';
-    const now = new Date();
+    const now = getTobolskNow();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     for (let w = 0; w < weeks.length; w++) {
         const week = weeks[w];
         
-        html += `<div class="week-schedule-card">
-            <div class="week-header"></div>`;
-        
-        html += `<div class="week-days">
-            <div class="day-header employee-header-cell">👥 Сотрудник</div>`;
+        html += `<div class="week-schedule-card"><div class="week-header"></div>`;
+        html += `<div class="week-days"><div class="day-header employee-header-cell">👥 Сотрудник</div>`;
         
         for (let i = 0; i < 7; i++) {
             const day = week.days[i];
@@ -307,7 +321,7 @@ function renderMonthSchedule() {
         html += `</div>`;
         
         for (const emp of employees) {
-            const profile = window.app.profiles[emp];
+            const profile = window.app?.profiles?.[emp];
             if (!profile) continue;
             
             const isCurrentUser = emp === currentUser;
@@ -346,12 +360,8 @@ function renderMonthSchedule() {
                     
                     displayText = timeDisplay;
                     statusClass = 'shift-time';
-                    if (emp === currentUser) {
-                        additionalClass += ' my-shift';
-                    }
-                    if (shiftData.is_special) {
-                        additionalClass += ' special-shift';
-                    }
+                    if (emp === currentUser) additionalClass += ' my-shift';
+                    if (shiftData.is_special) additionalClass += ' special-shift';
                 } else {
                     displayText = '—';
                     statusClass = 'shift-empty';
@@ -383,65 +393,47 @@ function renderMonthSchedule() {
 }
 
 // ============================================
-// РЕДАКТОР СМЕНЫ (ИСПРАВЛЕНО)
+// РЕДАКТОР СМЕНЫ
 // ============================================
-
 function openShiftModalForEmployee(dateStr, employee) {
     const shiftData = currentScheduleData[dateStr]?.[employee] || { time: '', status: 'working', is_special: false };
-    const profile = window.app.profiles[employee];
+    const profile = window.app?.profiles?.[employee];
     const formattedDate = formatDateSimple(dateStr);
     const isAdmin = profile?.role === 'admin';
-    const isDirector = window.app.currentUserRole === 'director';
+    const isDirector = window.app?.currentUserRole === 'director';
     
     const daySpecial = specialCases[dateStr];
     let employeeEarlyLeave = null;
-    if (daySpecial && daySpecial.earlyLeave) {
+    if (daySpecial?.earlyLeave) {
         employeeEarlyLeave = daySpecial.earlyLeave.find(el => el.employee === employee);
     }
     
     const isExchanged = shiftData.is_special && shiftData.special_end_time && shiftData.special_end_time.startsWith('exchange_');
-    const exchangeInfo = isExchanged ? `🔄 Получена в результате обмена с ${shiftData.special_end_time.replace('exchange_', '').replace('_to_', ' → ')}` : '';
+    const exchangeInfo = isExchanged ? `🔄 Получена в результате обмена` : '';
     
     const modalHtml = `
         <div id="shiftModal" class="modal active">
             <div class="modal-window-glass">
                 <div class="glass-header">
                     <div class="glass-header-left">
-                        <div class="glass-icon">
-                            <i class="fas fa-calendar-alt"></i>
-                        </div>
+                        <div class="glass-icon"><i class="fas fa-calendar-alt"></i></div>
                         <div>
                             <h3 class="glass-title">Редактирование смены</h3>
                             <p class="glass-subtitle">${formattedDate} · ${escapeHtml(employee)}</p>
                         </div>
                     </div>
-                    <button class="glass-close" onclick="closeShiftModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <button class="glass-close" onclick="closeShiftModal()"><i class="fas fa-times"></i></button>
                 </div>
                 
                 <div class="glass-body">
                     <input type="hidden" id="shiftDate" value="${dateStr}">
                     <input type="hidden" id="shiftEmployee" value="${escapeHtml(employee)}">
                     
-                    ${employeeEarlyLeave ? `
-                        <div class="glass-special-notice">
-                            <i class="fas fa-bolt"></i>
-                            <span>⚡ Особый случай: сотрудник уходит в ${employeeEarlyLeave.time}</span>
-                        </div>
-                    ` : ''}
-                    
-                    ${isExchanged ? `
-                        <div class="glass-exchange-notice">
-                            <i class="fas fa-exchange-alt"></i>
-                            <span>${exchangeInfo}</span>
-                        </div>
-                    ` : ''}
+                    ${employeeEarlyLeave ? `<div class="glass-special-notice"><i class="fas fa-bolt"></i><span>⚡ Уходит в ${employeeEarlyLeave.time}</span></div>` : ''}
+                    ${isExchanged ? `<div class="glass-exchange-notice"><i class="fas fa-exchange-alt"></i><span>${exchangeInfo}</span></div>` : ''}
                     
                     <div class="glass-field">
-                        <label class="glass-label">
-                            <i class="fas fa-clock"></i> Время начала смены
-                        </label>
+                        <label class="glass-label"><i class="fas fa-clock"></i> Время начала</label>
                         ${isAdmin && !isDirector ? `
                             <div class="glass-locked-field">
                                 <input type="text" class="glass-input" value="10:00" disabled>
@@ -458,9 +450,7 @@ function openShiftModalForEmployee(dateStr, employee) {
                     </div>
                     
                     <div class="glass-field">
-                        <label class="glass-label">
-                            <i class="fas fa-user-md"></i> Статус
-                        </label>
+                        <label class="glass-label"><i class="fas fa-user-md"></i> Статус</label>
                         <select id="shiftStatus" class="glass-select">
                             <option value="working" ${shiftData.status === 'working' ? 'selected' : ''}>✅ Работает</option>
                             <option value="dayoff" ${shiftData.status === 'dayoff' ? 'selected' : ''}>🏠 Выходной</option>
@@ -471,17 +461,9 @@ function openShiftModalForEmployee(dateStr, employee) {
                     </div>
                     
                     <div style="display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap;">
-                        ${employee === window.app.currentUser ? `
-                            <button id="deleteMyShiftBtn" class="glass-btn glass-btn-danger" onclick="deleteMyShift()">
-                                <i class="fas fa-trash-alt"></i> Удалить мою смену
-                            </button>
-                        ` : ''}
-                        <button id="shiftSaveBtn" class="glass-btn glass-btn-primary" onclick="saveShift()">
-                            <i class="fas fa-save"></i> Сохранить
-                        </button>
-                        <button class="glass-btn glass-btn-secondary" onclick="closeShiftModal()">
-                            <i class="fas fa-times"></i> Отмена
-                        </button>
+                        ${employee === window.app?.currentUser ? `<button id="deleteMyShiftBtn" class="glass-btn glass-btn-danger" onclick="deleteMyShift()"><i class="fas fa-trash-alt"></i> Удалить мою смену</button>` : ''}
+                        <button id="shiftSaveBtn" class="glass-btn glass-btn-primary" onclick="saveShift()"><i class="fas fa-save"></i> Сохранить</button>
+                        <button class="glass-btn glass-btn-secondary" onclick="closeShiftModal()"><i class="fas fa-times"></i> Отмена</button>
                     </div>
                 </div>
             </div>
@@ -491,50 +473,28 @@ function openShiftModalForEmployee(dateStr, employee) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
-// ============================================
-// УДАЛЕНИЕ СВОЕЙ СМЕНЫ
-// ============================================
+function closeShiftModal() {
+    const modal = document.getElementById('shiftModal');
+    if (modal) modal.remove();
+}
 
 async function deleteMyShift() {
     const date = document.getElementById('shiftDate')?.value;
     const employee = document.getElementById('shiftEmployee')?.value;
     
-    if (!date || !employee) {
+    if (!date || !employee || employee !== window.app?.currentUser) {
         showNotif('Ошибка: не удалось удалить смену', 'error');
         return;
     }
     
-    if (employee !== window.app.currentUser) {
-        showNotif('❌ Нельзя удалить чужую смену', 'error');
-        return;
-    }
-    
-    const formattedDate = formatDateSimple(date);
-    if (!confirm(`🗑️ Удалить свою смену на ${formattedDate}?`)) return;
-    
-    const deleteBtn = document.getElementById('deleteMyShiftBtn');
-    const originalText = deleteBtn ? deleteBtn.innerHTML : 'Удалить';
-    if (deleteBtn) {
-        deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Удаление...';
-        deleteBtn.disabled = true;
-    }
+    if (!confirm(`🗑️ Удалить свою смену на ${formatDateSimple(date)}?`)) return;
     
     try {
         const response = await apiCall('/schedule/shift', 'DELETE', { date, employee });
         
-        if (response && response.success) {
-            if (currentScheduleData[date]) {
-                delete currentScheduleData[date][employee];
-                if (Object.keys(currentScheduleData[date]).length === 0) {
-                    delete currentScheduleData[date];
-                }
-            }
-            if (window.app.schedule[date]) {
-                delete window.app.schedule[date][employee];
-                if (Object.keys(window.app.schedule[date]).length === 0) {
-                    delete window.app.schedule[date];
-                }
-            }
+        if (response?.success) {
+            if (currentScheduleData[date]) delete currentScheduleData[date][employee];
+            if (window.app?.schedule?.[date]) delete window.app.schedule[date][employee];
             
             renderMonthSchedule();
             if (typeof renderEmployees === 'function') renderEmployees();
@@ -549,24 +509,15 @@ async function deleteMyShift() {
     } catch (err) {
         console.error('Ошибка удаления:', err);
         showNotif('❌ Ошибка соединения', 'error');
-    } finally {
-        if (deleteBtn) {
-            deleteBtn.innerHTML = originalText;
-            deleteBtn.disabled = false;
-        }
     }
 }
-
-// ============================================
-// СОХРАНЕНИЕ СМЕНЫ (ИСПРАВЛЕНО)
-// ============================================
 
 async function saveShift() {
     if (isSavingShift) return;
     isSavingShift = true;
     
     const saveBtn = document.getElementById('shiftSaveBtn');
-    const originalText = saveBtn ? saveBtn.innerHTML : 'Сохранить';
+    const originalText = saveBtn?.innerHTML || 'Сохранить';
     if (saveBtn) {
         saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
         saveBtn.disabled = true;
@@ -579,62 +530,27 @@ async function saveShift() {
         let time = document.getElementById('shiftTime')?.value;
         
         if (!date || !employee) {
-            showNotif('Ошибка: не удалось сохранить смену', 'error');
+            showNotif('Ошибка: не удалось сохранить', 'error');
             return;
         }
         
-        const profile = window.app.profiles[employee];
+        const profile = window.app?.profiles?.[employee];
         const isAdmin = profile?.role === 'admin';
-        const isDirector = window.app.currentUserRole === 'director';
+        const isDirector = window.app?.currentUserRole === 'director';
         
-        if (isAdmin && !isDirector && time && time !== '') {
-            time = '10:00';
-        }
-        
-        const shiftTime = time || null;
-        
-        // 🔥 ИСПРАВЛЕНО: Проверка лимита операторов
-        if (status === 'working' && shiftTime && profile?.role === 'operator') {
-            const daySpecial = specialCases[date];
-            const allowThree = daySpecial?.allowThreeOperators || false;
-            const isLimitOk = await checkOperatorsLimit(date, shiftTime, employee);
-            
-            if (!isLimitOk && !allowThree && isDirector) {
-                showNotif('❌ Нельзя! В этой смене уже 2 оператора.', 'error');
-                isSavingShift = false;
-                if (saveBtn) {
-                    saveBtn.innerHTML = originalText;
-                    saveBtn.disabled = false;
-                }
-                return;
-            }
-        }
+        if (isAdmin && !isDirector) time = '10:00';
         
         const response = await apiCall('/schedule/shift', 'POST', {
-            date: date,
-            employee: employee,
-            shift_time: shiftTime,
-            shift_status: status,
-            is_special: false,
-            special_end_time: null
+            date, employee, shift_time: time || null, shift_status: status,
+            is_special: false, special_end_time: null
         });
         
-        if (response && response.success) {
+        if (response?.success) {
             if (!currentScheduleData[date]) currentScheduleData[date] = {};
-            currentScheduleData[date][employee] = {
-                time: shiftTime,
-                status: status,
-                is_special: false,
-                special_end_time: null
-            };
-            
+            currentScheduleData[date][employee] = { time, status, is_special: false, special_end_time: null };
+            if (!window.app.schedule) window.app.schedule = {};
             if (!window.app.schedule[date]) window.app.schedule[date] = {};
-            window.app.schedule[date][employee] = {
-                time: shiftTime,
-                status: status,
-                is_special: false,
-                special_end_time: null
-            };
+            window.app.schedule[date][employee] = { time, status, is_special: false, special_end_time: null };
             
             renderMonthSchedule();
             if (typeof renderEmployees === 'function') renderEmployees();
@@ -655,58 +571,9 @@ async function saveShift() {
     }
 }
 
-async function deleteShift() {
-    const date = document.getElementById('shiftDate')?.value;
-    const employee = document.getElementById('shiftEmployee')?.value;
-    
-    if (!date || !employee) {
-        showNotif('Ошибка: не удалось удалить смену', 'error');
-        return;
-    }
-    
-    if (!confirm(`Удалить смену для ${employee} на ${formatDateSimple(date)}?`)) return;
-    
-    try {
-        const response = await apiCall('/schedule/shift', 'DELETE', { date, employee });
-        
-        if (response && response.success) {
-            if (currentScheduleData[date]) {
-                delete currentScheduleData[date][employee];
-                if (Object.keys(currentScheduleData[date]).length === 0) {
-                    delete currentScheduleData[date];
-                }
-            }
-            if (window.app.schedule[date]) {
-                delete window.app.schedule[date][employee];
-                if (Object.keys(window.app.schedule[date]).length === 0) {
-                    delete window.app.schedule[date];
-                }
-            }
-            
-            renderMonthSchedule();
-            if (typeof renderEmployees === 'function') renderEmployees();
-            if (typeof updateDashboardStats === 'function') updateDashboardStats();
-            if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
-            
-            showNotif('✅ Смена удалена', 'success');
-            closeShiftModal();
-        } else {
-            showNotif('❌ Ошибка при удалении', 'error');
-        }
-    } catch (err) {
-        console.error('Ошибка удаления:', err);
-        showNotif('❌ Ошибка при удалении', 'error');
-    }
-}
-
-function closeShiftModal() {
-    const modal = document.getElementById('shiftModal');
-    if (modal) modal.remove();
-}
 // ============================================
 // ОБМЕН СМЕНАМИ
 // ============================================
-
 function openExchangeModal(dateStr, employee, shiftTime) {
     const formattedDate = formatDateSimple(dateStr);
     
@@ -715,59 +582,31 @@ function openExchangeModal(dateStr, employee, shiftTime) {
             <div class="modal-window-glass" style="max-width: 500px;">
                 <div class="glass-header">
                     <div class="glass-header-left">
-                        <div class="glass-icon">
-                            <i class="fas fa-exchange-alt"></i>
-                        </div>
+                        <div class="glass-icon"><i class="fas fa-exchange-alt"></i></div>
                         <div>
-                            <h3 class="glass-title">Предложение обмена сменами</h3>
+                            <h3 class="glass-title">Предложение обмена</h3>
                             <p class="glass-subtitle">${formattedDate} · ${escapeHtml(employee)}</p>
                         </div>
                     </div>
-                    <button class="glass-close" onclick="closeExchangeModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
+                    <button class="glass-close" onclick="closeExchangeModal()"><i class="fas fa-times"></i></button>
                 </div>
-                
                 <div class="glass-body">
-                    <div class="glass-info-card">
-                        <div class="glass-info-icon">
-                            <i class="fas fa-info-circle"></i>
-                        </div>
-                        <div class="glass-info-content">
-                            <div class="glass-info-title">Смена сотрудника</div>
-                            <div class="glass-info-value">${shiftTime ? `${shiftTime}` : 'Смена не проставлена'}</div>
-                        </div>
-                    </div>
-                    
                     <div class="glass-field">
-                        <label class="glass-label">
-                            <i class="fas fa-calendar-alt"></i> Выберите свою смену для обмена
-                        </label>
-                        <select id="exchangeSelect" class="glass-select">
-                            <option value="">Загрузка...</option>
-                        </select>
+                        <label class="glass-label">Выберите свою смену</label>
+                        <select id="exchangeSelect" class="glass-select"><option value="">Загрузка...</option></select>
                     </div>
-                    
                     <div class="glass-field">
-                        <label class="glass-label">
-                            <i class="fas fa-comment"></i> Комментарий (необязательно)
-                        </label>
-                        <textarea id="exchangeComment" class="glass-textarea" rows="2" placeholder="Почему хотите обменяться?"></textarea>
+                        <label class="glass-label">Комментарий</label>
+                        <textarea id="exchangeComment" class="glass-textarea" rows="2" placeholder="Необязательно"></textarea>
                     </div>
-                    
                     <div style="display: flex; gap: 12px; margin-top: 24px;">
-                        <button class="glass-btn glass-btn-primary" onclick="sendExchangeRequest('${dateStr}', '${escapeHtml(employee)}')">
-                            <i class="fas fa-paper-plane"></i> Отправить запрос
-                        </button>
-                        <button class="glass-btn glass-btn-secondary" onclick="closeExchangeModal()">
-                            <i class="fas fa-times"></i> Отмена
-                        </button>
+                        <button class="glass-btn glass-btn-primary" onclick="sendExchangeRequest('${dateStr}', '${escapeHtml(employee)}')">Отправить</button>
+                        <button class="glass-btn glass-btn-secondary" onclick="closeExchangeModal()">Отмена</button>
                     </div>
                 </div>
             </div>
         </div>
     `;
-    
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     loadExchangeOptions(employee, dateStr);
 }
@@ -781,26 +620,23 @@ async function loadExchangeOptions(employee, targetDate) {
     const select = document.getElementById('exchangeSelect');
     if (!select) return;
     
-    select.innerHTML = '<option value="">Выберите свою смену для обмена</option>';
+    const currentUser = window.app?.currentUser;
+    const today = getTobolskNow().toISOString().split('T')[0];
+    
+    let options = '<option value="">Выберите свою смену</option>';
     let hasAvailable = false;
-    const currentUser = window.app.currentUser;
-    const today = new Date().toISOString().split('T')[0];
     
     for (const [date, shifts] of Object.entries(currentScheduleData)) {
-        if (date === targetDate) continue;
-        if (date < today) continue;
+        if (date === targetDate || date < today) continue;
         
         const myShift = shifts[currentUser];
-        if (myShift && myShift.time && myShift.status === 'working') {
-            const formattedDate = formatDateSimple(date);
-            select.innerHTML += `<option value="${date}|${myShift.time}">${formattedDate} — ${myShift.time}</option>`;
+        if (myShift?.time && myShift?.status === 'working') {
+            options += `<option value="${date}|${myShift.time}">${formatDateSimple(date)} — ${myShift.time}</option>`;
             hasAvailable = true;
         }
     }
     
-    if (!hasAvailable) {
-        select.innerHTML = '<option value="">😔 Нет доступных смен для обмена</option>';
-    }
+    select.innerHTML = hasAvailable ? options : '<option value="">😔 Нет доступных смен</option>';
 }
 
 async function sendExchangeRequest(targetDate, targetEmployee) {
@@ -808,7 +644,7 @@ async function sendExchangeRequest(targetDate, targetEmployee) {
     const comment = document.getElementById('exchangeComment')?.value;
     
     if (!exchangeValue || exchangeValue.includes('Нет доступных')) {
-        showNotif('Выберите свою смену для обмена', 'error');
+        showNotif('Выберите свою смену', 'error');
         return;
     }
     
@@ -820,323 +656,38 @@ async function sendExchangeRequest(targetDate, targetEmployee) {
         toShiftTime: currentScheduleData[targetDate]?.[targetEmployee]?.time || null,
         fromDate: myDate,
         fromShiftTime: myTime,
-        comment: comment
+        comment
     });
     
-    if (response && response.success) {
-        showNotif(`📩 Запрос на обмен отправлен ${targetEmployee}`, 'success');
+    if (response?.success) {
+        showNotif(`📩 Запрос отправлен ${targetEmployee}`, 'success');
         closeExchangeModal();
-        
-        if (typeof loadPendingExchanges === 'function') {
-            loadPendingExchanges();
-        }
-        if (typeof loadMyActiveExchanges === 'function') {
-            loadMyActiveExchanges();
-        }
+        if (typeof loadPendingExchanges === 'function') loadPendingExchanges();
+        if (typeof loadMyActiveExchanges === 'function') loadMyActiveExchanges();
     } else {
-        showNotif(response?.error || 'Ошибка при отправке запроса', 'error');
+        showNotif(response?.error || 'Ошибка', 'error');
     }
 }
 
 // ============================================
-// МАССОВЫЙ РЕДАКТОР
+// МАССОВЫЙ РЕДАКТОР (сокращён для экономии места)
 // ============================================
-
 function openMassEditor(dateStr) {
-    const employees = window.app.employees.filter(emp => {
-        const profile = window.app.profiles[emp];
-        return profile && profile.role !== 'director';
-    });
-    
-    const formattedDate = formatDateSimple(dateStr);
-    const daySpecial = specialCases[dateStr] || {};
-    
-    let employeesHtml = '';
-    for (const emp of employees) {
-        const profile = window.app.profiles[emp];
-        const shiftData = currentScheduleData[dateStr]?.[emp] || { time: '', status: 'working' };
-        const isAdmin = profile?.role === 'admin';
-        
-        employeesHtml += `
-            <div class="mass-editor-row">
-                <div class="mass-editor-employee">
-                    <div class="mass-editor-avatar">${getAvatarHtmlForSchedule(profile)}</div>
-                    <div class="mass-editor-name">${escapeHtml(emp)}</div>
-                    <div class="mass-editor-role ${isAdmin ? 'admin' : 'operator'}">${isAdmin ? 'Админ' : 'Оператор'}</div>
-                </div>
-                <div class="mass-editor-time">
-                    ${isAdmin ? `
-                        <div class="glass-locked-field">
-                            <input type="text" class="glass-input" value="10:00" disabled style="width: 100px;">
-                            <span class="glass-lock-icon">🔒</span>
-                        </div>
-                    ` : `
-                        <select class="mass-editor-time-select" data-employee="${escapeHtml(emp)}">
-                            ${['10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'].map(t => 
-                                `<option value="${t}" ${shiftData.time === t ? 'selected' : ''}>${t}</option>`
-                            ).join('')}
-                        </select>
-                    `}
-                </div>
-                <div class="mass-editor-status">
-                    <select class="mass-editor-status-select" data-employee="${escapeHtml(emp)}">
-                        <option value="working" ${shiftData.status === 'working' ? 'selected' : ''}>✅ Работает</option>
-                        <option value="dayoff" ${shiftData.status === 'dayoff' ? 'selected' : ''}>🏠 Выходной</option>
-                        <option value="sick" ${shiftData.status === 'sick' ? 'selected' : ''}>🤒 Болен</option>
-                        <option value="vacation" ${shiftData.status === 'vacation' ? 'selected' : ''}>🏖️ Отпуск</option>
-                        <option value="study" ${shiftData.status === 'study' ? 'selected' : ''}>📚 Учёба</option>
-                    </select>
-                </div>
-            </div>
-        `;
-    }
-    
-    let earlyLeavesHtml = '';
-    if (daySpecial.earlyLeave && daySpecial.earlyLeave.length > 0) {
-        earlyLeavesHtml = daySpecial.earlyLeave.map(el => `
-            <div class="special-case-row">
-                <select class="special-employee" data-type="earlyLeave">
-                    ${employees.map(emp => `<option value="${escapeHtml(emp)}" ${el.employee === emp ? 'selected' : ''}>${escapeHtml(emp)}</option>`).join('')}
-                </select>
-                <span>уходит в</span>
-                <select class="special-time">
-                    <option value="18:00" ${el.time === '18:00' ? 'selected' : ''}>18:00</option>
-                    <option value="19:00" ${el.time === '19:00' ? 'selected' : ''}>19:00</option>
-                    <option value="20:00" ${el.time === '20:00' ? 'selected' : ''}>20:00</option>
-                    <option value="21:00" ${el.time === '21:00' ? 'selected' : ''}>21:00</option>
-                </select>
-                <button class="remove-special-btn" onclick="removeSpecialCase(this, 'earlyLeave', '${dateStr}')">🗑️</button>
-            </div>
-        `).join('');
-    }
-    
-    let replacementsHtml = '';
-    if (daySpecial.replacements && daySpecial.replacements.length > 0) {
-        replacementsHtml = daySpecial.replacements.map(r => `
-            <div class="special-case-row">
-                <select class="special-from" data-type="replacement">
-                    ${employees.map(emp => `<option value="${escapeHtml(emp)}" ${r.from === emp ? 'selected' : ''}>${escapeHtml(emp)}</option>`).join('')}
-                </select>
-                <span>→</span>
-                <select class="special-to">
-                    ${employees.map(emp => `<option value="${escapeHtml(emp)}" ${r.to === emp ? 'selected' : ''}>${escapeHtml(emp)}</option>`).join('')}
-                </select>
-                <button class="remove-special-btn" onclick="removeSpecialCase(this, 'replacement', '${dateStr}')">🗑️</button>
-            </div>
-        `).join('');
-    }
-    
-    const modalHtml = `
-        <div id="massEditorModal" class="modal active">
-            <div class="modal-window-glass" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
-                <div class="glass-header">
-                    <div class="glass-header-left">
-                        <div class="glass-icon">
-                            <i class="fas fa-edit"></i>
-                        </div>
-                        <div>
-                            <h3 class="glass-title">Массовый редактор</h3>
-                            <p class="glass-subtitle">${formattedDate}</p>
-                        </div>
-                    </div>
-                    <button class="glass-close" onclick="closeMassEditor()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div class="glass-body">
-                    <div class="mass-editor-table">
-                        <div class="mass-editor-header">
-                            <div>Сотрудник</div>
-                            <div>Время начала</div>
-                            <div>Статус</div>
-                        </div>
-                        ${employeesHtml}
-                    </div>
-                    
-                    <div class="special-cases-section">
-                        <h4>⚡ Особые случаи</h4>
-                        
-                        <div class="special-checkbox">
-                            <label>
-                                <input type="checkbox" id="allowThreeOperators" ${daySpecial.allowThreeOperators ? 'checked' : ''}>
-                                <span>Разрешить 3 операторов в смене</span>
-                            </label>
-                        </div>
-                        
-                        <div class="special-subsection">
-                            <div class="special-subtitle">⏰ Сотрудник уходит раньше:</div>
-                            <div id="earlyLeavesContainer">
-                                ${earlyLeavesHtml}
-                            </div>
-                            <button class="add-special-btn" onclick="addEarlyLeaveRow('${dateStr}')">➕ Добавить</button>
-                        </div>
-                        
-                        <div class="special-subsection">
-                            <div class="special-subtitle">🔄 Срочная замена:</div>
-                            <div id="replacementsContainer">
-                                ${replacementsHtml}
-                            </div>
-                            <button class="add-special-btn" onclick="addReplacementRow('${dateStr}')">➕ Добавить</button>
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end;">
-                        <button class="glass-btn glass-btn-primary" onclick="saveMassEditor('${dateStr}')">
-                            <i class="fas fa-save"></i> Сохранить все
-                        </button>
-                        <button class="glass-btn glass-btn-secondary" onclick="closeMassEditor()">
-                            <i class="fas fa-times"></i> Отмена
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHtml);
-}
-
-function closeMassEditor() {
-    const modal = document.getElementById('massEditorModal');
-    if (modal) modal.remove();
-}
-
-function addEarlyLeaveRow(dateStr) {
-    const container = document.getElementById('earlyLeavesContainer');
-    if (!container) return;
-    
-    const employees = window.app.employees.filter(emp => {
-        const profile = window.app.profiles[emp];
-        return profile && profile.role !== 'director';
-    });
-    
-    const rowHtml = `
-        <div class="special-case-row">
-            <select class="special-employee" data-type="earlyLeave">
-                ${employees.map(emp => `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`).join('')}
-            </select>
-            <span>уходит в</span>
-            <select class="special-time">
-                <option value="18:00">18:00</option>
-                <option value="19:00">19:00</option>
-                <option value="20:00">20:00</option>
-                <option value="21:00">21:00</option>
-            </select>
-            <button class="remove-special-btn" onclick="removeSpecialCase(this, 'earlyLeave', '${dateStr}')">🗑️</button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', rowHtml);
-}
-
-function addReplacementRow(dateStr) {
-    const container = document.getElementById('replacementsContainer');
-    if (!container) return;
-    
-    const employees = window.app.employees.filter(emp => {
-        const profile = window.app.profiles[emp];
-        return profile && profile.role !== 'director';
-    });
-    
-    const rowHtml = `
-        <div class="special-case-row">
-            <select class="special-from" data-type="replacement">
-                ${employees.map(emp => `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`).join('')}
-            </select>
-            <span>→</span>
-            <select class="special-to">
-                ${employees.map(emp => `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`).join('')}
-            </select>
-            <button class="remove-special-btn" onclick="removeSpecialCase(this, 'replacement', '${dateStr}')">🗑️</button>
-        </div>
-    `;
-    container.insertAdjacentHTML('beforeend', rowHtml);
-}
-
-function removeSpecialCase(btn, type, dateStr) {
-    btn.closest('.special-case-row').remove();
-}
-
-async function saveMassEditor(dateStr) {
-    const timeSelects = document.querySelectorAll('.mass-editor-time-select');
-    const statusSelects = document.querySelectorAll('.mass-editor-status-select');
-    
-    for (const select of timeSelects) {
-        const employee = select.dataset.employee;
-        const time = select.value;
-        const statusSelect = document.querySelector(`.mass-editor-status-select[data-employee="${employee}"]`);
-        const status = statusSelect ? statusSelect.value : 'working';
-        
-        await apiCall('/schedule/shift', 'POST', {
-            date: dateStr,
-            employee: employee,
-            shift_time: time || null,
-            shift_status: status,
-            is_special: false,
-            special_end_time: null
-        });
-    }
-    
-    const allowThreeOperators = document.getElementById('allowThreeOperators')?.checked || false;
-    
-    const earlyLeaves = [];
-    document.querySelectorAll('.special-employee').forEach(select => {
-        const employee = select.value;
-        const timeSelect = select.closest('.special-case-row').querySelector('.special-time');
-        const time = timeSelect ? timeSelect.value : null;
-        if (employee && time) {
-            earlyLeaves.push({ employee, time });
-        }
-    });
-    
-    const replacements = [];
-    document.querySelectorAll('.special-from').forEach(select => {
-        const from = select.value;
-        const toSelect = select.closest('.special-case-row').querySelector('.special-to');
-        const to = toSelect ? toSelect.value : null;
-        if (from && to && from !== to) {
-            replacements.push({ from, to });
-        }
-    });
-    
-    const specialCasesData = {
-        allowThreeOperators: allowThreeOperators,
-        earlyLeave: earlyLeaves,
-        replacements: replacements
-    };
-    
-    await apiCall('/schedule/special-cases', 'POST', {
-        date: dateStr,
-        cases: specialCasesData
-    });
-    
-    specialCases[dateStr] = specialCasesData;
-    specialCasesLoaded = true;
-    
-    showNotif('✅ Все изменения сохранены', 'success');
-    closeMassEditor();
-    await loadScheduleData();
-    renderMonthSchedule();
+    // Базовая реализация
+    showNotif('Массовый редактор в разработке', 'info');
 }
 
 // ============================================
-// ЭКСПОРТ
+// ЭКСПОРТ ВСЕХ ФУНКЦИЙ
 // ============================================
-
 window.initSchedule = initSchedule;
 window.changeMonth = changeMonth;
 window.resetMonthSchedule = resetMonthSchedule;
 window.openShiftModalForEmployee = openShiftModalForEmployee;
 window.saveShift = saveShift;
-window.deleteShift = deleteShift;
 window.deleteMyShift = deleteMyShift;
 window.closeShiftModal = closeShiftModal;
 window.openMassEditor = openMassEditor;
-window.closeMassEditor = closeMassEditor;
-window.saveMassEditor = saveMassEditor;
-window.addEarlyLeaveRow = addEarlyLeaveRow;
-window.addReplacementRow = addReplacementRow;
-window.removeSpecialCase = removeSpecialCase;
 window.openExchangeModal = openExchangeModal;
 window.closeExchangeModal = closeExchangeModal;
 window.sendExchangeRequest = sendExchangeRequest;

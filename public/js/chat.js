@@ -1,4 +1,4 @@
-// public/js/chat.js - ПОЛНЫЙ ФАЙЛ С ЗАЩИТОЙ
+// public/js/chat.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 // ============================================
 // ЗАЩИТА ОТ РЕКУРСИИ И СПАМА
@@ -11,19 +11,18 @@ let lastProcessedTime = {};
 let currentAnnouncementStyle = 'director';
 let lastBulkDeleteTime = 0;
 
-// Защита от повторной инициализации
 let chatInitialized = false;
 let isLoadingHistory = false;
 let isSendingMessage = false;
 let isSwitchingChat = false;
 let pusherListenersSetup = false;
 
-// Защита от спама
 let lastMessageTime = 0;
 const MESSAGE_COOLDOWN = 500;
+const MAX_MESSAGE_LENGTH = 2000;
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
 // ============================================
 
 function initChat() {
@@ -32,8 +31,16 @@ function initChat() {
         return;
     }
     
+    const container = document.getElementById('chatMessages');
+    if (!container) {
+        console.warn('⚠️ chatMessages не найден, ждём...');
+        setTimeout(initChat, 100);
+        return;
+    }
+    
     console.log('💬 Инициализация чата');
-    var picker = document.getElementById('emojiPicker');
+    
+    const picker = document.getElementById('emojiPicker');
     if (picker) picker.style.display = 'none';
     
     loadChatHistory();
@@ -46,8 +53,8 @@ function initChat() {
 
 function setupEmojiPickerClose() {
     document.addEventListener('click', function(e) {
-        var picker = document.getElementById('emojiPicker');
-        var emojiBtn = document.getElementById('chatEmojiBtn');
+        const picker = document.getElementById('emojiPicker');
+        const emojiBtn = document.getElementById('chatEmojiBtn');
         if (picker && emojiBtn) {
             if (!picker.contains(e.target) && e.target !== emojiBtn && !emojiBtn.contains(e.target)) {
                 picker.style.display = 'none';
@@ -67,21 +74,21 @@ async function loadChatHistory() {
     }
     
     console.log('📜 Загрузка истории чата...');
-    var token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (!token) return;
     
     isLoadingHistory = true;
     
     try {
-        var generalRes = await fetch('/api/chat/history/general', {
+        const generalRes = await fetch('/api/chat/history/general', {
             headers: { 'Authorization': 'Bearer ' + token }
         });
         if (generalRes.ok) {
-            var messages = await generalRes.json();
+            let messages = await generalRes.json();
             messages = messages.map(function(msg) {
                 if (msg.text && msg.text.startsWith('{') && msg.text.indexOf('"type":"announcement"') !== -1) {
                     try {
-                        var parsed = JSON.parse(msg.text);
+                        const parsed = JSON.parse(msg.text);
                         if (parsed.type === 'announcement') return parsed;
                     } catch(e) {}
                 }
@@ -89,29 +96,32 @@ async function loadChatHistory() {
             });
             chatMessages.general = messages;
             if (chatMessages.general.length > 0) {
-                var times = chatMessages.general.map(function(m) { return m.time; });
-                lastProcessedTime.general = Math.max.apply(Math, times);
+                const times = chatMessages.general.map(m => m.time);
+                lastProcessedTime.general = Math.max(...times);
             }
             console.log('📩 Общий чат: ' + chatMessages.general.length + ' сообщений');
         }
         
-        var employees = window.app.employees || [];
-        var currentUser = window.app.currentUser;
+        const employees = window.app?.employees || [];
+        const currentUser = window.app?.currentUser;
         
-        for (var i = 0; i < employees.length; i++) {
-            var emp = employees[i];
+        for (const emp of employees) {
             if (emp !== currentUser) {
-                var privRes = await fetch('/api/chat/history/' + encodeURIComponent(emp), {
-                    headers: { 'Authorization': 'Bearer ' + token }
-                });
-                if (privRes.ok) {
-                    var privMessages = await privRes.json();
-                    if (privMessages.length > 0) {
-                        chatMessages[emp] = privMessages;
-                        var privTimes = privMessages.map(function(m) { return m.time; });
-                        lastProcessedTime[emp] = Math.max.apply(Math, privTimes);
-                        console.log('📩 Чат с ' + emp + ': ' + privMessages.length + ' сообщений');
+                try {
+                    const privRes = await fetch('/api/chat/history/' + encodeURIComponent(emp), {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (privRes.ok) {
+                        const privMessages = await privRes.json();
+                        if (privMessages.length > 0) {
+                            chatMessages[emp] = privMessages;
+                            const privTimes = privMessages.map(m => m.time);
+                            lastProcessedTime[emp] = Math.max(...privTimes);
+                            console.log('📩 Чат с ' + emp + ': ' + privMessages.length + ' сообщений');
+                        }
                     }
+                } catch(e) {
+                    console.error('Ошибка загрузки чата с ' + emp + ':', e);
                 }
             }
         }
@@ -120,6 +130,7 @@ async function loadChatHistory() {
         
     } catch (err) {
         console.error('Ошибка загрузки:', err);
+        showNotif('Ошибка загрузки истории чата', 'error');
     } finally {
         isLoadingHistory = false;
     }
@@ -135,33 +146,31 @@ async function loadChatHistory() {
 // ============================================
 
 function renderChatContacts() {
-    var container = document.getElementById('chatContacts');
+    const container = document.getElementById('chatContacts');
     if (!container) return;
     
-    var employees = window.app.employees || [];
-    var currentUser = window.app.currentUser;
+    const employees = window.app?.employees || [];
+    const currentUser = window.app?.currentUser;
     
-    var contacts = [
+    const contacts = [
         { id: 'general', name: 'Общий чат', icon: '💬', type: 'general' }
     ];
     
-    for (var i = 0; i < employees.length; i++) {
-        var emp = employees[i];
+    for (const emp of employees) {
         if (emp !== currentUser) {
             contacts.push({ id: emp, name: emp, icon: '👤', type: 'private' });
         }
     }
     
-    var html = '';
-    for (var j = 0; j < contacts.length; j++) {
-        var contact = contacts[j];
-        var unreadCount = chatUnread[contact.id] || 0;
-        var isActive = (currentChatRoom === contact.id);
-        var msgCount = (chatMessages[contact.id] ? chatMessages[contact.id].length : 0);
+    let html = '';
+    for (const contact of contacts) {
+        const unreadCount = chatUnread[contact.id] || 0;
+        const isActive = (currentChatRoom === contact.id);
+        const msgCount = (chatMessages[contact.id] ? chatMessages[contact.id].length : 0);
         
-        var avatarHtml = contact.icon;
+        let avatarHtml = contact.icon;
         if (contact.type === 'private') {
-            var profile = window.app.profiles[contact.name];
+            const profile = window.app?.profiles?.[contact.name];
             if (profile) {
                 avatarHtml = getAvatarHtml(profile, 'small');
             }
@@ -182,17 +191,17 @@ function renderChatContacts() {
 }
 
 // ============================================
-// РЕНДЕР СООБЩЕНИЙ
+// РЕНДЕР СООБЩЕНИЙ (С XSS-ЗАЩИТОЙ)
 // ============================================
 
 function renderChatMessages() {
-    var container = document.getElementById('chatMessages');
-    var headerName = document.getElementById('chatHeaderName');
-    var headerStatus = document.getElementById('chatHeaderStatus');
+    const container = document.getElementById('chatMessages');
+    const headerName = document.getElementById('chatHeaderName');
+    const headerStatus = document.getElementById('chatHeaderStatus');
     
     if (!container) return;
     
-    var messages = chatMessages[currentChatRoom] || [];
+    const messages = chatMessages[currentChatRoom] || [];
     
     if (headerName) {
         if (currentChatRoom === 'general') {
@@ -200,7 +209,7 @@ function renderChatMessages() {
             headerStatus.innerHTML = 'Все сотрудники';
         } else {
             headerName.innerHTML = escapeHtml(currentChatRoom);
-            var profile = window.app.profiles[currentChatRoom];
+            const profile = window.app?.profiles?.[currentChatRoom];
             headerStatus.innerHTML = (profile && profile.role) ? roleNames[profile.role] : 'Сотрудник';
         }
     }
@@ -215,20 +224,18 @@ function renderChatMessages() {
         renderChatContacts();
     }
     
-    var sorted = messages.slice().sort(function(a, b) { return a.time - b.time; });
-    var unique = [];
-    var seen = {};
-    for (var i = 0; i < sorted.length; i++) {
-        var msg = sorted[i];
+    const sorted = [...messages].sort((a, b) => a.time - b.time);
+    const unique = [];
+    const seen = {};
+    for (const msg of sorted) {
         if (!seen[msg.time]) {
             seen[msg.time] = true;
             unique.push(msg);
         }
     }
     
-    var html = '';
-    for (var j = 0; j < unique.length; j++) {
-        var msg = unique[j];
+    let html = '';
+    for (const msg of unique) {
         
         if (msg.type === 'announcement') {
             html += renderAnnouncement(msg);
@@ -240,16 +247,16 @@ function renderChatMessages() {
             continue;
         }
         
-        var isOwn = (msg.sender === window.app.currentUser);
+        const isOwn = (msg.sender === window.app?.currentUser);
         
-        var timeValue = msg.time;
+        let timeValue = msg.time;
         if (typeof timeValue === 'string') timeValue = parseInt(timeValue);
-        var date = new Date(timeValue);
-        var time = isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        const date = new Date(timeValue);
+        const time = isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
         
-        var avatarHtml = '👤';
+        let avatarHtml = '👤';
         if (!isOwn) {
-            var profile = window.app.profiles[msg.sender];
+            const profile = window.app?.profiles?.[msg.sender];
             if (profile) {
                 avatarHtml = getAvatarHtml(profile, 'small');
             }
@@ -274,16 +281,16 @@ function renderChatMessages() {
 }
 
 function renderExchangeRequestMessage(msg) {
-    var data = msg.action_data;
-    var timeValue = msg.time;
+    const data = msg.action_data;
+    let timeValue = msg.time;
     if (typeof timeValue === 'string') timeValue = parseInt(timeValue);
-    var date = new Date(timeValue);
-    var time = isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const date = new Date(timeValue);
+    const time = isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     
-    var fromDate = formatDateSimple(data.from_date);
-    var toDate = formatDateSimple(data.to_date);
+    const fromDate = formatDateSimple(data.from_date);
+    const toDate = formatDateSimple(data.to_date);
     
-    var html = '<div class="message exchange-message" data-request-id="' + data.request_id + '">';
+    let html = '<div class="message exchange-message" data-request-id="' + data.request_id + '">';
     html += '<div class="message-avatar">🔄</div>';
     html += '<div class="message-bubble exchange-bubble">';
     html += '<div class="message-sender">' + escapeHtml(msg.sender) + '</div>';
@@ -308,8 +315,8 @@ function renderExchangeRequestMessage(msg) {
 }
 
 function renderAnnouncement(announcement) {
-    var roleIcon = '📢';
-    var roleName = 'Объявление';
+    let roleIcon = '📢';
+    let roleName = 'Объявление';
     
     if (announcement.role === 'director') {
         roleIcon = '👑';
@@ -319,8 +326,8 @@ function renderAnnouncement(announcement) {
         roleName = 'Управляющий';
     }
     
-    var styleClass = 'announcement-' + announcement.style;
-    var time = new Date(announcement.time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const styleClass = 'announcement-' + announcement.style;
+    const time = new Date(announcement.time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     
     return '<div class="announcement-message ' + styleClass + '">' +
         '<div class="announcement-header">' +
@@ -339,13 +346,30 @@ function renderAnnouncement(announcement) {
     '</div>';
 }
 
+function formatDateSimple(dateStr) {
+    if (!dateStr) return '—';
+    const parts = dateStr.split('-');
+    const day = parseInt(parts[2]);
+    const month = parseInt(parts[1]);
+    const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    return day + ' ' + monthNames[month - 1];
+}
+
+function getAvatarHtml(profile, size) {
+    if (!profile) return '👤';
+    if (profile.avatar_url) {
+        return '<img src="' + escapeHtml(profile.avatar_url) + '" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.parentElement.innerHTML=\'👤\'">';
+    }
+    return escapeHtml(profile.avatar || '👤');
+}
+
 // ============================================
 // ОТПРАВКА СООБЩЕНИЙ
 // ============================================
 
 function initChatInput() {
-    var input = document.getElementById('chatInput');
-    var sendBtn = document.getElementById('chatSendBtn');
+    const input = document.getElementById('chatInput');
+    const sendBtn = document.getElementById('chatSendBtn');
     
     if (input) {
         input.addEventListener('keypress', function(e) {
@@ -362,7 +386,7 @@ function initChatInput() {
 }
 
 async function sendChatMessage() {
-    var now = Date.now();
+    const now = Date.now();
     
     if (isSendingMessage) {
         console.log('⚠️ Сообщение уже отправляется');
@@ -370,16 +394,20 @@ async function sendChatMessage() {
     }
     
     if (now - lastMessageTime < MESSAGE_COOLDOWN) {
-        console.log('⏳ Слишком частые сообщения, подождите');
         showNotif('Подождите немного перед отправкой', 'warning');
         return;
     }
     
-    var input = document.getElementById('chatInput');
-    var text = input.value.trim();
+    const input = document.getElementById('chatInput');
+    const text = input?.value.trim();
     if (!text) return;
     
-    var token = localStorage.getItem('token');
+    if (text.length > MAX_MESSAGE_LENGTH) {
+        showNotif('Сообщение слишком длинное (макс. ' + MAX_MESSAGE_LENGTH + ' символов)', 'error');
+        return;
+    }
+    
+    const token = localStorage.getItem('token');
     if (!token) {
         showNotif('Ошибка: не авторизован', 'error');
         return;
@@ -388,14 +416,21 @@ async function sendChatMessage() {
     isSendingMessage = true;
     lastMessageTime = now;
     
-    var message = {
-        sender: window.app.currentUser,
+    const sendBtn = document.getElementById('chatSendBtn');
+    const originalText = sendBtn?.innerHTML;
+    if (sendBtn) {
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        sendBtn.disabled = true;
+    }
+    
+    const message = {
+        sender: window.app?.currentUser,
         text: text,
         time: Date.now()
     };
     
     try {
-        var response;
+        let response;
         if (currentChatRoom === 'general') {
             response = await fetch('/api/chat', {
                 method: 'POST',
@@ -416,7 +451,7 @@ async function sendChatMessage() {
             });
         }
         
-        var data = await response.json();
+        const data = await response.json();
         
         if (data.success) {
             if (!chatMessages[currentChatRoom]) chatMessages[currentChatRoom] = [];
@@ -426,13 +461,17 @@ async function sendChatMessage() {
             renderChatMessages();
             renderChatContacts();
         } else {
-            showNotif('Ошибка при отправке', 'error');
+            showNotif(data.error || 'Ошибка при отправке', 'error');
         }
     } catch (err) {
         console.error('Ошибка:', err);
         showNotif('Ошибка соединения', 'error');
     } finally {
         isSendingMessage = false;
+        if (sendBtn) {
+            sendBtn.innerHTML = originalText || '<i class="fas fa-paper-plane"></i>';
+            sendBtn.disabled = false;
+        }
     }
 }
 
@@ -452,26 +491,18 @@ function switchChat(roomId) {
     
     currentChatRoom = roomId;
     
-    var picker = document.getElementById('emojiPicker');
+    const picker = document.getElementById('emojiPicker');
     if (picker) picker.style.display = 'none';
     
-    var announcementBtn = document.getElementById('announcementBtn');
+    const announcementBtn = document.getElementById('announcementBtn');
     if (announcementBtn) {
-        if (roomId === 'general') {
-            var role = window.app.currentUserRole;
-            announcementBtn.style.display = (role === 'director' || role === 'manager') ? 'flex' : 'none';
-        } else {
-            announcementBtn.style.display = 'none';
-        }
+        const role = window.app?.currentUserRole;
+        announcementBtn.style.display = (role === 'director' || role === 'manager') ? 'flex' : 'none';
     }
     
-    var settingsBtn = document.getElementById('chatSettingsBtn');
+    const settingsBtn = document.getElementById('chatSettingsBtn');
     if (settingsBtn) {
-        if (roomId === 'general' && window.app.currentUserRole === 'director') {
-            settingsBtn.style.display = 'flex';
-        } else {
-            settingsBtn.style.display = 'none';
-        }
+        settingsBtn.style.display = (roomId === 'general' && window.app?.currentUserRole === 'director') ? 'flex' : 'none';
     }
     
     renderChatContacts();
@@ -481,7 +512,7 @@ function switchChat(roomId) {
 }
 
 // ============================================
-// PUSHER СЛУШАТЕЛИ
+// PUSHER СЛУШАТЕЛИ (С ОЧИСТКОЙ СТАРЫХ)
 // ============================================
 
 function setupPusherListeners() {
@@ -493,6 +524,7 @@ function setupPusherListeners() {
     console.log('🔌 ===== НАСТРОЙКА PUSHER СЛУШАТЕЛЕЙ =====');
     
     if (window.channel) {
+        // Очищаем старые слушатели
         window.channel.unbind('client-new-message');
         window.channel.unbind('client-announcement');
         window.channel.unbind('client-delete-message');
@@ -500,10 +532,10 @@ function setupPusherListeners() {
         
         window.channel.bind('client-new-message', function(data) {
             if (data.room !== 'general') return;
-            var msgTime = data.message.time;
+            const msgTime = data.message.time;
             if (msgTime <= (lastProcessedTime.general || 0)) return;
             if (!chatMessages.general) chatMessages.general = [];
-            var exists = chatMessages.general.some(function(m) { return m.time === msgTime; });
+            const exists = chatMessages.general.some(m => m.time === msgTime);
             if (!exists) {
                 chatMessages.general.push(data.message);
                 lastProcessedTime.general = msgTime;
@@ -520,11 +552,11 @@ function setupPusherListeners() {
         });
         
         window.channel.bind('client-announcement', function(data) {
-            var announcement = data.announcement;
-            var msgTime = announcement.time;
+            const announcement = data.announcement;
+            const msgTime = announcement.time;
             if (msgTime <= (lastProcessedTime.general || 0)) return;
             if (!chatMessages.general) chatMessages.general = [];
-            var exists = chatMessages.general.some(function(m) { return m.time === msgTime; });
+            const exists = chatMessages.general.some(m => m.time === msgTime);
             if (!exists) {
                 chatMessages.general.push(announcement);
                 lastProcessedTime.general = msgTime;
@@ -540,10 +572,10 @@ function setupPusherListeners() {
         });
         
         window.channel.bind('client-delete-message', function(data) {
-            var room = data.room;
-            var messageTime = data.messageTime;
+            const room = data.room;
+            const messageTime = data.messageTime;
             if (chatMessages[room]) {
-                var index = chatMessages[room].findIndex(function(m) { return m.time === messageTime; });
+                const index = chatMessages[room].findIndex(m => m.time === messageTime);
                 if (index !== -1) {
                     chatMessages[room].splice(index, 1);
                     renderChatMessages();
@@ -553,22 +585,22 @@ function setupPusherListeners() {
         });
         
         window.channel.bind('client-bulk-delete', function(data) {
-            var period = data.period;
-            var timeThreshold = data.timeThreshold;
-            var timestamp = data.timestamp;
+            const period = data.period;
+            const timeThreshold = data.timeThreshold;
+            const timestamp = data.timestamp;
             if (timestamp <= (lastBulkDeleteTime || 0)) return;
             lastBulkDeleteTime = timestamp;
             if (period === 'all') {
                 chatMessages.general = [];
                 lastProcessedTime.general = 0;
             } else if (timeThreshold) {
-                var oldMessages = chatMessages.general || [];
-                chatMessages.general = oldMessages.filter(function(msg) { return msg.time < timeThreshold; });
+                const oldMessages = chatMessages.general || [];
+                chatMessages.general = oldMessages.filter(msg => msg.time < timeThreshold);
                 if (chatMessages.general.length === 0) {
                     lastProcessedTime.general = 0;
                 } else {
-                    var times = chatMessages.general.map(function(m) { return m.time; });
-                    lastProcessedTime.general = Math.max.apply(Math, times);
+                    const times = chatMessages.general.map(m => m.time);
+                    lastProcessedTime.general = Math.max(...times);
                 }
             }
             window.app.messages = chatMessages;
@@ -582,11 +614,11 @@ function setupPusherListeners() {
         window.privateChannel.unbind('client-delete-private');
         
         window.privateChannel.bind('client-private-message', function(data) {
-            var msgTime = data.message.time;
-            var roomId = data.from;
+            const msgTime = data.message.time;
+            const roomId = data.from;
             if (msgTime <= (lastProcessedTime[roomId] || 0)) return;
             if (!chatMessages[roomId]) chatMessages[roomId] = [];
-            var exists = chatMessages[roomId].some(function(m) { return m.time === msgTime; });
+            const exists = chatMessages[roomId].some(m => m.time === msgTime);
             if (!exists) {
                 chatMessages[roomId].push(data.message);
                 lastProcessedTime[roomId] = msgTime;
@@ -603,10 +635,10 @@ function setupPusherListeners() {
         });
         
         window.privateChannel.bind('client-delete-private', function(data) {
-            var room = data.room;
-            var messageTime = data.messageTime;
+            const room = data.room;
+            const messageTime = data.messageTime;
             if (chatMessages[room]) {
-                var index = chatMessages[room].findIndex(function(m) { return m.time === messageTime; });
+                const index = chatMessages[room].findIndex(m => m.time === messageTime);
                 if (index !== -1) {
                     chatMessages[room].splice(index, 1);
                     renderChatMessages();
@@ -619,25 +651,24 @@ function setupPusherListeners() {
     pusherListenersSetup = true;
     console.log('🔌 ===== НАСТРОЙКА PUSHER ЗАВЕРШЕНА =====');
 }
-
 // ============================================
 // ЭМОДЗИ
 // ============================================
 
 function toggleEmojiPicker() {
-    var picker = document.getElementById('emojiPicker');
+    const picker = document.getElementById('emojiPicker');
     if (picker) {
         picker.style.display = picker.style.display === 'block' ? 'none' : 'block';
     }
 }
 
 function addEmoji(emoji) {
-    var input = document.getElementById('chatInput');
+    const input = document.getElementById('chatInput');
     if (input) {
         input.value += emoji;
         input.focus();
     }
-    var picker = document.getElementById('emojiPicker');
+    const picker = document.getElementById('emojiPicker');
     if (picker) picker.style.display = 'none';
 }
 
@@ -646,9 +677,9 @@ function addEmoji(emoji) {
 // ============================================
 
 function initAnnouncementButton() {
-    var btn = document.getElementById('announcementBtn');
+    const btn = document.getElementById('announcementBtn');
     if (!btn) return;
-    var role = window.app.currentUserRole;
+    const role = window.app?.currentUserRole;
     if (role === 'director' || role === 'manager') {
         btn.style.display = 'flex';
         btn.onclick = function() { openAnnouncementModal(); };
@@ -658,56 +689,42 @@ function initAnnouncementButton() {
 }
 
 function openAnnouncementModal() {
-    var modal = document.getElementById('announcementModal');
+    const modal = document.getElementById('announcementModal');
     if (!modal) return;
     modal.classList.add('active');
     
-    var role = window.app.currentUserRole;
-    var styleOptions = document.querySelectorAll('.style-option');
+    const role = window.app?.currentUserRole;
+    const styleOptions = document.querySelectorAll('.style-option');
     
-    for (var i = 0; i < styleOptions.length; i++) {
-        var opt = styleOptions[i];
-        var style = opt.dataset.style;
+    for (const opt of styleOptions) {
+        const style = opt.dataset.style;
         
         if (role === 'director') {
-            if (style === 'manager') {
-                opt.style.display = 'none';
-            } else {
-                opt.style.display = 'inline-flex';
-            }
+            opt.style.display = (style === 'manager') ? 'none' : 'inline-flex';
         } else if (role === 'manager') {
-            if (style === 'director') {
-                opt.style.display = 'none';
-            } else {
-                opt.style.display = 'inline-flex';
-            }
+            opt.style.display = (style === 'director') ? 'none' : 'inline-flex';
         } else {
             opt.style.display = 'none';
         }
     }
     
-    var defaultStyle = '';
-    if (role === 'director') {
-        defaultStyle = 'director';
-    } else if (role === 'manager') {
-        defaultStyle = 'manager';
-    }
+    let defaultStyle = '';
+    if (role === 'director') defaultStyle = 'director';
+    else if (role === 'manager') defaultStyle = 'manager';
     
-    for (var j = 0; j < styleOptions.length; j++) {
-        var opt2 = styleOptions[j];
-        opt2.classList.remove('active');
-        if (opt2.dataset.style === defaultStyle) {
-            opt2.classList.add('active');
+    for (const opt of styleOptions) {
+        opt.classList.remove('active');
+        if (opt.dataset.style === defaultStyle) {
+            opt.classList.add('active');
             currentAnnouncementStyle = defaultStyle;
         }
     }
     
     if (!defaultStyle) {
-        for (var k = 0; k < styleOptions.length; k++) {
-            var opt3 = styleOptions[k];
-            if (opt3.style.display !== 'none') {
-                opt3.classList.add('active');
-                currentAnnouncementStyle = opt3.dataset.style;
+        for (const opt of styleOptions) {
+            if (opt.style.display !== 'none') {
+                opt.classList.add('active');
+                currentAnnouncementStyle = opt.dataset.style;
                 break;
             }
         }
@@ -715,28 +732,46 @@ function openAnnouncementModal() {
 }
 
 function closeAnnouncementModal() {
-    document.getElementById('announcementModal').classList.remove('active');
-    document.getElementById('announcementText').value = '';
+    const modal = document.getElementById('announcementModal');
+    if (modal) modal.classList.remove('active');
+    const textarea = document.getElementById('announcementText');
+    if (textarea) textarea.value = '';
 }
 
 async function sendAnnouncement() {
-    var text = document.getElementById('announcementText').value.trim();
+    const textarea = document.getElementById('announcementText');
+    const text = textarea?.value.trim();
     if (!text) {
         showNotif('Введите текст объявления', 'error');
         return;
     }
-    var token = localStorage.getItem('token');
+    
+    if (text.length > 1000) {
+        showNotif('Текст объявления слишком длинный (макс. 1000 символов)', 'error');
+        return;
+    }
+    
+    const token = localStorage.getItem('token');
     if (!token) return;
-    var announcement = {
+    
+    const announcement = {
         type: 'announcement',
         style: currentAnnouncementStyle,
-        sender: window.app.currentUser,
-        role: window.app.currentUserRole,
+        sender: window.app?.currentUser,
+        role: window.app?.currentUserRole,
         text: text,
         time: Date.now()
     };
+    
+    const sendBtn = document.querySelector('#announcementModal .btn-primary');
+    const originalText = sendBtn?.innerHTML;
+    if (sendBtn) {
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+        sendBtn.disabled = true;
+    }
+    
     try {
-        var response = await fetch('/api/chat/announcement', {
+        const response = await fetch('/api/chat/announcement', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -744,7 +779,7 @@ async function sendAnnouncement() {
             },
             body: JSON.stringify({ announcement: announcement })
         });
-        var data = await response.json();
+        const data = await response.json();
         if (data.success) {
             closeAnnouncementModal();
             if (!chatMessages.general) chatMessages.general = [];
@@ -756,11 +791,16 @@ async function sendAnnouncement() {
             }
             showNotif('✅ Объявление опубликовано', 'success');
         } else {
-            showNotif('Ошибка при отправке', 'error');
+            showNotif(data.error || 'Ошибка при отправке', 'error');
         }
     } catch (err) {
         console.error('Ошибка:', err);
         showNotif('Ошибка соединения', 'error');
+    } finally {
+        if (sendBtn) {
+            sendBtn.innerHTML = originalText;
+            sendBtn.disabled = false;
+        }
     }
 }
 
@@ -769,41 +809,34 @@ async function sendAnnouncement() {
 // ============================================
 
 async function deleteMessage(messageTime, room) {
-    var timeValue = typeof messageTime === 'string' ? parseInt(messageTime) : messageTime;
-    var messages = chatMessages[room] || [];
-    var messageToDelete = null;
-    
-    for (var i = 0; i < messages.length; i++) {
-        if (messages[i].time === timeValue) {
-            messageToDelete = messages[i];
-            break;
-        }
-    }
+    const timeValue = typeof messageTime === 'string' ? parseInt(messageTime) : messageTime;
+    const messages = chatMessages[room] || [];
+    const messageToDelete = messages.find(m => m.time === timeValue);
     
     if (!messageToDelete) {
         showNotif('Сообщение не найдено', 'error');
         return;
     }
     
-    var isOwn = (messageToDelete.sender === window.app.currentUser);
-    var isDirector = (window.app.currentUserRole === 'director');
+    const isOwn = (messageToDelete.sender === window.app?.currentUser);
+    const isDirector = (window.app?.currentUserRole === 'director');
     
     if (!isOwn && !isDirector) {
         showNotif('Можно удалять только свои сообщения', 'error');
         return;
     }
     
-    var confirmMsg = isDirector && !isOwn ? 'Удалить сообщение от ' + messageToDelete.sender + '?' : 'Удалить это сообщение?';
+    const confirmMsg = isDirector && !isOwn ? 'Удалить сообщение от ' + messageToDelete.sender + '?' : 'Удалить это сообщение?';
     if (!confirm(confirmMsg)) return;
     
-    var token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (!token) {
         showNotif('Ошибка: не авторизован', 'error');
         return;
     }
     
     try {
-        var response = await fetch('/api/chat/delete', {
+        const response = await fetch('/api/chat/delete', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -811,16 +844,10 @@ async function deleteMessage(messageTime, room) {
             },
             body: JSON.stringify({ room: room, messageTime: timeValue, sender: messageToDelete.sender })
         });
-        var data = await response.json();
+        const data = await response.json();
         
         if (data.success) {
-            var index = -1;
-            for (var j = 0; j < chatMessages[room].length; j++) {
-                if (chatMessages[room][j].time === timeValue) {
-                    index = j;
-                    break;
-                }
-            }
+            const index = chatMessages[room].findIndex(m => m.time === timeValue);
             if (index !== -1) {
                 chatMessages[room].splice(index, 1);
                 window.app.messages = chatMessages;
@@ -848,9 +875,9 @@ async function deleteMessage(messageTime, room) {
 // ============================================
 
 function initChatSettings() {
-    var settingsBtn = document.getElementById('chatSettingsBtn');
+    const settingsBtn = document.getElementById('chatSettingsBtn');
     if (!settingsBtn) return;
-    if (window.app.currentUserRole === 'director') {
+    if (window.app?.currentUserRole === 'director') {
         settingsBtn.style.display = 'flex';
         settingsBtn.onclick = function() { openChatSettingsModal(); };
     } else {
@@ -859,17 +886,19 @@ function initChatSettings() {
 }
 
 function openChatSettingsModal() {
-    document.getElementById('chatSettingsModal').classList.add('active');
+    const modal = document.getElementById('chatSettingsModal');
+    if (modal) modal.classList.add('active');
 }
 
 function closeChatSettingsModal() {
-    document.getElementById('chatSettingsModal').classList.remove('active');
+    const modal = document.getElementById('chatSettingsModal');
+    if (modal) modal.classList.remove('active');
 }
 
 async function deleteMessagesByPeriod(period) {
-    var confirmMsg = '';
-    var timeThreshold = 0;
-    var now = Date.now();
+    let confirmMsg = '';
+    let timeThreshold = 0;
+    const now = Date.now();
     
     switch(period) {
         case '15min': confirmMsg = 'Удалить все сообщения за последние 15 минут?'; timeThreshold = now - 15 * 60 * 1000; break;
@@ -883,7 +912,7 @@ async function deleteMessagesByPeriod(period) {
     
     if (!confirm(confirmMsg)) return;
     
-    var token = localStorage.getItem('token');
+    const token = localStorage.getItem('token');
     if (!token) {
         showNotif('Ошибка: не авторизован', 'error');
         return;
@@ -892,7 +921,7 @@ async function deleteMessagesByPeriod(period) {
     showNotif('⏳ Удаление сообщений...', 'info');
     
     try {
-        var response = await fetch('/api/chat/delete-bulk', {
+        const response = await fetch('/api/chat/delete-bulk', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -900,19 +929,19 @@ async function deleteMessagesByPeriod(period) {
             },
             body: JSON.stringify({ period: period, room: 'general', timeThreshold: timeThreshold })
         });
-        var data = await response.json();
+        const data = await response.json();
         if (data.success) {
             if (period === 'all') {
                 chatMessages.general = [];
                 lastProcessedTime.general = 0;
             } else {
-                var oldMessages = chatMessages.general || [];
-                chatMessages.general = oldMessages.filter(function(msg) { return msg.time < timeThreshold; });
+                const oldMessages = chatMessages.general || [];
+                chatMessages.general = oldMessages.filter(msg => msg.time < timeThreshold);
                 if (chatMessages.general.length === 0) {
                     lastProcessedTime.general = 0;
                 } else {
-                    var times = chatMessages.general.map(function(m) { return m.time; });
-                    lastProcessedTime.general = Math.max.apply(Math, times);
+                    const times = chatMessages.general.map(m => m.time);
+                    lastProcessedTime.general = Math.max(...times);
                 }
             }
             window.app.messages = chatMessages;
@@ -939,7 +968,7 @@ async function acceptExchangeFromChat(requestId, room, messageTime) {
     try {
         const response = await apiCall('/exchange/accept/' + requestId, 'POST');
         if (response && response.success) {
-            showNotif('✅ Обмен смен подтверждён! Смены автоматически обменяны.', 'success');
+            showNotif('✅ Обмен смен подтверждён!', 'success');
             updateExchangeMessageInChat(room, messageTime, 'accepted');
             if (typeof loadScheduleData === 'function') loadScheduleData();
             if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
@@ -974,16 +1003,10 @@ async function rejectExchangeFromChat(requestId, room, messageTime) {
 function updateExchangeMessageInChat(room, messageTime, status) {
     if (!chatMessages[room]) return;
     
-    var index = -1;
-    for (var i = 0; i < chatMessages[room].length; i++) {
-        if (chatMessages[room][i].time === messageTime) {
-            index = i;
-            break;
-        }
-    }
+    const index = chatMessages[room].findIndex(m => m.time === messageTime);
     
     if (index !== -1) {
-        var msg = chatMessages[room][index];
+        const msg = chatMessages[room][index];
         if (msg.action_data && msg.action_data.type === 'exchange_request') {
             msg.action_data.status = status;
             if (status === 'accepted') {
@@ -999,19 +1022,6 @@ function updateExchangeMessageInChat(room, messageTime, status) {
             }
         }
     }
-}
-
-// ============================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-// ============================================
-
-function formatDateSimple(dateStr) {
-    if (!dateStr) return '—';
-    var parts = dateStr.split('-');
-    var day = parseInt(parts[2]);
-    var month = parseInt(parts[1]);
-    var monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-    return day + ' ' + monthNames[month - 1];
 }
 
 // ============================================
@@ -1055,4 +1065,4 @@ window.acceptExchangeFromChat = acceptExchangeFromChat;
 window.rejectExchangeFromChat = rejectExchangeFromChat;
 window.cleanupChat = cleanupChat;
 
-console.log('✅ chat.js загружен (с защитой от рекурсии)');
+console.log('✅ chat.js загружен (исправленная версия)');

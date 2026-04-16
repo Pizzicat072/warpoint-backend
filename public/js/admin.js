@@ -1,11 +1,16 @@
-// public/js/admin.js - ПОЛНАЯ ВЕРСИЯ
+// public/js/admin.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let adminEmployeesList = [];
+let isLoadingAdmin = false;
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// ============================================
 
 function initAdmin() {
     console.log('⚙️ Инициализация админки');
     
-    if (window.app.currentUserRole !== 'director') {
+    if (window.app?.currentUserRole !== 'director') {
         const container = document.getElementById('adminTabEmployees');
         if (container) {
             container.innerHTML = `
@@ -21,13 +26,29 @@ function initAdmin() {
     
     loadAdminData();
     loadCurrentTheme();
+    
+    // Настройка табов
+    document.querySelectorAll('.admin-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.dataset.tab;
+            document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+            tab.classList.add('active');
+            document.getElementById(`adminTab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`)?.classList.add('active');
+        });
+    });
 }
 
 async function loadAdminData() {
+    if (isLoadingAdmin) return;
+    isLoadingAdmin = true;
+    
     await loadEmployees();
-    adminEmployeesList = window.app.employees || [];
+    adminEmployeesList = window.app?.employees || [];
     renderAdminEmployees();
     loadFundAmount();
+    
+    isLoadingAdmin = false;
 }
 
 function renderAdminEmployees() {
@@ -39,8 +60,15 @@ function renderAdminEmployees() {
         return;
     }
     
+    const roleNames = {
+        director: 'Директор',
+        manager: 'Управляющий',
+        admin: 'Админ',
+        operator: 'Оператор'
+    };
+    
     container.innerHTML = adminEmployeesList.map(emp => {
-        const profile = window.app.profiles[emp];
+        const profile = window.app?.profiles?.[emp];
         const roleName = roleNames[profile?.role] || 'Оператор';
         const isDirector = emp === 'Денис';
         
@@ -48,7 +76,7 @@ function renderAdminEmployees() {
             <div class="admin-employee-card">
                 <div style="display: flex; align-items: center; gap: 16px;">
                     <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 24px;">
-                        ${profile?.avatar_url ? `<img src="${profile.avatar_url}" style="width: 100%; height: 100%; object-fit: cover;">` : (profile?.avatar || '👤')}
+                        ${profile?.avatar_url ? `<img src="${escapeHtml(profile.avatar_url)}" style="width: 100%; height: 100%; object-fit: cover;">` : (escapeHtml(profile?.avatar) || '👤')}
                     </div>
                     <div>
                         <div style="font-weight: 600;">${escapeHtml(emp)} ${isDirector ? '👑' : ''}</div>
@@ -68,6 +96,10 @@ function renderAdminEmployees() {
     }).join('');
 }
 
+// ============================================
+// БОНУС
+// ============================================
+
 function openBonusModal(employeeName) {
     const modalHtml = `
         <div id="bonusModal" class="modal active">
@@ -79,7 +111,7 @@ function openBonusModal(employeeName) {
                 <div style="padding: 20px;">
                     <div style="margin-bottom: 16px;">
                         <label>💰 Монеты</label>
-                        <input type="number" id="bonusCoins" class="edit-input" style="width: 100%;" value="0">
+                        <input type="number" id="bonusCoins" class="edit-input" style="width: 100%;" value="0" min="0">
                     </div>
                     <div style="margin-bottom: 16px;">
                         <label>⭐ Рейтинг</label>
@@ -105,12 +137,18 @@ async function giveBonus(employeeName) {
     const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
     const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
     
+    if (coins < 0) {
+        showNotif('Сумма монет не может быть отрицательной', 'error');
+        return;
+    }
+    
     const response = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
     
     if (response && response.success) {
         showNotif(`Бонус выдан ${employeeName}`, 'success');
         closeBonusModal();
         await loadEmployees();
+        adminEmployeesList = window.app?.employees || [];
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
@@ -119,6 +157,10 @@ async function giveBonus(employeeName) {
         showNotif('Ошибка при выдаче бонуса', 'error');
     }
 }
+
+// ============================================
+// РОЛЬ
+// ============================================
 
 async function changeEmployeeRole(employeeName, currentRole) {
     const roles = [
@@ -139,10 +181,8 @@ async function changeEmployeeRole(employeeName, currentRole) {
                     <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Сотрудник: ${escapeHtml(employeeName)}</p>
                 </div>
                 <div style="padding: 20px;">
-                    <label style="display: block; margin-bottom: 8px; font-size: 13px; color: #94a3b8;">Новая должность</label>
-                    <select id="newRoleSelect" class="edit-input" style="width: 100%;">
-                        ${optionsHtml}
-                    </select>
+                    <label>Новая должность</label>
+                    <select id="newRoleSelect" class="edit-input" style="width: 100%;">${optionsHtml}</select>
                 </div>
                 <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
                     <button class="btn-primary" onclick="saveEmployeeRole('${escapeHtml(employeeName)}')">💾 Сохранить</button>
@@ -170,7 +210,7 @@ async function saveEmployeeRole(employeeName) {
         showNotif(`✅ Роль изменена`, 'success');
         closeRoleModal();
         await loadEmployees();
-        adminEmployeesList = window.app.employees || [];
+        adminEmployeesList = window.app?.employees || [];
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
@@ -186,7 +226,7 @@ async function deleteEmployee(employeeName) {
     if (response && response.success) {
         showNotif(`Сотрудник ${employeeName} удалён`, 'success');
         await loadEmployees();
-        adminEmployeesList = window.app.employees || [];
+        adminEmployeesList = window.app?.employees || [];
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
@@ -194,12 +234,17 @@ async function deleteEmployee(employeeName) {
     }
 }
 
+// ============================================
+// ФОНД
+// ============================================
+
 async function loadFundAmount() {
     try {
         const response = await apiCall('/fund');
         if (response && response.amount !== undefined) {
             const display = document.getElementById('fundDisplayAmount');
             if (display) display.textContent = response.amount.toLocaleString() + ' ₽';
+            window.fundAmount = response.amount;
         }
     } catch (err) {
         console.error('Ошибка загрузки фонда:', err);
@@ -208,12 +253,17 @@ async function loadFundAmount() {
 
 async function updateFund() {
     const amount = parseInt(document.getElementById('fundChangeAmount')?.value) || 0;
+    if (amount < 0) {
+        showNotif('Сумма не может быть отрицательной', 'error');
+        return;
+    }
     if (!confirm(`Установить фонд в ${amount.toLocaleString()} ₽?`)) return;
     
     const response = await apiCall('/fund/update', 'POST', { amount: amount });
     if (response && response.success) {
         showNotif(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
         loadFundAmount();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } else {
         showNotif('Ошибка при обновлении фонда', 'error');
     }
@@ -228,6 +278,7 @@ async function addToFund() {
         showNotif(`💰 Добавлено ${amount.toLocaleString()} ₽`, 'success');
         document.getElementById('fundAddAmount').value = 0;
         loadFundAmount();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } else {
         showNotif('Ошибка при добавлении', 'error');
     }
@@ -242,6 +293,7 @@ async function subtractFromFund() {
         showNotif(`💰 Убавлено ${amount.toLocaleString()} ₽`, 'success');
         document.getElementById('fundAddAmount').value = 0;
         loadFundAmount();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } else {
         showNotif('Ошибка при убавлении', 'error');
     }
@@ -250,17 +302,22 @@ async function subtractFromFund() {
 async function resetFund() {
     if (!confirm('Сбросить фонд в 0?')) return;
     
-    const response = await apiCall('/fund/update', 'POST', { reset: true });
+    const response = await apiCall('/fund/update', 'POST', { amount: 0 });
     if (response && response.success) {
         showNotif('💰 Фонд обнулён', 'success');
         loadFundAmount();
+        if (typeof updateDashboardStats === 'function') updateDashboardStats();
     } else {
         showNotif('Ошибка при сбросе', 'error');
     }
 }
 
+// ============================================
+// ТЕМА
+// ============================================
+
 async function setGlobalTheme(themeId) {
-    if (window.app.currentUserRole !== 'director') {
+    if (window.app?.currentUserRole !== 'director') {
         showNotif('Только директор может менять тему', 'error');
         return;
     }
@@ -312,6 +369,10 @@ async function loadCurrentTheme() {
         console.error('Ошибка загрузки темы:', err);
     }
 }
+
+// ============================================
+// СБРОС ДАННЫХ
+// ============================================
 
 async function resetAllData() {
     if (!confirm('⚠️ ВНИМАНИЕ! Будут удалены ВСЕ сотрудники кроме директора и ВСЕ данные!\n\nЭто действие НЕОБРАТИМО. Продолжить?')) return;
@@ -368,7 +429,10 @@ async function initAchievementsAdmin() {
     }
 }
 
-// Экспорт
+// ============================================
+// ЭКСПОРТ
+// ============================================
+
 window.initAdmin = initAdmin;
 window.openBonusModal = openBonusModal;
 window.closeBonusModal = closeBonusModal;
@@ -386,3 +450,5 @@ window.loadCurrentTheme = loadCurrentTheme;
 window.resetAllData = resetAllData;
 window.equalStart = equalStart;
 window.initAchievementsAdmin = initAchievementsAdmin;
+
+console.log('✅ admin.js загружен (исправленная версия)');

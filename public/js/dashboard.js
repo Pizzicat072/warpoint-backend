@@ -51,11 +51,10 @@ const availableStyles = [
 window.availableStyles = availableStyles;
 
 // ============================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// 🔥 ИСПРАВЛЕНО: getTobolskNow без рекурсии
 // ============================================
-
 function getTobolskNow() {
-    if (typeof window.getTobolskNow === 'function') {
+    if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
         return window.getTobolskNow();
     }
     const now = new Date();
@@ -85,9 +84,7 @@ function renderStylesShop() {
     const currentStyle = window.app.userStyle || 'standart';
     let boughtStyles = window.app.userBoughtStyles || ['standart'];
     
-    if (isDirector) {
-        boughtStyles = availableStyles.map(s => s.id);
-    }
+    if (isDirector) boughtStyles = availableStyles.map(s => s.id);
     
     const currentUser = window.app.currentUser;
     const userCoins = window.app.profiles?.[currentUser]?.coins || 0;
@@ -107,21 +104,12 @@ function renderStylesShop() {
             buttonHtml = `<button class="style-btn style-btn-buy" onclick="window.buyStyle('${style.id}', ${style.price})" ${!canBuy ? 'disabled style="opacity:0.5"' : ''}>Купить за ${style.price} 🪙</button>`;
         }
         
-        let priceDisplay = '';
-        if (isDirector && style.price > 0) {
-            priceDisplay = '👑 Бесплатно';
-        } else if (style.price === 0) {
-            priceDisplay = '🔮 Бесплатно';
-        } else {
-            priceDisplay = style.price + ' 🪙';
-        }
+        let priceDisplay = isDirector && style.price > 0 ? '👑 Бесплатно' : (style.price === 0 ? '🔮 Бесплатно' : style.price + ' 🪙');
         
         html += `
             <div class="style-card ${isBought ? 'bought' : ''} ${isCurrent ? 'current' : ''}" data-style-id="${style.id}"
                  onmouseenter="window.previewStyle('${style.id}')" onmouseleave="window.cancelPreview()">
-                <div class="style-preview">
-                    <span style="font-size:48px;">${style.icon}</span>
-                </div>
+                <div class="style-preview"><span style="font-size:48px;">${style.icon}</span></div>
                 <div class="style-info">
                     <div class="style-name">${style.name}</div>
                     <div class="style-price">${priceDisplay}</div>
@@ -194,9 +182,7 @@ async function applyBoughtStyle(styleId) {
     const isDirector = window.app.currentUserRole === 'director';
     let boughtStyles = window.app.userBoughtStyles || ['standart'];
     
-    if (isDirector) {
-        boughtStyles = availableStyles.map(s => s.id);
-    }
+    if (isDirector) boughtStyles = availableStyles.map(s => s.id);
     
     if (!boughtStyles.includes(styleId)) {
         showNotif('Стиль не куплен!', 'error');
@@ -384,7 +370,6 @@ function initDashboardSettings() {
         }
     });
 }
-
 // ============================================
 // ПОГОДА И ВРЕМЯ
 // ============================================
@@ -550,7 +535,6 @@ function updateUserAvatarAndStatus() {
 // СТАТИСТИКА ДАШБОРДА (СИНХРОНИЗИРОВАНО)
 // ============================================
 
-// 🔥 ГЛОБАЛЬНЫЙ КЭШ ФОНДА
 let cachedFundAmount = 0;
 
 async function loadFundAmount() {
@@ -622,18 +606,12 @@ async function updateDashboardStats() {
         const statFinesCount = document.getElementById('statFinesCount');
         if (statFinesCount) statFinesCount.textContent = finesCount;
         
-        // 🔥 СИНХРОНИЗИРОВАНО: Фонд из кэша
         const fundAmount = await loadFundAmount();
         const fundAmountSpan = document.getElementById('statFundAmount');
-        if (fundAmountSpan) {
-            fundAmountSpan.textContent = fundAmount.toLocaleString() + ' ₽';
-        }
+        if (fundAmountSpan) fundAmountSpan.textContent = fundAmount.toLocaleString() + ' ₽';
         
-        // Обновляем фонд в salary если открыт
         const salaryFundEl = document.getElementById('salaryFundAmount');
-        if (salaryFundEl) {
-            salaryFundEl.textContent = fundAmount.toLocaleString() + ' ₽';
-        }
+        if (salaryFundEl) salaryFundEl.textContent = fundAmount.toLocaleString() + ' ₽';
         
     } finally {
         isUpdatingDashboard = false;
@@ -825,39 +803,26 @@ async function openTransactionsModal() {
             const txList = grouped[date];
             const formattedDate = formatTransactionDateSimple(date);
             
-            transactionsHtml += `
-                <div class="modal-transaction-group">
-                    <div class="modal-transaction-date">${formattedDate}</div>
-            `;
+            transactionsHtml += `<div class="modal-transaction-group"><div class="modal-transaction-date">${formattedDate}</div>`;
             
             for (const tx of txList) {
                 const isPositive = tx.amount > 0;
                 const amountAbs = Math.abs(tx.amount);
                 const typeNames = {
-                    'login_streak': '🎁 Бонус',
-                    'task_reward': '✅ Задача',
-                    'shift_earn': '⏱️ Смена',
-                    'gift_send': '🎁 Подарок',
-                    'gift_receive': '🎁 Подарок',
-                    'shop_purchase': '🛒 Покупка',
-                    'fine': '⚠️ Штраф',
-                    'admin_bonus': '👑 Бонус',
-                    'achievement': '🏆 Достижение'
+                    'login_streak': '🎁 Бонус', 'task_reward': '✅ Задача', 'shift_earn': '⏱️ Смена',
+                    'gift_send': '🎁 Подарок', 'gift_receive': '🎁 Подарок', 'shop_purchase': '🛒 Покупка',
+                    'fine': '⚠️ Штраф', 'admin_bonus': '👑 Бонус', 'achievement': '🏆 Достижение'
                 };
                 const typeName = typeNames[tx.type] || tx.type;
                 
                 transactionsHtml += `
                     <div class="modal-transaction-item">
-                        <div class="modal-transaction-icon ${isPositive ? 'positive' : 'negative'}">
-                            ${isPositive ? '+' : '-'}
-                        </div>
+                        <div class="modal-transaction-icon ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : '-'}</div>
                         <div class="modal-transaction-info">
                             <div class="modal-transaction-title">${typeName}</div>
                             ${tx.comment ? `<div class="modal-transaction-comment">${escapeHtml(tx.comment.substring(0, 50))}${tx.comment.length > 50 ? '...' : ''}</div>` : ''}
                         </div>
-                        <div class="modal-transaction-amount ${isPositive ? 'positive' : 'negative'}">
-                            ${isPositive ? '+' : '-'}${amountAbs} WP
-                        </div>
+                        <div class="modal-transaction-amount ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : '-'}${amountAbs} WP</div>
                     </div>
                 `;
             }
@@ -866,12 +831,7 @@ async function openTransactionsModal() {
         }
         
         if (transactions.length === 0) {
-            transactionsHtml = `
-                <div class="modal-empty-state">
-                    <div class="modal-empty-icon">💰</div>
-                    <div>Нет операций</div>
-                </div>
-            `;
+            transactionsHtml = `<div class="modal-empty-state"><div class="modal-empty-icon">💰</div><div>Нет операций</div></div>`;
         }
         
         const modalHtml = `
@@ -891,9 +851,7 @@ async function openTransactionsModal() {
                             <span style="font-size: 12px; font-weight: 500;">💰 Текущий баланс</span>
                             <span style="font-size: 18px; font-weight: 700; color: #fbbf24;">${getCurrentBalance()} WP</span>
                         </div>
-                        <div class="modal-transactions-list" style="max-height: 400px; overflow-y: auto;">
-                            ${transactionsHtml}
-                        </div>
+                        <div class="modal-transactions-list" style="max-height: 400px; overflow-y: auto;">${transactionsHtml}</div>
                     </div>
                     <div class="modal-footer" style="padding: 10px 14px; border-top: 1px solid rgba(99,102,241,0.1); display: flex; justify-content: flex-end;">
                         <button class="btn-secondary" onclick="closeTransactionsModal()" style="padding: 5px 14px; font-size: 11px;">Закрыть</button>
@@ -921,11 +879,8 @@ function formatTransactionDateSimple(dateStr) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
-    if (date.toDateString() === today.toDateString()) {
-        return 'Сегодня';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-        return 'Вчера';
-    }
+    if (date.toDateString() === today.toDateString()) return 'Сегодня';
+    else if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
     
     const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
     return `${date.getDate()} ${months[date.getMonth()]}`;
@@ -1207,14 +1162,11 @@ function updateNextShiftInfo() {
             }
             
             const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const hrs = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             
-            if (days > 0) {
-                shiftTimerEl.textContent = `${days} дн ${hours} ч`;
-            } else {
-                shiftTimerEl.textContent = `${hours} ч ${mins} мин`;
-            }
+            if (days > 0) shiftTimerEl.textContent = `${days} дн ${hrs} ч`;
+            else shiftTimerEl.textContent = `${hrs} ч ${mins} мин`;
         };
         
         updateTimer();
@@ -1238,6 +1190,7 @@ function quickAction(action) {
     }
 }
 
+// 🔥 ИСПРАВЛЕНО: quickChangeStatus экспортирована
 async function quickChangeStatus(status) {
     const currentUser = window.app?.currentUser;
     if (!currentUser) {
@@ -1256,9 +1209,7 @@ async function quickChangeStatus(status) {
         const statusSelect = document.getElementById('quickStatusSelect');
         if (statusSelect) statusSelect.value = status;
         
-        if (typeof renderEmployees === 'function') {
-            renderEmployees();
-        }
+        if (typeof renderEmployees === 'function') renderEmployees();
     } else {
         showNotif('Ошибка при смене статуса', 'error');
     }
@@ -1304,14 +1255,10 @@ function loadHolidaysAndBirthdays() {
     const currentDate = today.getDate();
     
     const holidays = [
-        { date: '01-01', name: 'Новый год' },
-        { date: '01-07', name: 'Рождество' },
-        { date: '02-23', name: 'День защитника' },
-        { date: '03-08', name: '8 Марта' },
-        { date: '05-01', name: 'Праздник Весны' },
-        { date: '05-09', name: 'День Победы' },
-        { date: '06-12', name: 'День России' },
-        { date: '11-04', name: 'День единства' },
+        { date: '01-01', name: 'Новый год' }, { date: '01-07', name: 'Рождество' },
+        { date: '02-23', name: 'День защитника' }, { date: '03-08', name: '8 Марта' },
+        { date: '05-01', name: 'Праздник Весны' }, { date: '05-09', name: 'День Победы' },
+        { date: '06-12', name: 'День России' }, { date: '11-04', name: 'День единства' },
         { date: '12-31', name: 'Новый год' }
     ];
     
@@ -1324,9 +1271,7 @@ function loadHolidaysAndBirthdays() {
             let birthDate = new Date(profile.birthday);
             if (birthDate && !isNaN(birthDate.getTime())) {
                 let nextBirthday = new Date(currentYear, birthDate.getMonth(), birthDate.getDate());
-                if (nextBirthday < today) {
-                    nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate());
-                }
+                if (nextBirthday < today) nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate());
                 const daysUntil = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24));
                 birthdays.push({
                     name: emp,
@@ -1355,10 +1300,7 @@ function loadHolidaysAndBirthdays() {
         }
         if (daysUntil <= 30) {
             events.push({
-                type: 'holiday',
-                name: holiday.name,
-                date: eventDate,
-                daysUntil: daysUntil,
+                type: 'holiday', name: holiday.name, date: eventDate, daysUntil: daysUntil,
                 isToday: eventDate.getDate() === currentDate && eventDate.getMonth() === currentMonth
             });
         }
@@ -1366,10 +1308,8 @@ function loadHolidaysAndBirthdays() {
     
     for (const birthday of upcomingBirthdays) {
         events.push({
-            type: 'birthday',
-            name: `🎂 ${birthday.name}`,
-            daysUntil: birthday.daysUntil,
-            isToday: birthday.isToday
+            type: 'birthday', name: `🎂 ${birthday.name}`,
+            daysUntil: birthday.daysUntil, isToday: birthday.isToday
         });
     }
     
@@ -1384,16 +1324,10 @@ function loadHolidaysAndBirthdays() {
     let html = '';
     for (const event of upcomingEvents) {
         let dateStr = '';
-        if (event.daysUntil === 0) {
-            dateStr = '<span style="color: #fbbf24;">СЕГОДНЯ!</span>';
-        } else if (event.daysUntil === 1) {
-            dateStr = 'ЗАВТРА';
-        } else if (event.date) {
-            const options = { day: 'numeric', month: 'long' };
-            dateStr = event.date.toLocaleDateString('ru-RU', options);
-        } else {
-            dateStr = `через ${event.daysUntil} дн.`;
-        }
+        if (event.daysUntil === 0) dateStr = '<span style="color: #fbbf24;">СЕГОДНЯ!</span>';
+        else if (event.daysUntil === 1) dateStr = 'ЗАВТРА';
+        else if (event.date) dateStr = event.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+        else dateStr = `через ${event.daysUntil} дн.`;
         const eventColor = event.type === 'birthday' ? '#ec4899' : '#6366f1';
         html += `
             <div style="display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: rgba(0, 0, 0, 0.2); border-radius: 12px; border-left: 2px solid ${event.isToday ? '#fbbf24' : eventColor}; margin-bottom: 8px;">
@@ -1418,9 +1352,7 @@ const ACTIVITY_UPDATE_INTERVAL = 15000;
 function loadActivity() {
     const now = Date.now();
     
-    if (now - lastActivityUpdate < ACTIVITY_UPDATE_INTERVAL) {
-        return;
-    }
+    if (now - lastActivityUpdate < ACTIVITY_UPDATE_INTERVAL) return;
     lastActivityUpdate = now;
     
     const onlineList = document.getElementById('onlineList');
@@ -1430,9 +1362,7 @@ function loadActivity() {
     const onlineEmployees = [];
     for (const emp of window.app?.employees || []) {
         const lastActive = window.app?.lastActivity?.[emp];
-        if (lastActive && Date.now() - lastActive < 60000) {
-            onlineEmployees.push(emp);
-        }
+        if (lastActive && Date.now() - lastActive < 60000) onlineEmployees.push(emp);
     }
     
     onlineList.innerHTML = onlineEmployees.length ? 
@@ -1478,9 +1408,7 @@ function initDashboard() {
     applyHiddenBlocks();
     loadMyActiveExchanges();
     
-    setTimeout(() => {
-        initDashboardSettings();
-    }, 100);
+    setTimeout(() => initDashboardSettings(), 100);
     
     const savedPreset = localStorage.getItem('dashboardPreset');
     if (savedPreset && ['default', 'compact', 'focus', 'minimal'].includes(savedPreset)) {
@@ -1504,10 +1432,7 @@ function initDashboard() {
         else roleBadge.innerHTML = '👤 Оператор';
     }
     
-    // 🔥 Сначала загружаем фонд
-    loadFundAmount().then(() => {
-        updateDashboardStats();
-    });
+    loadFundAmount().then(() => updateDashboardStats());
     
     loadActivity();
     loadHolidaysAndBirthdays();
@@ -1519,13 +1444,8 @@ function initDashboard() {
     loadDailyBonusInfo();
     loadPendingExchanges();
     
-    setTimeout(() => {
-        initStylesShop();
-    }, 100);
-    
-    setTimeout(() => {
-        initSettingsTabs();
-    }, 200);
+    setTimeout(() => initStylesShop(), 100);
+    setTimeout(() => initSettingsTabs(), 200);
     
     if (dashboardInterval) clearInterval(dashboardInterval);
     dashboardInterval = setInterval(() => {
@@ -1543,7 +1463,7 @@ function initDashboard() {
     }, 300000);
     
     if (window.channel) {
-        window.channel.bind('schedule-updated', function(data) {
+        window.channel.bind('schedule-updated', (data) => {
             console.log('🔄 График обновлён');
             if (typeof loadScheduleData === 'function') loadScheduleData();
             if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
@@ -1553,37 +1473,18 @@ function initDashboard() {
     
     const savedStyle = window.app?.userStyle || 'standart';
     const allDashboardStyles = ['standart', 'phantom', 'impulse', 'glow', 'cyber', 'legend', 'cosmic', 'hologram', 'inferno', 'frozen', 'shadow', 'toxic', 'plasma', 'void', 'carbon'];
-    allDashboardStyles.forEach(style => {
-        document.body.classList.remove(`dashboard-style-${style}`);
-    });
-    if (savedStyle !== 'standart') {
-        document.body.classList.add(`dashboard-style-${savedStyle}`);
-    } else {
-        document.body.classList.add('dashboard-style-standart');
-    }
+    allDashboardStyles.forEach(style => document.body.classList.remove(`dashboard-style-${style}`));
+    if (savedStyle !== 'standart') document.body.classList.add(`dashboard-style-${savedStyle}`);
+    else document.body.classList.add('dashboard-style-standart');
     
-    setTimeout(() => {
-        initBlockParticles();
-    }, 500);
+    setTimeout(() => initBlockParticles(), 500);
 }
 
 function cleanupDashboard() {
-    if (dashboardInterval) {
-        clearInterval(dashboardInterval);
-        dashboardInterval = null;
-    }
-    if (bonusCheckInterval) {
-        clearInterval(bonusCheckInterval);
-        bonusCheckInterval = null;
-    }
-    if (shiftTimerInterval) {
-        clearInterval(shiftTimerInterval);
-        shiftTimerInterval = null;
-    }
-    if (particlesInterval) {
-        clearInterval(particlesInterval);
-        particlesInterval = null;
-    }
+    if (dashboardInterval) { clearInterval(dashboardInterval); dashboardInterval = null; }
+    if (bonusCheckInterval) { clearInterval(bonusCheckInterval); bonusCheckInterval = null; }
+    if (shiftTimerInterval) { clearInterval(shiftTimerInterval); shiftTimerInterval = null; }
+    if (particlesInterval) { clearInterval(particlesInterval); particlesInterval = null; }
 }
 
 window.addEventListener('beforeunload', cleanupDashboard);
@@ -1591,7 +1492,6 @@ window.addEventListener('beforeunload', cleanupDashboard);
 // ============================================
 // ЭКСПОРТ
 // ============================================
-
 window.initDashboard = initDashboard;
 window.cleanupDashboard = cleanupDashboard;
 window.refreshPhilosophyQuote = refreshPhilosophyQuote;
@@ -1641,15 +1541,10 @@ particleBlockStyle.textContent = `
         80% { opacity: 0.4; }
         100% { transform: translateY(-30px) scale(1); opacity: 0; }
     }
-    @keyframes coinRain {
-        0% { transform: translateY(0) rotate(0deg); opacity: 1; }
-        100% { transform: translateY(150px) rotate(360deg); opacity: 0; }
-    }
     @keyframes floatUp {
         0% { transform: translateY(0) scale(0.8); opacity: 1; }
         100% { transform: translateY(-60px) scale(1.2); opacity: 0; }
     }
-    .coin-particle, .bonus-floating-text { pointer-events: none; }
 `;
 if (!document.querySelector('#particleBlockStyles')) {
     particleBlockStyle.id = 'particleBlockStyles';

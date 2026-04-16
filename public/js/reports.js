@@ -1,13 +1,25 @@
-// public/js/reports.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/reports.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let progressInterval = null;
 let pieChart = null;
 let isFirstLoad = true;
-let isReportsActive = false; // 🔥 Флаг активности страницы
+let isReportsActive = false;
+let isLoadingReports = false;
 
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// ============================================
 function initReports() {
     console.log('📊 Инициализация отчётов');
-    isReportsActive = true; // 🔥 Страница активна
+    
+    const container = document.getElementById('datesGrid');
+    if (!container) {
+        console.warn('⚠️ datesGrid не найден, ждём...');
+        setTimeout(initReports, 100);
+        return;
+    }
+    
+    isReportsActive = true;
     
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', setupReports);
@@ -35,29 +47,27 @@ function setupReports() {
         console.log('✅ Кнопка сброса привязана');
     }
     
-    // 🔥 Очищаем старый интервал перед созданием нового
     if (progressInterval) {
         clearInterval(progressInterval);
         progressInterval = null;
     }
     
-    // 🔥 Запускаем интервал только если страница активна
     if (isReportsActive) {
         progressInterval = setInterval(() => {
-            // 🔥 Проверяем токен перед запросом
             const token = localStorage.getItem('token');
-            if (!token) {
-                console.log('⏳ Нет токена, пропускаем проверку прогресса');
+            if (!token || !isReportsActive) {
                 return;
             }
             checkProgress();
-        }, 3000); // Увеличил до 3 секунд
+        }, 3000);
     }
     
     loadReportsData();
 }
 
-// 🔥 Функция очистки при уходе со страницы
+// ============================================
+// ОЧИСТКА ПРИ УХОДЕ
+// ============================================
 function cleanupReports() {
     console.log('🧹 Очистка отчётов');
     isReportsActive = false;
@@ -65,14 +75,18 @@ function cleanupReports() {
         clearInterval(progressInterval);
         progressInterval = null;
     }
+    if (pieChart) {
+        pieChart.destroy();
+        pieChart = null;
+    }
 }
 
+// ============================================
+// ПРОВЕРКА ПРОГРЕССА
+// ============================================
 async function checkProgress() {
-    // 🔥 Дополнительная проверка токена
     const token = localStorage.getItem('token');
-    if (!token) {
-        return;
-    }
+    if (!token || !isReportsActive) return;
     
     try {
         const res = await apiCall('/parsing/progress');
@@ -138,6 +152,9 @@ function hideProgressCard() {
     if (indicator) indicator.style.display = 'none';
 }
 
+// ============================================
+// ЗАПУСК ПАРСИНГА
+// ============================================
 async function runParser() {
     const btn = document.getElementById('runParserBtn');
     if (!btn) return;
@@ -152,6 +169,7 @@ async function runParser() {
         console.log('Ответ на запуск:', response);
     } catch(e) { 
         console.error('Ошибка запуска:', e);
+        showNotif('Ошибка запуска парсинга', 'error');
     } finally {
         btn.innerHTML = orig;
         btn.disabled = false;
@@ -169,21 +187,27 @@ async function fixParser() {
     try {
         const res = await apiCall('/parsing/reset', 'POST');
         if (res && res.success) {
-            alert('✅ Состояние парсинга сброшено');
+            showNotif('✅ Состояние парсинга сброшено', 'success');
             setTimeout(() => location.reload(), 1500);
         } else {
-            alert('❌ Ошибка сброса');
+            showNotif('❌ Ошибка сброса', 'error');
         }
     } catch(e) {
         console.error(e);
-        alert('❌ Ошибка соединения');
+        showNotif('❌ Ошибка соединения', 'error');
     } finally {
         btn.innerHTML = orig;
         btn.disabled = false;
     }
 }
 
+// ============================================
+// ЗАГРУЗКА ДАННЫХ
+// ============================================
 async function loadReportsData() {
+    if (isLoadingReports) return;
+    isLoadingReports = true;
+    
     console.log('🔄 loadReportsData вызвана');
     const loader = document.getElementById('loader');
     if (loader) loader.style.display = 'block';
@@ -198,6 +222,7 @@ async function loadReportsData() {
                 loader.innerHTML = '⚠️ Нет данных. Нажмите "Обновить данные"';
                 loader.style.display = 'block';
             }
+            isLoadingReports = false;
             return;
         }
         
@@ -215,10 +240,18 @@ async function loadReportsData() {
         
     } catch (err) {
         console.error('❌ Ошибка загрузки:', err);
-        if (loader) loader.innerHTML = '❌ Ошибка загрузки данных';
+        if (loader) {
+            loader.innerHTML = '❌ Ошибка загрузки данных';
+            loader.style.display = 'block';
+        }
+    } finally {
+        isLoadingReports = false;
     }
 }
 
+// ============================================
+// РЕНДЕР СТАТИСТИКИ
+// ============================================
 function renderStats(data) {
     const statsGrid = document.getElementById('statsGrid');
     if (!statsGrid) return;
@@ -242,9 +275,13 @@ function renderStats(data) {
     console.log('📊 Статистика отрендерена');
 }
 
+// ============================================
+// РЕНДЕР КРУГОВОЙ ДИАГРАММЫ
+// ============================================
 function renderPieChart(data) {
     const canvas = document.getElementById('pieChart');
     if (!canvas) return;
+    
     if (typeof Chart === 'undefined') {
         console.error('❌ Chart.js не загружен!');
         return;
@@ -260,11 +297,20 @@ function renderPieChart(data) {
         totalBooked += dayData.fullyBooked?.length || 0;
     }
     
+    const total = totalAvailable + totalPartially + totalBooked;
+    if (total === 0) {
+        console.log('⚠️ Нет данных для диаграммы');
+        return;
+    }
+    
     if (pieChart && typeof pieChart.destroy === 'function') {
         pieChart.destroy();
     }
     
-    pieChart = new Chart(canvas, {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    pieChart = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Свободные', 'Частично', 'Занятые'],
@@ -287,6 +333,9 @@ function renderPieChart(data) {
     console.log('📊 Круговая диаграмма отрендерена');
 }
 
+// ============================================
+// ФОРМАТИРОВАНИЕ ДАТ
+// ============================================
 function formatDateRu(dateStr) {
     if (!dateStr) return '—';
     
@@ -324,6 +373,9 @@ function getDayOfWeek(dateStr) {
     return 0;
 }
 
+// ============================================
+// РЕНДЕР ТОП ДНЕЙ
+// ============================================
 function renderTopDays(data) {
     const container = document.getElementById('topDaysContainer');
     if (!container) return;
@@ -390,6 +442,9 @@ function renderTopDays(data) {
     container.innerHTML = html;
 }
 
+// ============================================
+// РЕНДЕР ДАТ
+// ============================================
 function renderDates(data) {
     const datesGrid = document.getElementById('datesGrid');
     if (!datesGrid) return;
@@ -474,9 +529,13 @@ function renderDates(data) {
     console.log('📊 Даты отрендерены, количество:', dates.length);
 }
 
-// 🔥 Экспорт с cleanup
+// ============================================
+// ЭКСПОРТ
+// ============================================
 window.initReports = initReports;
 window.cleanupReports = cleanupReports;
 window.loadReportsData = loadReportsData;
 window.runParser = runParser;
 window.fixParser = fixParser;
+
+console.log('✅ reports.js загружен (исправленная версия)');

@@ -6,28 +6,49 @@ let vpCurrentMonth = new Date().getMonth() + 1;
 let canEditVp = false;
 let isLoadingVp = false;
 let vpFilters = { search: '', showArchived: false };
+let vpNotificationInterval = null;
 
 const VP_START_YEAR = 2026;
 const VP_START_MONTH = 3;
 const VP_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+// ============================================
+// 🔥 ИСПРАВЛЕНО: getTobolskNow без рекурсии
+// ============================================
+function getTobolskNow() {
+    if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
+        return window.getTobolskNow();
+    }
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('ru-RU');
+}
 
 function initVp() {
     console.log('🎮 Инициализация ВП (мероприятий)');
     
     const monthDisplay = document.getElementById('vpMonthDisplay');
     const yearDisplay = document.getElementById('vpYearDisplay');
+    
+    if (!monthDisplay || !yearDisplay) {
+        console.warn('⚠️ Элементы ВП не найдены, ждём...');
+        setTimeout(initVp, 100);
+        return;
+    }
+    
     const prevBtn = document.getElementById('vpPrevMonth');
     const nextBtn = document.getElementById('vpNextMonth');
     const addBtn = document.getElementById('vpAddBtn');
     const searchInput = document.getElementById('vpSearch');
     const showArchivedCheckbox = document.getElementById('showArchived');
     
-    if (!monthDisplay || !yearDisplay) {
-        setTimeout(initVp, 100);
-        return;
-    }
-    
-    const now = getTobolskNow ? getTobolskNow() : new Date();
+    const now = getTobolskNow();
     let todayYear = now.getFullYear();
     let todayMonth = now.getMonth() + 1;
     
@@ -39,19 +60,15 @@ function initVp() {
         vpCurrentMonth = todayMonth;
     }
     
-    const role = window.app.currentUserRole;
+    const role = window.app?.currentUserRole || 'operator';
     canEditVp = (role === 'director' || role === 'manager' || role === 'admin');
     
     updateVpInterface();
     updateVpDisplay();
     loadVpData();
     
-    if (prevBtn) {
-        prevBtn.onclick = () => changeVpMonth(-1);
-    }
-    if (nextBtn) {
-        nextBtn.onclick = () => changeVpMonth(1);
-    }
+    if (prevBtn) prevBtn.onclick = () => changeVpMonth(-1);
+    if (nextBtn) nextBtn.onclick = () => changeVpMonth(1);
     if (addBtn) {
         addBtn.style.display = canEditVp ? 'flex' : 'none';
         addBtn.onclick = () => openVpModal();
@@ -69,24 +86,13 @@ function initVp() {
         };
     }
     
-    // 🔥 ИСПРАВЛЕНО: Очистка старого интервала
-    if (window.vpNotificationInterval) {
-        clearInterval(window.vpNotificationInterval);
-    }
-    window.vpNotificationInterval = setInterval(() => {
-        if (typeof renderVpTable === 'function' && document.getElementById('vpTableBody')) {
+    if (vpNotificationInterval) clearInterval(vpNotificationInterval);
+    vpNotificationInterval = setInterval(() => {
+        const tbody = document.getElementById('vpTableBody');
+        if (tbody && typeof renderVpTable === 'function') {
             renderVpTable();
         }
     }, 60000);
-}
-
-// 🔥 ДОБАВЛЕНО: getTobolskNow
-function getTobolskNow() {
-    if (typeof window.getTobolskNow === 'function') {
-        return window.getTobolskNow();
-    }
-    const now = new Date();
-    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
 }
 
 function changeVpMonth(delta) {
@@ -157,15 +163,11 @@ async function loadVpData() {
             renderVpTable();
         } else if (data && data.success === false) {
             console.error('Ошибка:', data.error);
-            if (tbody) {
-                tbody.innerHTML = `<tr><td colspan="9" class="empty-state">❌ ${data.error}</td></tr>`;
-            }
+            if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="empty-state">❌ ${data.error}</td></tr>`;
         }
     } catch (err) {
         console.error('Ошибка загрузки ВП:', err);
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
-        }
+        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
     } finally {
         isLoadingVp = false;
     }
@@ -204,7 +206,6 @@ function updateVpStats() {
     }
 }
 
-// 🔥 ИСПРАВЛЕНО: Проверка доступности фото
 function isPhotoActionAvailable(vp) {
     if (vp.photo_status === 'sent') return false;
     if (vp.is_archived) return false;
@@ -212,7 +213,7 @@ function isPhotoActionAvailable(vp) {
     
     const now = getTobolskNow();
     let dateStr = vp.event_date;
-    if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+    if (typeof dateStr === 'string' && dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
     const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
     const eventStartTime = new Date(eventDateTimeStr);
@@ -228,7 +229,6 @@ function isPhotoActionAvailable(vp) {
     return now >= eventEndTime;
 }
 
-// 🔥 ИСПРАВЛЕНО: Проверка доступности скрипта
 function isScriptActionAvailable(vp) {
     if (vp.script_status === 'sent') return false;
     if (vp.is_archived) return false;
@@ -236,7 +236,7 @@ function isScriptActionAvailable(vp) {
     
     const now = getTobolskNow();
     let dateStr = vp.event_date;
-    if (dateStr.includes('T')) dateStr = dateStr.split('T')[0];
+    if (typeof dateStr === 'string' && dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
     const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
     const eventDateTime = new Date(eventDateTimeStr);
@@ -286,19 +286,19 @@ async function updatePhotoStatus(id) {
     }
     
     if (!isPhotoActionAvailable(vp)) {
-        showNotif('❌ Сейчас нельзя отметить фото. Кнопка станет доступна за 5 минут до окончания мероприятия.', 'warning');
+        showNotif('❌ Сейчас нельзя отметить фото', 'warning');
         return;
     }
     
     if (vp.photo_status === 'sent') {
-        showNotif('Фото уже отмечено как отправленное', 'info');
+        showNotif('Фото уже отмечено', 'info');
         return;
     }
     
     const response = await apiCall(`/vp/${id}`, 'PUT', { photoStatus: 'sent' });
     
     if (response && response.success) {
-        showNotif('📸 Фото отмечено как отправленное!', 'success');
+        showNotif('📸 Фото отмечено!', 'success');
         await loadVpData();
     } else {
         showNotif('Ошибка при обновлении', 'error');
@@ -317,19 +317,19 @@ async function updateScriptStatus(id) {
     }
     
     if (!isScriptActionAvailable(vp)) {
-        showNotif('❌ Сейчас нельзя отметить скрипт. Кнопка станет доступна через 2 дня после мероприятия.', 'warning');
+        showNotif('❌ Сейчас нельзя отметить скрипт', 'warning');
         return;
     }
     
     if (vp.script_status === 'sent') {
-        showNotif('Скрипт уже отмечен как отправленный', 'info');
+        showNotif('Скрипт уже отмечен', 'info');
         return;
     }
     
     const response = await apiCall(`/vp/${id}`, 'PUT', { scriptStatus: 'sent' });
     
     if (response && response.success) {
-        showNotif('📝 Скрипт отзыва отмечен как отправленный!', 'success');
+        showNotif('📝 Скрипт отмечен!', 'success');
         await loadVpData();
     } else {
         showNotif('Ошибка при обновлении', 'error');
@@ -352,7 +352,7 @@ function renderVpTable() {
     filtered.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
     
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px;">${vpFilters.showArchived ? '📦 В архиве нет мероприятий' : '🎮 Нет мероприятий за выбранный период'}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px;">${vpFilters.showArchived ? '📦 В архиве нет мероприятий' : '🎮 Нет мероприятий'}</td></tr>`;
         return;
     }
     
@@ -392,26 +392,22 @@ function renderVpTable() {
                 <td class="quick-action-cell">
                     ${canEditVp && isPhotoActive ? `
                         <button class="btn-action btn-photo" onclick="event.stopPropagation(); updatePhotoStatus(${vp.id})">
-                            <i class="fas fa-camera"></i> Отметить фото
+                            <i class="fas fa-camera"></i> Отметить
                         </button>
-                    ` : `
-                        <span class="status-badge ${photoStatusClass}">${photoStatusText}</span>
-                    `}
+                    ` : `<span class="status-badge ${photoStatusClass}">${photoStatusText}</span>`}
                 </td>
                 <td class="quick-action-cell">
                     ${canEditVp && isScriptActive ? `
                         <button class="btn-action btn-script" onclick="event.stopPropagation(); updateScriptStatus(${vp.id})">
-                            <i class="fas fa-paper-plane"></i> Отметить скрипт
+                            <i class="fas fa-paper-plane"></i> Отметить
                         </button>
-                    ` : `
-                        <span class="status-badge ${scriptStatusClass}">${scriptStatusText}</span>
-                    `}
+                    ` : `<span class="status-badge ${scriptStatusClass}">${scriptStatusText}</span>`}
                 </td>
                 <td style="white-space: nowrap;">
-                    ${canEditVp && !vp.is_archived ? `<button class="btn-small" onclick="openVpModal(${vp.id})"><i class="fas fa-edit"></i> Ред.</button>` : ''}
-                    ${canEditVp && !vp.is_archived ? `<button class="btn-small btn-delete" onclick="cancelVp(${vp.id})"><i class="fas fa-archive"></i> В архив</button>` : ''}
-                    ${canEditVp && vp.is_archived ? `<button class="btn-small btn-restore" onclick="restoreVp(${vp.id})"><i class="fas fa-undo"></i> Восстановить</button>` : ''}
-                    ${canEditVp && vp.is_archived ? `<button class="btn-small btn-danger" onclick="deleteVpPermanently(${vp.id})"><i class="fas fa-trash-alt"></i> Удалить</button>` : ''}
+                    ${canEditVp && !vp.is_archived ? `<button class="btn-small" onclick="openVpModal(${vp.id})"><i class="fas fa-edit"></i></button>` : ''}
+                    ${canEditVp && !vp.is_archived ? `<button class="btn-small btn-delete" onclick="cancelVp(${vp.id})"><i class="fas fa-archive"></i></button>` : ''}
+                    ${canEditVp && vp.is_archived ? `<button class="btn-small btn-restore" onclick="restoreVp(${vp.id})"><i class="fas fa-undo"></i></button>` : ''}
+                    ${canEditVp && vp.is_archived ? `<button class="btn-small btn-danger" onclick="deleteVpPermanently(${vp.id})"><i class="fas fa-trash-alt"></i></button>` : ''}
                 </td>
             </tr>
         `;
@@ -441,7 +437,7 @@ function showBookingDetails(vp) {
                 <div class="modal-body">
                     <div class="details-section">
                         <div class="section-title"><i class="fas fa-calendar-alt"></i> Дата и время</div>
-                        <div class="detail-row"><span class="detail-label">Дата мероприятия:</span><span class="detail-value">${formatDate(vp.event_date)}</span></div>
+                        <div class="detail-row"><span class="detail-label">Дата:</span><span class="detail-value">${formatDate(vp.event_date)}</span></div>
                         <div class="detail-row"><span class="detail-label">Время:</span><span class="detail-value">${vp.event_time?.slice(0, 5) || '—'}</span></div>
                     </div>
                     <div class="details-section">
@@ -451,13 +447,8 @@ function showBookingDetails(vp) {
                     </div>
                     <div class="details-section">
                         <div class="section-title"><i class="fas fa-credit-card"></i> Финансы</div>
-                        <div class="detail-row"><span class="detail-label">Сумма предоплаты:</span><span class="detail-value amount">${vp.amount || 0} ₽</span></div>
-                        <div class="detail-row"><span class="detail-label">Тип оплаты:</span><span class="detail-value">${paymentTypeMap[vp.payment_type] || vp.payment_type}</span></div>
-                    </div>
-                    <div class="details-section">
-                        <div class="section-title"><i class="fas fa-camera"></i> Статусы</div>
-                        <div class="detail-row"><span class="detail-label">Фото:</span><span class="detail-value"><span class="status-badge ${getPhotoStatusClass(vp)}">${getPhotoStatusText(vp)}</span></span></div>
-                        <div class="detail-row"><span class="detail-label">Скрипт отзыва:</span><span class="detail-value"><span class="status-badge ${getScriptStatusClass(vp)}">${getScriptStatusText(vp)}</span></span></div>
+                        <div class="detail-row"><span class="detail-label">Сумма:</span><span class="detail-value amount">${vp.amount || 0} ₽</span></div>
+                        <div class="detail-row"><span class="detail-label">Оплата:</span><span class="detail-value">${paymentTypeMap[vp.payment_type] || vp.payment_type}</span></div>
                     </div>
                     ${vp.comment ? `<div class="details-section"><div class="section-title"><i class="fas fa-comment"></i> Комментарий</div><div class="comment-box">${escapeHtml(vp.comment)}</div></div>` : ''}
                 </div>
@@ -477,27 +468,27 @@ function closeBookingDetailsModal() {
 
 async function restoreVp(vpId) {
     if (!canEditVp) return;
-    if (!confirm('Восстановить мероприятие из архива?')) return;
+    if (!confirm('Восстановить мероприятие?')) return;
     
     const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: false });
     if (response && response.success) {
-        showNotif('📦 Мероприятие восстановлено', 'success');
+        showNotif('📦 Восстановлено', 'success');
         await loadVpData();
     } else {
-        showNotif('Ошибка при восстановлении', 'error');
+        showNotif('Ошибка', 'error');
     }
 }
 
 async function deleteVpPermanently(vpId) {
     if (!canEditVp) return;
-    if (!confirm('⚠️ Навсегда удалить мероприятие?')) return;
+    if (!confirm('⚠️ Навсегда удалить?')) return;
     
     const response = await apiCall(`/vp/${vpId}`, 'DELETE');
     if (response && response.success) {
-        showNotif('🗑️ Мероприятие удалено', 'success');
+        showNotif('🗑️ Удалено', 'success');
         await loadVpData();
     } else {
-        showNotif('Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+        showNotif('Ошибка', 'error');
     }
 }
 
@@ -505,8 +496,8 @@ function openVpModal(vpId = null) {
     if (!canEditVp) return;
     
     const vp = vpId ? vpData.find(v => v.id === vpId) : null;
-    const employees = window.app.employees || [];
-    const profiles = window.app.profiles || {};
+    const employees = window.app?.employees || [];
+    const profiles = window.app?.profiles || {};
     const admins = employees.filter(emp => profiles[emp]?.role === 'admin');
     
     const modalHtml = `
@@ -516,14 +507,13 @@ function openVpModal(vpId = null) {
                     <div class="modal-icon"><i class="fas fa-gamepad"></i></div>
                     <div class="modal-title">
                         <h3>${vp ? '✏️ Редактирование' : '➕ Новое мероприятие'}</h3>
-                        <p>${vp ? 'Измените данные' : 'Заполните информацию'}</p>
                     </div>
                     <button class="modal-close" onclick="closeVpModal()">&times;</button>
                 </div>
                 <div class="modal-body">
                     <input type="hidden" id="vpId" value="${vp?.id || ''}">
                     <div class="form-group">
-                        <label>Дата мероприятия</label>
+                        <label>Дата</label>
                         <input type="date" id="vpEventDate" class="form-input" value="${vp?.event_date || ''}">
                     </div>
                     <div class="form-group">
@@ -535,22 +525,22 @@ function openVpModal(vpId = null) {
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Имя клиента</label>
+                        <label>Клиент</label>
                         <input type="text" id="vpCustomerName" class="form-input" value="${escapeHtml(vp?.customer_name || '')}">
                     </div>
                     <div class="form-group">
                         <label>Админ</label>
                         <select id="vpAdmin" class="form-select">
-                            <option value="">Выберите админа</option>
+                            <option value="">Выберите</option>
                             ${admins.map(emp => `<option value="${escapeHtml(emp)}" ${vp?.admin === emp ? 'selected' : ''}>${escapeHtml(emp)}</option>`).join('')}
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>Сумма предоплаты</label>
+                        <label>Сумма</label>
                         <input type="number" id="vpAmount" class="form-input" value="${vp?.amount || 2000}">
                     </div>
                     <div class="form-group">
-                        <label>Тип оплаты</label>
+                        <label>Оплата</label>
                         <select id="vpPaymentType" class="form-select">
                             <option value="evotor_card" ${vp?.payment_type === 'evotor_card' ? 'selected' : ''}>💳 Эвотор (карта)</option>
                             <option value="evotor_cash" ${vp?.payment_type === 'evotor_cash' ? 'selected' : ''}>💵 Эвотор (нал)</option>
@@ -584,7 +574,7 @@ async function saveVp() {
     
     const vpId = document.getElementById('vpId')?.value;
     const eventDate = document.getElementById('vpEventDate')?.value;
-    let eventTime = document.getElementById('vpEventTime')?.value;
+    const eventTime = document.getElementById('vpEventTime')?.value;
     const customerName = document.getElementById('vpCustomerName')?.value.trim();
     const admin = document.getElementById('vpAdmin')?.value;
     const amount = parseInt(document.getElementById('vpAmount')?.value) || 0;
@@ -608,7 +598,7 @@ async function saveVp() {
     }
     
     if (response && response.success) {
-        showNotif(vpId ? '✅ Мероприятие обновлено' : '✅ Мероприятие создано', 'success');
+        showNotif(vpId ? '✅ Обновлено' : '✅ Создано', 'success');
         closeVpModal();
         await loadVpData();
     } else {
@@ -618,11 +608,11 @@ async function saveVp() {
 
 async function cancelVp(vpId) {
     if (!canEditVp) return;
-    if (!confirm('Отправить мероприятие в архив?')) return;
+    if (!confirm('В архив?')) return;
     
     const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: true });
     if (response && response.success) {
-        showNotif('📦 Отправлено в архив', 'success');
+        showNotif('📦 В архиве', 'success');
         await loadVpData();
     } else {
         showNotif('❌ Ошибка', 'error');
@@ -642,16 +632,9 @@ function resetVpFilters() {
     renderVpTable();
 }
 
-function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('ru-RU');
-}
-
 // ============================================
 // ЭКСПОРТ
 // ============================================
-
 window.initVp = initVp;
 window.openVpModal = openVpModal;
 window.closeVpModal = closeVpModal;

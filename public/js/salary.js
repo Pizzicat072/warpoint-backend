@@ -1,4 +1,4 @@
-// public/js/salary.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ С ФОНДОМ И ДОП. МОТИВАЦИЕЙ
+// public/js/salary.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let currentEmployeeId = null;
 let currentDayNumber = null;
@@ -12,9 +12,22 @@ const START_YEAR = 2026;
 const START_MONTH = 3;
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 
+// ============================================
+// 🔥 ИСПРАВЛЕНО: getTobolskNow без рекурсии
+// ============================================
+function getTobolskNow() {
+    if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
+        return window.getTobolskNow();
+    }
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+}
+
 function initSalary() {
     const container = document.getElementById('salaryTableContainer');
     if (!container) {
+        console.warn('⚠️ salaryTableContainer не найден, ждём...');
+        setTimeout(initSalary, 100);
         return;
     }
     
@@ -31,7 +44,7 @@ function initSalary() {
         return;
     }
     
-    const now = getTobolskNow ? getTobolskNow() : new Date();
+    const now = getTobolskNow();
     let todayYear = now.getFullYear();
     let todayMonth = now.getMonth() + 1;
     
@@ -81,15 +94,12 @@ function initSalary() {
     }
 }
 
-// 🔥 НОВОЕ: Загрузка фонда для страницы зарплаты
 async function loadFundForSalary() {
     try {
         const response = await apiCall('/fund');
         if (response && response.amount !== undefined) {
             const fundEl = document.getElementById('salaryFundAmount');
             if (fundEl) fundEl.textContent = response.amount.toLocaleString() + ' ₽';
-            
-            // Сохраняем в глобальный кэш
             window.fundAmount = response.amount;
         }
     } catch (err) {
@@ -98,6 +108,8 @@ async function loadFundForSalary() {
 }
 
 function prevMonth() {
+    if (salaryIsLoading) return;
+    
     let newMonth = currentMonth - 1;
     let newYear = currentYear;
     
@@ -119,6 +131,8 @@ function prevMonth() {
 }
 
 function nextMonth() {
+    if (salaryIsLoading) return;
+    
     let newMonth = currentMonth + 1;
     let newYear = currentYear;
     
@@ -142,7 +156,6 @@ function updateDisplay() {
     if (yearDisplay) yearDisplay.textContent = currentYear;
 }
 
-// 🔥 ОБНОВЛЕНО: Добавлена доп. мотивация
 function updateDayTotal() {
     const oklad = parseFloat(document.getElementById('salaryOklad')?.value) || 0;
     const event = parseFloat(document.getElementById('salaryEvent')?.value) || 0;
@@ -193,6 +206,7 @@ async function loadSalaryData() {
         salaryIsLoading = false;
     }
 }
+
 function renderTable(data) {
     const container = document.getElementById('salaryTableContainer');
     if (!container) return;
@@ -220,7 +234,7 @@ function renderTable(data) {
     });
     
     const totals = {};
-    const breakdowns = {}; // 🔥 Для детализации по сотрудникам
+    const breakdowns = {};
     
     employees.forEach(emp => {
         let total = 0;
@@ -261,7 +275,6 @@ function renderTable(data) {
             html += `<td class="day-cell ${total > 0 ? 'filled' : 'empty'}" onclick="openDayModal(${emp.id}, ${d}, '${escapeHtml(emp.name)}')">${total > 0 ? total.toLocaleString() + ' ₽' : '—'}</td>`;
         }
         
-        // 🔥 ИТОГО — КЛИКАБЕЛЬНО для детализации
         html += `<td class="salary-total-cell" onclick="showMonthlyBreakdown(${emp.id}, '${escapeHtml(emp.name)}')">${(totals[emp.id] || 0).toLocaleString()} ₽</td></tr>`;
         html += `<tr class="salary-separator"><td colspan="${daysInMonth + 2}"><div class="separator-line"></div></td></tr>`;
     }
@@ -270,7 +283,6 @@ function renderTable(data) {
     container.innerHTML = html;
 }
 
-// 🔥 НОВОЕ: Детализация итога за месяц
 function showMonthlyBreakdown(employeeId, employeeName) {
     const breakdown = monthlyTotalsCache[employeeId];
     if (!breakdown) {
@@ -286,34 +298,13 @@ function showMonthlyBreakdown(employeeId, employeeName) {
                     <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">${escapeHtml(employeeName)}</p>
                 </div>
                 <div style="padding: 20px;">
-                    <div class="breakdown-item">
-                        <span>💰 Оклад</span>
-                        <strong>${breakdown.oklad.toLocaleString()} ₽</strong>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>🎉 Мероприятия</span>
-                        <strong>${breakdown.event.toLocaleString()} ₽</strong>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>📈 Премия с оборота</span>
-                        <strong>${breakdown.turnover.toLocaleString()} ₽</strong>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>🏆 Премия за 35 тыс.</span>
-                        <strong>${breakdown.bonus35.toLocaleString()} ₽</strong>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>📹 Ролик/Отзыв</span>
-                        <strong>${breakdown.video.toLocaleString()} ₽</strong>
-                    </div>
-                    <div class="breakdown-item">
-                        <span>🎁 Доп. мотивация</span>
-                        <strong>${breakdown.extra.toLocaleString()} ₽</strong>
-                    </div>
-                    <div class="breakdown-total">
-                        <span>ИТОГО</span>
-                        <strong>${breakdown.total.toLocaleString()} ₽</strong>
-                    </div>
+                    <div class="breakdown-item"><span>💰 Оклад</span><strong>${breakdown.oklad.toLocaleString()} ₽</strong></div>
+                    <div class="breakdown-item"><span>🎉 Мероприятия</span><strong>${breakdown.event.toLocaleString()} ₽</strong></div>
+                    <div class="breakdown-item"><span>📈 Премия с оборота</span><strong>${breakdown.turnover.toLocaleString()} ₽</strong></div>
+                    <div class="breakdown-item"><span>🏆 Премия за 35 тыс.</span><strong>${breakdown.bonus35.toLocaleString()} ₽</strong></div>
+                    <div class="breakdown-item"><span>📹 Ролик/Отзыв</span><strong>${breakdown.video.toLocaleString()} ₽</strong></div>
+                    <div class="breakdown-item"><span>🎁 Доп. мотивация</span><strong>${breakdown.extra.toLocaleString()} ₽</strong></div>
+                    <div class="breakdown-total"><span>ИТОГО</span><strong>${breakdown.total.toLocaleString()} ₽</strong></div>
                 </div>
                 <div style="display: flex; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
                     <button class="btn-secondary" onclick="closeMonthlyBreakdownModal()">Закрыть</button>
@@ -335,8 +326,11 @@ function openDayModal(employeeId, dayNumber, employeeName) {
     currentDayNumber = dayNumber;
     
     const date = new Date(currentYear, currentMonth - 1, dayNumber);
-    document.getElementById('modalDate').textContent = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-    document.getElementById('modalEmployee').innerHTML = `<i class="fas fa-user"></i> ${escapeHtml(employeeName)}`;
+    const modalDate = document.getElementById('modalDate');
+    const modalEmployee = document.getElementById('modalEmployee');
+    
+    if (modalDate) modalDate.textContent = date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    if (modalEmployee) modalEmployee.innerHTML = `<i class="fas fa-user"></i> ${escapeHtml(employeeName)}`;
     
     const footer = document.getElementById('modalFooter');
     if (footer) footer.style.display = isDirector ? 'flex' : 'none';
@@ -419,7 +413,6 @@ async function saveCurrentDay() {
             showNotif('✅ Сохранено', 'success');
             closeDayModal();
             loadSalaryData();
-            // 🔥 Обновляем фонд если изменился
             loadFundForSalary();
         } else {
             showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
@@ -444,19 +437,9 @@ function exportSalaryToExcel() {
     showNotif('📊 Экспорт в разработке', 'info');
 }
 
-// 🔥 ДОБАВЛЕНО: getTobolskNow если не определена глобально
-function getTobolskNow() {
-    if (typeof window.getTobolskNow === 'function') {
-        return window.getTobolskNow();
-    }
-    const now = new Date();
-    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
-}
-
 // ============================================
 // ЭКСПОРТ
 // ============================================
-
 window.initSalary = initSalary;
 window.prevMonth = prevMonth;
 window.nextMonth = nextMonth;
@@ -468,3 +451,5 @@ window.exportSalaryToExcel = exportSalaryToExcel;
 window.loadFundForSalary = loadFundForSalary;
 window.showMonthlyBreakdown = showMonthlyBreakdown;
 window.closeMonthlyBreakdownModal = closeMonthlyBreakdownModal;
+
+console.log('✅ salary.js загружен (исправленная версия)');
