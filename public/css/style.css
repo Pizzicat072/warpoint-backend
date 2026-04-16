@@ -2503,6 +2503,544 @@ textarea:focus-visible {
     font-size: 12px;
     cursor: pointer;
 }
+/* ============================================ */
+/* МОДАЛКА ПРОФИЛЯ — ИСПРАВЛЕННЫЙ ДИЗАЙН        */
+/* ============================================ */
+
+.emp-modal-window {
+    max-width: 650px;
+    width: 95%;
+    max-height: 85vh;
+    background: linear-gradient(135deg, #1a1f2e, #0f1222);
+    border-radius: 28px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.emp-modal-header {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));
+    border-bottom: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.emp-modal-avatar {
+    width: 70px;
+    height: 70px;
+    min-width: 70px;
+    background: linear-gradient(135deg, #6366f1, #ec4899);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    overflow: hidden;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
+}
+
+.emp-modal-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.emp-modal-title {
+    flex: 1;
+}
+
+.emp-modal-title h3 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    color: #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.emp-modal-title p {
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.emp-modal-phone {
+    font-size: 12px;
+    color: #a78bfa;
+    margin-top: 4px;
+}
+
+.emp-modal-close {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    background: rgba(255, 255, 255, 0.05);
+    border: none;
+    border-radius: 12px;
+    color: #94a3b8;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.emp-modal-close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+/* Табы в модалке */
+.emp-profile-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 12px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    flex-wrap: wrap;
+}
+
+.emp-profile-tab {
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 30px;
+    color: #94a3b8;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.emp-profile-tab:hover {
+    background: rgba(99, 102, 241, 0.15);
+    color: #e2e8f0;
+}
+
+.emp-profile-tab.active {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.emp-profile-tab i {
+    font-size: 14px;
+}
+
+/* Тело модалки */
+.emp-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    max-height: 55vh;
+}
+
+.emp-profile-tab-content {
+    display: none;
+}
+
+.emp-profile-tab-content.active {
+    display: block;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Сетки внутри модалки */
+.emp-info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.emp-info-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.emp-info-card i {
+    width: 36px;
+    height: 36px;
+    background: rgba(99, 102, 241, 0.15);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #a78bfa;
+    font-size: 16px;
+}
+
+.emp-info-card span {
+    font-size: 14px;
+    color: #e2e8f0;
+    word-break: break-word;
+}
+
+.emp-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.emp-stat-card {
+    text-align: center;
+    padding: 14px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+    border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+.emp-stat-icon {
+    font-size: 24px;
+    margin-bottom: 6px;
+}
+
+.emp-stat-value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.emp-stat-label {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.emp-status-cards {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.emp-status-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 30px;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.emp-status-card.active {
+    border-color: #10b981;
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.emp-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}
+
+.emp-status-dot.online { background: #10b981; box-shadow: 0 0 8px #10b981; }
+.emp-status-dot.offline { background: #64748b; }
+.emp-status-dot.onshift { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+.emp-status-dot.offshift { background: #64748b; }
+
+/* Кнопки действий */
+.emp-action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.emp-btn-primary, .emp-btn-secondary, .emp-btn-danger {
+    padding: 10px 18px;
+    border-radius: 30px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+    border: none;
+}
+
+.emp-btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+.emp-btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.emp-btn-secondary {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e2e8f0;
+    border: 1px solid rgba(99, 102, 241, 0.2);
+}
+
+.emp-btn-secondary:hover {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: #a78bfa;
+}
+
+.emp-btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.emp-btn-danger:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+/* Поля редактирования */
+.emp-edit-fields {
+    margin-top: 16px;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.emp-form-group {
+    margin-bottom: 14px;
+}
+
+.emp-form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+.emp-form-group input, .emp-form-group select {
+    width: 100%;
+    padding: 10px 14px;
+    background: #0d1016;
+    border: 1px solid #1e2430;
+    border-radius: 12px;
+    color: #e2e8f0;
+    font-size: 13px;
+    outline: none;
+}
+
+.emp-form-group input:focus, .emp-form-group select:focus {
+    border-color: #a78bfa;
+}
+
+.emp-edit-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+/* Статистика */
+.emp-section {
+    margin-bottom: 20px;
+}
+
+.emp-section h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.emp-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 10px;
+}
+
+.emp-stat-item-detailed {
+    text-align: center;
+    padding: 12px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+}
+
+.emp-stat-item-detailed .label {
+    font-size: 11px;
+    color: #94a3b8;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.emp-stat-item-detailed .value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+.emp-stat-item-detailed.success .value { color: #10b981; }
+.emp-stat-item-detailed.warning .value { color: #f59e0b; }
+.emp-stat-item-detailed.danger .value { color: #ef4444; }
+.emp-stat-item-detailed.info .value { color: #3b82f6; }
+
+.emp-progress-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin-top: 12px;
+    overflow: hidden;
+}
+
+.emp-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #34d399);
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+/* Достижения */
+.emp-achievements-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.emp-achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+    border-left: 4px solid #fbbf24;
+}
+
+.emp-achievement-icon {
+    font-size: 28px;
+    min-width: 40px;
+    text-align: center;
+}
+
+.emp-achievement-info {
+    flex: 1;
+}
+
+.emp-achievement-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e2e8f0;
+    margin-bottom: 2px;
+}
+
+.emp-achievement-desc {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+/* Подарки */
+.emp-gifts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+}
+
+.emp-gift-card {
+    text-align: center;
+    padding: 12px 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 14px;
+}
+
+.emp-gift-icon {
+    font-size: 32px;
+    margin-bottom: 6px;
+}
+
+.emp-gift-name {
+    font-size: 11px;
+    color: #e2e8f0;
+    margin-bottom: 4px;
+}
+
+.emp-gift-count {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fbbf24;
+}
+
+/* Пустые состояния */
+.emp-empty-section {
+    text-align: center;
+    padding: 30px 20px;
+    color: #64748b;
+}
+
+.emp-empty-section i {
+    font-size: 40px;
+    margin-bottom: 10px;
+    opacity: 0.5;
+}
+
+/* Адаптив */
+@media (max-width: 600px) {
+    .emp-modal-window {
+        width: 100%;
+        max-height: 90vh;
+        border-radius: 20px;
+    }
+    
+    .emp-modal-header {
+        padding: 16px;
+    }
+    
+    .emp-modal-avatar {
+        width: 50px;
+        height: 50px;
+        min-width: 50px;
+        font-size: 24px;
+    }
+    
+    .emp-modal-title h3 {
+        font-size: 16px;
+    }
+    
+    .emp-profile-tabs {
+        padding: 8px;
+    }
+    
+    .emp-profile-tab {
+        padding: 6px 12px;
+        font-size: 11px;
+    }
+    
+    .emp-profile-tab i {
+        font-size: 12px;
+    }
+    
+    .emp-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
 
 /* ============================================ */
 /* КОНЕЦ ФАЙЛА                                   */

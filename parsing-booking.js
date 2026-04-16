@@ -1,4 +1,4 @@
-// parsing-booking.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// parsing-booking.js вЂ” РђР”РђРџРўРР РћР’РђРќ РџРћР” РџР РћР•РљРў
 
 const puppeteer = require('puppeteer');
 const chromium = require('@sparticuz/chromium');
@@ -7,66 +7,72 @@ const path = require('path');
 
 process.env.TZ = 'Asia/Yekaterinburg';
 
-let currentProgress = { step: 0, percent: 0, message: 'Ожидание запуска' };
+let currentProgress = { step: 0, percent: 0, message: 'РћР¶РёРґР°РЅРёРµ Р·Р°РїСѓСЃРєР°' };
 let isParsing = false;
 let lastParseTime = null;
 
-// Один браузер на все запросы
+// РћРґРёРЅ Р±СЂР°СѓР·РµСЂ РЅР° РІСЃРµ Р·Р°РїСЂРѕСЃС‹
 let sharedBrowser = null;
 let browserInitPromise = null;
 
 // ============================================
-// ПОЛУЧЕНИЕ БРАУЗЕРА (С ЗАЩИТОЙ ОТ ГОНОК)
+// РџРћР›РЈР§Р•РќРР• Р‘Р РђРЈР—Р•Р Рђ (РЎ Р—РђР©РРўРћР™ РћРў Р“РћРќРћРљ)
 // ============================================
 
 async function getBrowser() {
-    // Если браузер уже инициализируется, ждём
     if (browserInitPromise) {
         return await browserInitPromise;
     }
     
-    // Если браузер жив, возвращаем его
     if (sharedBrowser && sharedBrowser.isConnected()) {
         try {
-            // Проверяем, что браузер действительно работает
             await sharedBrowser.version();
             return sharedBrowser;
         } catch (e) {
-            console.log('?? Браузер отвалился, пересоздаём...');
+            console.log('вљ пёЏ Р‘СЂР°СѓР·РµСЂ РѕС‚РІР°Р»РёР»СЃСЏ, РїРµСЂРµСЃРѕР·РґР°С‘Рј...');
             sharedBrowser = null;
         }
     }
     
-    // Закрываем старый браузер если есть
     if (sharedBrowser) {
         try { await sharedBrowser.close(); } catch(e) {}
         sharedBrowser = null;
     }
     
-    // Создаём новый браузер
     browserInitPromise = (async () => {
         try {
-            console.log('?? Запуск браузера...');
+            console.log('рџљЂ Р—Р°РїСѓСЃРє Р±СЂР°СѓР·РµСЂР°...');
+            
+            // РСЃРїРѕР»СЊР·СѓРµРј @sparticuz/chromium РґР»СЏ serverless
+            const executablePath = process.env.CHROME_PATH || await chromium.executablePath();
+            
             sharedBrowser = await puppeteer.launch({
                 args: [
                     ...chromium.args,
-                    '--single-process',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
-                    '--disable-software-rasterizer',
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox'
+                    '--disable-software-rasterizer'
                 ],
-                defaultViewport: { width: 800, height: 600 },
-                executablePath: await chromium.executablePath(),
+                defaultViewport: { width: 1280, height: 800 },
+                executablePath: executablePath,
                 headless: true,
                 timeout: 30000
             });
-            console.log('? Браузер запущен');
+            console.log('вњ… Р‘СЂР°СѓР·РµСЂ Р·Р°РїСѓС‰РµРЅ');
             return sharedBrowser;
         } catch (e) {
-            console.error('? Ошибка запуска браузера:', e.message);
-            throw e;
+            console.error('вќЊ РћС€РёР±РєР° Р·Р°РїСѓСЃРєР° Р±СЂР°СѓР·РµСЂР°:', e.message);
+            
+            // Fallback РЅР° РѕР±С‹С‡РЅС‹Р№ puppeteer
+            console.log('рџ”„ РџСЂРѕР±СѓРµРј РѕР±С‹С‡РЅС‹Р№ puppeteer...');
+            sharedBrowser = await puppeteer.launch({
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+                headless: true,
+                defaultViewport: { width: 1280, height: 800 }
+            });
+            return sharedBrowser;
         } finally {
             browserInitPromise = null;
         }
@@ -75,32 +81,27 @@ async function getBrowser() {
     return await browserInitPromise;
 }
 
-// ============================================
-// ЗАКРЫТИЕ БРАУЗЕРА
-// ============================================
-
 async function closeBrowser() {
     if (sharedBrowser) {
         try {
             await sharedBrowser.close();
-            console.log('?? Браузер закрыт');
-        } catch(e) {
-            console.error('Ошибка закрытия браузера:', e);
-        }
+            console.log('рџ”’ Р‘СЂР°СѓР·РµСЂ Р·Р°РєСЂС‹С‚');
+        } catch(e) {}
         sharedBrowser = null;
     }
 }
 
 // ============================================
-// КЛАСС ПАРСЕРА
+// РљР›РђРЎРЎ РџРђР РЎР•Р Рђ
 // ============================================
 
 class BookingParser {
     constructor() {
         this.baseUrl = 'https://booking.warpoint.ru';
-        this.city = 'Тобольск';
-        this.arena = 'ТГК Евразия';
+        this.city = 'РўРѕР±РѕР»СЊСЃРє';
+        this.arena = 'РўР“Рљ Р•РІСЂР°Р·РёСЏ';
         this.dataDir = path.join(__dirname, 'data');
+        
         if (!fs.existsSync(this.dataDir)) {
             fs.mkdirSync(this.dataDir, { recursive: true });
         }
@@ -125,15 +126,23 @@ class BookingParser {
         };
     }
     
-    async saveProgress(step, percent, message) {
-        currentProgress = { step, percent, message, timestamp: Date.now(), isParsing };
+    async saveProgress(step, percent, message, currentDate = null, totalDates = null) {
+        currentProgress = {
+            step: step,
+            percent: percent,
+            message: message,
+            currentDate: currentDate,
+            totalDates: totalDates,
+            timestamp: Date.now(),
+            isParsing: isParsing
+        };
+        
         const progressFile = path.join(this.dataDir, 'parsing-progress.json');
         try {
             fs.writeFileSync(progressFile, JSON.stringify(currentProgress, null, 2));
-        } catch (err) {
-            console.error('Ошибка сохранения прогресса:', err);
-        }
-        console.log(`?? [${percent}%] ${message}`);
+        } catch (err) {}
+        
+        console.log(`рџ“Љ [${percent}%] ${message}`);
         return currentProgress;
     }
     
@@ -182,7 +191,11 @@ class BookingParser {
                         const isVisible = rect.width > 0 && rect.height > 0 && rect.y > 0;
                         
                         if (!isDisabled && isVisible) {
-                            dates.push({ day, x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+                            dates.push({
+                                day: day,
+                                x: rect.x + rect.width / 2,
+                                y: rect.y + rect.height / 2
+                            });
                         }
                     }
                 }
@@ -193,8 +206,8 @@ class BookingParser {
     
     async parseAvailability() {
         if (isParsing) {
-            console.log('?? Парсинг уже выполняется');
-            return { success: false, error: 'Парсинг уже выполняется' };
+            console.log('вљ пёЏ РџР°СЂСЃРёРЅРі СѓР¶Рµ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ');
+            return { success: false, error: 'РџР°СЂСЃРёРЅРі СѓР¶Рµ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ' };
         }
         
         isParsing = true;
@@ -206,16 +219,18 @@ class BookingParser {
         const monthName = time.monthName;
         const year = time.year;
         
-        console.log(`?? Парсинг ${this.city}, ${this.arena}`);
-        console.log(`?? Тобольск: ${time.dateStr}`);
-        console.log(`?? Месяц: ${monthName} ${year}`);
+        console.log(`рџ•·пёЏ РџР°СЂСЃРёРЅРі ${this.city}, ${this.arena}`);
+        console.log(`рџ•ђ РўРѕР±РѕР»СЊСЃРє: ${time.dateStr}`);
+        console.log(`рџ“… РњРµСЃСЏС†: ${monthName} ${year}`);
+        console.log(`рџ“Њ РЎРµРіРѕРґРЅСЏ: ${today}, С‚РµРєСѓС‰РёР№ С‡Р°СЃ: ${currentHour}`);
         
-        await this.saveProgress(1, 5, 'Запуск браузера...');
+        await this.saveProgress(1, 5, 'Р—Р°РїСѓСЃРє Р±СЂР°СѓР·РµСЂР°...');
         
         const startTime = Date.now();
         let page = null;
         
-        const allTimes = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+        const allTimes = ['10:00', '11:00', '12:00', '13:00', '14:00', '15:00', 
+                          '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
         
         const getTimesForDate = (day) => {
             if (day === today) {
@@ -228,7 +243,7 @@ class BookingParser {
             const browser = await getBrowser();
             page = await browser.newPage();
             
-            // Блокируем лишние ресурсы
+            // Р‘Р»РѕРєРёСЂСѓРµРј Р»РёС€РЅРёРµ СЂРµСЃСѓСЂСЃС‹ РґР»СЏ СѓСЃРєРѕСЂРµРЅРёСЏ
             await page.setRequestInterception(true);
             page.on('request', (req) => {
                 const resourceType = req.resourceType();
@@ -239,36 +254,36 @@ class BookingParser {
                 }
             });
             
-            await page.setViewport({ width: 800, height: 600 });
+            await page.setViewport({ width: 1280, height: 800 });
             await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
             
-            const url = `${this.baseUrl}/?country=Россия&city=${encodeURIComponent(this.city)}&arena=${encodeURIComponent(this.arena)}`;
+            const url = `${this.baseUrl}/?country=Р РѕСЃСЃРёСЏ&city=${encodeURIComponent(this.city)}&arena=${encodeURIComponent(this.arena)}`;
             
-            console.log(`?? Загрузка: ${url}`);
-            await this.saveProgress(3, 20, 'Загрузка страницы...');
+            console.log(`рџЊђ Р—Р°РіСЂСѓР·РєР°: ${url}`);
+            await this.saveProgress(3, 20, 'Р—Р°РіСЂСѓР·РєР° СЃС‚СЂР°РЅРёС†С‹...');
             
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
             await this.sleep(3000);
             
-            await this.saveProgress(4, 30, 'Выбор АРЕНЫ...');
-            await this.clickOnText(page, 'АРЕНА');
+            await this.saveProgress(4, 30, 'Р’С‹Р±РѕСЂ РђР Р•РќР«...');
+            await this.clickOnText(page, 'РђР Р•РќРђ');
             await this.sleep(1500);
             
-            await this.saveProgress(5, 40, 'Выбор ОТКРЫТОЙ ИГРЫ...');
-            await this.clickOnText(page, 'ОТКРЫТАЯ ИГРА');
+            await this.saveProgress(5, 40, 'Р’С‹Р±РѕСЂ РћРўРљР Р«РўРћР™ РР“Р Р«...');
+            await this.clickOnText(page, 'РћРўРљР Р«РўРђРЇ РР“Р Рђ');
             await this.sleep(3000);
             
-            await this.saveProgress(6, 50, 'Открытие календаря...');
-            await this.clickOnText(page, 'ДАТА И ВРЕМЯ');
+            await this.saveProgress(6, 50, 'РћС‚РєСЂС‹С‚РёРµ РєР°Р»РµРЅРґР°СЂСЏ...');
+            await this.clickOnText(page, 'Р”РђРўРђ Р Р’Р Р•РњРЇ');
             await this.sleep(2000);
             
             const dates = await this.getAvailableDates(page);
-            console.log(`?? Найдено дат: ${dates.length}`);
+            console.log(`рџ“Љ РќР°Р№РґРµРЅРѕ РґР°С‚: ${dates.length}`);
             
             if (dates.length === 0) {
                 await page.close();
                 isParsing = false;
-                return { success: false, error: 'Даты не найдены' };
+                return { success: false, error: 'Р”Р°С‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹' };
             }
             
             const result = { 
@@ -284,18 +299,18 @@ class BookingParser {
             for (let i = 0; i < dates.length; i++) {
                 const date = dates[i];
                 const percent = 55 + Math.floor((i + 1) / dates.length * 35);
-                await this.saveProgress(7, percent, `Обработка ${date.day} (${i+1}/${dates.length})`);
+                await this.saveProgress(7, percent, `РћР±СЂР°Р±РѕС‚РєР° ${date.day} (${i+1}/${dates.length})`, date.day, dates.length);
                 
                 const dateData = { available: [], partially: [], fullyBooked: [], passed: [] };
                 const times = getTimesForDate(date.day);
                 
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
                 await this.sleep(2000);
-                await this.clickOnText(page, 'АРЕНА');
+                await this.clickOnText(page, 'РђР Р•РќРђ');
                 await this.sleep(1000);
-                await this.clickOnText(page, 'ОТКРЫТАЯ ИГРА');
+                await this.clickOnText(page, 'РћРўРљР Р«РўРђРЇ РР“Р Рђ');
                 await this.sleep(2000);
-                await this.clickOnText(page, 'ДАТА И ВРЕМЯ');
+                await this.clickOnText(page, 'Р”РђРўРђ Р Р’Р Р•РњРЇ');
                 await this.sleep(1500);
                 
                 const currentDates = await this.getAvailableDates(page);
@@ -339,41 +354,54 @@ class BookingParser {
                     await this.sleep(200);
                 }
                 
-                result.dates[date.day] = dateData;
-                console.log(`   ? ${dateData.available.length} ?? ${dateData.partially.length} ?? ${dateData.fullyBooked.length}`);
+                result.dates[date.day] = {
+                    available: dateData.available,
+                    partially: dateData.partially,
+                    fullyBooked: dateData.fullyBooked,
+                    passed: dateData.passed
+                };
+                
+                console.log(`   вњ… ${dateData.available.length} рџџЎ ${dateData.partially.length} вќЊ ${dateData.fullyBooked.length}`);
             }
             
             await page.close();
             
-            await this.saveProgress(8, 100, 'Сохранение...');
+            await this.saveProgress(8, 100, 'РЎРѕС…СЂР°РЅРµРЅРёРµ...');
             
             const filePath = path.join(this.dataDir, 'booking-availability.json');
             fs.writeFileSync(filePath, JSON.stringify(result, null, 2));
             
-            console.log(`? Парсинг завершён за ${((Date.now() - startTime)/1000).toFixed(1)}с`);
+            console.log(`вњ… РџР°СЂСЃРёРЅРі Р·Р°РІРµСЂС€С‘РЅ Р·Р° ${((Date.now() - startTime)/1000).toFixed(1)}СЃ`);
             
             isParsing = false;
             return result;
             
         } catch (err) {
-            console.error('? Ошибка:', err.message);
-            await this.saveProgress(0, 0, `Ошибка: ${err.message}`);
+            console.error('вќЊ РћС€РёР±РєР°:', err.message);
+            await this.saveProgress(0, 0, `РћС€РёР±РєР°: ${err.message}`);
             isParsing = false;
             if (page) await page.close().catch(() => {});
             return { success: false, error: err.message };
         }
     }
     
-    getProgress() { return currentProgress; }
-    getLastParseTime() { return lastParseTime; }
-    isParsingNow() { return isParsing; }
+    getProgress() {
+        return currentProgress;
+    }
+    
+    getLastParseTime() {
+        return lastParseTime;
+    }
+    
+    isParsingNow() {
+        return isParsing;
+    }
 }
 
 // ============================================
-// ЭКСПОРТ И ОЧИСТКА
+// Р­РљРЎРџРћР Рў Р РћР§РРЎРўРљРђ
 // ============================================
 
-// Закрываем браузер при завершении процесса
 process.on('exit', () => {
     if (sharedBrowser) {
         sharedBrowser.close().catch(() => {});
@@ -381,13 +409,13 @@ process.on('exit', () => {
 });
 
 process.on('SIGINT', async () => {
-    console.log('?? Получен SIGINT, закрываем браузер...');
+    console.log('рџ›‘ РџРѕР»СѓС‡РµРЅ SIGINT, Р·Р°РєСЂС‹РІР°РµРј Р±СЂР°СѓР·РµСЂ...');
     await closeBrowser();
     process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-    console.log('?? Получен SIGTERM, закрываем браузер...');
+    console.log('рџ›‘ РџРѕР»СѓС‡РµРЅ SIGTERM, Р·Р°РєСЂС‹РІР°РµРј Р±СЂР°СѓР·РµСЂ...');
     await closeBrowser();
     process.exit(0);
 });

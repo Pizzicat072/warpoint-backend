@@ -1,17 +1,16 @@
-// parsing-weather.js ó œŒÀÕŒ—“‹ﬁ »—œ–¿¬À≈ÕÕ¿ﬂ ¬≈–—»ﬂ
+// parsing-weather.js ‚Äî –ê–î–ê–ü–¢–ò–†–û–í–ê–ù –ü–û–î –ü–†–û–ï–ö–¢
 
 const puppeteer = require('puppeteer');
 const chromium = require('@sparticuz/chromium');
 const fs = require('fs');
 const path = require('path');
 
+let lastWeatherData = null;
 let sharedBrowser = null;
 let browserInitPromise = null;
-let lastWeatherData = null;
-let weatherCacheFile = path.join(__dirname, 'data', 'weather-cache.json');
 
 // ============================================
-// œŒÀ”◊≈Õ»≈ ¡–¿”«≈–¿ (— «¿Ÿ»“Œ… Œ“ √ŒÕŒ )
+// –ü–û–õ–£–ß–ï–ù–ò–ï –ë–†–ê–£–ó–ï–†–ê (–° –ó–ê–©–ò–¢–û–ô –û–¢ –ì–û–ù–û–ö)
 // ============================================
 
 async function getBrowser() {
@@ -24,7 +23,7 @@ async function getBrowser() {
             await sharedBrowser.version();
             return sharedBrowser;
         } catch (e) {
-            console.log('?? ¡‡ÛÁÂ ÔÓ„Ó‰˚ ÓÚ‚‡ÎËÎÒˇ, ÔÂÂÒÓÁ‰‡∏Ï...');
+            console.log('‚ö†Ô∏è –ë—Ä–∞—É–∑–µ—Ä –ø–æ–≥–æ–¥—ã –æ—Ç–≤–∞–ª–∏–ª—Å—è, –ø–µ—Ä–µ—Å–æ–∑–¥–∞—ë–º...');
             sharedBrowser = null;
         }
     }
@@ -36,27 +35,35 @@ async function getBrowser() {
     
     browserInitPromise = (async () => {
         try {
-            console.log('??? «‡ÔÛÒÍ ·‡ÛÁÂ‡ ‰Îˇ ÔÓ„Ó‰˚...');
+            console.log('üå§Ô∏è –ó–∞–ø—É—Å–∫ –±—Ä–∞—É–∑–µ—Ä–∞ –¥–ª—è –ø–æ–≥–æ–¥—ã...');
+            
+            const executablePath = process.env.CHROME_PATH || await chromium.executablePath();
+            
             sharedBrowser = await puppeteer.launch({
                 args: [
                     ...chromium.args,
-                    '--single-process',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
                     '--disable-dev-shm-usage',
                     '--disable-gpu',
-                    '--disable-software-rasterizer',
-                    '--no-sandbox',
-                    '--disable-setuid-sandbox'
+                    '--disable-software-rasterizer'
                 ],
-                defaultViewport: { width: 800, height: 600 },
-                executablePath: await chromium.executablePath(),
+                defaultViewport: { width: 1280, height: 800 },
+                executablePath: executablePath,
                 headless: true,
                 timeout: 30000
             });
-            console.log('? ¡‡ÛÁÂ ÔÓ„Ó‰˚ Á‡ÔÛ˘ÂÌ');
+            console.log('‚úÖ –ë—Ä–∞—É–∑–µ—Ä –ø–æ–≥–æ–¥—ã –∑–∞–ø—É—â–µ–Ω');
             return sharedBrowser;
         } catch (e) {
-            console.error('? Œ¯Ë·Í‡ Á‡ÔÛÒÍ‡ ·‡ÛÁÂ‡ ÔÓ„Ó‰˚:', e.message);
-            throw e;
+            console.error('‚ùå –û—à–∏–±–∫–∞ –∑–∞–ø—É—Å–∫–∞ –±—Ä–∞—É–∑–µ—Ä–∞ –ø–æ–≥–æ–¥—ã:', e.message);
+            
+            // Fallback –Ω–∞ –æ–±—ã—á–Ω—ã–π puppeteer
+            sharedBrowser = await puppeteer.launch({
+                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+                headless: true
+            });
+            return sharedBrowser;
         } finally {
             browserInitPromise = null;
         }
@@ -69,16 +76,14 @@ async function closeBrowser() {
     if (sharedBrowser) {
         try {
             await sharedBrowser.close();
-            console.log('?? ¡‡ÛÁÂ ÔÓ„Ó‰˚ Á‡Í˚Ú');
-        } catch(e) {
-            console.error('Œ¯Ë·Í‡ Á‡Í˚ÚËˇ ·‡ÛÁÂ‡ ÔÓ„Ó‰˚:', e);
-        }
+            console.log('üîí –ë—Ä–∞—É–∑–µ—Ä –ø–æ–≥–æ–¥—ã –∑–∞–∫—Ä—ã—Ç');
+        } catch(e) {}
         sharedBrowser = null;
     }
 }
 
 // ============================================
-// »—“Œ◊Õ» » œŒ√Œƒ€
+// –°–ü–ò–°–û–ö –ò–°–¢–û–ß–ù–ò–ö–û–í –ü–û–ì–û–î–´
 // ============================================
 
 const weatherSources = [
@@ -86,6 +91,7 @@ const weatherSources = [
         name: 'Yandex',
         url: 'https://yandex.ru/pogoda/ru/tobolsk',
         parser: async (page) => {
+            // –ë–ª–æ–∫–∏—Ä—É–µ–º –ª–∏—à–Ω–∏–µ —Ä–µ—Å—É—Ä—Å—ã
             await page.setRequestInterception(true);
             page.on('request', (req) => {
                 const resourceType = req.resourceType();
@@ -99,62 +105,41 @@ const weatherSources = [
             return await page.evaluate(() => {
                 let temperature = null;
                 let feelsLike = null;
-                let description = '';
-                let icon = '???';
                 
-                // “ÂÏÔÂ‡ÚÛ‡
                 const tempSpan = document.querySelector('.temp__value');
                 if (tempSpan) {
                     const tempText = tempSpan.innerText;
-                    const match = tempText.match(/[?\-]?\d+/);
-                    if (match) temperature = parseInt(match[0].replace('?', '-'));
+                    const match = tempText.match(/[‚àí\-]?\d+/);
+                    if (match) temperature = parseInt(match[0].replace('‚àí', '-'));
                 }
                 
-                // Œ˘Û˘‡ÂÚÒˇ Í‡Í
-                const feelsLikeSpan = document.querySelector('.term__value');
-                if (feelsLikeSpan) {
-                    const feelsText = feelsLikeSpan.innerText;
-                    const match = feelsText.match(/[?\-]?\d+/);
-                    if (match) feelsLike = parseInt(match[0].replace('?', '-'));
+                const feelsSpan = document.querySelector('.term__value');
+                if (feelsSpan) {
+                    const feelsText = feelsSpan.innerText;
+                    const match = feelsText.match(/[‚àí\-]?\d+/);
+                    if (match) feelsLike = parseInt(match[0].replace('‚àí', '-'));
                 }
                 
-                // ŒÔËÒ‡ÌËÂ
-                const descSpan = document.querySelector('.link__condition');
-                if (descSpan) {
-                    description = descSpan.innerText.toLowerCase();
-                }
-                
-                // »ÍÓÌÍ‡
+                let icon = 'üå°Ô∏è';
                 if (temperature !== null) {
                     const hour = new Date().getHours();
                     const isNight = hour < 6 || hour >= 20;
                     
-                    if (description.includes('ˇÒÌÓ')) {
-                        icon = isNight ? '??' : '??';
-                    } else if (description.includes('Ó·Î‡˜ÌÓ')) {
-                        icon = isNight ? '????' : '??';
-                    } else if (description.includes('‰ÓÊ‰') || description.includes('ÎË‚Ì')) {
-                        icon = isNight ? '?????' : '???';
-                    } else if (description.includes('ÒÌÂ„')) {
-                        icon = isNight ? '????' : '??';
-                    } else if (description.includes('„ÓÁ')) {
-                        icon = isNight ? '????' : '??';
-                    } else {
-                        if (temperature <= -20) icon = isNight ? '????' : '??';
-                        else if (temperature <= -10) icon = isNight ? '???' : '???';
-                        else if (temperature <= 0) icon = isNight ? '??' : '???';
-                        else if (temperature <= 10) icon = isNight ? '??' : '???';
-                        else icon = isNight ? '??' : '??';
-                    }
+                    if (temperature <= -20) icon = isNight ? 'üåô‚ùÑÔ∏è' : '‚ùÑÔ∏èü•∂';
+                    else if (temperature <= -10) icon = isNight ? 'üåô‚ùÑÔ∏è' : '‚ùÑÔ∏è';
+                    else if (temperature <= 0) icon = isNight ? 'üåôüß•' : 'üß•';
+                    else if (temperature <= 10) icon = isNight ? 'üåô‚òÅÔ∏è' : '‚òÅÔ∏è';
+                    else if (temperature <= 20) icon = isNight ? 'üåô‚òÄÔ∏è' : '‚òÄÔ∏è';
+                    else icon = isNight ? 'üåôüòé' : 'üòéüî•';
                 }
                 
-                return { temperature, feelsLike, description, icon };
+                return { temperature, feelsLike, description: '–Ø–Ω–¥–µ–∫—Å.–ü–æ–≥–æ–¥–∞', icon };
             });
         }
     },
     {
         name: 'Gismeteo',
-        url: 'https://www.gismeteo.ru/weather-tobolsk-11362/',
+        url: 'https://www.gismeteo.ru/weather-tobolsk-4590/now/',
         parser: async (page) => {
             await page.setRequestInterception(true);
             page.on('request', (req) => {
@@ -169,36 +154,49 @@ const weatherSources = [
             return await page.evaluate(() => {
                 let temperature = null;
                 let feelsLike = null;
-                let description = '';
-                let icon = '???';
                 
-                const tempSpan = document.querySelector('.unit_temperature_c');
-                if (tempSpan) {
-                    const tempText = tempSpan.innerText;
-                    const match = tempText.match(/[?\-]?\d+/);
-                    if (match) temperature = parseInt(match[0].replace('?', '-'));
+                const tempElement = document.querySelector('temperature-value');
+                if (tempElement) {
+                    const value = tempElement.getAttribute('value');
+                    if (value) temperature = parseInt(value);
+                    else {
+                        const match = tempElement.innerText.match(/[‚àí-]?\d+/);
+                        if (match) temperature = parseInt(match[0].replace('‚àí', '-'));
+                    }
                 }
                 
-                const feelsLikeSpan = document.querySelector('.feels-like');
-                if (feelsLikeSpan) {
-                    const feelsText = feelsLikeSpan.innerText;
-                    const match = feelsText.match(/[?\-]?\d+/);
-                    if (match) feelsLike = parseInt(match[0].replace('?', '-'));
+                if (temperature === null) {
+                    const weatherValue = document.querySelector('.weather-value');
+                    if (weatherValue) {
+                        const match = weatherValue.innerText.match(/[‚àí-]?\d+/);
+                        if (match) temperature = parseInt(match[0].replace('‚àí', '-'));
+                    }
                 }
                 
-                const descSpan = document.querySelector('.weather-description');
-                if (descSpan) {
-                    description = descSpan.innerText.toLowerCase();
+                const feelElement = document.querySelector('.weather-feel');
+                if (feelElement) {
+                    const match = feelElement.innerText.match(/[‚àí-]?\d+/);
+                    if (match) feelsLike = parseInt(match[0].replace('‚àí', '-'));
                 }
                 
-                return { temperature, feelsLike, description, icon };
+                let icon = 'üå°Ô∏è';
+                if (temperature !== null) {
+                    const hour = new Date().getHours();
+                    const isNight = hour < 6 || hour >= 20;
+                    
+                    if (temperature <= -15) icon = isNight ? 'üåô‚ùÑÔ∏è' : '‚ùÑÔ∏è';
+                    else if (temperature <= 0) icon = isNight ? 'üåôüß•' : 'üß•';
+                    else icon = isNight ? 'üåô' : '‚òÄÔ∏è';
+                }
+                
+                return { temperature, feelsLike, description: 'Gismeteo', icon };
             });
         }
     }
 ];
 
 // ============================================
-// ¬–≈Ãﬂ “Œ¡ŒÀ‹— ¿
+// –í–°–ü–û–ú–û–ì–ê–¢–ï–õ–¨–ù–´–ï –§–£–ù–ö–¶–ò–ò
 // ============================================
 
 function getTobolskTime() {
@@ -206,115 +204,104 @@ function getTobolskTime() {
 }
 
 // ============================================
-// «¿√–”« ¿  ›ÿ¿
-// ============================================
-
-function loadWeatherCache() {
-    try {
-        if (fs.existsSync(weatherCacheFile)) {
-            const data = JSON.parse(fs.readFileSync(weatherCacheFile, 'utf8'));
-            const cacheAge = Date.now() - (data.timestamp || 0);
-            if (cacheAge < 30 * 60 * 1000) { // 30 ÏËÌÛÚ
-                lastWeatherData = data;
-                console.log('?? œÓ„Ó‰‡ Á‡„ÛÊÂÌ‡ ËÁ Í˝¯‡');
-                return data;
-            }
-        }
-    } catch (e) {
-        console.error('Œ¯Ë·Í‡ Á‡„ÛÁÍË Í˝¯‡ ÔÓ„Ó‰˚:', e);
-    }
-    return null;
-}
-
-// ============================================
-// —Œ’–¿Õ≈Õ»≈  ›ÿ¿
-// ============================================
-
-function saveWeatherCache(data) {
-    try {
-        const dir = path.dirname(weatherCacheFile);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-        fs.writeFileSync(weatherCacheFile, JSON.stringify({ ...data, timestamp: Date.now() }));
-    } catch (e) {
-        console.error('Œ¯Ë·Í‡ ÒÓı‡ÌÂÌËˇ Í˝¯‡ ÔÓ„Ó‰˚:', e);
-    }
-}
-
-// ============================================
-// Œ—ÕŒ¬Õ¿ﬂ ‘”Õ ÷»ﬂ œ¿–—»Õ√¿
+// –û–°–ù–û–í–ù–ê–Ø –§–£–ù–ö–¶–ò–Ø –ü–ê–†–°–ò–ù–ì–ê
 // ============================================
 
 async function fetchWeather() {
-    console.log('??? «‡ÔÛÒÍ Ô‡ÒËÌ„‡ ÔÓ„Ó‰˚...', getTobolskTime().toLocaleString());
+    console.log('üå§Ô∏è –ó–∞–ø—É—Å–∫ –ø–∞—Ä—Å–∏–Ω–≥–∞ –ø–æ–≥–æ–¥—ã...', getTobolskTime().toLocaleString());
     
-    // œÓ·ÛÂÏ Á‡„ÛÁËÚ¸ ËÁ Í˝¯‡
-    const cached = loadWeatherCache();
-    if (cached && !cached.isError) {
-        return cached;
+    const cachePath = path.join(__dirname, 'data', 'weather-cache.json');
+    const cacheDir = path.join(__dirname, 'data');
+    
+    if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
+    }
+    
+    // –ü—Ä–æ–±—É–µ–º –∑–∞–≥—Ä—É–∑–∏—Ç—å –∏–∑ –∫—ç—à–∞
+    if (fs.existsSync(cachePath)) {
+        try {
+            const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+            const cacheAge = Date.now() - new Date(cached.fetchedAt).getTime();
+            if (cacheAge < 30 * 60 * 1000) {
+                console.log(`üì¶ –ö—ç—à –ø–æ–≥–æ–¥—ã (${Math.round(cacheAge / 60000)} –º–∏–Ω, ${cached.source})`);
+                lastWeatherData = cached;
+                return cached;
+            }
+        } catch(e) {}
     }
     
     let page = null;
     
-    for (const source of weatherSources) {
-        try {
-            const browser = await getBrowser();
-            page = await browser.newPage();
-            await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
-            await page.setDefaultNavigationTimeout(20000);
-            
-            console.log(`?? «‡ÔÓÒ Í ${source.name}...`);
-            await page.goto(source.url, { waitUntil: 'domcontentloaded', timeout: 15000 });
-            
-            // ∆‰∏Ï Á‡„ÛÁÍË ÍÓÌÚÂÌÚ‡
-            await new Promise(r => setTimeout(r, 2000));
-            
-            const weatherData = await source.parser(page);
-            
-            if (weatherData.temperature !== null && !isNaN(weatherData.temperature)) {
-                weatherData.temperatureDisplay = weatherData.temperature > 0 ? '+' + weatherData.temperature : '' + weatherData.temperature;
-                if (weatherData.feelsLike !== null) {
-                    weatherData.feelsLikeDisplay = weatherData.feelsLike > 0 ? '+' + weatherData.feelsLike : '' + weatherData.feelsLike;
-                }
-                weatherData.fetchedAt = new Date().toISOString();
-                weatherData.source = source.name;
+    try {
+        const browser = await getBrowser();
+        
+        for (const source of weatherSources) {
+            try {
+                console.log(`üîÑ –ü—Ä–æ–±—É–µ–º: ${source.name}`);
+                page = await browser.newPage();
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+                await page.setDefaultNavigationTimeout(20000);
                 
-                console.log(`? œÓ„Ó‰‡ ÓÚ ${source.name}: ${weatherData.temperatureDisplay}∞C`);
+                await page.goto(source.url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+                await new Promise(r => setTimeout(r, 2000));
                 
-                lastWeatherData = weatherData;
-                saveWeatherCache(weatherData);
-                
+                const weatherData = await source.parser(page);
                 await page.close();
-                return weatherData;
+                page = null;
+                
+                if (weatherData.temperature !== null && !isNaN(weatherData.temperature)) {
+                    weatherData.temperatureDisplay = weatherData.temperature > 0 ? '+' + weatherData.temperature : '' + weatherData.temperature;
+                    weatherData.feelsLikeDisplay = weatherData.feelsLike !== null && !isNaN(weatherData.feelsLike)
+                        ? (weatherData.feelsLike > 0 ? '+' + weatherData.feelsLike : '' + weatherData.feelsLike)
+                        : null;
+                    weatherData.fetchedAt = new Date().toISOString();
+                    weatherData.source = source.name;
+                    
+                    lastWeatherData = weatherData;
+                    fs.writeFileSync(cachePath, JSON.stringify(weatherData, null, 2));
+                    
+                    console.log(`‚úÖ –ü–æ–≥–æ–¥–∞ –æ—Ç ${source.name}: ${weatherData.temperatureDisplay}¬∞C`);
+                    return weatherData;
+                }
+            } catch (e) {
+                console.log(`‚ö†Ô∏è ${source.name}: ${e.message}`);
+                if (page) {
+                    await page.close().catch(() => {});
+                    page = null;
+                }
             }
-            
-            await page.close();
-        } catch (e) {
-            console.log(`?? ${source.name}: ${e.message}`);
-            if (page) await page.close().catch(() => {});
         }
+        
+        // –í–æ–∑–≤—Ä–∞—â–∞–µ–º –∫—ç—à –∏–ª–∏ –∑–∞–≥–ª—É—à–∫—É
+        if (fs.existsSync(cachePath)) {
+            const cached = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+            console.log('üì¶ –í—Å–µ –∏—Å—Ç–æ—á–Ω–∏–∫–∏ –Ω–µ–¥–æ—Å—Ç—É–ø–Ω—ã, –∏—Å–ø–æ–ª—å–∑—É–µ–º —Å—Ç–∞—Ä—ã–π –∫—ç—à');
+            return cached;
+        }
+        
+        throw new Error('–í—Å–µ –∏—Å—Ç–æ—á–Ω–∏–∫–∏ –ø–æ–≥–æ–¥—ã –Ω–µ–¥–æ—Å—Ç—É–ø–Ω—ã');
+        
+    } catch (err) {
+        console.error('‚ùå –û—à–∏–±–∫–∞ –ø–∞—Ä—Å–∏–Ω–≥–∞ –ø–æ–≥–æ–¥—ã:', err.message);
+        
+        const fallbackData = {
+            temperature: 0,
+            temperatureDisplay: '0',
+            feelsLike: null,
+            feelsLikeDisplay: null,
+            description: '–î–∞–Ω–Ω—ã–µ –Ω–µ–¥–æ—Å—Ç—É–ø–Ω—ã',
+            icon: 'üå°Ô∏è',
+            isError: true,
+            fetchedAt: new Date().toISOString(),
+            source: 'fallback'
+        };
+        
+        try {
+            fs.writeFileSync(cachePath, JSON.stringify(fallbackData, null, 2));
+        } catch(e) {}
+        
+        return fallbackData;
     }
-    
-    // ≈ÒÎË ‚ÒÂ ËÒÚÓ˜ÌËÍË ÌÂ Ò‡·ÓÚ‡ÎË, ‚ÓÁ‚‡˘‡ÂÏ Í˝¯ ËÎË Á‡„ÎÛ¯ÍÛ
-    console.log('?? ¬ÒÂ ËÒÚÓ˜ÌËÍË ÔÓ„Ó‰˚ ÌÂ‰ÓÒÚÛÔÌ˚');
-    
-    if (lastWeatherData) {
-        console.log('?? ¬ÓÁ‚‡˘‡ÂÏ ÔÓÒÎÂ‰ÌËÂ ‰‡ÌÌ˚Â ËÁ Ô‡ÏˇÚË');
-        return lastWeatherData;
-    }
-    
-    const fallbackData = {
-        temperature: 0,
-        temperatureDisplay: '0',
-        description: 'ÕÂÚ ‰‡ÌÌ˚ı',
-        icon: '???',
-        isError: true,
-        fetchedAt: new Date().toISOString()
-    };
-    
-    lastWeatherData = fallbackData;
-    return fallbackData;
 }
 
 function getLastWeather() {
@@ -322,7 +309,7 @@ function getLastWeather() {
 }
 
 // ============================================
-// Œ◊»—“ ¿ œ–» «¿¬≈–ÿ≈Õ»»
+// –û–ß–ò–°–¢–ö–ê –ü–†–ò –ó–ê–í–ï–†–®–ï–ù–ò–ò
 // ============================================
 
 process.on('exit', () => {
@@ -332,19 +319,15 @@ process.on('exit', () => {
 });
 
 process.on('SIGINT', async () => {
-    console.log('?? œÓÎÛ˜ÂÌ SIGINT, Á‡Í˚‚‡ÂÏ ·‡ÛÁÂ ÔÓ„Ó‰˚...');
+    console.log('üõë –ü–æ–ª—É—á–µ–Ω SIGINT, –∑–∞–∫—Ä—ã–≤–∞–µ–º –±—Ä–∞—É–∑–µ—Ä –ø–æ–≥–æ–¥—ã...');
     await closeBrowser();
     process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-    console.log('?? œÓÎÛ˜ÂÌ SIGTERM, Á‡Í˚‚‡ÂÏ ·‡ÛÁÂ ÔÓ„Ó‰˚...');
+    console.log('üõë –ü–æ–ª—É—á–µ–Ω SIGTERM, –∑–∞–∫—Ä—ã–≤–∞–µ–º –±—Ä–∞—É–∑–µ—Ä –ø–æ–≥–æ–¥—ã...');
     await closeBrowser();
     process.exit(0);
 });
-
-// ============================================
-// › —œŒ–“
-// ============================================
 
 module.exports = { fetchWeather, getLastWeather };

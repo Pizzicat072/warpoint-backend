@@ -1726,28 +1726,73 @@ app.put('/api/vp/:id', authMiddleware, async (req, res) => {
         const existing = await pool.query('SELECT * FROM vp_bookings WHERE id = $1', [id]);
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Мероприятие не найдено' });
         
-        await pool.query(
-            `UPDATE vp_bookings SET 
-                photo_status = COALESCE($1, photo_status), 
-                script_status = COALESCE($2, script_status), 
-                is_archived = COALESCE($3, is_archived),
-                event_date = COALESCE($4, event_date),
-                event_time = COALESCE($5, event_time),
-                customer_name = COALESCE($6, customer_name),
-                admin = COALESCE($7, admin),
-                amount = COALESCE($8, amount),
-                payment_type = COALESCE($9, payment_type),
-                comment = COALESCE($10, comment),
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $11`,
-            [photoStatus, scriptStatus, is_archived, eventDate, eventTime, customerName, admin, amount, paymentType, comment, id]
-        ); 
-        res.json({ success: true }); 
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
+        // Валидация значений
+        const validPhotoStatus = ['pending', 'sent'];
+        const validScriptStatus = ['not_sent', 'sent'];
+        
+        const updateFields = [];
+        const values = [];
+        let paramIndex = 1;
+        
+        if (photoStatus !== undefined) {
+            if (!validPhotoStatus.includes(photoStatus)) {
+                return res.status(400).json({ error: 'Неверный photoStatus' });
+            }
+            updateFields.push(`photo_status = $${paramIndex++}`);
+            values.push(photoStatus);
+        }
+        if (scriptStatus !== undefined) {
+            if (!validScriptStatus.includes(scriptStatus)) {
+                return res.status(400).json({ error: 'Неверный scriptStatus' });
+            }
+            updateFields.push(`script_status = $${paramIndex++}`);
+            values.push(scriptStatus);
+        }
+        if (is_archived !== undefined) {
+            updateFields.push(`is_archived = $${paramIndex++}`);
+            values.push(is_archived);
+        }
+        if (eventDate !== undefined) {
+            updateFields.push(`event_date = $${paramIndex++}`);
+            values.push(eventDate);
+        }
+        if (eventTime !== undefined) {
+            updateFields.push(`event_time = $${paramIndex++}`);
+            values.push(eventTime);
+        }
+        if (customerName !== undefined) {
+            updateFields.push(`customer_name = $${paramIndex++}`);
+            values.push(customerName);
+        }
+        if (admin !== undefined) {
+            updateFields.push(`admin = $${paramIndex++}`);
+            values.push(admin);
+        }
+        if (amount !== undefined) {
+            updateFields.push(`amount = $${paramIndex++}`);
+            values.push(amount);
+        }
+        if (paymentType !== undefined) {
+            updateFields.push(`payment_type = $${paramIndex++}`);
+            values.push(paymentType);
+        }
+        if (comment !== undefined) {
+            updateFields.push(`comment = $${paramIndex++}`);
+            values.push(comment);
+        }
+        
+        if (updateFields.length > 0) {
+            updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
+            values.push(id);
+            await pool.query(`UPDATE vp_bookings SET ${updateFields.join(', ')} WHERE id = $${paramIndex}`, values);
+        }
+        
+        res.json({ success: true });
+    } catch (err) {
+        console.error('VP update error:', err);
+        res.status(500).json({ error: err.message });
     }
 });
-
 app.delete('/api/vp/:id', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director' && req.user.role !== 'manager') {
         return res.status(403).json({ error: 'Доступ запрещён' });
