@@ -5,436 +5,617 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>WARPOINT — Хаб сотрудников</title>
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
-    
-    <!-- ПРЕДЗАГРУЗКА ФОНА ДЛЯ МГНОВЕННОГО ОТОБРАЖЕНИЯ -->
-    <link rel="preload" as="image" href="/2026-04-02_03-45-56.png">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
-    
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        :root {
-            --bg-primary: radial-gradient(ellipse at 20% 30%, #0a0f1e, #05070f);
-            --bg-card: rgba(20, 25, 50, 0.6);
-            --text-primary: #ffffff;
-            --border-color: rgba(99, 102, 241, 0.3);
-            --accent: #6366f1;
-            --success: #10b981;
-            --danger: #ef4444;
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
         }
+
         body {
-            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            margin: 0; padding: 0;
-            color: var(--text-primary);
-            overflow-x: hidden;
-            background: #0a0c12;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: #ffffff;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            position: relative;
         }
-        
-        /* ============================================ */
-        /* PREMIUM LOGIN MODAL                           */
-        /* ============================================ */
+
+        /* Фоновая картинка на весь сайт */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('/2026-04-02_03-45-56.png') center/cover no-repeat;
+            filter: brightness(0.4) saturate(0.8);
+            z-index: -2;
+        }
+
+        /* Тёмный оверлей для читаемости */
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: -1;
+        }
+
+        /* ===== ЛОГИН (СОВРЕМЕННЫЙ МИНИМАЛИЗМ) ===== */
         #loginModal {
-            background-image: url('/2026-04-02_03-45-56.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-color: #0a0c12;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            padding: 20px;
         }
-        
-        .login-premium-window {
+
+        .login-card {
+            width: 400px;
+            max-width: 100%;
+            padding: 48px 40px;
+            background: rgba(18, 24, 34, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            text-align: center;
+            animation: cardAppear 0.5s ease-out;
+        }
+
+        @keyframes cardAppear {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Логотип — чистый, без фона и фигур */
+        .login-logo-clean {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 32px;
+            border-radius: 0;
+            overflow: visible;
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .login-logo-clean img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+        }
+
+        /* Бренд */
+        .login-brand-name {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .login-brand-sub {
+            font-size: 13px;
+            color: #9ca3af;
+            margin-bottom: 40px;
+            font-weight: 400;
+        }
+
+        /* Поля ввода — чистые */
+        .login-field {
             position: relative;
-            max-width: 420px;
-            width: 90%;
-            padding: 40px 32px;
-            background: rgba(17, 20, 28, 0.85);
-            backdrop-filter: blur(25px);
-            border-radius: 48px;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.1) inset, 0 0 40px rgba(99, 102, 241, 0.2);
-            overflow: hidden;
-            animation: loginModalFadeIn 0.5s cubic-bezier(0.2, 0.9, 0.4, 1);
+            margin-bottom: 16px;
         }
 
-        @keyframes loginModalFadeIn {
-            from { opacity: 0; transform: scale(0.95) translateY(-20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
-        }
-
-        .login-glow {
+        .login-field i {
             position: absolute;
-            border-radius: 50%;
-            filter: blur(60px);
-            opacity: 0.3;
-            pointer-events: none;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 16px;
         }
 
-        .login-glow-1 {
-            width: 300px;
-            height: 300px;
+        .login-field input {
+            width: 100%;
+            padding: 14px 16px 14px 48px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            color: #ffffff;
+            font-size: 15px;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        .login-field input:focus {
+            border-color: #6366f1;
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        .login-field input::placeholder {
+            color: #6b7280;
+        }
+
+        /* Кнопка — чистая */
+        .login-submit-btn {
+            width: 100%;
+            padding: 14px 20px;
+            margin-top: 32px;
             background: #6366f1;
-            top: -150px;
-            right: -100px;
-            animation: loginGlowFloat 8s ease-in-out infinite;
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-weight: 600;
+            font-size: 15px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
         }
 
-        .login-glow-2 {
-            width: 250px;
-            height: 250px;
-            background: #ec4899;
-            bottom: -100px;
-            left: -80px;
-            animation: loginGlowFloat 10s ease-in-out infinite reverse;
+        .login-submit-btn:hover {
+            background: #7c3aed;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
         }
 
-        @keyframes loginGlowFloat {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(-30px, 20px); }
+        .login-submit-btn i {
+            font-size: 14px;
         }
 
-        .login-logo-wrapper {
+        /* Футер */
+        .login-footer-note {
+            margin-top: 24px;
+            font-size: 12px;
+            color: #9ca3af;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .login-footer-note i {
+            color: #10b981;
+        }
+
+        /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
+        #mainContainer {
             position: relative;
-            width: 90px;
-            height: 90px;
-            margin: 0 auto 24px;
+            z-index: 10;
+            min-height: 100vh;
         }
 
-        .login-logo-ring {
-            position: absolute;
-            top: -5px;
-            left: -5px;
-            right: -5px;
-            bottom: -5px;
-            border-radius: 30px;
-            background: linear-gradient(135deg, #6366f1, #ec4899, #fbbf24, #6366f1);
-            background-size: 300% 300%;
-            animation: loginRingRotate 4s linear infinite;
-            filter: blur(8px);
-            opacity: 0.6;
+        /* ===== СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ, ИКОНКА) ===== */
+        #syncIndicator {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 40px;
+            height: 40px;
+            background: rgba(18, 24, 34, 0.8);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            cursor: pointer;
+            transition: all 0.2s;
         }
 
-        @keyframes loginRingRotate {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 300% 50%; }
+        #syncIndicator i {
+            font-size: 18px;
+            color: #ef4444;
         }
 
-        .login-logo {
-            position: relative;
-            width: 80px;
-            height: 80px;
-            margin: 0 auto;
-            border-radius: 24px;
+        #syncIndicator.online {
+            border-color: #10b981;
+        }
+
+        #syncIndicator.online i {
+            color: #10b981;
+        }
+
+        #syncIndicator.connecting i {
+            color: #f59e0b;
+            animation: syncSpin 1.5s linear infinite;
+        }
+
+        @keyframes syncSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* ===== ХЕДЕР ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 32px;
+            background: rgba(11, 14, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
             overflow: hidden;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
         }
 
-        .login-logo img {
+        .logo-icon img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
 
-        .login-title {
-            text-align: center;
-            margin-bottom: 8px;
-            font-size: 32px;
-            font-weight: 800;
-            letter-spacing: -0.5px;
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            color: #ffffff;
         }
 
-        .login-title-gradient {
-            background: linear-gradient(135deg, #fff, #a78bfa, #f472b6);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-
-        .login-title-badge {
-            display: inline-block;
-            margin-left: 10px;
-            padding: 3px 10px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            border-radius: 30px;
-            font-size: 12px;
+        .logo-badge {
+            background: #6366f1;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
             font-weight: 600;
             color: white;
-            vertical-align: middle;
+            margin-left: 8px;
         }
 
-        .login-subtitle {
-            text-align: center;
-            font-size: 13px;
-            color: #94a3b8;
-            margin-bottom: 32px;
-        }
-
-        .login-input-wrapper {
-            position: relative;
-            margin-bottom: 18px;
-        }
-
-        .login-input-icon {
-            position: absolute;
-            left: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #a78bfa;
-            font-size: 16px;
-            z-index: 2;
-        }
-
-        .login-input {
-            width: 100%;
-            padding: 16px 20px 16px 50px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-            border-radius: 20px;
-            color: #e2e8f0;
-            font-size: 15px;
-            outline: none;
-            transition: all 0.3s;
-            position: relative;
-            z-index: 1;
-        }
-
-        .login-input:focus {
-            border-color: #a78bfa;
-            background: rgba(0, 0, 0, 0.5);
-        }
-
-        .login-input::placeholder {
-            color: #64748b;
-        }
-
-        .login-input-glow {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: 20px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            opacity: 0;
-            filter: blur(8px);
-            transition: opacity 0.3s;
-            z-index: 0;
-        }
-
-        .login-input:focus + .login-input-glow {
-            opacity: 0.3;
-        }
-
-        .login-btn {
-            width: 100%;
-            padding: 16px 24px;
-            margin-top: 16px;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border: none;
-            border-radius: 40px;
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-            cursor: pointer;
+        .user-card {
             display: flex;
             align-items: center;
-            justify-content: center;
             gap: 12px;
-            position: relative;
-            overflow: hidden;
-            transition: all 0.3s;
-            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 40px;
+            padding: 4px 16px 4px 8px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
         }
 
-        .login-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.5);
-        }
-
-        .login-btn-shine {
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%);
-            opacity: 0;
-            transition: opacity 0.3s;
-            pointer-events: none;
-        }
-
-        .login-btn:hover .login-btn-shine {
-            opacity: 1;
-            animation: loginBtnShine 1.5s infinite;
-        }
-
-        @keyframes loginBtnShine {
-            0% { transform: translate(-100%, -100%); }
-            100% { transform: translate(100%, 100%); }
-        }
-
-        .login-hint {
-            text-align: center;
-            margin-top: 24px;
-            margin-bottom: 0;
-            font-size: 12px;
-            color: #64748b;
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: #2d3748;
+            border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            font-size: 18px;
+            cursor: pointer;
+            overflow: hidden;
         }
 
-        .login-hint i {
-            color: #10b981;
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
-        .login-particles {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-    z-index: 100; /* 🔥 ПОВЕРХ ВСЕХ ЭЛЕМЕНТОВ */
-    overflow: hidden;
-}
+        .user-info {
+            text-align: right;
+        }
 
-        @media (max-width: 480px) {
-            .login-premium-window {
-                padding: 30px 20px;
-            }
-            .login-logo-wrapper {
-                width: 70px;
-                height: 70px;
-            }
-            .login-logo {
-                width: 60px;
-                height: 60px;
-            }
-            .login-title {
-                font-size: 26px;
-            }
+        .user-name {
+            font-weight: 600;
+            font-size: 13px;
         }
-        
-        /* Основные стили */
-        #mainContainer { min-height: 100vh; }
-        .header { background: #0d1016 !important; border-bottom: 1px solid #1e2430 !important; }
-        .main-menu { background: #0d1016 !important; border-bottom: 1px solid #1e2430 !important; }
-        .sync-indicator { background: #11141c !important; border: 1px solid #1e2430 !important; }
-        .user-avatar {
-            width: 44px; height: 44px;
-            background: linear-gradient(135deg, #1a1f2a, #0d1016);
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 22px; cursor: pointer;
-            border: 2px solid #6366f1; overflow: hidden;
+
+        .user-status {
+            font-size: 10px;
+            color: #9ca3af;
         }
-        .notifications-icon {
-            position: relative; cursor: pointer;
-            width: 40px; height: 40px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.05);
-        }
-        .notifications-icon .badge {
-            position: absolute; top: -5px; right: -5px;
-            background: #ef4444; color: white;
-            font-size: 10px; font-weight: 600;
-            min-width: 18px; height: 18px;
+
+        .logout-btn {
+            background: transparent;
+            border: 1px solid rgba(239, 68, 68, 0.3);
             border-radius: 20px;
-            display: flex; align-items: center; justify-content: center;
-            padding: 0 5px;
-            border: 1px solid #0d1016;
+            padding: 4px 12px;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
         }
+
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .notifications-icon {
+            position: relative;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .notifications-icon .badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            font-weight: 600;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+
         .notifications-dropdown {
-            position: absolute; top: 60px; right: 20px;
-            width: 380px; max-height: 480px;
-            background: #11141c;
+            position: absolute;
+            top: 60px;
+            right: 20px;
+            width: 360px;
+            max-height: 400px;
+            background: #131720;
             border-radius: 16px;
-            border: 1px solid #1e2430;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            z-index: 1000; overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            overflow: hidden;
             display: none;
         }
-        .notifications-dropdown.show { display: block; }
-        .edit-input, .styled-select { background: #0d1016 !important; border: 1px solid #1e2430 !important; color: #e2e8f0 !important; }
-        .modal { background: rgba(10, 12, 18, 0.95); }
-        .modal-window, .modal-content { background: #11141c !important; border: 1px solid #1e2430 !important; }
-        .notification-toast {
-            position: fixed; bottom: 24px; right: 24px;
-            min-width: 320px; max-width: 420px;
-            background: linear-gradient(135deg, #1a1f2e, #0f1222);
-            border-radius: 16px;
-            padding: 14px 18px;
-            display: flex; align-items: flex-start; gap: 14px;
-            z-index: 10000;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
-            border-left: 4px solid #10b981;
-            backdrop-filter: blur(10px);
-        }
-        ::-webkit-scrollbar { width: 8px; height: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.05); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb { background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: 10px; }
-        
-        @media (max-width: 768px) {
-            .header { padding: 12px 16px; }
-            .user-info { display: none; }
-            .main-menu { top: 60px; }
-            .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
-        }
-.login-logo-ring2 {
-    position: absolute;
-    top: -12px;
-    left: -12px;
-    right: -12px;
-    bottom: -12px;
-    border-radius: 34px;
-    background: linear-gradient(225deg, #ef4444, #6366f1, #ef4444);
-    background-size: 300% 300%;
-    animation: loginRingRotate2 4s linear infinite reverse;
-    filter: blur(10px);
-    opacity: 0.5;
-    z-index: 0;
-}
 
-@keyframes loginRingRotate2 {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 100%; }
-    100% { background-position: 0% 50%; }
-}
+        .notifications-dropdown.show {
+            display: block;
+        }
+
+        .main-menu {
+            background: rgba(11, 14, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+            position: sticky;
+            top: 72px;
+            z-index: 99;
+            padding: 0 16px;
+            overflow-x: auto;
+        }
+
+        .menu-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 8px 0;
+        }
+
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .menu-item i {
+            font-size: 18px;
+            color: #9ca3af;
+        }
+
+        .menu-item .menu-tooltip {
+            font-size: 10px;
+            color: #9ca3af;
+        }
+
+        .menu-item:hover {
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .menu-item:hover i,
+        .menu-item:hover .menu-tooltip {
+            color: #d1d5db;
+        }
+
+        .menu-item.active {
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .menu-item.active i,
+        .menu-item.active .menu-tooltip {
+            color: #818cf8;
+        }
+
+        /* ===== ПРЕЛОАДЕР ===== */
+        #globalLoader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0b0e14;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+
+        #globalLoader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loader-logo {
+            width: 70px;
+            height: 70px;
+            margin-bottom: 24px;
+        }
+
+        .loader-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 16px;
+        }
+
+        .loader-spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(99, 102, 241, 0.2);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: loaderSpin 0.8s linear infinite;
+        }
+
+        @keyframes loaderSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Адаптив */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .logo-text {
+                font-size: 18px;
+            }
+            
+            .user-info {
+                display: none;
+            }
+            
+            .main-menu {
+                top: 60px;
+            }
+            
+            .menu-item .menu-tooltip {
+                display: none;
+            }
+            
+            .notifications-dropdown {
+                width: calc(100% - 40px);
+                right: 20px;
+                left: 20px;
+            }
+            
+            .login-card {
+                padding: 36px 28px;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="sync-indicator offline" id="syncIndicator" style="position: fixed; top: 80px; right: 20px; width: 40px; height: 40px; background: #11141c; backdrop-filter: blur(12px); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 9998; border: 1px solid #1e2430; cursor: pointer;" onclick="if(typeof window.initPusher==='function')window.initPusher()">
-    <i class="fas fa-broadcast-tower fa-fw" style="color: #ef4444;"></i>
+<!-- ПРЕЛОАДЕР -->
+<div id="globalLoader">
+    <div class="loader-logo">
+        <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+    </div>
+    <div class="loader-spinner"></div>
 </div>
 
+<!-- СИНХРОНИЗАЦИЯ -->
+<div id="syncIndicator" onclick="if(typeof window.initPusher==='function')window.initPusher()">
+    <i class="fas fa-broadcast-tower"></i>
+</div>
+
+<!-- МОДАЛКА АВТОРИЗАЦИИ -->
+<div id="loginModal">
+    <div class="login-card">
+        <div class="login-logo-clean">
+            <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+        </div>
+        
+        <h1 class="login-brand-name">WARPOINT</h1>
+        <p class="login-brand-sub">корпоративный портал</p>
+        
+        <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
+            <div class="login-field">
+                <i class="fas fa-user"></i>
+                <input type="text" id="loginName" placeholder="Логин" autocomplete="username">
+            </div>
+            
+            <div class="login-field">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
+            </div>
+            
+            <button type="submit" class="login-submit-btn">
+                <span>Войти</span>
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </form>
+        
+        <div class="login-footer-note">
+            <i class="fas fa-shield-alt"></i>
+            <span>только для сотрудников</span>
+        </div>
+    </div>
+</div>
+
+<!-- ОСНОВНОЙ КОНТЕЙНЕР -->
 <div id="mainContainer" style="display: none;">
     <div class="header">
         <div class="logo-area">
             <div class="logo-icon">
                 <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
             </div>
-            <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ СОТРУДНИКОВ</span></div>
+            <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ</span></div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
-            <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i> О проекте</a>
+            <a href="/about.html" style="color: #9ca3af; text-decoration: none; font-size: 13px;"><i class="fas fa-info-circle"></i> О проекте</a>
             <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotificationsDropdown()">
-                <i class="fas fa-bell"></i>
+                <i class="far fa-bell"></i>
                 <span class="badge" id="notificationsBadge" style="display: none;">0</span>
             </div>
             <div class="notifications-dropdown" id="notificationsDropdown">
-                <div class="notifications-header" style="padding: 14px 18px; border-bottom: 1px solid #1e2430; display: flex; justify-content: space-between; align-items: center;">
-                    <h4 style="margin:0;font-size:14px;"><i class="fas fa-bell"></i> Уведомления</h4>
-                    <div class="notifications-actions" style="display:flex;gap:12px;">
-                        <button onclick="markAllNotificationsRead()" style="background:none;border:none;color:#64748b;cursor:pointer;" title="Прочитать все">✓ Все</button>
-                        <button onclick="clearAllNotifications()" style="background:none;border:none;color:#64748b;cursor:pointer;" title="Очистить">🗑️</button>
+                <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between;">
+                    <h4 style="margin:0;font-size:13px;"><i class="far fa-bell"></i> Уведомления</h4>
+                    <div style="display:flex;gap:12px;">
+                        <button onclick="markAllNotificationsRead()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button>
+                        <button onclick="clearAllNotifications()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button>
                     </div>
                 </div>
-                <div class="notifications-list" id="notificationsList" style="max-height:380px;overflow-y:auto;">
-                    <div style="padding:40px;text-align:center;color:#64748b;">🔔 Загрузка...</div>
+                <div id="notificationsList" style="max-height:360px;overflow-y:auto;">
+                    <div style="padding:40px;text-align:center;color:#9ca3af;">Загрузка...</div>
                 </div>
             </div>
             <div class="user-card">
@@ -450,66 +631,6 @@
     
     <div class="main-menu" id="mainMenu"></div>
     <div id="pageContainer"></div>
-</div>
-
-<!-- МОДАЛКА АВТОРИЗАЦИИ (РЕАЛЬНО КРУТАЯ) -->
-<div id="loginModal">
-    <!-- Анимированный градиентный фон -->
-    <div class="login-bg-gradient"></div>
-    
-    <!-- Плавающие частицы в модалке -->
-    <div class="login-particles-container">
-        <div class="login-particle"></div>
-        <div class="login-particle"></div>
-        <div class="login-particle"></div>
-        <div class="login-particle"></div>
-        <div class="login-particle"></div>
-        <div class="login-particle"></div>
-    </div>
-    
-    <div class="modal-window">
-        <!-- Логотип с 3D эффектом -->
-        <div class="login-logo-3d">
-            <div class="logo-glow-orbit"></div>
-            <div class="logo-glow-orbit2"></div>
-            <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
-        </div>
-        
-        <!-- Заголовок с неоновым эффектом -->
-        <h2 class="login-title-neon">
-            <span class="neon-text" data-text="WARPOINT">WARPOINT</span>
-        </h2>
-        <p class="login-subtitle-glass">корпоративный портал</p>
-        
-        <!-- Форма -->
-        <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
-            <div class="input-field-glass">
-                <i class="fas fa-user"></i>
-                <input type="text" id="loginName" placeholder="Логин" autocomplete="username">
-                <span class="input-focus-border"></span>
-            </div>
-            
-            <div class="input-field-glass">
-                <i class="fas fa-lock"></i>
-                <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
-                <span class="input-focus-border"></span>
-            </div>
-            
-            <button type="submit" class="login-btn-3d">
-                <span>Войти</span>
-                <i class="fas fa-arrow-right"></i>
-                <div class="btn-hover-effect"></div>
-            </button>
-        </form>
-        
-        <!-- Подсказка -->
-        <div class="login-footer">
-            <span class="footer-line"></span>
-            <i class="fas fa-shield-alt"></i>
-            <span>только для сотрудников</span>
-            <span class="footer-line"></span>
-        </div>
-    </div>
 </div>
 
 <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
@@ -542,8 +663,16 @@
     let pusherInitAttempts = 0;
     const MAX_PUSHER_ATTEMPTS = 3;
     let isPusherInitializing = false;
-    let pusher = null;
-    let channel = null;
+    
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            const loader = document.getElementById('globalLoader');
+            if (loader) {
+                loader.classList.add('fade-out');
+                setTimeout(() => loader.remove(), 400);
+            }
+        }, 400);
+    });
     
     function transliterateForChannel(name) {
         const ru = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
@@ -560,74 +689,66 @@
     }
     
     function initPusher() {
-        if (isPusherInitializing) { console.log('⏳ Pusher уже инициализируется'); return; }
-        if (pusherInitAttempts >= MAX_PUSHER_ATTEMPTS) { console.error('❌ Превышено количество попыток'); return; }
+        if (isPusherInitializing) return;
+        if (pusherInitAttempts >= MAX_PUSHER_ATTEMPTS) return;
         
         const token = localStorage.getItem('token');
-        if (!token) { console.log('⏳ Нет токена'); return; }
+        if (!token) return;
         
-        if (window.pusher && window.pusher.connection && window.pusher.connection.state === 'connected') {
-            console.log('✅ Pusher уже подключен');
-            document.getElementById('syncIndicator').classList.add('online');
-            document.getElementById('syncText').innerHTML = 'Синхронизация активна';
+        const syncIndicator = document.getElementById('syncIndicator');
+        if (syncIndicator) {
+            syncIndicator.classList.remove('online');
+            syncIndicator.classList.add('connecting');
+        }
+        
+        if (window.pusher && window.pusher.connection?.state === 'connected') {
+            if (syncIndicator) {
+                syncIndicator.classList.add('online');
+                syncIndicator.classList.remove('connecting');
+            }
             return;
         }
         
         isPusherInitializing = true;
         pusherInitAttempts++;
-        console.log(`📡 Попытка инициализации Pusher (${pusherInitAttempts}/${MAX_PUSHER_ATTEMPTS})`);
         
         try {
-            if (window.pusher) { try { window.pusher.disconnect(); } catch(e) {} }
+            if (window.pusher) window.pusher.disconnect();
             
             window.pusher = new Pusher(PUSHER_KEY, {
-                cluster: PUSHER_CLUSTER, forceTLS: true,
+                cluster: PUSHER_CLUSTER,
+                forceTLS: true,
                 authEndpoint: '/api/pusher/auth',
                 auth: { headers: { 'Authorization': 'Bearer ' + token } }
             });
             
-            pusher = window.pusher;
-            channel = window.pusher.subscribe(CHANNEL_NAME);
-            window.channel = channel;
+            window.channel = window.pusher.subscribe(CHANNEL_NAME);
             
             const currentUser = window.app?.currentUser;
             if (currentUser) {
-                const userTranslit = transliterateForChannel(currentUser);
-                window.privateChannel = window.pusher.subscribe('private-user-' + userTranslit);
+                window.privateChannel = window.pusher.subscribe('private-user-' + transliterateForChannel(currentUser));
             }
             
             window.pusher.connection.bind('connected', () => {
-                console.log('✅ Pusher успешно подключен');
-                document.getElementById('syncIndicator').classList.add('online');
-                document.getElementById('syncIndicator').classList.remove('offline');
-                document.getElementById('syncText').innerHTML = 'Синхронизация активна';
+                if (syncIndicator) {
+                    syncIndicator.classList.add('online');
+                    syncIndicator.classList.remove('connecting');
+                }
                 pusherInitAttempts = 0;
                 isPusherInitializing = false;
             });
             
-            window.pusher.connection.bind('error', (err) => {
-                console.error('❌ Pusher error:', err);
-                document.getElementById('syncIndicator').classList.add('offline');
-                document.getElementById('syncText').innerHTML = 'Ошибка синхронизации';
+            window.pusher.connection.bind('error', () => {
+                if (syncIndicator) {
+                    syncIndicator.classList.remove('online', 'connecting');
+                }
                 isPusherInitializing = false;
                 if (pusherInitAttempts < MAX_PUSHER_ATTEMPTS) {
-                    setTimeout(() => { isPusherInitializing = false; initPusher(); }, 5000);
+                    setTimeout(() => initPusher(), 5000);
                 }
             });
             
-            window.pusher.connection.bind('disconnected', () => {
-                console.log('🔌 Pusher отключен');
-                document.getElementById('syncIndicator').classList.add('offline');
-                document.getElementById('syncText').innerHTML = 'Синхронизация прервана';
-            });
-            
-            channel.bind('pusher:subscription_succeeded', function() {
-                console.log('✅ Канал подписан');
-                document.getElementById('syncIndicator').classList.add('online');
-                document.getElementById('syncText').innerHTML = 'Синхронизация активна';
-            });
-            
-            channel.bind('schedule-updated', function(data) {
+            window.channel.bind('schedule-updated', (data) => {
                 if (typeof loadScheduleData === 'function') loadScheduleData();
                 if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
                 if (typeof updateDashboardStats === 'function') updateDashboardStats();
@@ -637,33 +758,30 @@
             
         } catch (err) {
             console.error('Pusher error:', err);
+            if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
             isPusherInitializing = false;
         }
     }
     
     window.initPusher = initPusher;
     
-    window.addEventListener('load', () => {
-        if (typeof loadCurrentTheme === 'function') loadCurrentTheme();
-        const token = localStorage.getItem('token');
-        if (token) {
-            const savedUser = localStorage.getItem('currentUser');
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                window.app = window.app || {};
-                window.app.currentUser = user.name;
-                window.app.currentUserRole = user.role;
-                
-                document.getElementById('loginModal').style.display = 'none';
-                document.getElementById('loginModal').classList.remove('active');
-                document.getElementById('mainContainer').style.display = 'block';
-                document.getElementById('headerName').textContent = user.name;
-                
-                loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
-                setTimeout(() => { initPusher(); }, 1000);
-            }
+    const token = localStorage.getItem('token');
+    if (token) {
+        const savedUser = localStorage.getItem('currentUser');
+        if (savedUser) {
+            const user = JSON.parse(savedUser);
+            window.app = window.app || {};
+            window.app.currentUser = user.name;
+            window.app.currentUserRole = user.role;
+            
+            document.getElementById('loginModal').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            document.getElementById('headerName').textContent = user.name;
+            
+            loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
+            setTimeout(() => initPusher(), 1000);
         }
-    });
+    }
     
     window.updateHeaderAvatar = function(avatarUrl, avatarEmoji) {
         const headerAvatar = document.getElementById('headerAvatar');
@@ -673,42 +791,6 @@
             else headerAvatar.innerHTML = '👤';
         }
     };
-</script>
-
-<canvas id="particlesCanvas" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: -1;"></canvas>
-<script>
-(function() {
-    const canvas = document.getElementById('particlesCanvas');
-    if (!canvas) return;
-    let ctx = canvas.getContext('2d');
-    let particles = [];
-    let width, height;
-    function resizeCanvas() { width = window.innerWidth; height = window.innerHeight; canvas.width = width; canvas.height = height; }
-    function createParticle() {
-        return {
-            x: Math.random() * width, y: Math.random() * height,
-            radius: Math.random() * 2 + 1, alpha: Math.random() * 0.3 + 0.1,
-            speedX: (Math.random() - 0.5) * 0.2, speedY: (Math.random() - 0.5) * 0.15,
-            color: ['#6366f1', '#8b5cf6', '#a78bfa', '#c084fc'][Math.floor(Math.random() * 4)]
-        };
-    }
-    function initParticles() { particles = []; for (let i = 0; i < 60; i++) particles.push(createParticle()); }
-    function drawParticles() {
-        if (!ctx) return;
-        ctx.clearRect(0, 0, width, height);
-        for (let p of particles) {
-            p.x += p.speedX; p.y += p.speedY;
-            if (p.x < -50) p.x = width + 50; if (p.x > width + 50) p.x = -50;
-            if (p.y < -50) p.y = height + 50; if (p.y > height + 50) p.y = -50;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            ctx.fillStyle = p.color; ctx.shadowBlur = 8; ctx.shadowColor = p.color;
-            ctx.globalAlpha = p.alpha; ctx.fill();
-        }
-        requestAnimationFrame(drawParticles);
-    }
-    window.addEventListener('resize', () => { resizeCanvas(); initParticles(); });
-    resizeCanvas(); initParticles(); drawParticles();
-})();
 </script>
 </body>
 </html>
