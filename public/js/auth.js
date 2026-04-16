@@ -1,9 +1,14 @@
-// public/js/auth.js - ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/auth.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let isLoggingIn = false;
 let heartbeatInterval = null;
 let lastHeartbeat = 0;
 const HEARTBEAT_INTERVAL = 60000;
+const TOKEN_EXPIRY_CHECK_INTERVAL = 300000; // 5 минут
+
+// ============================================
+// ВХОД
+// ============================================
 
 async function login() {
     if (isLoggingIn) {
@@ -11,8 +16,8 @@ async function login() {
         return;
     }
     
-    const loginName = document.getElementById('loginName').value.trim();
-    const pass = document.getElementById('loginPassword').value;
+    const loginName = document.getElementById('loginName')?.value.trim();
+    const pass = document.getElementById('loginPassword')?.value;
     
     if (!loginName || !pass) {
         showNotif('Введите логин и пароль', 'error');
@@ -22,9 +27,11 @@ async function login() {
     console.log('📤 Отправка запроса:', { username: loginName });
     
     const loginBtn = document.querySelector('#loginForm button[type="submit"]');
-    const originalBtnText = loginBtn.innerHTML;
-    loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-    loginBtn.disabled = true;
+    const originalBtnText = loginBtn?.innerHTML || 'Войти';
+    if (loginBtn) {
+        loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+        loginBtn.disabled = true;
+    }
     isLoggingIn = true;
     
     try {
@@ -40,9 +47,7 @@ async function login() {
         if (!contentType || !contentType.includes('application/json')) {
             const text = await response.text();
             console.error('❌ Сервер вернул не JSON:', text.substring(0, 200));
-            if (response.status === 404) throw new Error('API не найден (404)');
-            else if (response.status === 500) throw new Error('Внутренняя ошибка сервера (500)');
-            else throw new Error(`Ошибка сервера: ${response.status}`);
+            throw new Error(`Ошибка сервера: ${response.status}`);
         }
         
         const data = await response.json();
@@ -58,18 +63,26 @@ async function login() {
             
             localStorage.setItem('token', data.token);
             localStorage.setItem('currentUser', JSON.stringify(data.user));
+            localStorage.setItem('tokenExpiry', JSON.stringify(Date.now() + 7 * 24 * 60 * 60 * 1000));
             
-            document.getElementById('loginModal').style.display = 'none';
-            document.getElementById('loginModal').classList.remove('active');
-            document.getElementById('mainContainer').style.display = 'block';
-            document.getElementById('headerName').textContent = window.app.currentUser;
+            const loginModal = document.getElementById('loginModal');
+            const mainContainer = document.getElementById('mainContainer');
+            
+            if (loginModal) {
+                loginModal.style.display = 'none';
+                loginModal.classList.remove('active');
+            }
+            if (mainContainer) mainContainer.style.display = 'block';
+            
+            const headerName = document.getElementById('headerName');
+            if (headerName) headerName.textContent = window.app.currentUser;
             
             const headerAvatar = document.getElementById('headerAvatar');
             if (headerAvatar) {
                 if (data.user.avatar_url) {
-                    headerAvatar.innerHTML = `<img src="${data.user.avatar_url}" style="width: 100%; height: 100%; object-fit: cover;">`;
+                    headerAvatar.innerHTML = `<img src="${escapeHtml(data.user.avatar_url)}" style="width: 100%; height: 100%; object-fit: cover;">`;
                 } else if (data.user.avatar) {
-                    headerAvatar.innerHTML = data.user.avatar;
+                    headerAvatar.innerHTML = escapeHtml(data.user.avatar);
                 } else {
                     headerAvatar.innerHTML = '👤';
                 }
@@ -77,7 +90,7 @@ async function login() {
             
             if (data.newAchievements && data.newAchievements.length > 0) {
                 for (const ach of data.newAchievements) {
-                    showNotif(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success');
+                    showNotif(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
                 }
             }
             
@@ -96,26 +109,26 @@ async function login() {
             
             renderMainMenu();
             
-            showNotif(`Добро пожаловать, ${window.app.currentUser}!`, 'success');
+            showNotif(`Добро пожаловать, ${escapeHtml(window.app.currentUser)}!`, 'success');
             
         } else {
             showNotif(data.error || 'Неверный логин или пароль', 'error');
         }
     } catch (err) {
         console.error('❌ Ошибка входа:', err);
-        if (err.message.includes('API не найден')) {
-            showNotif('🚫 Сервер API не отвечает. Попробуйте позже.', 'error');
-        } else if (err.message.includes('Внутренняя ошибка')) {
-            showNotif('⚠️ Ошибка на сервере.', 'error');
-        } else {
-            showNotif('Ошибка соединения с сервером.', 'error');
-        }
+        showNotif('Ошибка соединения с сервером.', 'error');
     } finally {
-        loginBtn.innerHTML = originalBtnText;
-        loginBtn.disabled = false;
+        if (loginBtn) {
+            loginBtn.innerHTML = originalBtnText;
+            loginBtn.disabled = false;
+        }
         isLoggingIn = false;
     }
 }
+
+// ============================================
+// ВЫХОД
+// ============================================
 
 function authLogout() {
     const userName = window.app?.currentUser;
@@ -128,6 +141,7 @@ function authLogout() {
     
     localStorage.removeItem('currentUser');
     localStorage.removeItem('token');
+    localStorage.removeItem('tokenExpiry');
     localStorage.removeItem('lastActivity');
     
     if (heartbeatInterval) {
@@ -139,15 +153,44 @@ function authLogout() {
         delete window.app.lastActivity[userName];
     }
     
-    document.getElementById('loginModal').style.display = 'flex';
-    document.getElementById('loginModal').classList.add('active');
-    document.getElementById('mainContainer').style.display = 'none';
+    const loginModal = document.getElementById('loginModal');
+    const mainContainer = document.getElementById('mainContainer');
+    
+    if (loginModal) {
+        loginModal.style.display = 'flex';
+        loginModal.classList.add('active');
+    }
+    if (mainContainer) mainContainer.style.display = 'none';
     
     if (typeof renderEmployees === 'function') renderEmployees();
     if (typeof loadActivity === 'function') loadActivity();
     
     showNotif('Вы вышли из системы', 'info');
 }
+
+// ============================================
+// ПРОВЕРКА ТОКЕНА
+// ============================================
+
+function isTokenExpired() {
+    const expiry = localStorage.getItem('tokenExpiry');
+    if (!expiry) return false;
+    return Date.now() > JSON.parse(expiry);
+}
+
+function checkTokenAndLogout() {
+    if (isTokenExpired()) {
+        console.log('🔐 Токен истёк, выполняем выход');
+        authLogout();
+        showNotif('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
+        return true;
+    }
+    return false;
+}
+
+// ============================================
+// ЗАГРУЗКА АКТИВНОСТИ
+// ============================================
 
 async function loadLastActivity() {
     try {
@@ -159,8 +202,15 @@ async function loadLastActivity() {
         } else {
             const saved = localStorage.getItem('lastActivity');
             window.app = window.app || {};
-            if (saved) window.app.lastActivity = JSON.parse(saved);
-            else window.app.lastActivity = {};
+            if (saved) {
+                try {
+                    window.app.lastActivity = JSON.parse(saved);
+                } catch(e) {
+                    window.app.lastActivity = {};
+                }
+            } else {
+                window.app.lastActivity = {};
+            }
         }
     } catch (e) {
         console.error('Ошибка загрузки активности:', e);
@@ -176,7 +226,13 @@ async function loadLastActivity() {
     if (typeof loadActivity === 'function') loadActivity();
 }
 
+// ============================================
+// HEARTBEAT
+// ============================================
+
 async function sendHeartbeat() {
+    if (checkTokenAndLogout()) return;
+    
     const now = Date.now();
     if (now - lastHeartbeat < HEARTBEAT_INTERVAL / 2) return;
     lastHeartbeat = now;
@@ -209,11 +265,15 @@ async function sendHeartbeat() {
     }
 }
 
-function startHeartbeat(intervalMs = 60000) {
-    sendHeartbeat();
+function startHeartbeat(intervalMs = HEARTBEAT_INTERVAL) {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    sendHeartbeat();
     heartbeatInterval = setInterval(() => sendHeartbeat(), intervalMs);
 }
+
+// ============================================
+// ТРЕКЕР АКТИВНОСТИ
+// ============================================
 
 function initActivityTracker() {
     const updateActivity = () => {
@@ -241,6 +301,10 @@ function initActivityTracker() {
     console.log('✅ Activity tracker инициализирован');
 }
 
+// ============================================
+// ВОССТАНОВЛЕНИЕ АКТИВНОСТИ
+// ============================================
+
 (function restoreLastActivity() {
     const saved = localStorage.getItem('lastActivity');
     if (saved) { 
@@ -254,9 +318,16 @@ function initActivityTracker() {
     }
 })();
 
+// ============================================
+// ЭКСПОРТ
+// ============================================
+
 window.login = login;
 window.authLogout = authLogout;
 window.startHeartbeat = startHeartbeat;
 window.sendHeartbeat = sendHeartbeat;
 window.initActivityTracker = initActivityTracker;
 window.loadLastActivity = loadLastActivity;
+window.checkTokenAndLogout = checkTokenAndLogout;
+
+console.log('✅ auth.js загружен (исправленная версия)');

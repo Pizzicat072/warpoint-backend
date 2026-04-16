@@ -1,10 +1,4 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Дашборд - WARPOINT</title>
-</head>
-<body>
+<!-- public/pages/dashboard.html -->
 <div class="dashboard-container">
     <div class="dashboard-content">
         
@@ -41,7 +35,7 @@
         </div>
 
         <!-- БЛОК 2: Ежедневный бонус -->
-        <div class="daily-bonus-section" id="dailyBonusWidget">
+        <div class="daily-bonus-section" id="dailyBonusWidget" data-block-id="daily-bonus">
             <div class="daily-bonus-card">
                 <div class="bonus-left">
                     <div class="bonus-icon">🎁</div>
@@ -267,54 +261,56 @@
 </div>
 
 <script>
-function toggleDashboardSettings() {
-    const content = document.getElementById('settingsContent');
-    const icon = document.getElementById('settingsToggleIcon');
-    if (!content) return;
-    if (content.style.display === 'none' || content.style.display === '') {
-        content.style.display = 'block';
-        if (icon) icon.style.transform = 'rotate(180deg)';
-    } else {
-        content.style.display = 'none';
-        if (icon) icon.style.transform = 'rotate(0deg)';
-    }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    const btnStyles = document.getElementById('btnStyles');
-    const btnPresets = document.getElementById('btnPresets');
-    const btnBlocks = document.getElementById('btnBlocks');
-    const panelStyles = document.getElementById('panelStyles');
-    const panelPresets = document.getElementById('panelPresets');
-    const panelBlocks = document.getElementById('panelBlocks');
+(function() {
+    // Переключение панели настроек
+    window.toggleDashboardSettings = function() {
+        const content = document.getElementById('settingsContent');
+        const icon = document.getElementById('settingsToggleIcon');
+        if (!content) return;
+        if (content.style.display === 'none' || content.style.display === '') {
+            content.style.display = 'block';
+            if (icon) icon.style.transform = 'rotate(180deg)';
+        } else {
+            content.style.display = 'none';
+            if (icon) icon.style.transform = 'rotate(0deg)';
+        }
+    };
     
-    if (btnStyles && panelStyles) {
-        btnStyles.onclick = function() {
-            panelStyles.style.display = 'block';
-            panelPresets.style.display = 'none';
-            panelBlocks.style.display = 'none';
-            btnStyles.classList.add('active');
-            btnPresets.classList.remove('active');
-            btnBlocks.classList.remove('active');
-        };
-        btnPresets.onclick = function() {
-            panelStyles.style.display = 'none';
-            panelPresets.style.display = 'block';
-            panelBlocks.style.display = 'none';
-            btnPresets.classList.add('active');
-            btnStyles.classList.remove('active');
-            btnBlocks.classList.remove('active');
-        };
-        btnBlocks.onclick = function() {
-            panelStyles.style.display = 'none';
-            panelPresets.style.display = 'none';
-            panelBlocks.style.display = 'block';
-            btnBlocks.classList.add('active');
-            btnStyles.classList.remove('active');
-            btnPresets.classList.remove('active');
-        };
-    }
-});
+    // Инициализация табов после загрузки
+    setTimeout(() => {
+        const btnStyles = document.getElementById('btnStyles');
+        const btnPresets = document.getElementById('btnPresets');
+        const btnBlocks = document.getElementById('btnBlocks');
+        const panelStyles = document.getElementById('panelStyles');
+        const panelPresets = document.getElementById('panelPresets');
+        const panelBlocks = document.getElementById('panelBlocks');
+        
+        if (btnStyles && panelStyles) {
+            btnStyles.onclick = function() {
+                panelStyles.style.display = 'block';
+                panelPresets.style.display = 'none';
+                panelBlocks.style.display = 'none';
+                btnStyles.classList.add('active');
+                btnPresets.classList.remove('active');
+                btnBlocks.classList.remove('active');
+            };
+            btnPresets.onclick = function() {
+                panelStyles.style.display = 'none';
+                panelPresets.style.display = 'block';
+                panelBlocks.style.display = 'none';
+                btnPresets.classList.add('active');
+                btnStyles.classList.remove('active');
+                btnBlocks.classList.remove('active');
+            };
+            btnBlocks.onclick = function() {
+                panelStyles.style.display = 'none';
+                panelPresets.style.display = 'none';
+                panelBlocks.style.display = 'block';
+                btnBlocks.classList.add('active');
+                btnStyles.classList.remove('active');
+                btnPresets.classList.remove('active');
+            };
+        }
+    }, 200);
+})();
 </script>
-</body>
-</html>

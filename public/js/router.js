@@ -1,4 +1,4 @@
-// public/js/router.js - С ЗАЩИТОЙ ОТ БЕСКОНЕЧНОЙ ЗАГРУЗКИ
+// public/js/router.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 const routes = {
     dashboard: '/pages/dashboard.html',
@@ -19,12 +19,13 @@ const routes = {
 let currentPage = null;
 let isLoadingPage = false;
 let pageLoadTimeout = null;
+let routerInitialized = false;
 
 // ============================================
-// ЗАГРУЗКА СТРАНИЦЫ (С ЗАЩИТОЙ)
+// ЗАГРУЗКА СТРАНИЦЫ (С ЗАЩИТОЙ И ИСТОРИЕЙ)
 // ============================================
 
-async function loadPage(pageId) {
+async function loadPage(pageId, addToHistory = true) {
     // 🔥 ЗАЩИТА ОТ ПОВТОРНОЙ ЗАГРУЗКИ ТОЙ ЖЕ СТРАНИЦЫ
     if (currentPage === pageId) {
         console.log(`📄 Страница ${pageId} уже загружена`);
@@ -40,9 +41,15 @@ async function loadPage(pageId) {
     console.log('📄 Загрузка страницы:', pageId);
     
     const container = document.getElementById('pageContainer');
-    if (!container) return;
+    if (!container) {
+        console.error('❌ pageContainer не найден');
+        return;
+    }
     
     isLoadingPage = true;
+    
+    // 🔥 ПОКАЗЫВАЕМ ИНДИКАТОР ЗАГРУЗКИ
+    showPageLoader(container);
     
     // 🔥 ТАЙМАУТ НА СЛУЧАЙ ЗАВИСАНИЯ
     if (pageLoadTimeout) clearTimeout(pageLoadTimeout);
@@ -59,32 +66,23 @@ async function loadPage(pageId) {
         isLoadingPage = false;
     }, 15000);
     
-    // Очистка предыдущей страницы
+    // 🔥 ОЧИСТКА ПРЕДЫДУЩЕЙ СТРАНИЦЫ
     if (currentPage) {
-        if (currentPage === 'reports' && typeof cleanupReports === 'function') {
-            cleanupReports();
-        }
-        if (currentPage === 'dashboard' && typeof cleanupDashboard === 'function') {
-            cleanupDashboard();
-        }
-        if (currentPage === 'chat' && typeof cleanupChat === 'function') {
-            cleanupChat();
-        }
+        cleanupCurrentPage();
     }
-    
-    container.innerHTML = '<div class="loading-spinner" style="text-align: center; padding: 60px;"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>';
     
     const url = routes[pageId];
     if (!url) {
         clearTimeout(pageLoadTimeout);
-        container.innerHTML = '<div class="empty-state">Страница не найдена</div>';
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Страница не найдена</h3></div>';
         isLoadingPage = false;
+        hidePageLoader();
         return;
     }
     
     try {
         const response = await fetch(url);
-        if (!response.ok) throw new Error('Page not found');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const html = await response.text();
         container.innerHTML = html;
@@ -92,21 +90,20 @@ async function loadPage(pageId) {
         currentPage = pageId;
         localStorage.setItem('activeTab', pageId);
         
-        // Инициализация страниц с задержкой
+        // 🔥 ДОБАВЛЯЕМ В ИСТОРИЮ БРАУЗЕРА
+        if (addToHistory) {
+            const urlParams = new URLSearchParams();
+            urlParams.set('page', pageId);
+            const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
+            window.history.pushState({ page: pageId }, '', newUrl);
+        }
+        
+        // 🔥 ОБНОВЛЯЕМ АКТИВНЫЙ ПУНКТ МЕНЮ
+        updateActiveMenuItem(pageId);
+        
+        // 🔥 ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ
         setTimeout(() => {
-            if (pageId === 'dashboard' && typeof initDashboard === 'function') initDashboard();
-            if (pageId === 'employees' && typeof initEmployees === 'function') initEmployees();
-            if (pageId === 'schedule' && typeof initSchedule === 'function') initSchedule();
-            if (pageId === 'salary' && typeof initSalary === 'function') initSalary();
-            if (pageId === 'tasks' && typeof initTasks === 'function') initTasks();
-            if (pageId === 'knowledge' && typeof initKnowledge === 'function') initKnowledge();
-            if (pageId === 'rating' && typeof initRating === 'function') initRating();
-            if (pageId === 'fines' && typeof initFines === 'function') initFines();
-            if (pageId === 'chat' && typeof initChat === 'function') initChat();
-            if (pageId === 'shop' && typeof initShop === 'function') initShop();
-            if (pageId === 'vp' && typeof initVp === 'function') initVp();
-            if (pageId === 'admin' && typeof initAdmin === 'function') initAdmin();
-            if (pageId === 'reports' && typeof initReports === 'function') initReports();
+            initializePage(pageId);
         }, 100);
         
         clearTimeout(pageLoadTimeout);
@@ -118,12 +115,150 @@ async function loadPage(pageId) {
             <div class="empty-state">
                 <div class="empty-state-icon">❌</div>
                 <h3>Ошибка загрузки страницы</h3>
+                <p>${error.message}</p>
                 <button class="btn-primary" onclick="location.reload()">🔄 Обновить</button>
+                <button class="btn-secondary" onclick="window.loadPage('dashboard')">🏠 На главную</button>
             </div>
         `;
     } finally {
         isLoadingPage = false;
+        hidePageLoader();
     }
+}
+
+// ============================================
+// ИНДИКАТОР ЗАГРУЗКИ
+// ============================================
+
+function showPageLoader(container) {
+    // Удаляем старый лоадер если есть
+    hidePageLoader();
+    
+    const loader = document.createElement('div');
+    loader.id = 'pageLoader';
+    loader.className = 'page-loader';
+    loader.innerHTML = `
+        <div class="page-loader-content">
+            <div class="page-loader-spinner"></div>
+            <div class="page-loader-text">Загрузка страницы...</div>
+        </div>
+    `;
+    
+    // Добавляем стили если их нет
+    if (!document.getElementById('pageLoaderStyles')) {
+        const style = document.createElement('style');
+        style.id = 'pageLoaderStyles';
+        style.textContent = `
+            .page-loader {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(10, 12, 18, 0.8);
+                backdrop-filter: blur(4px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 100;
+                animation: fadeIn 0.2s ease;
+            }
+            .page-loader-content {
+                text-align: center;
+                padding: 30px 40px;
+                background: rgba(20, 25, 50, 0.9);
+                border-radius: 20px;
+                border: 1px solid rgba(99, 102, 241, 0.3);
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            }
+            .page-loader-spinner {
+                width: 40px;
+                height: 40px;
+                margin: 0 auto 16px;
+                border: 3px solid rgba(99, 102, 241, 0.2);
+                border-top-color: #6366f1;
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+            }
+            .page-loader-text {
+                color: #94a3b8;
+                font-size: 14px;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    container.style.position = 'relative';
+    container.appendChild(loader);
+}
+
+function hidePageLoader() {
+    const loader = document.getElementById('pageLoader');
+    if (loader) loader.remove();
+}
+
+// ============================================
+// ОЧИСТКА СТРАНИЦЫ
+// ============================================
+
+function cleanupCurrentPage() {
+    if (currentPage === 'reports' && typeof cleanupReports === 'function') {
+        cleanupReports();
+    }
+    if (currentPage === 'dashboard' && typeof cleanupDashboard === 'function') {
+        cleanupDashboard();
+    }
+    if (currentPage === 'chat' && typeof cleanupChat === 'function') {
+        cleanupChat();
+    }
+}
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ
+// ============================================
+
+function initializePage(pageId) {
+    const initFunctions = {
+        'dashboard': 'initDashboard',
+        'employees': 'initEmployees',
+        'schedule': 'initSchedule',
+        'salary': 'initSalary',
+        'tasks': 'initTasks',
+        'knowledge': 'initKnowledge',
+        'rating': 'initRating',
+        'fines': 'initFines',
+        'chat': 'initChat',
+        'shop': 'initShop',
+        'vp': 'initVp',
+        'admin': 'initAdmin',
+        'reports': 'initReports'
+    };
+    
+    const funcName = initFunctions[pageId];
+    if (funcName && typeof window[funcName] === 'function') {
+        console.log(`🚀 Инициализация: ${funcName}`);
+        window[funcName]();
+    }
+}
+
+// ============================================
+// ОБНОВЛЕНИЕ АКТИВНОГО ПУНКТА МЕНЮ
+// ============================================
+
+function updateActiveMenuItem(pageId) {
+    document.querySelectorAll('.menu-item').forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.dataset.tab === pageId) {
+            btn.classList.add('active');
+        }
+    });
 }
 
 // ============================================
@@ -153,8 +288,11 @@ function renderMainMenu() {
         menuItems.push({ id: 'admin', name: 'Управление', icon: 'cogs' });
     }
     
+    // 🔥 ОПРЕДЕЛЯЕМ АКТИВНУЮ СТРАНИЦУ
+    const urlParams = new URLSearchParams(window.location.search);
+    const pageFromUrl = urlParams.get('page');
     const savedTab = localStorage.getItem('activeTab');
-    const activeId = savedTab && menuItems.some(i => i.id === savedTab) ? savedTab : 'dashboard';
+    const activeId = pageFromUrl || (savedTab && menuItems.some(i => i.id === savedTab) ? savedTab : 'dashboard');
     
     menu.innerHTML = `
         <div class="menu-container">
@@ -170,25 +308,57 @@ function renderMainMenu() {
     document.querySelectorAll('.menu-item').forEach(btn => {
         btn.addEventListener('click', () => {
             const tabId = btn.dataset.tab;
-            document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('active'));
-            btn.classList.add('active');
-            loadPage(tabId);
+            loadPage(tabId, true);
         });
     });
     
-    loadPage(activeId);
+    // 🔥 ЗАГРУЖАЕМ СТРАНИЦУ БЕЗ ДОБАВЛЕНИЯ В ИСТОРИЮ (она уже там)
+    loadPage(activeId, false);
 }
+
+// ============================================
+// ПЕРЕКЛЮЧЕНИЕ ВКЛАДКИ
+// ============================================
 
 function switchToTab(tabId) {
     if (routes[tabId]) {
-        document.querySelectorAll('.menu-item').forEach(btn => {
-            btn.classList.remove('active');
-            if (btn.dataset.tab === tabId) {
-                btn.classList.add('active');
-            }
-        });
-        loadPage(tabId);
+        loadPage(tabId, true);
     }
+}
+
+// ============================================
+// ОБРАБОТКА ИСТОРИИ БРАУЗЕРА
+// ============================================
+
+function initRouter() {
+    if (routerInitialized) return;
+    routerInitialized = true;
+    
+    // 🔥 ОБРАБОТЧИК POPSTATE (навигация назад/вперёд)
+    window.addEventListener('popstate', (event) => {
+        const state = event.state;
+        if (state && state.page) {
+            console.log('🔄 Навигация по истории:', state.page);
+            loadPage(state.page, false);
+        } else {
+            // Если нет состояния, загружаем из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const pageFromUrl = urlParams.get('page');
+            if (pageFromUrl && routes[pageFromUrl]) {
+                loadPage(pageFromUrl, false);
+            }
+        }
+    });
+    
+    console.log('✅ Роутер инициализирован');
+}
+
+// ============================================
+// ПОЛУЧЕНИЕ ТЕКУЩЕЙ СТРАНИЦЫ
+// ============================================
+
+function getCurrentPage() {
+    return currentPage;
 }
 
 // ============================================
@@ -198,17 +368,16 @@ function switchToTab(tabId) {
 window.loadPage = loadPage;
 window.renderMainMenu = renderMainMenu;
 window.switchToTab = switchToTab;
+window.initRouter = initRouter;
 window.routes = routes;
-window.getCurrentPage = () => currentPage;
+window.getCurrentPage = getCurrentPage;
 
+// 🔥 АВТОИНИЦИАЛИЗАЦИЯ РОУТЕРА
+setTimeout(initRouter, 100);
+
+// 🔥 ОЧИСТКА ПРИ ВЫГРУЗКЕ
 window.addEventListener('beforeunload', () => {
-    if (currentPage === 'reports' && typeof cleanupReports === 'function') {
-        cleanupReports();
-    }
-    if (currentPage === 'dashboard' && typeof cleanupDashboard === 'function') {
-        cleanupDashboard();
-    }
-    if (currentPage === 'chat' && typeof cleanupChat === 'function') {
-        cleanupChat();
-    }
+    cleanupCurrentPage();
 });
+
+console.log('✅ router.js загружен (исправленная версия)');

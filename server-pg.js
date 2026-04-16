@@ -43,7 +43,6 @@ const pool = new Pool({
 
 pool.on('error', (err) => console.error('❌ Database pool error:', err.message));
 
-// Мониторинг пула
 setInterval(() => {
     console.log(`📊 Пул БД: всего=${pool.totalCount}, свободных=${pool.idleCount}, ожидают=${pool.waitingCount}`);
 }, 120000);
@@ -65,28 +64,11 @@ const pusher = new Pusher({
 app.set('pusher', pusher);
 
 // ============================================
-// WEATHER PARSING (ОПТИМИЗИРОВАННЫЙ)
+// WEATHER PARSING
 // ============================================
 
 const { fetchWeather, getLastWeather } = require('./parsing-weather.js');
-
-app.get('/api/weather', async (req, res) => {
-    try {
-        const weather = await fetchWeather();
-        res.json({ 
-            success: true, 
-            temp: weather.temperature, 
-            tempDisplay: weather.temperatureDisplay, 
-            feelsLike: weather.feelsLike, 
-            feelsLikeDisplay: weather.feelsLikeDisplay, 
-            desc: weather.description, 
-            icon: weather.icon 
-        });
-    } catch (err) {
-        console.error('❌ Ошибка погоды:', err.message);
-        res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' });
-    }
-});
+let lastWeatherData = null;
 
 // ============================================
 // MIDDLEWARE
@@ -132,27 +114,6 @@ function getTobolskNow() {
     return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
 }
 
-function formatDateRussian(dateStr) {
-    if (!dateStr) return '—';
-    let dateString = dateStr;
-    if (typeof dateStr !== 'string') {
-        if (dateStr instanceof Date) {
-            const year = dateStr.getFullYear();
-            const month = String(dateStr.getMonth() + 1).padStart(2, '0');
-            const day = String(dateStr.getDate()).padStart(2, '0');
-            dateString = `${year}-${month}-${day}`;
-        } else {
-            return '—';
-        }
-    }
-    const parts = dateString.split('-');
-    if (parts.length !== 3) return '—';
-    const day = parseInt(parts[2]);
-    const month = parseInt(parts[1]);
-    const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-    return `${day} ${monthNames[month - 1]}`;
-}
-
 function formatDateToYMD(dateStr) {
     if (!dateStr) return null;
     if (typeof dateStr === 'string' && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -189,8 +150,6 @@ function transliterate(name) {
     if (result === '') result = 'user';
     return result;
 }
-
-const femaleNames = ['Анна', 'Катя', 'Екатерина', 'Ольга', 'Мария', 'Елена', 'Татьяна', 'Наталья', 'Ирина', 'Светлана', 'Виктория', 'Юлия', 'Анастасия', 'Дарья', 'Алина', 'Ксения', 'Полина', 'Валерия', 'Евгения'];
 
 // ============================================
 // ФУНКЦИЯ ОТПРАВКИ ГЛОБАЛЬНЫХ УВЕДОМЛЕНИЙ
@@ -247,13 +206,13 @@ async function initDatabase() {
         `CREATE TABLE IF NOT EXISTS schedule_special_cases (id SERIAL PRIMARY KEY, date DATE NOT NULL UNIQUE, cases JSONB DEFAULT '{}', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS exchange_requests (id SERIAL PRIMARY KEY, from_employee VARCHAR(100) NOT NULL, to_employee VARCHAR(100) NOT NULL, from_date DATE NOT NULL, to_date DATE NOT NULL, from_shift_time VARCHAR(10), to_shift_time VARCHAR(10), status VARCHAR(20) DEFAULT 'pending', comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS vp_bookings (id SERIAL PRIMARY KEY, admin VARCHAR(50) NOT NULL, event_date DATE NOT NULL, event_time TIME NOT NULL, customer_name VARCHAR(255) NOT NULL, amount INTEGER DEFAULT 2000, payment_type VARCHAR(30) DEFAULT 'evotor_card', booking_date DATE NOT NULL, photo_status VARCHAR(20) DEFAULT 'pending', script_status VARCHAR(20) DEFAULT 'not_sent', cancelled BOOLEAN DEFAULT FALSE, cancelled_at TIMESTAMP, created_by VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, comment TEXT, is_archived BOOLEAN DEFAULT FALSE)`,
-        `CREATE TABLE IF NOT EXISTS salary_daily_new (id SERIAL PRIMARY KEY, employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, day_number INTEGER NOT NULL, month_year VARCHAR(7) NOT NULL, oklad INTEGER DEFAULT 0, event INTEGER DEFAULT 0, turnover INTEGER DEFAULT 0, bonus35 INTEGER DEFAULT 0, video INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee_id, day_number, month_year))`,
+        `CREATE TABLE IF NOT EXISTS salary_daily_new (id SERIAL PRIMARY KEY, employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, day_number INTEGER NOT NULL, month_year VARCHAR(7) NOT NULL, oklad INTEGER DEFAULT 0, event INTEGER DEFAULT 0, turnover INTEGER DEFAULT 0, bonus35 INTEGER DEFAULT 0, video INTEGER DEFAULT 0, extra_motivation INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee_id, day_number, month_year))`,
         `CREATE TABLE IF NOT EXISTS corporate_fund (id SERIAL PRIMARY KEY, amount INTEGER DEFAULT 0, period_type VARCHAR(20) DEFAULT 'all', period_start DATE, period_end DATE, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS knowledge_categories (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, icon VARCHAR(10) DEFAULT '📁', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS knowledge_articles (id SERIAL PRIMARY KEY, category_id INTEGER REFERENCES knowledge_categories(id) ON DELETE CASCADE, title VARCHAR(255) NOT NULL, content TEXT, views INTEGER DEFAULT 0, created_by VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS knowledge_views (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, article_id INTEGER REFERENCES knowledge_articles(id) ON DELETE CASCADE, viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, article_id))`,
         `CREATE TABLE IF NOT EXISTS user_statuses (id SERIAL PRIMARY KEY, employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, status_id VARCHAR(50) NOT NULL, status_name VARCHAR(100) NOT NULL, status_icon VARCHAR(10) NOT NULL, price INTEGER DEFAULT 0, rating INTEGER DEFAULT 0, description TEXT, purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, is_active BOOLEAN DEFAULT FALSE, UNIQUE(employee_id, status_id))`,
-        `CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, type VARCHAR(50) NOT NULL, amount INTEGER NOT NULL, balance_before INTEGER NOT NULL, balance_after INTEGER NOT NULL, reference_id INTEGER, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+        `CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, type VARCHAR(50) NOT NULL, amount INTEGER NOT NULL, balance_before INTEGER DEFAULT 0, balance_after INTEGER DEFAULT 0, reference_id INTEGER, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS daily_bonus_history (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, streak_day INTEGER NOT NULL, amount INTEGER NOT NULL, claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS shift_earnings (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, date DATE NOT NULL, hours_worked NUMERIC(5,2) NOT NULL, wp_earned INTEGER NOT NULL, paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, date))`,
         `CREATE TABLE IF NOT EXISTS global_notifications (id SERIAL PRIMARY KEY, type VARCHAR(50), icon VARCHAR(10), title VARCHAR(255), text TEXT, time BIGINT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
@@ -269,6 +228,7 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_fines_employee_date ON fines(employee, date DESC)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_schedule_date ON schedule(date)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_views_user ON knowledge_views(user_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`);
     } catch (err) {}
     
     try {
@@ -281,13 +241,12 @@ async function initDatabase() {
         await pool.query(`ALTER TABLE vp_bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS bonus_streak INTEGER DEFAULT 1`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_bonus_claimed_at TIMESTAMP DEFAULT NULL`);
-// Миграции для таблицы transactions
-await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_before INTEGER DEFAULT 0`);
-await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_after INTEGER DEFAULT 0`);
-await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id INTEGER DEFAULT NULL`);
-await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
-await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
-await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_motivation INTEGER DEFAULT 0`);
+        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_before INTEGER DEFAULT 0`);
+        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_after INTEGER DEFAULT 0`);
+        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS reference_id INTEGER DEFAULT NULL`);
+        await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
+        await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
+        await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_motivation INTEGER DEFAULT 0`);
         console.log('✅ Миграции: добавлены все недостающие колонки');
     } catch (err) {
         console.log('⚠️ Ошибка миграций:', err.message);
@@ -307,6 +266,7 @@ await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_mo
     
     console.log('✅ Database initialized');
 }
+
 // ============================================
 // INIT ACHIEVEMENTS
 // ============================================
@@ -381,13 +341,22 @@ async function initAchievements() {
     console.log(`✅ Инициализировано ${achievements.length} достижений`);
 }
 
+// ============================================
+// ЛОГИРОВАНИЕ ТРАНЗАКЦИЙ
+// ============================================
+
 async function logTransaction(userId, type, amount, balanceBefore, balanceAfter, referenceId = null, comment = null) {
+    if (!userId) return;
     try {
         await pool.query(`INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, reference_id, comment) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [userId, type, amount, balanceBefore, balanceAfter, referenceId, comment]);
     } catch (err) {
         console.error('Error logging transaction:', err);
     }
 }
+
+// ============================================
+// ПРОВЕРКА ПРОСРОЧЕННЫХ ЗАДАЧ
+// ============================================
 
 async function checkAndPenalizeOverdueTasks() {
     const today = new Date().toISOString().split('T')[0];
@@ -408,58 +377,119 @@ async function checkAndPenalizeOverdueTasks() {
     }
     return createdCount;
 }
+// ============================================
+// НАЧИСЛЕНИЕ WP ЗА СМЕНЫ
+// ============================================
 
 async function processShiftEarnings() {
     console.log('💰 Начисление WP за отработанные смены...');
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
+    const client = await pool.connect();
+    
     try {
-        const shifts = await pool.query(`SELECT s.employee, s.shift_time, s.is_special, s.special_end_time, e.id as user_id, e.coins as current_coins FROM schedule s JOIN employees e ON e.name = s.employee WHERE s.date = $1::date AND s.shift_time IS NOT NULL AND (s.shift_status IS NULL OR s.shift_status = 'working') AND (s.shift_paid IS NULL OR s.shift_paid = false)`, [yesterdayStr]);
+        await client.query('BEGIN');
+        
+        const shifts = await client.query(
+            `SELECT s.employee, s.shift_time, s.is_special, s.special_end_time, e.id as user_id, e.coins as current_coins 
+             FROM schedule s 
+             JOIN employees e ON e.name = s.employee 
+             WHERE s.date = $1::date AND s.shift_time IS NOT NULL 
+             AND (s.shift_status IS NULL OR s.shift_status = 'working') 
+             AND (s.shift_paid IS NULL OR s.shift_paid = false)`,
+            [yesterdayStr]
+        );
+        
         let totalPaid = 0;
         for (const shift of shifts.rows) {
             const [startHour] = shift.shift_time.split(':').map(Number);
             let endHour = 22;
-            if (shift.is_special && shift.special_end_time) { endHour = parseInt(shift.special_end_time.split(':')[0]); }
+            if (shift.is_special && shift.special_end_time) {
+                endHour = parseInt(shift.special_end_time.split(':')[0]);
+            }
             let hoursWorked = Math.max(0, endHour - startHour);
             const wpEarned = Math.floor(hoursWorked * 2);
+            
             if (wpEarned > 0) {
                 const balanceBefore = shift.current_coins;
                 const balanceAfter = balanceBefore + wpEarned;
-                await pool.query(`UPDATE employees SET coins = coins + $1 WHERE id = $2`, [wpEarned, shift.user_id]);
-                await pool.query(`UPDATE schedule SET shift_paid = true WHERE date = $1::date AND employee = $2`, [yesterdayStr, shift.employee]);
-                await pool.query(`INSERT INTO shift_earnings (user_id, date, hours_worked, wp_earned) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id, date) DO UPDATE SET hours_worked = EXCLUDED.hours_worked, wp_earned = EXCLUDED.wp_earned`, [shift.user_id, yesterdayStr, hoursWorked, wpEarned]);
+                
+                await client.query(`UPDATE employees SET coins = coins + $1 WHERE id = $2`, [wpEarned, shift.user_id]);
+                await client.query(`UPDATE schedule SET shift_paid = true WHERE date = $1::date AND employee = $2`, [yesterdayStr, shift.employee]);
+                await client.query(
+                    `INSERT INTO shift_earnings (user_id, date, hours_worked, wp_earned) VALUES ($1, $2, $3, $4) 
+                     ON CONFLICT (user_id, date) DO UPDATE SET hours_worked = EXCLUDED.hours_worked, wp_earned = EXCLUDED.wp_earned`,
+                    [shift.user_id, yesterdayStr, hoursWorked, wpEarned]
+                );
                 await logTransaction(shift.user_id, 'shift_earn', wpEarned, balanceBefore, balanceAfter, null, `Смена ${shift.shift_time}-${endHour}:00 (${hoursWorked.toFixed(1)} ч)`);
                 await checkAndGrantAchievements(shift.user_id, shift.employee);
                 totalPaid += wpEarned;
                 console.log(`   💰 ${shift.employee}: +${wpEarned} WP (${hoursWorked.toFixed(1)} ч × 2)`);
             }
         }
+        
+        await client.query('COMMIT');
         if (totalPaid > 0) console.log(`✅ Начислено ${totalPaid} WP за смены`);
-    } catch (err) { console.error('❌ Ошибка начисления за смены:', err); }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('❌ Ошибка начисления за смены:', err);
+    } finally {
+        client.release();
+    }
 }
+
+// ============================================
+// ОБНОВЛЕНИЕ СТРИКА ВХОДА
+// ============================================
 
 async function updateLoginStreak(userId, username) {
     const now = getTobolskNow();
     const today = now.toISOString().split('T')[0];
     const user = await pool.query('SELECT last_bonus_claimed_at, bonus_streak, coins FROM employees WHERE id = $1', [userId]);
+    
+    if (user.rows.length === 0) return { claimed: false, streak: 1, bonus: 0 };
+    
     const lastClaimed = user.rows[0]?.last_bonus_claimed_at;
     const currentStreak = user.rows[0]?.bonus_streak || 1;
-    if (lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === today) { return { claimed: false, streak: currentStreak, bonus: 0 }; }
-    const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === today) {
+        return { claimed: false, streak: currentStreak, bonus: 0 };
+    }
+    
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
     const yesterdayClaimed = lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === yesterdayStr;
+    
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
     let newStreak = yesterdayClaimed ? Math.min(currentStreak + 1, daysInMonth) : 1;
     let wpBonus = newStreak;
+    
     const balanceBefore = user.rows[0]?.coins || 0;
     const balanceAfter = balanceBefore + wpBonus;
-    await pool.query(`UPDATE employees SET coins = coins + $1, last_bonus_claimed_at = CURRENT_TIMESTAMP, bonus_streak = $2 WHERE id = $3`, [wpBonus, newStreak, userId]);
-    await pool.query(`INSERT INTO daily_bonus_history (user_id, streak_day, amount, claimed_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`, [userId, newStreak, wpBonus]);
+    
+    await pool.query(
+        `UPDATE employees SET coins = coins + $1, last_bonus_claimed_at = CURRENT_TIMESTAMP, bonus_streak = $2 WHERE id = $3`,
+        [wpBonus, newStreak, userId]
+    );
+    await pool.query(
+        `INSERT INTO daily_bonus_history (user_id, streak_day, amount, claimed_at) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`,
+        [userId, newStreak, wpBonus]
+    );
     await logTransaction(userId, 'login_streak', wpBonus, balanceBefore, balanceAfter, null, `День ${newStreak} из ${daysInMonth}`);
-    if (newStreak === daysInMonth) { await pool.query(`UPDATE employees SET active_status = '⭐ MVP' WHERE id = $1`, [userId]); }
+    
+    if (newStreak === daysInMonth) {
+        await pool.query(`UPDATE employees SET active_status = '⭐ MVP' WHERE id = $1`, [userId]);
+    }
+    
     await checkAndGrantAchievements(userId, username);
     return { claimed: true, streak: newStreak, bonus: wpBonus, maxStreak: daysInMonth };
 }
+
+// ============================================
+// ПОЛУЧЕНИЕ СТАТИСТИКИ ПОЛЬЗОВАТЕЛЯ
+// ============================================
 
 async function getUserStats(userId, username) {
     const roleRes = await pool.query('SELECT role FROM employees WHERE id = $1', [userId]);
@@ -467,50 +497,127 @@ async function getUserStats(userId, username) {
     const isWorker = role === 'operator' || role === 'admin';
     const isDirector = role === 'director';
     const isManager = role === 'manager';
-    let shiftsCount = 0, tasksCount = 0, giftsCount = 0, rating = 0, streak = 1, coins = 0, exchangesCount = 0, messagesCount = 0, shopCount = 0, knowledgeCount = 0, avatarsCount = 0, statusesCount = 0, stylesCount = 0, achievementsCount = 0;
-    const coinsRes = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]); coins = coinsRes.rows[0]?.coins || 0;
-    if (isWorker) { const shiftsRes = await pool.query(`SELECT COUNT(*) as count FROM schedule WHERE employee = $1 AND shift_time IS NOT NULL AND (shift_status IS NULL OR shift_status = 'working')`, [username]); shiftsCount = parseInt(shiftsRes.rows[0]?.count) || 0; }
-    if (isDirector || isManager) { const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'`); tasksCount = parseInt(tasksRes.rows[0]?.count) || 0; }
-    else { const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE executor = $1 AND status = 'completed'`, [username]); tasksCount = parseInt(tasksRes.rows[0]?.count) || 0; }
-    giftsCount = 0;
-    const ratingRes = await pool.query('SELECT rating FROM employees WHERE id = $1', [userId]); rating = ratingRes.rows[0]?.rating || 0;
-    const streakRes = await pool.query('SELECT bonus_streak FROM employees WHERE id = $1', [userId]); streak = streakRes.rows[0]?.bonus_streak || 1;
-    if (isWorker) { const exchangesRes = await pool.query(`SELECT COUNT(*) as count FROM exchange_requests WHERE (from_employee = $1 OR to_employee = $1) AND status = 'accepted'`, [username]); exchangesCount = parseInt(exchangesRes.rows[0]?.count) || 0; }
-    const messagesRes = await pool.query(`SELECT COUNT(*) as count FROM messages WHERE sender = $1`, [username]); messagesCount = parseInt(messagesRes.rows[0]?.count) || 0;
-    const shopRes = await pool.query(`SELECT COUNT(*) as count FROM transactions WHERE user_id = $1 AND type = 'shop_purchase'`, [userId]); shopCount = parseInt(shopRes.rows[0]?.count) || 0;
-    const knowledgeRes = await pool.query(`SELECT COUNT(DISTINCT article_id) as count FROM knowledge_views WHERE user_id = $1`, [userId]); knowledgeCount = parseInt(knowledgeRes.rows[0]?.count) || 0;
-    const avatarsRes = await pool.query(`SELECT COUNT(DISTINCT avatar) as count FROM employees WHERE id = $1 AND avatar IS NOT NULL AND avatar != '' AND avatar != '👤'`, [userId]); avatarsCount = parseInt(avatarsRes.rows[0]?.count) || 0;
-    const statusesRes = await pool.query(`SELECT COUNT(*) as count FROM user_statuses WHERE employee_id = $1`, [userId]); statusesCount = parseInt(statusesRes.rows[0]?.count) || 0;
-    const stylesRes = await pool.query(`SELECT bought_styles FROM employees WHERE id = $1`, [userId]); if (stylesRes.rows[0]?.bought_styles) { try { const styles = JSON.parse(stylesRes.rows[0].bought_styles); stylesCount = Array.isArray(styles) ? styles.length : 0; } catch(e) { stylesCount = 0; } }
-    const achievementsRes = await pool.query(`SELECT COUNT(*) as count FROM user_achievements WHERE user_id = $1`, [userId]); achievementsCount = parseInt(achievementsRes.rows[0]?.count) || 0;
+    
+    let shiftsCount = 0, tasksCount = 0, giftsCount = 0, rating = 0, streak = 1, coins = 0;
+    let exchangesCount = 0, messagesCount = 0, shopCount = 0, knowledgeCount = 0;
+    let avatarsCount = 0, statusesCount = 0, stylesCount = 0, achievementsCount = 0;
+    
+    const coinsRes = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]);
+    coins = coinsRes.rows[0]?.coins || 0;
+    
+    if (isWorker) {
+        const shiftsRes = await pool.query(
+            `SELECT COUNT(*) as count FROM schedule WHERE employee = $1 AND shift_time IS NOT NULL AND (shift_status IS NULL OR shift_status = 'working')`,
+            [username]
+        );
+        shiftsCount = parseInt(shiftsRes.rows[0]?.count) || 0;
+    }
+    
+    if (isDirector || isManager) {
+        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'`);
+        tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
+    } else {
+        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE executor = $1 AND status = 'completed'`, [username]);
+        tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
+    }
+    
+    const ratingRes = await pool.query('SELECT rating FROM employees WHERE id = $1', [userId]);
+    rating = ratingRes.rows[0]?.rating || 0;
+    
+    const streakRes = await pool.query('SELECT bonus_streak FROM employees WHERE id = $1', [userId]);
+    streak = streakRes.rows[0]?.bonus_streak || 1;
+    
+    if (isWorker) {
+        const exchangesRes = await pool.query(
+            `SELECT COUNT(*) as count FROM exchange_requests WHERE (from_employee = $1 OR to_employee = $1) AND status = 'accepted'`,
+            [username]
+        );
+        exchangesCount = parseInt(exchangesRes.rows[0]?.count) || 0;
+    }
+    
+    const messagesRes = await pool.query(`SELECT COUNT(*) as count FROM messages WHERE sender = $1`, [username]);
+    messagesCount = parseInt(messagesRes.rows[0]?.count) || 0;
+    
+    const shopRes = await pool.query(`SELECT COUNT(*) as count FROM transactions WHERE user_id = $1 AND type = 'shop_purchase'`, [userId]);
+    shopCount = parseInt(shopRes.rows[0]?.count) || 0;
+    
+    const knowledgeRes = await pool.query(`SELECT COUNT(DISTINCT article_id) as count FROM knowledge_views WHERE user_id = $1`, [userId]);
+    knowledgeCount = parseInt(knowledgeRes.rows[0]?.count) || 0;
+    
+    const avatarsRes = await pool.query(`SELECT COUNT(DISTINCT avatar) as count FROM employees WHERE id = $1 AND avatar IS NOT NULL AND avatar != '' AND avatar != '👤'`, [userId]);
+    avatarsCount = parseInt(avatarsRes.rows[0]?.count) || 0;
+    
+    const statusesRes = await pool.query(`SELECT COUNT(*) as count FROM user_statuses WHERE employee_id = $1`, [userId]);
+    statusesCount = parseInt(statusesRes.rows[0]?.count) || 0;
+    
+    const stylesRes = await pool.query(`SELECT bought_styles FROM employees WHERE id = $1`, [userId]);
+    if (stylesRes.rows[0]?.bought_styles) {
+        try { const styles = JSON.parse(stylesRes.rows[0].bought_styles); stylesCount = Array.isArray(styles) ? styles.length : 0; } catch(e) {}
+    }
+    
+    const achievementsRes = await pool.query(`SELECT COUNT(*) as count FROM user_achievements WHERE user_id = $1`, [userId]);
+    achievementsCount = parseInt(achievementsRes.rows[0]?.count) || 0;
+    
     const hasAvatar = avatarsCount > 0;
     const hasFullProfile = await checkHasFullProfile(userId);
+    
     return { shifts: shiftsCount, tasks: tasksCount, gifts: giftsCount, rating, streak, exchanges: exchangesCount, messages: messagesCount, shop: shopCount, knowledge: knowledgeCount, avatars: avatarsCount, statuses: statusesCount, styles: stylesCount, achievements: achievementsCount, coins, hasAvatar, hasFullProfile, role, isWorker };
 }
 
-async function checkHasAvatar(userId) { const res = await pool.query(`SELECT avatar, avatar_url FROM employees WHERE id = $1`, [userId]); if (res.rows.length === 0) return false; const emp = res.rows[0]; return (emp.avatar && emp.avatar !== '👤') || (emp.avatar_url && emp.avatar_url.length > 0); }
-async function checkHasFullProfile(userId) { const res = await pool.query(`SELECT birthday, phone FROM employees WHERE id = $1`, [userId]); if (res.rows.length === 0) return false; const emp = res.rows[0]; return emp.birthday && emp.phone && emp.birthday !== '' && emp.phone !== ''; }
+async function checkHasFullProfile(userId) {
+    const res = await pool.query(`SELECT birthday, phone FROM employees WHERE id = $1`, [userId]);
+    if (res.rows.length === 0) return false;
+    const emp = res.rows[0];
+    return emp.birthday && emp.phone && emp.birthday !== '' && emp.phone !== '';
+}
+
+// ============================================
+// ПРОВЕРКА УСЛОВИЙ ДОСТИЖЕНИЙ
+// ============================================
 
 function checkAchievementCondition(achievement, stats) {
     const category = achievement.category;
     const required = achievement.required_value;
     const id = achievement.id;
+    
     if ((category === 'work' || category === 'exchange') && !stats.isWorker) return false;
+    
     if (category === 'special') {
-        if (id === 'first_login') return true; if (id === 'set_avatar') return stats.hasAvatar; if (id === 'complete_profile') return stats.hasFullProfile;
-        if (id === 'bonus_7') return stats.streak >= 7; if (id === 'bonus_30') return stats.streak >= 30; if (id === 'first_task_completed') return stats.tasks >= 1;
-        if (id === 'first_gift_sent') return stats.gifts >= 1; if (id === 'first_exchange') return stats.exchanges >= 1; if (id === 'first_shop_purchase') return stats.shop >= 1;
-        if (id === 'first_knowledge') return stats.knowledge >= 1; if (id === 'all_avatars') return stats.avatars >= 5; if (id === 'all_statuses') return stats.statuses >= 5;
-        if (id === 'all_styles') return stats.styles >= 5; if (id === 'rich_1000') return stats.coins >= 1000; if (id === 'warpoint_legend') return stats.achievements >= 100;
+        if (id === 'first_login') return true;
+        if (id === 'set_avatar') return stats.hasAvatar;
+        if (id === 'complete_profile') return stats.hasFullProfile;
+        if (id === 'bonus_7') return stats.streak >= 7;
+        if (id === 'bonus_30') return stats.streak >= 30;
+        if (id === 'first_task_completed') return stats.tasks >= 1;
+        if (id === 'first_gift_sent') return stats.gifts >= 1;
+        if (id === 'first_exchange') return stats.exchanges >= 1;
+        if (id === 'first_shop_purchase') return stats.shop >= 1;
+        if (id === 'first_knowledge') return stats.knowledge >= 1;
+        if (id === 'all_avatars') return stats.avatars >= 5;
+        if (id === 'all_statuses') return stats.statuses >= 5;
+        if (id === 'all_styles') return stats.styles >= 5;
+        if (id === 'rich_1000') return stats.coins >= 1000;
+        if (id === 'warpoint_legend') return stats.achievements >= 100;
         return false;
     }
+    
     switch (category) {
-        case 'work': return stats.shifts >= required; case 'tasks': return stats.tasks >= required; case 'gifts': return stats.gifts >= required;
-        case 'rating': return stats.rating >= required; case 'streak': return stats.streak >= required; case 'exchange': return stats.exchanges >= required;
-        case 'chat': return stats.messages >= required; case 'shop': return stats.shop >= required; case 'knowledge': return stats.knowledge >= required;
+        case 'work': return stats.shifts >= required;
+        case 'tasks': return stats.tasks >= required;
+        case 'gifts': return stats.gifts >= required;
+        case 'rating': return stats.rating >= required;
+        case 'streak': return stats.streak >= required;
+        case 'exchange': return stats.exchanges >= required;
+        case 'chat': return stats.messages >= required;
+        case 'shop': return stats.shop >= required;
+        case 'knowledge': return stats.knowledge >= required;
         default: return false;
     }
 }
+
+// ============================================
+// ПРОВЕРКА И ВЫДАЧА ДОСТИЖЕНИЙ
+// ============================================
 
 async function checkAndGrantAchievements(userId, username) {
     try {
@@ -519,8 +626,11 @@ async function checkAndGrantAchievements(userId, username) {
         const unlockedIds = new Set(unlocked.rows.map(r => r.achievement_id));
         const pending = await pool.query('SELECT achievement_id FROM pending_achievements WHERE user_id = $1', [userId]);
         const pendingIds = new Set(pending.rows.map(r => r.achievement_id));
+        
         const stats = await getUserStats(userId, username);
-        const newAchievements = []; let grantedCount = 0;
+        const newAchievements = [];
+        let grantedCount = 0;
+        
         for (const ach of allAchievements.rows) {
             if (unlockedIds.has(ach.id) || pendingIds.has(ach.id)) continue;
             if (checkAchievementCondition(ach, stats)) {
@@ -529,6 +639,7 @@ async function checkAndGrantAchievements(userId, username) {
                 newAchievements.push({ id: ach.id, name: ach.name, description: ach.description, coins: ach.coins_reward, category: ach.category });
             }
         }
+        
         if (newAchievements.length > 0) {
             const pusherInstance = app.get('pusher');
             if (newAchievements.length === 1) {
@@ -542,42 +653,77 @@ async function checkAndGrantAchievements(userId, username) {
             }
         }
         return { granted: grantedCount, achievements: newAchievements };
-    } catch (err) { console.error('❌ Ошибка проверки достижений:', err); return { granted: 0, achievements: [] }; }
+    } catch (err) {
+        console.error('❌ Ошибка проверки достижений:', err);
+        return { granted: 0, achievements: [] };
+    }
 }
 
+// ============================================
+// АВТО-ОТМЕНА ПРОСРОЧЕННЫХ ЗАПРОСОВ НА ОБМЕН
+// ============================================
+
 async function autoExpireExchangeRequests() {
+    const client = await pool.connect();
     try {
-        const expiredRequests = await pool.query(`SELECT id, from_employee, to_employee FROM exchange_requests WHERE status = 'pending' AND expires_at < NOW()`);
+        await client.query('BEGIN');
+        
+        const expiredRequests = await client.query(
+            `SELECT id, from_employee, to_employee FROM exchange_requests WHERE status = 'pending' AND expires_at < NOW()`
+        );
+        
         for (const req of expiredRequests.rows) {
-            await pool.query(`UPDATE exchange_requests SET status = 'expired' WHERE id = $1`, [req.id]);
+            await client.query(`UPDATE exchange_requests SET status = 'expired' WHERE id = $1`, [req.id]);
+            
             const pusherInstance = app.get('pusher');
             if (pusherInstance) {
-                await pool.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.from_employee, '⏰ Система', `Ваше предложение обмена сменами для ${req.to_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.`, Date.now()]);
+                await client.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.from_employee, '⏰ Система', `Ваше предложение обмена сменами для ${req.to_employee} **АВТОМАТИЧЕСКИ ОТМЕНЕНО**.`, Date.now()]);
                 pusherInstance.trigger(`private-user-${transliterate(req.from_employee)}`, 'client-private-message', { message: { sender: '⏰ Система', text: `Ваше предложение обмена для ${req.to_employee} автоматически отменено.`, time: Date.now() }, from: 'Система' });
-                await pool.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.to_employee, '⏰ Система', `Предложение обмена от ${req.from_employee} автоматически отменено.`, Date.now()]);
+                
+                await client.query(`INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)`, [req.to_employee, '⏰ Система', `Предложение обмена от ${req.from_employee} автоматически отменено.`, Date.now()]);
                 pusherInstance.trigger(`private-user-${transliterate(req.to_employee)}`, 'client-private-message', { message: { sender: '⏰ Система', text: `Предложение обмена от ${req.from_employee} автоматически отменено.`, time: Date.now() }, from: 'Система' });
             }
         }
+        
+        await client.query('COMMIT');
         if (expiredRequests.rows.length > 0) console.log(`✅ Автоматически отменено ${expiredRequests.rows.length} просроченных запросов`);
-    } catch (err) { console.error('Ошибка авто-отмены запросов:', err); }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('Ошибка авто-отмены запросов:', err);
+    } finally {
+        client.release();
+    }
 }
+
 // ============================================
 // AUTH API
 // ============================================
 
 app.post('/api/auth/login', async (req, res) => {
     const { username, password } = req.body;
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Логин и пароль обязательны' });
+    }
+    
     try {
         const user = await pool.query('SELECT * FROM passwords WHERE username = $1', [username]);
         if (user.rows.length > 0 && user.rows[0].password === password) {
             const profile = await pool.query('SELECT * FROM employees WHERE name = $1', [username]);
             if (profile.rows.length === 0) return res.status(401).json({ error: 'Сотрудник не найден' });
+            
             await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [username]);
+            
             const token = jwt.sign({ username, role: profile.rows[0].role, id: profile.rows[0].id }, JWT_SECRET, { expiresIn: '7d' });
             const achievementResult = await checkAndGrantAchievements(profile.rows[0].id, username);
+            
             res.json({ success: true, user: profile.rows[0], token, newAchievements: achievementResult.achievements });
-        } else { res.status(401).json({ error: 'Неверный логин или пароль' }); }
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        } else {
+            res.status(401).json({ error: 'Неверный логин или пароль' });
+        }
+    } catch (err) {
+        console.error('Login error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ============================================
@@ -591,10 +737,28 @@ app.get('/api/data', authMiddleware, async (req, res) => {
         const fines = await pool.query('SELECT * FROM fines ORDER BY date DESC LIMIT 500');
         const messages = await pool.query('SELECT * FROM messages ORDER BY time DESC LIMIT 500');
         const schedule = await pool.query('SELECT * FROM schedule');
-        const messagesByRoom = {}; messages.rows.forEach(msg => { if (!messagesByRoom[msg.room]) messagesByRoom[msg.room] = []; messagesByRoom[msg.room].push(msg); });
-        const scheduleByDate = {}; schedule.rows.forEach(s => { const dateStr = s.date instanceof Date ? s.date.toISOString().split('T')[0] : s.date; if (!scheduleByDate[dateStr]) scheduleByDate[dateStr] = {}; scheduleByDate[dateStr][s.employee] = { time: s.shift_time, status: s.shift_status, is_special: s.is_special, special_end_time: s.special_end_time }; });
-        res.json({ employees: employees.rows.map(e => e.name), profiles: employees.rows.reduce((acc, e) => { acc[e.name] = { id: e.id, name: e.name, avatar: e.avatar, avatar_url: e.avatar_url, status: e.status, coins: e.coins, rating: e.rating, role: e.role, hours: e.hours, birthday: e.birthday, phone: e.phone, last_active: e.last_active, dashboard_style: e.dashboard_style, bought_styles: e.bought_styles, can_edit_vp: e.can_edit_vp || false, active_status: e.active_status, bonus_streak: e.bonus_streak || 1, last_bonus_claimed_at: e.last_bonus_claimed_at }; return acc; }, {}), tasks: tasks.rows, fines: fines.rows, schedule: scheduleByDate, messages: messagesByRoom });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        
+        const messagesByRoom = {};
+        messages.rows.forEach(msg => { if (!messagesByRoom[msg.room]) messagesByRoom[msg.room] = []; messagesByRoom[msg.room].push(msg); });
+        
+        const scheduleByDate = {};
+        schedule.rows.forEach(s => { const dateStr = s.date instanceof Date ? s.date.toISOString().split('T')[0] : s.date; if (!scheduleByDate[dateStr]) scheduleByDate[dateStr] = {}; scheduleByDate[dateStr][s.employee] = { time: s.shift_time, status: s.shift_status, is_special: s.is_special, special_end_time: s.special_end_time }; });
+        
+        res.json({ 
+            employees: employees.rows.map(e => e.name), 
+            profiles: employees.rows.reduce((acc, e) => { 
+                acc[e.name] = { id: e.id, name: e.name, avatar: e.avatar, avatar_url: e.avatar_url, status: e.status, coins: e.coins, rating: e.rating, role: e.role, hours: e.hours, birthday: e.birthday, phone: e.phone, last_active: e.last_active, dashboard_style: e.dashboard_style, bought_styles: e.bought_styles, can_edit_vp: e.can_edit_vp || false, active_status: e.active_status, bonus_streak: e.bonus_streak || 1, last_bonus_claimed_at: e.last_bonus_claimed_at }; 
+                return acc; 
+            }, {}), 
+            tasks: tasks.rows, 
+            fines: fines.rows, 
+            schedule: scheduleByDate, 
+            messages: messagesByRoom 
+        });
+    } catch (err) {
+        console.error('Data error:', err);
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // ============================================
@@ -605,117 +769,226 @@ app.get('/api/tasks', authMiddleware, async (req, res) => {
     try {
         const result = await pool.query(`SELECT t.*, COALESCE(json_agg(s.*) FILTER (WHERE s.id IS NOT NULL), '[]') as subtasks FROM tasks t LEFT JOIN subtasks s ON s.task_id = t.id GROUP BY t.id ORDER BY t.created_at DESC`);
         res.json(result.rows);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/tasks', authMiddleware, async (req, res) => {
     const { task } = req.body;
     if (!task || !task.name) return res.status(400).json({ error: 'Не указано название задачи' });
+    
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         let groupMembersJson = null;
-        if (task.group_members && Array.isArray(task.group_members)) { groupMembersJson = JSON.stringify(task.group_members); }
-        const result = await client.query(`INSERT INTO tasks (name, author, executor, priority, deadline, progress, comment, recurring, status, is_group_task, group_members) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`, [task.name, task.author || req.user.username, task.executor, task.priority || 'medium', task.deadline || null, task.progress || 0, task.comment || null, task.recurring || 'none', task.status || 'in_progress', task.is_group_task || null, groupMembersJson]);
+        if (task.group_members && Array.isArray(task.group_members)) groupMembersJson = JSON.stringify(task.group_members);
+        
+        const result = await client.query(
+            `INSERT INTO tasks (name, author, executor, priority, deadline, progress, comment, recurring, status, is_group_task, group_members) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+            [task.name, task.author || req.user.username, task.executor, task.priority || 'medium', task.deadline || null, task.progress || 0, task.comment || null, task.recurring || 'none', task.status || 'in_progress', task.is_group_task || null, groupMembersJson]
+        );
         const newTask = result.rows[0];
+        
         if (task.subtasks && task.subtasks.length > 0) {
-            for (const sub of task.subtasks) { await client.query(`INSERT INTO subtasks (task_id, name, completed) VALUES ($1, $2, $3)`, [newTask.id, sub.name, sub.completed || false]); }
+            for (const sub of task.subtasks) {
+                await client.query(`INSERT INTO subtasks (task_id, name, completed) VALUES ($1, $2, $3)`, [newTask.id, sub.name, sub.completed || false]);
+            }
         }
         await client.query('COMMIT');
+        
         const finalTask = await pool.query(`SELECT t.*, COALESCE(json_agg(s.*) FILTER (WHERE s.id IS NOT NULL), '[]') as subtasks FROM tasks t LEFT JOIN subtasks s ON s.task_id = t.id WHERE t.id = $1 GROUP BY t.id`, [newTask.id]);
         res.json({ success: true, task: finalTask.rows[0] });
-        if (task.executor) { const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [task.executor]); if (executorRes.rows.length > 0) { await checkAndGrantAchievements(executorRes.rows[0].id, task.executor); } }
-    } catch (err) { await client.query('ROLLBACK'); res.status(500).json({ error: err.message }); } finally { client.release(); }
+        
+        if (task.executor) {
+            const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [task.executor]);
+            if (executorRes.rows.length > 0) await checkAndGrantAchievements(executorRes.rows[0].id, task.executor);
+        }
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
 });
 
 app.put('/api/tasks/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params; const updates = req.body;
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID задачи' });
+    
+    const updates = req.body;
     try {
         const existingTask = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
         if (existingTask.rows.length === 0) return res.status(404).json({ error: 'Задача не найдена' });
-        const oldTask = existingTask.rows[0]; let newAchievements = [];
+        
+        const oldTask = existingTask.rows[0];
+        let newAchievements = [];
+        
         if (updates.status === 'completed' && oldTask.status !== 'completed') {
             let wpReward = 0;
-            if (oldTask.priority === 'high') wpReward = 15; else if (oldTask.priority === 'medium') wpReward = 8; else if (oldTask.priority === 'low') wpReward = 3;
+            if (oldTask.priority === 'high') wpReward = 15;
+            else if (oldTask.priority === 'medium') wpReward = 8;
+            else if (oldTask.priority === 'low') wpReward = 3;
+            
             if (wpReward > 0) {
                 const executor = await pool.query('SELECT id, coins FROM employees WHERE name = $1', [oldTask.executor]);
                 if (executor.rows.length > 0) {
-                    const balanceBefore = executor.rows[0].coins; const balanceAfter = balanceBefore + wpReward;
+                    const balanceBefore = executor.rows[0].coins;
+                    const balanceAfter = balanceBefore + wpReward;
                     await pool.query('UPDATE employees SET coins = coins + $1 WHERE name = $2', [wpReward, oldTask.executor]);
                     await logTransaction(executor.rows[0].id, 'task_reward', wpReward, balanceBefore, balanceAfter, oldTask.id, `Выполнена задача "${oldTask.name}"`);
+                    
                     const pusherInstance = app.get('pusher');
-                    if (pusherInstance) { pusherInstance.trigger(`private-user-${transliterate(oldTask.author)}`, 'personal-notification', { type: 'task_completed', icon: '✅', title: 'Задача выполнена!', text: `${oldTask.executor} выполнил(а) задачу «${oldTask.name}»`, time: Date.now() }); }
+                    if (pusherInstance) {
+                        pusherInstance.trigger(`private-user-${transliterate(oldTask.author)}`, 'personal-notification', { type: 'task_completed', icon: '✅', title: 'Задача выполнена!', text: `${oldTask.executor} выполнил(а) задачу «${oldTask.name}»`, time: Date.now() });
+                    }
                     try { await sendGlobalNotification('task_completed', { executor: oldTask.executor, taskName: oldTask.name }); } catch (err) {}
                 }
             }
             const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [oldTask.executor]);
-            if (executorRes.rows.length > 0) { const result = await checkAndGrantAchievements(executorRes.rows[0].id, oldTask.executor); newAchievements = result.achievements; }
+            if (executorRes.rows.length > 0) {
+                const result = await checkAndGrantAchievements(executorRes.rows[0].id, oldTask.executor);
+                newAchievements = result.achievements;
+            }
         }
+        
         const allowedFields = ['name', 'executor', 'priority', 'deadline', 'progress', 'comment', 'status', 'recurring', 'is_archived', 'completed_at'];
-        const setClauses = []; const values = []; let paramIndex = 1;
-        for (const field of allowedFields) { if (updates[field] !== undefined) { setClauses.push(`${field} = $${paramIndex}`); values.push(updates[field]); paramIndex++; } }
+        const setClauses = [];
+        const values = [];
+        let paramIndex = 1;
+        
+        for (const field of allowedFields) {
+            if (updates[field] !== undefined) {
+                setClauses.push(`${field} = $${paramIndex}`);
+                values.push(updates[field]);
+                paramIndex++;
+            }
+        }
         setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
-        if (setClauses.length > 1) { values.push(id); await pool.query(`UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`, values); }
+        
+        if (setClauses.length > 1) {
+            values.push(id);
+            await pool.query(`UPDATE tasks SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`, values);
+        }
+        
         const updatedTask = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
         res.json({ success: true, task: updatedTask.rows[0], newAchievements });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.delete('/api/tasks/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID задачи' });
+    
     try {
         const taskCheck = await pool.query('SELECT id, author, status FROM tasks WHERE id = $1', [id]);
         if (taskCheck.rows.length === 0) return res.status(404).json({ error: 'Задача не найдена' });
-        const task = taskCheck.rows[0]; const currentUser = req.user.username; const currentUserRole = req.user.role;
+        
+        const task = taskCheck.rows[0];
+        const currentUser = req.user.username;
+        const currentUserRole = req.user.role;
         const canDelete = currentUserRole === 'director' || currentUserRole === 'manager' || (task.author === currentUser && task.status !== 'completed');
+        
         if (!canDelete) return res.status(403).json({ error: 'Нет прав на удаление' });
+        
         await pool.query('DELETE FROM subtasks WHERE task_id = $1', [id]);
         await pool.query('DELETE FROM tasks WHERE id = $1', [id]);
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-
 // ============================================
 // FINES API
 // ============================================
 
 app.get('/api/fines', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT * FROM fines ORDER BY date DESC'); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query('SELECT * FROM fines ORDER BY date DESC'); 
+        res.json(result.rows); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/fines', authMiddleware, async (req, res) => {
     const { fine } = req.body;
     if (!fine || !fine.employee) return res.status(400).json({ error: 'Не указан сотрудник' });
+    
+    if (fine.amount < 0 || fine.coins < 0) {
+        return res.status(400).json({ error: 'Сумма штрафа не может быть отрицательной' });
+    }
+    
     try {
         const date = fine.date || new Date().toISOString().split('T')[0];
-        const result = await pool.query(`INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`, [date, fine.employee, fine.type || 'other', fine.amount || 0, fine.coins || 0, fine.rating || 0, fine.description || '', fine.status || 'pending', fine.createdBy || req.user.username]);
+        const result = await pool.query(
+            `INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+            [date, fine.employee, fine.type || 'other', fine.amount || 0, fine.coins || 0, fine.rating || 0, fine.description || '', fine.status || 'pending', fine.createdBy || req.user.username]
+        );
         res.json({ success: true, fine: result.rows[0] });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.put('/api/fines/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params; const { status, amount, coins, rating, director_comment } = req.body;
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID штрафа' });
+    
+    const { status, amount, coins, rating, director_comment } = req.body;
+    
+    if (amount !== undefined && amount < 0) return res.status(400).json({ error: 'Сумма штрафа не может быть отрицательной' });
+    if (coins !== undefined && coins < 0) return res.status(400).json({ error: 'Сумма WP не может быть отрицательной' });
+    
     try {
         const fineResult = await pool.query('SELECT * FROM fines WHERE id = $1', [id]);
         if (fineResult.rows.length === 0) return res.status(404).json({ error: 'Штраф не найден' });
         const oldFine = fineResult.rows[0];
-        const result = await pool.query(`UPDATE fines SET status = COALESCE($1, status), amount = COALESCE($2, amount), coins = COALESCE($3, coins), rating = COALESCE($4, rating), director_comment = COALESCE($5, director_comment), updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *`, [status, amount, coins, rating, director_comment, id]);
+        
+        const result = await pool.query(
+            `UPDATE fines SET status = COALESCE($1, status), amount = COALESCE($2, amount), coins = COALESCE($3, coins), rating = COALESCE($4, rating), director_comment = COALESCE($5, director_comment), updated_at = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *`,
+            [status, amount, coins, rating, director_comment, id]
+        );
         const updatedFine = result.rows[0];
+        
         if (status === 'approved' && oldFine.status !== 'approved') {
-            if (updatedFine.amount > 0) { await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [updatedFine.amount]); }
-            if (updatedFine.coins > 0) { await pool.query('UPDATE employees SET coins = GREATEST(coins - $1, 0) WHERE name = $2', [updatedFine.coins, oldFine.employee]); }
-            if (updatedFine.rating !== 0) { await pool.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [updatedFine.rating, oldFine.employee]); }
+            if (updatedFine.amount > 0) { 
+                await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [updatedFine.amount]); 
+            }
+            if (updatedFine.coins > 0) { 
+                await pool.query('UPDATE employees SET coins = GREATEST(coins - $1, 0) WHERE name = $2', [updatedFine.coins, oldFine.employee]); 
+            }
+            if (updatedFine.rating !== 0) { 
+                await pool.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [updatedFine.rating, oldFine.employee]); 
+            }
+            
             const pusherInstance = app.get('pusher');
-            if (pusherInstance) { pusherInstance.trigger(`private-user-${transliterate(oldFine.employee)}`, 'personal-notification', { type: 'fine_approved', icon: '⚠️', title: 'Штраф подтверждён', text: `Вам назначен штраф: ${oldFine.description || 'Нарушение'}`, time: Date.now() }); }
-            try { await sendGlobalNotification('fine_approved', { employee: oldFine.employee, reason: oldFine.description || 'Нарушение' }); } catch (err) {}
+            if (pusherInstance) { 
+                pusherInstance.trigger(`private-user-${transliterate(oldFine.employee)}`, 'personal-notification', { type: 'fine_approved', icon: '⚠️', title: 'Штраф подтверждён', text: `Вам назначен штраф: ${oldFine.description || 'Нарушение'}`, time: Date.now() }); 
+            }
+            try { 
+                await sendGlobalNotification('fine_approved', { employee: oldFine.employee, reason: oldFine.description || 'Нарушение' }); 
+            } catch (err) {}
         }
         res.json({ success: true, fine: updatedFine });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.delete('/api/fines/:id', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    try { await pool.query('DELETE FROM fines WHERE id = $1', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID штрафа' });
+    
+    try { 
+        await pool.query('DELETE FROM fines WHERE id = $1', [id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ============================================
@@ -723,35 +996,89 @@ app.delete('/api/fines/:id', authMiddleware, async (req, res) => {
 // ============================================
 
 app.get('/api/schedule', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT id, date::text as date, employee, shift_time, shift_status, is_special, special_end_time, shift_paid FROM schedule ORDER BY date DESC, employee`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query(`SELECT id, date::text as date, employee, shift_time, shift_status, is_special, special_end_time, shift_paid FROM schedule ORDER BY date DESC, employee`); 
+        res.json(result.rows); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/schedule/shift', authMiddleware, async (req, res) => {
     const { date, employee, shift_time, shift_status, is_special, special_end_time } = req.body;
-    const currentUserRole = req.user.role; const currentUserName = req.user.username;
-    if (currentUserRole !== 'director' && currentUserRole !== 'manager' && employee !== currentUserName) return res.status(403).json({ error: 'Нет прав' });
+    const currentUserRole = req.user.role; 
+    const currentUserName = req.user.username;
+    
+    if (currentUserRole !== 'director' && currentUserRole !== 'manager' && employee !== currentUserName) {
+        return res.status(403).json({ error: 'Нет прав' });
+    }
+    
     try {
         const dateForDb = formatDateToYMD(date);
         const existing = await pool.query('SELECT id FROM schedule WHERE date = $1::date AND employee = $2', [dateForDb, employee]);
         let result;
         if (existing.rows.length > 0) {
-            result = await pool.query(`UPDATE schedule SET shift_time = $1, shift_status = $2, is_special = $3, special_end_time = $4, shift_paid = false, updated_at = CURRENT_TIMESTAMP WHERE date = $5::date AND employee = $6 RETURNING *`, [shift_time || null, shift_status || 'working', is_special || false, special_end_time || null, dateForDb, employee]);
+            result = await pool.query(
+                `UPDATE schedule SET shift_time = $1, shift_status = $2, is_special = $3, special_end_time = $4, shift_paid = false, updated_at = CURRENT_TIMESTAMP WHERE date = $5::date AND employee = $6 RETURNING *`,
+                [shift_time || null, shift_status || 'working', is_special || false, special_end_time || null, dateForDb, employee]
+            );
         } else {
-            result = await pool.query(`INSERT INTO schedule (date, employee, shift_time, shift_status, is_special, special_end_time) VALUES ($1::date, $2, $3, $4, $5, $6) RETURNING *`, [dateForDb, employee, shift_time || null, shift_status || 'working', is_special || false, special_end_time || null]);
+            result = await pool.query(
+                `INSERT INTO schedule (date, employee, shift_time, shift_status, is_special, special_end_time) VALUES ($1::date, $2, $3, $4, $5, $6) RETURNING *`,
+                [dateForDb, employee, shift_time || null, shift_status || 'working', is_special || false, special_end_time || null]
+            );
         }
         const pusherInstance = app.get('pusher');
-        if (pusherInstance) { pusherInstance.trigger('private-warpoint-sync', 'schedule-updated', { date, employee, shift_time, shift_status, timestamp: Date.now() }); }
+        if (pusherInstance) { 
+            pusherInstance.trigger('private-warpoint-sync', 'schedule-updated', { date, employee, shift_time, shift_status, timestamp: Date.now() }); 
+        }
         res.json({ success: true, data: result.rows[0] });
+        
         const empRes = await pool.query('SELECT id FROM employees WHERE name = $1', [employee]);
-        if (empRes.rows.length > 0) { await checkAndGrantAchievements(empRes.rows[0].id, employee); }
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        if (empRes.rows.length > 0) { 
+            await checkAndGrantAchievements(empRes.rows[0].id, employee); 
+        }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.delete('/api/schedule/shift', authMiddleware, async (req, res) => {
     const { date, employee } = req.body;
-    const currentUserRole = req.user.role; const currentUserName = req.user.username;
-    if (currentUserRole !== 'director' && currentUserRole !== 'manager' && employee !== currentUserName) return res.status(403).json({ error: 'Нет прав' });
-    try { await pool.query('DELETE FROM schedule WHERE date = $1::date AND employee = $2', [date, employee]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const currentUserRole = req.user.role; 
+    const currentUserName = req.user.username;
+    
+    if (currentUserRole !== 'director' && currentUserRole !== 'manager' && employee !== currentUserName) {
+        return res.status(403).json({ error: 'Нет прав' });
+    }
+    try { 
+        await pool.query('DELETE FROM schedule WHERE date = $1::date AND employee = $2', [date, employee]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.get('/api/schedule/special-cases', authMiddleware, async (req, res) => {
+    try { 
+        const result = await pool.query(`SELECT date, cases FROM schedule_special_cases`); 
+        const data = {}; 
+        result.rows.forEach(row => { data[row.date] = row.cases; }); 
+        res.json({ success: true, data }); 
+    } catch (err) { 
+        res.json({ success: true, data: {} }); 
+    }
+});
+
+app.post('/api/schedule/special-cases', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    const { date, cases } = req.body;
+    try { 
+        await pool.query(`INSERT INTO schedule_special_cases (date, cases, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (date) DO UPDATE SET cases = EXCLUDED.cases, updated_at = CURRENT_TIMESTAMP`, [date, cases]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ============================================
@@ -759,18 +1086,81 @@ app.delete('/api/schedule/shift', authMiddleware, async (req, res) => {
 // ============================================
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT e.name, COUNT(ua.achievement_id) as achievements_count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id GROUP BY e.id, e.name`); const counts = {}; result.rows.forEach(row => { counts[row.name] = parseInt(row.achievements_count) || 0; }); res.json({ success: true, counts }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query(`SELECT e.name, COUNT(ua.achievement_id) as achievements_count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id GROUP BY e.id, e.name`); 
+        const counts = {}; 
+        result.rows.forEach(row => { counts[row.name] = parseInt(row.achievements_count) || 0; }); 
+        res.json({ success: true, counts }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/employees', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
     const { name, role, password, birthday, phone } = req.body;
-    try { await pool.query(`INSERT INTO employees (name, role, birthday, phone, bonus_streak) VALUES ($1, $2, $3, $4, 1)`, [name, role || 'operator', birthday || null, phone || null]); await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); try { await sendGlobalNotification('new_employee', { name }); } catch (err) {} res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    
+    if (!name || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
+    
+    try { 
+        await pool.query(`INSERT INTO employees (name, role, birthday, phone, bonus_streak) VALUES ($1, $2, $3, $4, 1)`, [name, role || 'operator', birthday || null, phone || null]); 
+        await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); 
+        try { await sendGlobalNotification('new_employee', { name }); } catch (err) {} 
+        res.json({ success: true }); 
+    } catch (err) { 
+        if (err.code === '23505') return res.status(400).json({ error: 'Сотрудник с таким именем уже существует' });
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.put('/api/profiles/:name', authMiddleware, async (req, res) => {
-    const { name } = req.params; const updates = req.body;
-    try { const allowedFields = ['avatar', 'avatar_url', 'status', 'phone', 'birthday', 'name', 'active_status']; const filteredUpdates = {}; for (const key of allowedFields) { if (updates[key] !== undefined) filteredUpdates[key] = updates[key]; } if (Object.keys(filteredUpdates).length === 0) return res.json({ success: true }); const setClause = Object.keys(filteredUpdates).map((key, i) => `${key} = $${i + 2}`).join(', '); await pool.query(`UPDATE employees SET ${setClause} WHERE name = $1`, [name, ...Object.values(filteredUpdates)]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { name } = req.params; 
+    const updates = req.body;
+    try { 
+        const allowedFields = ['avatar', 'avatar_url', 'status', 'phone', 'birthday', 'name', 'active_status']; 
+        const filteredUpdates = {}; 
+        for (const key of allowedFields) { if (updates[key] !== undefined) filteredUpdates[key] = updates[key]; } 
+        if (Object.keys(filteredUpdates).length === 0) return res.json({ success: true }); 
+        const setClause = Object.keys(filteredUpdates).map((key, i) => `${key} = $${i + 2}`).join(', '); 
+        await pool.query(`UPDATE employees SET ${setClause} WHERE name = $1`, [name, ...Object.values(filteredUpdates)]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
+    if (req.params.name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        await client.query('DELETE FROM employees WHERE name = $1', [req.params.name]);
+        await client.query('DELETE FROM passwords WHERE username = $1', [req.params.name]);
+        await client.query('COMMIT');
+        res.json({ success: true }); 
+    } catch (err) { 
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message }); 
+    } finally {
+        client.release();
+    }
+});
+
+app.put('/api/employees/:name/role', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    const { name } = req.params; 
+    const { role } = req.body;
+    try { 
+        const empRes = await pool.query('SELECT role FROM employees WHERE name = $1', [name]); 
+        if (empRes.rows.length === 0) return res.status(404).json({ error: 'Сотрудник не найден' }); 
+        if (empRes.rows[0].role === 'director') return res.status(403).json({ error: 'Нельзя изменить роль директора' }); 
+        await pool.query('UPDATE employees SET role = $1 WHERE name = $2', [role, name]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ============================================
@@ -779,22 +1169,74 @@ app.put('/api/profiles/:name', authMiddleware, async (req, res) => {
 
 app.post('/api/chat', authMiddleware, async (req, res) => {
     const { room, message } = req.body;
-    try { await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', [room, message.sender, message.text, Date.now()]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (!message || !message.text || message.text.length > 2000) {
+        return res.status(400).json({ error: 'Сообщение не может быть пустым или длиннее 2000 символов' });
+    }
+    try { 
+        await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', [room, message.sender, message.text, Date.now()]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.post('/api/chat/private', authMiddleware, async (req, res) => {
+    const { to, message } = req.body;
+    if (!message || !message.text || message.text.length > 2000) {
+        return res.status(400).json({ error: 'Сообщение не может быть пустым или длиннее 2000 символов' });
+    }
+    try { 
+        await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', [to, message.sender, message.text, Date.now()]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.post('/api/chat/announcement', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Только директор или управляющий' });
+    }
+    const { announcement } = req.body;
+    if (!announcement || !announcement.text || announcement.text.length > 1000) {
+        return res.status(400).json({ error: 'Текст объявления не может быть пустым или длиннее 1000 символов' });
+    }
+    try { 
+        await pool.query('INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4)', ['general', announcement.sender, JSON.stringify(announcement), Date.now()]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/chat/delete', authMiddleware, async (req, res) => {
     const { room, messageTime } = req.body;
-    try { await pool.query('DELETE FROM messages WHERE room = $1 AND time = $2', [room, messageTime]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        await pool.query('DELETE FROM messages WHERE room = $1 AND time = $2', [room, messageTime]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/chat/delete-bulk', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
     const { room, timeThreshold } = req.body;
-    try { const result = await pool.query('DELETE FROM messages WHERE room = $1 AND time < $2', [room, timeThreshold]); res.json({ success: true, deletedCount: result.rowCount }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query('DELETE FROM messages WHERE room = $1 AND time < $2', [room, timeThreshold]); 
+        res.json({ success: true, deletedCount: result.rowCount }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/chat/history/:room', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT * FROM messages WHERE room = $1 ORDER BY time ASC LIMIT 500', [req.params.room]); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query('SELECT * FROM messages WHERE room = $1 ORDER BY time ASC LIMIT 500', [req.params.room]); 
+        res.json(result.rows); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ============================================
@@ -803,14 +1245,48 @@ app.get('/api/chat/history/:room', authMiddleware, async (req, res) => {
 
 app.post('/api/gifts', authMiddleware, async (req, res) => {
     const { recipient, giftId, price, ratingChange, sender, quantity } = req.body;
+    const totalCost = price * (quantity || 1);
+    
+    const client = await pool.connect();
     try {
-        const totalCost = price * (quantity || 1);
-        if (sender !== '🕵️ Аноним') { const senderResult = await pool.query('SELECT id, coins FROM employees WHERE name = $1', [sender]); if (senderResult.rows.length > 0 && senderResult.rows[0].coins >= totalCost) { await pool.query('UPDATE employees SET coins = coins - $1 WHERE name = $2', [totalCost, sender]); } }
-        await pool.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [ratingChange * (quantity || 1), recipient]);
-        await pool.query(`INSERT INTO stickers (employee, gift_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (employee, gift_id) DO UPDATE SET quantity = stickers.quantity + $3`, [recipient, giftId, quantity || 1]);
-        try { await sendGlobalNotification('gift_sent', { sender: sender === '🕵️ Аноним' ? 'Аноним' : sender, recipient, giftName: giftId }); } catch (err) {}
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+        await client.query('BEGIN');
+        
+        if (sender !== '🕵️ Аноним') { 
+            const senderResult = await client.query('SELECT id, coins FROM employees WHERE name = $1', [sender]); 
+            if (senderResult.rows.length > 0 && senderResult.rows[0].coins >= totalCost) { 
+                const balanceBefore = senderResult.rows[0].coins;
+                const balanceAfter = balanceBefore - totalCost;
+                await client.query('UPDATE employees SET coins = coins - $1 WHERE name = $2', [totalCost, sender]); 
+                await logTransaction(senderResult.rows[0].id, 'gift_send', -totalCost, balanceBefore, balanceAfter, null, `Подарок для ${recipient}`);
+            } else {
+                await client.query('ROLLBACK');
+                return res.status(400).json({ error: 'Недостаточно монет' });
+            }
+        }
+        
+        const recipientResult = await client.query('SELECT id, coins FROM employees WHERE name = $1', [recipient]);
+        if (recipientResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Получатель не найден' });
+        }
+        
+        await client.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [ratingChange * (quantity || 1), recipient]);
+        await client.query(`INSERT INTO stickers (employee, gift_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (employee, gift_id) DO UPDATE SET quantity = stickers.quantity + $3`, [recipient, giftId, quantity || 1]);
+        
+        await client.query('COMMIT');
+        
+        try { 
+            await sendGlobalNotification('gift_sent', { sender: sender === '🕵️ Аноним' ? 'Аноним' : sender, recipient, giftName: giftId }); 
+        } catch (err) {}
+        
+        const achievementResult = await checkAndGrantAchievements(recipientResult.rows[0].id, recipient);
+        res.json({ success: true, newAchievements: achievementResult.achievements }); 
+    } catch (err) { 
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message }); 
+    } finally {
+        client.release();
+    }
 });
 
 // ============================================
@@ -839,18 +1315,68 @@ app.get('/api/weather', async (req, res) => {
 // ============================================
 
 app.get('/api/achievements', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT * FROM achievements ORDER BY sort_order'); const userAchievements = await pool.query('SELECT achievement_id FROM user_achievements WHERE user_id = $1', [req.user.id]); const pendingAchievements = await pool.query('SELECT achievement_id FROM pending_achievements WHERE user_id = $1', [req.user.id]); const unlockedIds = new Set(userAchievements.rows.map(r => r.achievement_id)); const pendingIds = new Set(pendingAchievements.rows.map(r => r.achievement_id)); const achievements = result.rows.map(ach => ({ ...ach, unlocked: unlockedIds.has(ach.id), pending: pendingIds.has(ach.id) })); res.json({ success: true, achievements }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query('SELECT * FROM achievements ORDER BY sort_order'); 
+        const userAchievements = await pool.query('SELECT achievement_id FROM user_achievements WHERE user_id = $1', [req.user.id]); 
+        const pendingAchievements = await pool.query('SELECT achievement_id FROM pending_achievements WHERE user_id = $1', [req.user.id]); 
+        const unlockedIds = new Set(userAchievements.rows.map(r => r.achievement_id)); 
+        const pendingIds = new Set(pendingAchievements.rows.map(r => r.achievement_id)); 
+        const achievements = result.rows.map(ach => ({ ...ach, unlocked: unlockedIds.has(ach.id), pending: pendingIds.has(ach.id) })); 
+        res.json({ success: true, achievements }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/achievements/claim', authMiddleware, async (req, res) => {
-    const { achievementId } = req.body; const userId = req.user.id;
-    try { const ach = await pool.query('SELECT * FROM achievements WHERE id = $1', [achievementId]); if (ach.rows.length === 0) return res.status(404).json({ error: 'Достижение не найдено' }); await pool.query('UPDATE employees SET coins = coins + $1 WHERE id = $2', [ach.rows[0].coins_reward, userId]); await pool.query('DELETE FROM pending_achievements WHERE user_id = $1 AND achievement_id = $2', [userId, achievementId]); await pool.query('INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)', [userId, achievementId]); res.json({ success: true, coins: ach.rows[0].coins_reward }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { achievementId } = req.body; 
+    const userId = req.user.id;
+    
+    if (!achievementId) return res.status(400).json({ error: 'ID достижения обязателен' });
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const ach = await client.query('SELECT * FROM achievements WHERE id = $1', [achievementId]); 
+        if (ach.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Достижение не найдено' });
+        }
+        
+        const pending = await client.query('SELECT id FROM pending_achievements WHERE user_id = $1 AND achievement_id = $2', [userId, achievementId]);
+        if (pending.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Достижение не ожидает получения' });
+        }
+        
+        const userRes = await client.query('SELECT coins FROM employees WHERE id = $1', [userId]);
+        const balanceBefore = userRes.rows[0]?.coins || 0;
+        const balanceAfter = balanceBefore + ach.rows[0].coins_reward;
+        
+        await client.query('UPDATE employees SET coins = coins + $1 WHERE id = $2', [ach.rows[0].coins_reward, userId]);
+        await client.query('DELETE FROM pending_achievements WHERE user_id = $1 AND achievement_id = $2', [userId, achievementId]);
+        await client.query('INSERT INTO user_achievements (user_id, achievement_id) VALUES ($1, $2)', [userId, achievementId]);
+        await logTransaction(userId, 'achievement', ach.rows[0].coins_reward, balanceBefore, balanceAfter, null, `Достижение: ${ach.rows[0].name}`);
+        
+        await client.query('COMMIT');
+        res.json({ success: true, coins: ach.rows[0].coins_reward }); 
+    } catch (err) { 
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message }); 
+    } finally {
+        client.release();
+    }
 });
 
 app.post('/api/achievements/check', authMiddleware, async (req, res) => {
-    try { const result = await checkAndGrantAchievements(req.user.id, req.user.username); res.json({ success: true, newAchievements: result.achievements }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await checkAndGrantAchievements(req.user.id, req.user.username); 
+        res.json({ success: true, newAchievements: result.achievements }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
-
 // ============================================
 // PARSING API
 // ============================================
@@ -859,23 +1385,54 @@ const { BookingParser } = require('./parsing-booking.js');
 
 app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
     const dataPath = path.join(__dirname, 'data', 'booking-availability.json');
-    try { if (fs.existsSync(dataPath)) { res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8'))); } else { res.json({ success: false, error: 'Нет данных' }); } } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        if (fs.existsSync(dataPath)) { 
+            res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8'))); 
+        } else { 
+            res.json({ success: false, error: 'Нет данных' }); 
+        } 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/parsing/progress', authMiddleware, async (req, res) => {
     const progressPath = path.join(__dirname, 'data', 'parsing-progress.json');
-    try { if (fs.existsSync(progressPath)) { res.json(JSON.parse(fs.readFileSync(progressPath, 'utf8'))); } else { res.json({ step: 0, percent: 0, message: 'Ожидание запуска' }); } } catch (err) { res.json({ step: 0, percent: 0, message: 'Ошибка' }); }
+    try { 
+        if (fs.existsSync(progressPath)) { 
+            res.json(JSON.parse(fs.readFileSync(progressPath, 'utf8'))); 
+        } else { 
+            res.json({ step: 0, percent: 0, message: 'Ожидание запуска' }); 
+        } 
+    } catch (err) { 
+        res.json({ step: 0, percent: 0, message: 'Ошибка' }); 
+    }
 });
 
 app.post('/api/parsing/run', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
-    try { const parser = new BookingParser(); const result = await parser.parseAvailability(); res.json(result); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    try { 
+        const parser = new BookingParser(); 
+        const result = await parser.parseAvailability(); 
+        res.json(result); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/parsing/reset', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
     const progressPath = path.join(__dirname, 'data', 'parsing-progress.json');
-    try { if (fs.existsSync(progressPath)) fs.unlinkSync(progressPath); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        if (fs.existsSync(progressPath)) fs.unlinkSync(progressPath); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 // ============================================
@@ -883,77 +1440,221 @@ app.post('/api/parsing/reset', authMiddleware, async (req, res) => {
 // ============================================
 
 app.post('/api/pusher/auth', (req, res) => {
-    const socketId = req.body.socket_id; const channel = req.body.channel_name;
-    const token = req.headers['authorization']?.split(' ')[1]; let user = null;
-    if (token) { try { user = jwt.verify(token, JWT_SECRET); } catch(err) {} }
+    const socketId = req.body.socket_id; 
+    const channel = req.body.channel_name;
+    const token = req.headers['authorization']?.split(' ')[1]; 
+    let user = null;
+    if (token) { 
+        try { 
+            user = jwt.verify(token, JWT_SECRET); 
+        } catch(err) {} 
+    }
     if (!user) user = { username: 'guest', role: 'guest', id: 0 };
+    
     try {
         if (!channel.startsWith('private-')) return res.send(pusher.authorizeChannel(socketId, channel));
-        if (channel === 'private-warpoint-sync') { return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); }
-        if (channel.startsWith('private-user-')) { const targetUser = channel.replace('private-user-', ''); const currentUserTranslit = transliterate(user.username); if (currentUserTranslit === targetUser || user.role === 'director') { return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); } else { return res.status(403).json({ error: 'Forbidden' }); } }
+        if (channel === 'private-warpoint-sync') { 
+            return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); 
+        }
+        if (channel.startsWith('private-user-')) { 
+            const targetUser = channel.replace('private-user-', ''); 
+            const currentUserTranslit = transliterate(user.username); 
+            if (currentUserTranslit === targetUser || user.role === 'director') { 
+                return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); 
+            } else { 
+                return res.status(403).json({ error: 'Forbidden' }); 
+            } 
+        }
         res.send(pusher.authorizeChannel(socketId, channel));
-    } catch (err) { res.status(500).json({ error: err.message }); }
-});
-// ============================================
-// ДОПОЛНИТЕЛЬНЫЕ API
-// ============================================
-
-app.get('/api/schedule/special-cases', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT date, cases FROM schedule_special_cases`); const data = {}; result.rows.forEach(row => { data[row.date] = row.cases; }); res.json({ success: true, data }); } catch (err) { res.json({ success: true, data: {} }); }
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
-app.post('/api/schedule/special-cases', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    const { date, cases } = req.body;
-    try { await pool.query(`INSERT INTO schedule_special_cases (date, cases, updated_at) VALUES ($1, $2, CURRENT_TIMESTAMP) ON CONFLICT (date) DO UPDATE SET cases = EXCLUDED.cases, updated_at = CURRENT_TIMESTAMP`, [date, cases]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
+// ============================================
+// USER API
+// ============================================
 
 app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT last_bonus_claimed_at, bonus_streak FROM employees WHERE id = $1`, [req.user.id]); const streak = result.rows[0]?.bonus_streak || 1; const lastClaimed = result.rows[0]?.last_bonus_claimed_at; const today = getTobolskNow().toISOString().split('T')[0]; const hasClaimedToday = lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === today; res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: streak + 1 }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query(`SELECT last_bonus_claimed_at, bonus_streak FROM employees WHERE id = $1`, [req.user.id]); 
+        const streak = result.rows[0]?.bonus_streak || 1; 
+        const lastClaimed = result.rows[0]?.last_bonus_claimed_at; 
+        const today = getTobolskNow().toISOString().split('T')[0]; 
+        const hasClaimedToday = lastClaimed && new Date(lastClaimed).toISOString().split('T')[0] === today; 
+        res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: Math.min(streak + 1, 7) }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/user/claim-daily-bonus', authMiddleware, async (req, res) => {
-    try { const result = await updateLoginStreak(req.user.id, req.user.username); let newAchievements = []; if (result.claimed) { const achievementResult = await checkAndGrantAchievements(req.user.id, req.user.username); newAchievements = achievementResult.achievements; } res.json({ ...result, newAchievements }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await updateLoginStreak(req.user.id, req.user.username); 
+        let newAchievements = []; 
+        if (result.claimed) { 
+            const achievementResult = await checkAndGrantAchievements(req.user.id, req.user.username); 
+            newAchievements = achievementResult.achievements; 
+        } 
+        res.json({ ...result, newAchievements }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/transactions', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50`, [req.user.id]); res.json({ success: true, transactions: result.rows }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+        const result = await pool.query(`SELECT * FROM transactions WHERE user_id = $1 ORDER BY created_at DESC LIMIT $2`, [req.user.id, limit]); 
+        res.json({ success: true, transactions: result.rows }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/last-activity', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT name, EXTRACT(EPOCH FROM last_active) * 1000 as last_active FROM employees'); const lastActivity = {}; result.rows.forEach(row => { lastActivity[row.name] = row.last_active; }); res.json({ success: true, data: lastActivity }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const result = await pool.query('SELECT name, EXTRACT(EPOCH FROM last_active) * 1000 as last_active FROM employees'); 
+        const lastActivity = {}; 
+        result.rows.forEach(row => { lastActivity[row.name] = row.last_active; }); 
+        res.json({ success: true, data: lastActivity }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/heartbeat', authMiddleware, async (req, res) => {
-    try { await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [req.user.username]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [req.user.username]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
+// ============================================
+// STATUSES API
+// ============================================
+
 app.get('/api/statuses', authMiddleware, async (req, res) => {
-    const statuses = [{ id: 'lazy', name: '🦥 Профессиональный ленивец', icon: '🦥', price: 300, rating: 8 }];
+    const statuses = [
+        { id: 'lazy', name: '🦥 Профессиональный ленивец', icon: '🦥', price: 300, rating: 8, desc: 'Мастер откладывания' },
+        { id: 'coffee', name: '☕ Кофеман', icon: '☕', price: 200, rating: 5, desc: 'Без кофе не работает' },
+        { id: 'zombie', name: '🧟 Зомби', icon: '🧟', price: 250, rating: 6, desc: 'Работает на автопилоте' }
+    ];
     res.json({ success: true, data: statuses });
 });
 
 app.get('/api/user/statuses', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT * FROM user_statuses WHERE employee_id = $1', [req.user.id]); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); }
+    try { 
+        const result = await pool.query('SELECT * FROM user_statuses WHERE employee_id = $1', [req.user.id]); 
+        res.json({ success: true, data: result.rows }); 
+    } catch (err) { 
+        res.json({ success: true, data: [] }); 
+    }
 });
 
 app.post('/api/statuses/buy', authMiddleware, async (req, res) => {
-    const { statusId, statusName, statusIcon, price } = req.body; const userId = req.user.id;
-    try { const userResult = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]); if (userResult.rows[0]?.coins < price) return res.status(400).json({ error: 'Недостаточно монет' }); await pool.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]); await pool.query(`INSERT INTO user_statuses (employee_id, status_id, status_name, status_icon, price) VALUES ($1, $2, $3, $4, $5)`, [userId, statusId, statusName, statusIcon, price]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { statusId, statusName, statusIcon, price, rating } = req.body; 
+    const userId = req.user.id;
+    
+    if (!statusId || !statusName) return res.status(400).json({ error: 'Не указан статус' });
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const userResult = await client.query('SELECT coins FROM employees WHERE id = $1', [userId]); 
+        const currentCoins = userResult.rows[0]?.coins || 0;
+        if (currentCoins < price) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Недостаточно монет' });
+        }
+        
+        const balanceBefore = currentCoins;
+        const balanceAfter = balanceBefore - price;
+        
+        await client.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]); 
+        await logTransaction(userId, 'shop_purchase', -price, balanceBefore, balanceAfter, null, `Покупка статуса "${statusName}"`);
+        await client.query(`INSERT INTO user_statuses (employee_id, status_id, status_name, status_icon, price, rating) VALUES ($1, $2, $3, $4, $5, $6)`, [userId, statusId, statusName, statusIcon, price, rating || 0]);
+        
+        await client.query('COMMIT');
+        
+        const achievementResult = await checkAndGrantAchievements(userId, req.user.username);
+        res.json({ success: true, newAchievements: achievementResult.achievements }); 
+    } catch (err) { 
+        await client.query('ROLLBACK');
+        if (err.code === '23505') return res.status(400).json({ error: 'Статус уже куплен' });
+        res.status(500).json({ error: err.message }); 
+    } finally {
+        client.release();
+    }
 });
 
 app.post('/api/statuses/activate', authMiddleware, async (req, res) => {
-    const { statusId } = req.body; const userId = req.user.id;
-    try { await pool.query('UPDATE user_statuses SET is_active = FALSE WHERE employee_id = $1', [userId]); await pool.query('UPDATE user_statuses SET is_active = TRUE WHERE employee_id = $1 AND status_id = $2', [userId, statusId]); const status = await pool.query('SELECT status_name FROM user_statuses WHERE employee_id = $1 AND status_id = $2', [userId, statusId]); if (status.rows.length > 0) { await pool.query('UPDATE employees SET active_status = $1 WHERE id = $2', [status.rows[0].status_name, userId]); } res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { statusId } = req.body; 
+    const userId = req.user.id;
+    if (!statusId) return res.status(400).json({ error: 'Не указан статус' });
+    
+    try { 
+        await pool.query('UPDATE user_statuses SET is_active = FALSE WHERE employee_id = $1', [userId]); 
+        await pool.query('UPDATE user_statuses SET is_active = TRUE WHERE employee_id = $1 AND status_id = $2', [userId, statusId]); 
+        const status = await pool.query('SELECT status_name FROM user_statuses WHERE employee_id = $1 AND status_id = $2', [userId, statusId]); 
+        if (status.rows.length > 0) { 
+            await pool.query('UPDATE employees SET active_status = $1 WHERE id = $2', [status.rows[0].status_name, userId]); 
+        } 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
+// ============================================
+// SALARY API
+// ============================================
+
 app.get('/api/salary', authMiddleware, async (req, res) => {
-    try { const employees = await pool.query('SELECT id, name, role FROM employees WHERE role != $1', ['director']); res.json({ success: true, employees: employees.rows, dailyData: [] }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { month, year } = req.query;
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`;
+    
+    try { 
+        const employees = await pool.query('SELECT id, name, role, avatar, avatar_url FROM employees WHERE role != $1', ['director']); 
+        const dailyData = await pool.query('SELECT * FROM salary_daily_new WHERE month_year = $1', [monthYear]); 
+        res.json({ success: true, employees: employees.rows, dailyData: dailyData.rows }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.get('/api/salary/day', authMiddleware, async (req, res) => {
+    const { employee_id, day, month, year } = req.query;
+    const employeeId = parseInt(employee_id);
+    const dayNumber = parseInt(day);
+    
+    if (isNaN(employeeId) || isNaN(dayNumber)) {
+        return res.status(400).json({ error: 'Неверные параметры' });
+    }
+    
+    const monthYear = `${year}-${String(month).padStart(2, '0')}`;
+    try {
+        const result = await pool.query(
+            `SELECT oklad, event, turnover, bonus35, video, extra_motivation 
+             FROM salary_daily_new 
+             WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`,
+            [employeeId, dayNumber, monthYear]
+        );
+        res.json(result.rows[0] || { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/salary/day/save', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
     const { employee_id, day_number, month, year, oklad, event, turnover, bonus35, video, extra_motivation } = req.body;
+    
+    if (!employee_id || !day_number) return res.status(400).json({ error: 'Не указаны обязательные поля' });
+    
     const monthYear = `${year}-${String(month).padStart(2, '0')}`;
     try {
         await pool.query(
@@ -969,288 +1670,313 @@ app.post('/api/salary/day/save', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
-app.get('/api/salary/day', authMiddleware, async (req, res) => {
-    const { employee_id, day, month, year } = req.query;
-    const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-    try {
-        const result = await pool.query(
-            `SELECT oklad, event, turnover, bonus35, video, extra_motivation 
-             FROM salary_daily_new 
-             WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`,
-            [employee_id, day, monthYear]
-        );
-        res.json(result.rows[0] || { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
+
+// ============================================
+// VP API
+// ============================================
+
+app.get('/api/vp', authMiddleware, async (req, res) => {
+    const { month, year, archived } = req.query;
+    let query = `SELECT * FROM vp_bookings WHERE EXTRACT(MONTH FROM event_date) = $1 AND EXTRACT(YEAR FROM event_date) = $2`;
+    const params = [month, year];
+    
+    if (archived === 'false' || !archived) {
+        query += ` AND (is_archived = FALSE OR is_archived IS NULL)`;
+    }
+    query += ` ORDER BY event_date DESC`;
+    
+    try { 
+        const result = await pool.query(query, params); 
+        res.json(result.rows); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
     }
 });
 
-app.get('/api/vp', authMiddleware, async (req, res) => {
-    try { const result = await pool.query(`SELECT * FROM vp_bookings ORDER BY event_date DESC`); res.json(result.rows); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
 app.post('/api/vp', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
+    if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
     const { vp } = req.body;
-    try { await pool.query(`INSERT INTO vp_bookings (admin, event_date, event_time, customer_name, amount, payment_type, booking_date, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [vp.admin, vp.eventDate, vp.eventTime, vp.customerName, vp.amount, vp.paymentType, vp.bookingDate, req.user.username]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (!vp || !vp.customerName || !vp.admin || !vp.eventDate) {
+        return res.status(400).json({ error: 'Не заполнены обязательные поля' });
+    }
+    try { 
+        await pool.query(
+            `INSERT INTO vp_bookings (admin, event_date, event_time, customer_name, amount, payment_type, booking_date, created_by, photo_status, script_status) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'not_sent')`,
+            [vp.admin, vp.eventDate, vp.eventTime, vp.customerName, vp.amount, vp.paymentType, vp.bookingDate, req.user.username]
+        ); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.put('/api/vp/:id', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') return res.status(403).json({ error: 'Доступ запрещён' });
-    const { id } = req.params; const { photoStatus, scriptStatus, is_archived } = req.body;
-    try { await pool.query(`UPDATE vp_bookings SET photo_status = COALESCE($1, photo_status), script_status = COALESCE($2, script_status), is_archived = COALESCE($3, is_archived) WHERE id = $4`, [photoStatus, scriptStatus, is_archived, id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (req.user.role !== 'director' && req.user.role !== 'manager' && req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    const { photoStatus, scriptStatus, is_archived, eventDate, eventTime, customerName, admin, amount, paymentType, comment } = req.body;
+    
+    try {
+        const existing = await pool.query('SELECT * FROM vp_bookings WHERE id = $1', [id]);
+        if (existing.rows.length === 0) return res.status(404).json({ error: 'Мероприятие не найдено' });
+        
+        await pool.query(
+            `UPDATE vp_bookings SET 
+                photo_status = COALESCE($1, photo_status), 
+                script_status = COALESCE($2, script_status), 
+                is_archived = COALESCE($3, is_archived),
+                event_date = COALESCE($4, event_date),
+                event_time = COALESCE($5, event_time),
+                customer_name = COALESCE($6, customer_name),
+                admin = COALESCE($7, admin),
+                amount = COALESCE($8, amount),
+                payment_type = COALESCE($9, payment_type),
+                comment = COALESCE($10, comment),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $11`,
+            [photoStatus, scriptStatus, is_archived, eventDate, eventTime, customerName, admin, amount, paymentType, comment, id]
+        ); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.delete('/api/vp/:id', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
-    try { await pool.query('DELETE FROM vp_bookings WHERE id = $1', [req.params.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    try { 
+        await pool.query('DELETE FROM vp_bookings WHERE id = $1', [id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
+// ============================================
+// KNOWLEDGE API
+// ============================================
+
 app.get('/api/knowledge/categories', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT * FROM knowledge_categories ORDER BY name'); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); }
+    try { 
+        const result = await pool.query('SELECT * FROM knowledge_categories ORDER BY name'); 
+        res.json({ success: true, data: result.rows }); 
+    } catch (err) { 
+        res.json({ success: true, data: [] }); 
+    }
 });
 
 app.post('/api/knowledge/categories', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
     const { name, icon } = req.body;
-    try { await pool.query('INSERT INTO knowledge_categories (name, icon) VALUES ($1, $2)', [name, icon]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (!name) return res.status(400).json({ error: 'Название обязательно' });
+    
+    try { 
+        await pool.query('INSERT INTO knowledge_categories (name, icon) VALUES ($1, $2)', [name, icon || '📁']); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        if (err.code === '23505') return res.status(400).json({ error: 'Категория уже существует' });
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.put('/api/knowledge/categories/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    const { name, icon } = req.body;
+    try { 
+        await pool.query('UPDATE knowledge_categories SET name = $1, icon = $2 WHERE id = $3', [name, icon, id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.delete('/api/knowledge/categories/:id', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director' && req.user.role !== 'manager') {
+        return res.status(403).json({ error: 'Доступ запрещён' });
+    }
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    try { 
+        await pool.query('DELETE FROM knowledge_categories WHERE id = $1', [id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.get('/api/knowledge/articles', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT * FROM knowledge_articles ORDER BY created_at DESC'); res.json({ success: true, data: result.rows }); } catch (err) { res.json({ success: true, data: [] }); }
+    try { 
+        const result = await pool.query('SELECT * FROM knowledge_articles ORDER BY created_at DESC'); 
+        res.json({ success: true, data: result.rows }); 
+    } catch (err) { 
+        res.json({ success: true, data: [] }); 
+    }
 });
 
 app.post('/api/knowledge/articles', authMiddleware, async (req, res) => {
     const { category_id, title, content } = req.body;
-    try { await pool.query('INSERT INTO knowledge_articles (category_id, title, content, created_by) VALUES ($1, $2, $3, $4)', [category_id, title, content, req.user.username]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    if (!title || !category_id) return res.status(400).json({ error: 'Название и категория обязательны' });
+    
+    try { 
+        await pool.query('INSERT INTO knowledge_articles (category_id, title, content, created_by) VALUES ($1, $2, $3, $4)', [category_id, title, content, req.user.username]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.put('/api/knowledge/articles/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    const { title, content } = req.body;
+    try { 
+        await pool.query('UPDATE knowledge_articles SET title = $1, content = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3', [title, content, id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
+});
+
+app.delete('/api/knowledge/articles/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    try { 
+        await pool.query('DELETE FROM knowledge_articles WHERE id = $1', [id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/knowledge/articles/:id/view', authMiddleware, async (req, res) => {
-    const { id } = req.params; const userId = req.user.id;
-    try { await pool.query('UPDATE knowledge_articles SET views = views + 1 WHERE id = $1', [id]); await pool.query(`INSERT INTO knowledge_views (user_id, article_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/fund', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); res.json({ success: true, amount: result.rows[0]?.amount || 0 }); } catch (err) { res.json({ success: true, amount: 0 }); }
-});
-
-app.post('/api/fund/update', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    try { await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [req.body.amount || 0]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/admin/theme', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']); res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' }); } catch (err) { res.json({ success: true, theme: 'vr-portal' }); }
-});
-
-app.post('/api/admin/theme', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    try { await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [req.body.theme]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/user/apply-style', authMiddleware, async (req, res) => {
-    try { await pool.query('UPDATE employees SET dashboard_style = $1 WHERE id = $2', [req.body.style, req.user.id]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/user/buy-style', authMiddleware, async (req, res) => {
-    const { style, price } = req.body; const userId = req.user.id;
-    try { const userResult = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]); if (userResult.rows[0]?.coins < price) return res.status(400).json({ error: 'Недостаточно монет' }); await pool.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]); const styleResult = await pool.query('SELECT bought_styles FROM employees WHERE id = $1', [userId]); let boughtStyles = ['glass']; if (styleResult.rows[0]?.bought_styles) { try { boughtStyles = JSON.parse(styleResult.rows[0].bought_styles); } catch(e) {} } if (!boughtStyles.includes(style)) boughtStyles.push(style); await pool.query('UPDATE employees SET bought_styles = $1 WHERE id = $2', [JSON.stringify(boughtStyles), userId]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/admin/bonus/employee', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    const { name, coins, rating } = req.body;
-    try { await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2 WHERE name = $3', [coins || 0, rating || 0, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    if (req.params.name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
-    try { await pool.query('DELETE FROM employees WHERE name = $1', [req.params.name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put('/api/employees/:name/role', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
-    const { name } = req.params; const { role } = req.body;
-    try { const empRes = await pool.query('SELECT role FROM employees WHERE name = $1', [name]); if (empRes.rows.length === 0) return res.status(404).json({ error: 'Сотрудник не найден' }); if (empRes.rows[0].role === 'director') return res.status(403).json({ error: 'Нельзя изменить роль директора' }); await pool.query('UPDATE employees SET role = $1 WHERE name = $2', [role, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
-    try { await pool.query('DELETE FROM employees WHERE name != $1', ['Денис']); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
-    console.log('🚀 ===== ЗАПРОС НА РАВНЫЙ СТАРТ =====');
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID статьи' });
     
-    if (req.user.role !== 'director') {
-        return res.status(403).json({ error: 'Только директор' });
-    }
-    
-    const client = await pool.connect();
+    const userId = req.user.id;
     try {
-        await client.query('BEGIN');
-        
-        console.log('📋 Очистка таблиц...');
-        
-        await client.query(`DELETE FROM user_achievements`);
-        await client.query(`DELETE FROM pending_achievements`);
-        await client.query(`DELETE FROM user_statuses`);
-        await client.query(`DELETE FROM transactions`);
-        await client.query(`DELETE FROM daily_bonus_history`);
-        await client.query(`DELETE FROM shift_earnings`);
-        await client.query(`DELETE FROM stickers`);
-        await client.query(`DELETE FROM subtasks`);
-        await client.query(`DELETE FROM task_attachments`);
-        await client.query(`DELETE FROM tasks`);
-        await client.query(`DELETE FROM fine_attachments`);
-        await client.query(`DELETE FROM fines`);
-        await client.query(`DELETE FROM schedule_special_cases`);
-        await client.query(`DELETE FROM schedule`);
-        await client.query(`DELETE FROM exchange_requests`);
-        await client.query(`DELETE FROM messages`);
-        await client.query(`DELETE FROM global_notifications`);
-        
-        console.log('📋 Сброс статистики ВСЕХ сотрудников (включая директора)...');
-        
-        // 🔥 ВАЖНО: Сбрасываем монеты и рейтинг ВСЕМ сотрудникам, включая директора!
-        await client.query(`UPDATE employees SET coins = 100, rating = 0, hours = 0, bonus_streak = 1, last_bonus_claimed_at = NULL, active_status = NULL, status = '💼 Работаю'`);
-        
-        await client.query(`DELETE FROM corporate_fund`);
-        await client.query(`INSERT INTO corporate_fund (amount) VALUES (0)`);
-        
-        await client.query('COMMIT');
-        console.log('✅ Равный старт завершён');
-        
-        res.json({ success: true, message: '🚀 Равный старт! Статистика обнулена у всех сотрудников.' });
-        
+        await pool.query('UPDATE knowledge_articles SET views = views + 1 WHERE id = $1', [id]);
+        await pool.query(`INSERT INTO knowledge_views (user_id, article_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, id]);
+        res.json({ success: true });
     } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('❌ Ошибка равного старта:', err);
         res.status(500).json({ error: err.message });
-    } finally {
-        client.release();
     }
 });
 
 // ============================================
-// EXCHANGE API
+// FUND API
 // ============================================
-
-app.post('/api/exchange/create', authMiddleware, async (req, res) => {
-    const { toEmployee, toDate, toShiftTime, fromDate, fromShiftTime, comment } = req.body;
-    const fromEmployee = req.user.username;
-    if (fromEmployee === toEmployee) return res.status(400).json({ error: 'Нельзя обменяться с самим собой' });
-    const fromDateFormatted = formatDateToYMD(fromDate);
-    const toDateFormatted = formatDateToYMD(toDate);
-    const existing = await pool.query(`SELECT id FROM exchange_requests WHERE ((from_employee=$1 AND to_employee=$2) OR (from_employee=$2 AND to_employee=$1)) AND status='pending'`, [fromEmployee, toEmployee]);
-    if (existing.rows.length > 0) return res.status(400).json({ error: 'Активный запрос уже существует' });
-    const expiresAt = new Date(); expiresAt.setHours(expiresAt.getHours() + 24);
-    const result = await pool.query(`INSERT INTO exchange_requests (from_employee, to_employee, from_date, to_date, from_shift_time, to_shift_time, comment, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`, [fromEmployee, toEmployee, fromDateFormatted, toDateFormatted, fromShiftTime, toShiftTime, comment, expiresAt]);
-    res.json({ success: true, requestId: result.rows[0].id });
-});
-
-app.get('/api/exchange/pending', authMiddleware, async (req, res) => {
-    try { const r = await pool.query(`SELECT *, from_date::text as fd, to_date::text as td FROM exchange_requests WHERE to_employee=$1 AND status='pending' ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: r.rows.map(x => ({ ...x, from_date: x.fd, to_date: x.td })) }); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.get('/api/exchange/my', authMiddleware, async (req, res) => {
-    try { const r = await pool.query(`SELECT *, from_date::text as fd, to_date::text as td FROM exchange_requests WHERE from_employee=$1 ORDER BY created_at DESC`, [req.user.username]); res.json({ success: true, requests: r.rows.map(x => ({ ...x, from_date: x.fd, to_date: x.td })) }); } catch (e) { res.status(500).json({ error: e.message }); }
-});
-
-app.post('/api/exchange/accept/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params; const u = req.user.username;
-    const r = await pool.query(`SELECT * FROM exchange_requests WHERE id=$1 AND status='pending'`, [id]);
-    if (r.rows.length === 0) return res.status(404).json({ error: 'Запрос не найден' });
-    const d = r.rows[0]; if (d.to_employee !== u) return res.status(403).json({ error: 'Не ваш запрос' });
-    await pool.query(`UPDATE schedule SET employee=$1 WHERE date=$2 AND employee=$3`, [d.from_employee, d.to_date, d.to_employee]);
-    await pool.query(`UPDATE schedule SET employee=$1 WHERE date=$2 AND employee=$3`, [d.to_employee, d.from_date, d.from_employee]);
-    await pool.query(`UPDATE exchange_requests SET status='accepted' WHERE id=$1`, [id]);
-    res.json({ success: true });
-});
-
-app.post('/api/exchange/reject/:id', authMiddleware, async (req, res) => {
-    await pool.query(`UPDATE exchange_requests SET status='rejected' WHERE id=$1 AND to_employee=$2`, [req.params.id, req.user.username]);
-    res.json({ success: true });
-});
-
-app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => {
-    await pool.query(`UPDATE exchange_requests SET status='cancelled' WHERE id=$1 AND from_employee=$2`, [req.params.id, req.user.username]);
-    res.json({ success: true });
-});
-// ============================================
-// ADMIN API
-// ============================================
-
-app.get('/api/admin/theme', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']); res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' }); } catch (err) { res.json({ success: true, theme: 'vr-portal' }); }
-});
-
-app.post('/api/admin/theme', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    try { await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [req.body.theme]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
 
 app.get('/api/fund', authMiddleware, async (req, res) => {
-    try { const result = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); res.json({ success: true, amount: result.rows[0]?.amount || 0 }); } catch (err) { res.json({ success: true, amount: 0 }); }
+    try { 
+        const result = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); 
+        res.json({ success: true, amount: result.rows[0]?.amount || 0 }); 
+    } catch (err) { 
+        res.json({ success: true, amount: 0 }); 
+    }
 });
 
 app.post('/api/fund/update', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    try { await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [req.body.amount || 0]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { amount, reset } = req.body;
+    try { 
+        if (reset) {
+            await pool.query('INSERT INTO corporate_fund (amount) VALUES (0)');
+        } else {
+            const newAmount = amount !== undefined ? amount : 0;
+            await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [newAmount]);
+        }
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/fund/add', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
     const { sum } = req.body;
-    try { const current = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); const newAmount = (current.rows[0]?.amount || 0) + sum; await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [newAmount]); res.json({ success: true, amount: newAmount }); } catch (err) { res.status(500).json({ error: err.message }); }
+    try { 
+        const current = await pool.query('SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1'); 
+        const newAmount = (current.rows[0]?.amount || 0) + sum; 
+        await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [newAmount]); 
+        res.json({ success: true, amount: newAmount }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
-app.post('/api/employees', authMiddleware, async (req, res) => {
+// ============================================
+// ADMIN API
+// ============================================
+
+app.get('/api/admin/theme', authMiddleware, async (req, res) => {
+    try { 
+        const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']); 
+        res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' }); 
+    } catch (err) { 
+        res.json({ success: true, theme: 'vr-portal' }); 
+    }
+});
+
+app.post('/api/admin/theme', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    const { name, role, password, birthday, phone } = req.body;
-    try { await pool.query(`INSERT INTO employees (name, role, birthday, phone, bonus_streak) VALUES ($1, $2, $3, $4, 1)`, [name, role || 'operator', birthday || null, phone || null]); await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); try { await sendGlobalNotification('new_employee', { name }); } catch (err) {} res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    if (req.params.name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
-    try { await pool.query('DELETE FROM employees WHERE name = $1', [req.params.name]); await pool.query('DELETE FROM passwords WHERE username = $1', [req.params.name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.put('/api/employees/:name/role', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
-    const { name } = req.params; const { role } = req.body;
-    try { const empRes = await pool.query('SELECT role FROM employees WHERE name = $1', [name]); if (empRes.rows.length === 0) return res.status(404).json({ error: 'Сотрудник не найден' }); if (empRes.rows[0].role === 'director') return res.status(403).json({ error: 'Нельзя изменить роль директора' }); await pool.query('UPDATE employees SET role = $1 WHERE name = $2', [role, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    const { theme } = req.body;
+    const validThemes = ['vr-portal', 'hacker', 'glitch', 'explosion', 'depth', 'charge'];
+    if (!validThemes.includes(theme)) return res.status(400).json({ error: 'Неверное название темы' });
+    
+    try { 
+        await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value`, [theme]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/admin/bonus/employee', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
     const { name, coins, rating } = req.body;
-    try { await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2 WHERE name = $3', [coins || 0, rating || 0, name]); res.json({ success: true }); } catch (err) { res.status(500).json({ error: err.message }); }
+    
+    if (coins < 0) return res.status(400).json({ error: 'Сумма монет не может быть отрицательной' });
+    
+    try { 
+        await pool.query('UPDATE employees SET coins = coins + $1, rating = rating + $2 WHERE name = $3', [coins || 0, rating || 0, name]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
+    }
 });
 
 app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
-    console.log('🧹 ===== ЗАПРОС НА ПОЛНЫЙ СБРОС ДАННЫХ =====');
-    
-    if (req.user.role !== 'director') {
-        return res.status(403).json({ error: 'Только директор' });
-    }
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
     
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
         
-        // Получаем директора
         const directorRes = await client.query(`SELECT id, name FROM employees WHERE role = 'director' LIMIT 1`);
-        if (directorRes.rows.length === 0) {
-            throw new Error('Директор не найден!');
-        }
+        if (directorRes.rows.length === 0) throw new Error('Директор не найден!');
         const directorId = directorRes.rows[0].id;
         const directorName = directorRes.rows[0].name;
-        console.log(`👑 Директор: ${directorName} (ID: ${directorId})`);
-        
-        console.log('📋 1. Очистка зависимых таблиц...');
         
         await client.query(`DELETE FROM user_achievements`);
         await client.query(`DELETE FROM pending_achievements`);
@@ -1271,117 +1997,259 @@ app.post('/api/admin/reset-all', authMiddleware, async (req, res) => {
         await client.query(`DELETE FROM messages`);
         await client.query(`DELETE FROM global_notifications`);
         
-        console.log('📋 2. Удаление сотрудников (кроме директора)...');
-        
         await client.query(`DELETE FROM employees WHERE id != $1`, [directorId]);
         await client.query(`DELETE FROM passwords WHERE username != $1`, [directorName]);
-        
-        console.log('📋 3. Очистка оставшихся таблиц...');
         
         await client.query(`DELETE FROM vp_bookings`);
         await client.query(`DELETE FROM salary_daily_new`);
         await client.query(`DELETE FROM knowledge_articles`);
         await client.query(`DELETE FROM knowledge_categories`);
         
-        console.log('📋 4. Сброс статистики директора и фонда...');
-        
-        // 🔥 ВАЖНО: Сбрасываем монеты и рейтинг директора!
         await client.query(`UPDATE employees SET coins = 100, rating = 0, hours = 0, bonus_streak = 1, last_bonus_claimed_at = NULL, active_status = NULL, status = '💼 Работаю' WHERE id = $1`, [directorId]);
         
         await client.query(`DELETE FROM corporate_fund`);
         await client.query(`INSERT INTO corporate_fund (amount) VALUES (0)`);
         
         await client.query('COMMIT');
-        console.log('✅ Полный сброс завершён');
-        
         res.json({ success: true, message: '✅ Все данные сброшены. Чистый лист!' });
-        
     } catch (err) {
         await client.query('ROLLBACK');
-        console.error('❌ Ошибка сброса:', err);
         res.status(500).json({ error: err.message });
     } finally {
         client.release();
     }
 });
-// ============================================
-// ГЛОБАЛЬНАЯ ТЕМА API
-// ============================================
 
-app.get('/api/admin/theme', authMiddleware, async (req, res) => {
+app.post('/api/admin/equal-start', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') return res.status(403).json({ error: 'Только директор' });
+    
+    const client = await pool.connect();
     try {
-        const result = await pool.query('SELECT setting_value FROM system_settings WHERE setting_key = $1', ['global_theme']);
-        let theme = 'vr-portal';
-        if (result.rows.length > 0 && result.rows[0].setting_value) {
-            theme = result.rows[0].setting_value;
-        }
-        res.json({ success: true, theme: theme });
+        await client.query('BEGIN');
+        
+        await client.query(`DELETE FROM user_achievements`);
+        await client.query(`DELETE FROM pending_achievements`);
+        await client.query(`DELETE FROM user_statuses`);
+        await client.query(`DELETE FROM transactions`);
+        await client.query(`DELETE FROM daily_bonus_history`);
+        await client.query(`DELETE FROM shift_earnings`);
+        await client.query(`DELETE FROM stickers`);
+        await client.query(`DELETE FROM subtasks`);
+        await client.query(`DELETE FROM task_attachments`);
+        await client.query(`DELETE FROM tasks`);
+        await client.query(`DELETE FROM fine_attachments`);
+        await client.query(`DELETE FROM fines`);
+        await client.query(`DELETE FROM schedule_special_cases`);
+        await client.query(`DELETE FROM schedule`);
+        await client.query(`DELETE FROM exchange_requests`);
+        await client.query(`DELETE FROM messages`);
+        await client.query(`DELETE FROM global_notifications`);
+        await client.query(`DELETE FROM vp_bookings`);
+        await client.query(`DELETE FROM salary_daily_new`);
+        
+        await client.query(`UPDATE employees SET coins = 100, rating = 0, hours = 0, bonus_streak = 1, last_bonus_claimed_at = NULL, active_status = NULL, status = '💼 Работаю'`);
+        
+        await client.query(`DELETE FROM corporate_fund`);
+        await client.query(`INSERT INTO corporate_fund (amount) VALUES (0)`);
+        
+        await client.query('COMMIT');
+        res.json({ success: true, message: '🚀 Равный старт! Статистика обнулена у всех сотрудников.' });
     } catch (err) {
-        res.json({ success: true, theme: 'vr-portal' });
-    }
-});
-
-app.post('/api/admin/theme', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
-    const { theme } = req.body;
-    const validThemes = ['vr-portal', 'hacker', 'glitch', 'explosion', 'depth', 'charge'];
-    if (!validThemes.includes(theme)) return res.status(400).json({ error: 'Неверное название темы' });
-    try {
-        await pool.query(`INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = CURRENT_TIMESTAMP`, [theme]);
-        res.json({ success: true, theme: theme });
-    } catch (err) {
+        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
+
 // ============================================
-// USER STYLES API (ДАШБОРД)
+// USER STYLES API
 // ============================================
 
 app.post('/api/user/apply-style', authMiddleware, async (req, res) => {
     const { style } = req.body;
-    const userId = req.user.id;
-    try {
-        await pool.query('UPDATE employees SET dashboard_style = $1 WHERE id = $2', [style, userId]);
-        res.json({ success: true, style: style });
-    } catch (err) {
-        res.json({ success: true, style: style });
+    try { 
+        await pool.query('UPDATE employees SET dashboard_style = $1 WHERE id = $2', [style, req.user.id]); 
+        res.json({ success: true }); 
+    } catch (err) { 
+        res.status(500).json({ error: err.message }); 
     }
 });
 
 app.post('/api/user/buy-style', authMiddleware, async (req, res) => {
-    const { style, price } = req.body;
+    const { style, price } = req.body; 
     const userId = req.user.id;
+    
+    const client = await pool.connect();
     try {
-        const userResult = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]);
+        await client.query('BEGIN');
+        
+        const userResult = await client.query('SELECT coins FROM employees WHERE id = $1', [userId]);
         const currentCoins = userResult.rows[0]?.coins || 0;
-        if (currentCoins < price) return res.status(400).json({ error: 'Недостаточно монет' });
+        if (currentCoins < price) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: 'Недостаточно монет' });
+        }
         
         const balanceBefore = currentCoins;
         const balanceAfter = balanceBefore - price;
         
-        await pool.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]);
+        await client.query('UPDATE employees SET coins = coins - $1 WHERE id = $2', [price, userId]);
         await logTransaction(userId, 'shop_purchase', -price, balanceBefore, balanceAfter, null, `Покупка стиля "${style}"`);
         
         let boughtStyles = ['glass'];
-        const styleResult = await pool.query('SELECT bought_styles FROM employees WHERE id = $1', [userId]);
+        const styleResult = await client.query('SELECT bought_styles FROM employees WHERE id = $1', [userId]);
         if (styleResult.rows[0]?.bought_styles) {
             try { boughtStyles = JSON.parse(styleResult.rows[0].bought_styles); } catch(e) {}
         }
         if (!boughtStyles.includes(style)) boughtStyles.push(style);
-        await pool.query('UPDATE employees SET bought_styles = $1 WHERE id = $2', [JSON.stringify(boughtStyles), userId]);
+        await client.query('UPDATE employees SET bought_styles = $1 WHERE id = $2', [JSON.stringify(boughtStyles), userId]);
+        
+        await client.query('COMMIT');
         
         const achievementResult = await checkAndGrantAchievements(userId, req.user.username);
-        
-        res.json({ 
-            success: true, 
-            boughtStyles: boughtStyles, 
-            remainingCoins: balanceAfter,
-            newAchievements: achievementResult.achievements
-        });
+        res.json({ success: true, boughtStyles, remainingCoins: balanceAfter, newAchievements: achievementResult.achievements });
     } catch (err) {
+        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
     }
 });
+
+// ============================================
+// EXCHANGE API
+// ============================================
+
+app.post('/api/exchange/create', authMiddleware, async (req, res) => {
+    const { toEmployee, toDate, toShiftTime, fromDate, fromShiftTime, comment } = req.body;
+    const fromEmployee = req.user.username;
+    
+    if (fromEmployee === toEmployee) return res.status(400).json({ error: 'Нельзя обменяться с самим собой' });
+    
+    const fromDateFormatted = formatDateToYMD(fromDate);
+    const toDateFormatted = formatDateToYMD(toDate);
+    
+    const existing = await pool.query(
+        `SELECT id FROM exchange_requests WHERE ((from_employee=$1 AND to_employee=$2) OR (from_employee=$2 AND to_employee=$1)) AND status='pending'`,
+        [fromEmployee, toEmployee]
+    );
+    if (existing.rows.length > 0) return res.status(400).json({ error: 'Активный запрос уже существует' });
+    
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    
+    const result = await pool.query(
+        `INSERT INTO exchange_requests (from_employee, to_employee, from_date, to_date, from_shift_time, to_shift_time, comment, expires_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+        [fromEmployee, toEmployee, fromDateFormatted, toDateFormatted, fromShiftTime, toShiftTime, comment, expiresAt]
+    );
+    
+    const pusherInstance = app.get('pusher');
+    if (pusherInstance) {
+        pusherInstance.trigger(`private-user-${transliterate(toEmployee)}`, 'client-private-message', {
+            message: {
+                sender: fromEmployee,
+                text: `📅 Предложение обмена сменами`,
+                time: Date.now(),
+                action_data: {
+                    type: 'exchange_request',
+                    request_id: result.rows[0].id,
+                    from_employee: fromEmployee,
+                    to_employee: toEmployee,
+                    from_date: fromDateFormatted,
+                    to_date: toDateFormatted,
+                    from_time: fromShiftTime,
+                    to_time: toShiftTime,
+                    comment: comment,
+                    status: 'pending'
+                }
+            },
+            from: fromEmployee
+        });
+    }
+    
+    res.json({ success: true, requestId: result.rows[0].id });
+});
+
+app.get('/api/exchange/pending', authMiddleware, async (req, res) => {
+    try { 
+        const r = await pool.query(`SELECT *, from_date::text as fd, to_date::text as td FROM exchange_requests WHERE to_employee=$1 AND status='pending' ORDER BY created_at DESC`, [req.user.username]); 
+        res.json({ success: true, requests: r.rows.map(x => ({ ...x, from_date: x.fd, to_date: x.td })) }); 
+    } catch (e) { 
+        res.status(500).json({ error: e.message }); 
+    }
+});
+
+app.get('/api/exchange/my', authMiddleware, async (req, res) => {
+    try { 
+        const r = await pool.query(`SELECT *, from_date::text as fd, to_date::text as td FROM exchange_requests WHERE from_employee=$1 ORDER BY created_at DESC`, [req.user.username]); 
+        res.json({ success: true, requests: r.rows.map(x => ({ ...x, from_date: x.fd, to_date: x.td })) }); 
+    } catch (e) { 
+        res.status(500).json({ error: e.message }); 
+    }
+});
+
+app.post('/api/exchange/accept/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    const u = req.user.username;
+    const client = await pool.connect();
+    
+    try {
+        await client.query('BEGIN');
+        
+        const r = await client.query(`SELECT * FROM exchange_requests WHERE id=$1 AND status='pending'`, [id]);
+        if (r.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Запрос не найден' });
+        }
+        const d = r.rows[0];
+        if (d.to_employee !== u) {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ error: 'Не ваш запрос' });
+        }
+        
+        await client.query(`UPDATE schedule SET employee=$1 WHERE date=$2 AND employee=$3`, [d.from_employee, d.to_date, d.to_employee]);
+        await client.query(`UPDATE schedule SET employee=$1 WHERE date=$2 AND employee=$3`, [d.to_employee, d.from_date, d.from_employee]);
+        await client.query(`UPDATE exchange_requests SET status='accepted' WHERE id=$1`, [id]);
+        
+        await client.query('COMMIT');
+        
+        const pusherInstance = app.get('pusher');
+        if (pusherInstance) {
+            pusherInstance.trigger(`private-user-${transliterate(d.from_employee)}`, 'personal-notification', { type: 'exchange_accepted', icon: '🔄', title: 'Обмен принят!', text: `${u} принял(а) ваш запрос на обмен сменами`, time: Date.now() });
+            pusherInstance.trigger('private-warpoint-sync', 'schedule-updated', { date: d.to_date, employee: d.from_employee, timestamp: Date.now() });
+            pusherInstance.trigger('private-warpoint-sync', 'schedule-updated', { date: d.from_date, employee: d.to_employee, timestamp: Date.now() });
+        }
+        
+        try { await sendGlobalNotification('exchange_accepted', { from: d.from_employee, to: d.to_employee }); } catch (err) {}
+        
+        res.json({ success: true });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ error: err.message });
+    } finally {
+        client.release();
+    }
+});
+
+app.post('/api/exchange/reject/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    await pool.query(`UPDATE exchange_requests SET status='rejected' WHERE id=$1 AND to_employee=$2`, [id, req.user.username]);
+    res.json({ success: true });
+});
+
+app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
+    
+    await pool.query(`UPDATE exchange_requests SET status='cancelled' WHERE id=$1 AND from_employee=$2`, [id, req.user.username]);
+    res.json({ success: true });
+});
+
 // ============================================
 // ЗАЩИЩЁННЫЕ CRON-ЗАДАЧИ
 // ============================================
@@ -1413,7 +2281,15 @@ cron.schedule('0 * * * *', async () => {
 cron.schedule('0 3 * * *', async () => {
     if (isProcessingArchive) return;
     isProcessingArchive = true;
-    try { const threeDaysAgo = new Date(); threeDaysAgo.setDate(threeDaysAgo.getDate() - 3); await pool.query(`UPDATE tasks SET is_archived = true WHERE status = 'completed' AND created_at <= $1`, [threeDaysAgo]); } catch (e) { console.error('Archive error:', e); } finally { isProcessingArchive = false; }
+    try { 
+        const threeDaysAgo = new Date(); 
+        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3); 
+        await pool.query(`UPDATE tasks SET is_archived = true WHERE status = 'completed' AND completed_at <= $1`, [threeDaysAgo]); 
+    } catch (e) { 
+        console.error('Archive error:', e); 
+    } finally { 
+        isProcessingArchive = false; 
+    }
 });
 
 cron.schedule('*/30 * * * *', async () => {
@@ -1438,7 +2314,7 @@ setInterval(() => {
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'index.html')); });
 app.get('/about.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'about.html')); });
-app.get('/reports.html', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'pages', 'reports.html')); });
+app.get('/pages/:page', (req, res) => { res.sendFile(path.join(__dirname, 'public', 'pages', req.params.page)); });
 
 // ============================================
 // ЗАПУСК СЕРВЕРА
@@ -1451,7 +2327,8 @@ app.get('/reports.html', (req, res) => { res.sendFile(path.join(__dirname, 'publ
     app.listen(PORT, '0.0.0.0', () => {
         console.log(`\n🚀 WARPOINT Server running on port ${PORT}`);
         console.log(`👤 Директор: Денис / denis_1`);
-        console.log(`🛡️ Защита от зависаний активирована`);
+        console.log(`🛡️ Защита от SQL-инъекций активирована`);
+        console.log(`🔐 Транзакции для критических операций`);
         console.log(`📊 Мониторинг памяти включен\n`);
     });
 })();

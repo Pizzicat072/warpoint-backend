@@ -1,4 +1,4 @@
-<!-- public/pages/shop.html - КОМПАКТНЫЙ ИСПРАВЛЕННЫЙ -->
+<!-- public/pages/shop.html -->
 <div class="shop-container">
     <!-- Шапка -->
     <div class="shop-header">
@@ -80,7 +80,10 @@
 </div>
 
 <style>
-/* КОМПАКТНЫЙ МАГАЗИН */
+/* ============================================
+   SHOP PAGE STYLES
+   ============================================ */
+
 .shop-container {
     padding: 20px 24px;
     max-width: 1200px;
@@ -98,6 +101,8 @@
     padding: 16px 24px;
     margin-bottom: 24px;
     border: 1px solid rgba(99, 102, 241, 0.2);
+    flex-wrap: wrap;
+    gap: 16px;
 }
 
 .shop-title {
@@ -306,19 +311,41 @@
     .shop-container {
         padding: 12px;
     }
+    
     .shop-header {
         flex-direction: column;
         text-align: center;
     }
+    
     .shop-grid {
         grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
         gap: 12px;
     }
+    
     .card-icon {
         font-size: 32px;
     }
+    
     .card-name {
         font-size: 12px;
     }
 }
 </style>
+
+<script>
+(function() {
+    // Настройка табов
+    const tabs = document.querySelectorAll('.shop-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', function() {
+            const tabId = this.dataset.tab;
+            
+            document.querySelectorAll('.shop-tab-content').forEach(c => c.style.display = 'none');
+            document.getElementById(tabId + 'Tab').style.display = 'block';
+            
+            tabs.forEach(t => t.classList.remove('active'));
+            this.classList.add('active');
+        });
+    });
+})();
+</script>

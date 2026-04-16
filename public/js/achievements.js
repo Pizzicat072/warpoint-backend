@@ -1,10 +1,13 @@
-// public/js/achievements.js - ОПТИМИЗИРОВАННАЯ ВЕРСИЯ
+// public/js/achievements.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let achievementsData = [];
 let userUnlocked = new Set();
 let userPending = new Set();
 let isLoading = false;
 let isRendering = false;
+let achievementsCache = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 60000; // 1 минута
 
 // ============================================
 // ОБЛЕГЧЁННЫЕ ФАНФАРЫ (БЕЗ ЛАГОВ)
@@ -72,7 +75,7 @@ function showFanfare(achievementName, coins) {
 }
 
 // ============================================
-// ЗАГРУЗКА ДОСТИЖЕНИЙ (С ЗАЩИТОЙ)
+// ЗАГРУЗКА ДОСТИЖЕНИЙ (С КЭШЕМ)
 // ============================================
 
 async function loadAchievements() {
@@ -83,6 +86,15 @@ async function loadAchievements() {
     
     const token = localStorage.getItem('token');
     if (!token) return false;
+    
+    // 🔥 ПРОВЕРКА КЭША
+    if (achievementsCache && Date.now() - cacheTimestamp < CACHE_TTL) {
+        console.log('📦 Достижения из кэша');
+        achievementsData = achievementsCache.achievements;
+        userUnlocked = new Set(achievementsCache.unlocked);
+        userPending = new Set(achievementsCache.pending);
+        return true;
+    }
     
     isLoading = true;
     
@@ -102,6 +114,14 @@ async function loadAchievements() {
                 if (ach.pending) userPending.add(ach.id);
             }
             
+            // 🔥 СОХРАНЯЕМ В КЭШ
+            achievementsCache = {
+                achievements: achievementsData,
+                unlocked: [...userUnlocked],
+                pending: [...userPending]
+            };
+            cacheTimestamp = Date.now();
+            
             console.log(`✅ Достижений: ${achievementsData.length}`);
             isLoading = false;
             return true;
@@ -115,7 +135,17 @@ async function loadAchievements() {
 }
 
 // ============================================
-// РЕНДЕР ДОСТИЖЕНИЙ (ОПТИМИЗИРОВАННЫЙ)
+// ИНВАЛИДАЦИЯ КЭША
+// ============================================
+
+function invalidateAchievementsCache() {
+    achievementsCache = null;
+    cacheTimestamp = 0;
+    console.log('🧹 Кэш достижений очищен');
+}
+
+// ============================================
+// РЕНДЕР ДОСТИЖЕНИЙ (С ПРОВЕРКОЙ DOM)
 // ============================================
 
 function renderAchievements() {
@@ -125,7 +155,10 @@ function renderAchievements() {
     }
     
     const container = document.getElementById('achievementsContainer');
-    if (!container) return;
+    if (!container) {
+        console.warn('⚠️ achievementsContainer не найден');
+        return;
+    }
     
     if (achievementsData.length === 0) {
         container.innerHTML = `
@@ -140,7 +173,6 @@ function renderAchievements() {
     
     isRendering = true;
     
-    // Используем setTimeout для разблокировки UI
     setTimeout(() => {
         try {
             const categories = {
@@ -165,7 +197,7 @@ function renderAchievements() {
             const total = achievementsData.length;
             const unlocked = userUnlocked.size;
             const pending = userPending.size;
-            const percent = Math.round((unlocked / total) * 100) || 0;
+            const percent = total > 0 ? Math.round((unlocked / total) * 100) : 0;
             
             let html = `
                 <div class="achievements-header-premium">
@@ -195,7 +227,6 @@ function renderAchievements() {
                 </div>
             `;
             
-            // Рендерим категории
             const categoryKeys = Object.keys(categories).filter(cat => grouped[cat].length > 0);
             
             for (const catId of categoryKeys) {
@@ -209,7 +240,7 @@ function renderAchievements() {
                     <div class="achievement-category-premium">
                         <div class="category-header-premium" style="border-bottom-color: ${cat.color}40;" onclick="toggleCategory('${catId}')">
                             <span class="category-icon">${cat.icon}</span>
-                            <span class="category-name">${cat.name}</span>
+                            <span class="category-name">${escapeHtml(cat.name)}</span>
                             <span class="category-stats">
                                 <span style="color: #10b981;">${catUnlocked}</span>/<span>${catAchievements.length}</span>
                                 ${catPending > 0 ? ` <span style="color: #fbbf24; margin-left: 8px;">🎁 ${catPending}</span>` : ''}
@@ -235,7 +266,7 @@ function renderAchievements() {
                         borderColor = '#fbbf24';
                         statusColor = '#fbbf24';
                         statusText = '🎁';
-                        button = `<button class="claim-achievement-btn" onclick="claimAchievement('${ach.id}')">Получить +${ach.coins} WP</button>`;
+                        button = `<button class="claim-achievement-btn" onclick="claimAchievement('${ach.id}')">Получить +${ach.coins_reward} WP</button>`;
                     }
                     
                     html += `
@@ -246,7 +277,7 @@ function renderAchievements() {
                             </div>
                             <div class="achievement-desc">${escapeHtml(ach.description)}</div>
                             <div class="achievement-reward">
-                                <span>💰 ${ach.coins} WP</span>
+                                <span>💰 ${ach.coins_reward} WP</span>
                             </div>
                             ${button}
                         </div>
@@ -267,7 +298,6 @@ function renderAchievements() {
     }, 10);
 }
 
-// Функция для сворачивания/разворачивания категорий
 function toggleCategory(catId) {
     const grid = document.getElementById(`category-${catId}`);
     if (grid) {
@@ -275,7 +305,6 @@ function toggleCategory(catId) {
     }
 }
 
-window.toggleCategory = toggleCategory;
 // ============================================
 // ПОЛУЧЕНИЕ НАГРАДЫ
 // ============================================
@@ -286,6 +315,13 @@ async function claimAchievement(achievementId) {
     
     const achievement = achievementsData.find(a => a.id === achievementId);
     if (!achievement) return;
+    
+    const claimBtn = document.querySelector(`.claim-achievement-btn[onclick*="${achievementId}"]`);
+    const originalText = claimBtn?.innerHTML;
+    if (claimBtn) {
+        claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Получение...';
+        claimBtn.disabled = true;
+    }
     
     try {
         const response = await fetch('/api/achievements/claim', {
@@ -311,6 +347,9 @@ async function claimAchievement(achievementId) {
                 ach.pending = false;
             }
             
+            // 🔥 ИНВАЛИДИРУЕМ КЭШ
+            invalidateAchievementsCache();
+            
             renderAchievements();
             
             if (typeof loadEmployees === 'function') await loadEmployees();
@@ -321,6 +360,11 @@ async function claimAchievement(achievementId) {
     } catch (err) {
         console.error('❌ Ошибка:', err);
         if (typeof showNotif === 'function') showNotif('Ошибка соединения', 'error');
+    } finally {
+        if (claimBtn) {
+            claimBtn.innerHTML = originalText;
+            claimBtn.disabled = false;
+        }
     }
 }
 
@@ -343,5 +387,7 @@ window.loadAchievements = loadAchievements;
 window.renderAchievements = renderAchievements;
 window.claimAchievement = claimAchievement;
 window.initAchievements = initAchievements;
+window.toggleCategory = toggleCategory;
+window.invalidateAchievementsCache = invalidateAchievementsCache;
 
-console.log('✅ achievements.js загружен (оптимизирован)');
+console.log('✅ achievements.js загружен (исправленная версия)');

@@ -71,7 +71,7 @@
                 <div class="fund-action-group">
                     <label><i class="fas fa-pen"></i> Установить точную сумму</label>
                     <div class="fund-input-group">
-                        <input type="number" id="fundChangeAmount" class="admin-input" placeholder="Сумма" value="0">
+                        <input type="number" id="fundChangeAmount" class="admin-input" placeholder="Сумма" value="0" min="0">
                         <button class="admin-btn-secondary" onclick="updateFund()">Установить</button>
                     </div>
                 </div>
@@ -81,7 +81,7 @@
                 <div class="fund-action-group">
                     <label><i class="fas fa-plus-minus"></i> Добавить / Убавить</label>
                     <div class="fund-input-group">
-                        <input type="number" id="fundAddAmount" class="admin-input" placeholder="Сумма" value="0">
+                        <input type="number" id="fundAddAmount" class="admin-input" placeholder="Сумма" value="0" min="0">
                         <button class="admin-btn-success" onclick="addToFund()"><i class="fas fa-plus"></i></button>
                         <button class="admin-btn-danger" onclick="subtractFromFund()"><i class="fas fa-minus"></i></button>
                     </div>
@@ -732,26 +732,14 @@
 <script>
 // Переключение табов
 document.querySelectorAll('.admin-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-        const tabId = tab.dataset.tab;
+    tab.addEventListener('click', function() {
+        const tabId = this.dataset.tab;
         
-        // Убираем active со всех табов и контента
         document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
         
-        // Активируем выбранный таб и контент
-        tab.classList.add('active');
-        document.getElementById(`adminTab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`).classList.add('active');
+        this.classList.add('active');
+        document.getElementById('adminTab' + tabId.charAt(0).toUpperCase() + tabId.slice(1)).classList.add('active');
     });
 });
-
-// Заглушки для функций (если не определены в admin.js)
-if (typeof resetFund !== 'function') window.resetFund = function() { alert('Функция resetFund не определена'); };
-if (typeof updateFund !== 'function') window.updateFund = function() { alert('Функция updateFund не определена'); };
-if (typeof addToFund !== 'function') window.addToFund = function() { alert('Функция addToFund не определена'); };
-if (typeof subtractFromFund !== 'function') window.subtractFromFund = function() { alert('Функция subtractFromFund не определена'); };
-if (typeof setGlobalTheme !== 'function') window.setGlobalTheme = function(theme) { alert('Тема: ' + theme); };
-if (typeof equalStart !== 'function') window.equalStart = function() { alert('Функция equalStart не определена'); };
-if (typeof resetAllData !== 'function') window.resetAllData = function() { alert('Функция resetAllData не определена'); };
-if (typeof initAchievementsAdmin !== 'function') window.initAchievementsAdmin = function() { alert('Функция initAchievementsAdmin не определена'); };
 </script>

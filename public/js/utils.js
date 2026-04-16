@@ -1,17 +1,32 @@
-// public/js/utils.js
+// public/js/utils.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+
+// ============================================
+// XSS ЗАЩИТА
+// ============================================
 
 function escapeHtml(str) {
     if (!str) return '';
-    return str.replace(/[&<>]/g, m => ({
+    const map = {
         '&': '&amp;',
         '<': '&lt;',
-        '>': '&gt;'
-    }[m] || m));
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;',
+        '/': '&#x2F;',
+        '`': '&#x60;',
+        '=': '&#x3D;'
+    };
+    return String(str).replace(/[&<>"'`=/]/g, (m) => map[m]);
 }
+
+// ============================================
+// ФОРМАТИРОВАНИЕ ДАТ
+// ============================================
 
 function formatDate(dateStr) {
     if (!dateStr) return '—';
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('ru-RU');
 }
 
@@ -20,13 +35,35 @@ function formatDateTime(dateStr, timeStr) {
     return `${formatDate(dateStr)} ${timeStr || ''}`;
 }
 
+function formatTimeAgo(timestamp) {
+    const diff = Date.now() - timestamp;
+    if (diff < 60000) return 'только что';
+    if (diff < 3600000) return `${Math.floor(diff / 60000)} мин назад`;
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)} ч назад`;
+    const date = new Date(timestamp);
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+}
+
+// ============================================
+// УВЕДОМЛЕНИЯ
+// ============================================
+
 let activeNotification = null;
 let notificationTimeout = null;
+const MAX_NOTIFICATIONS = 5;
+let notificationCount = 0;
 
 function showNotif(msg, type = 'success') {
+    // Ограничиваем количество одновременных уведомлений
+    if (notificationCount > MAX_NOTIFICATIONS) {
+        console.warn('⚠️ Слишком много уведомлений');
+        return;
+    }
+    
     if (activeNotification) {
         activeNotification.remove();
         if (notificationTimeout) clearTimeout(notificationTimeout);
+        notificationCount--;
     }
     
     const n = document.createElement('div');
@@ -35,15 +72,50 @@ function showNotif(msg, type = 'success') {
                  type === 'warning' ? 'exclamation-triangle' : 'check-circle';
     n.style.borderLeftColor = type === 'error' ? '#f87171' : 
                                type === 'warning' ? '#f59e0b' : '#34d399';
-    n.innerHTML = `<i class="fas fa-${icon}"></i> ${msg}`;
+    n.innerHTML = `<i class="fas fa-${icon}"></i> ${escapeHtml(msg)}`;
     document.body.appendChild(n);
     activeNotification = n;
+    notificationCount++;
     
     notificationTimeout = setTimeout(() => {
-        if (n && n.remove) n.remove();
+        if (n && n.remove) {
+            n.remove();
+            notificationCount--;
+        }
         activeNotification = null;
     }, 4000);
 }
+
+// ============================================
+// DEBOUNCE И THROTTLE
+// ============================================
+
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+function throttle(func, limit) {
+    let inThrottle;
+    return function(...args) {
+        if (!inThrottle) {
+            func.apply(this, args);
+            inThrottle = true;
+            setTimeout(() => inThrottle = false, limit);
+        }
+    };
+}
+
+// ============================================
+// РОЛИ И ПРАВА
+// ============================================
 
 const roleNames = {
     director: 'Директор',
@@ -62,6 +134,10 @@ const rolesMap = {
 const statusesList = ['💼 Работаю', '☕ Перерыв', '🎯 В фокусе', '⭐ MVP', '🚀 Взлёт'];
 const avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑'];
 
+// ============================================
+// ГЛОБАЛЬНОЕ СОСТОЯНИЕ
+// ============================================
+
 window.app = {
     currentUser: null,
     currentUserRole: null,
@@ -75,6 +151,10 @@ window.app = {
     stickers: {},
     achievements: {}
 };
+
+// ============================================
+// СОБЫТИЯ ДАННЫХ
+// ============================================
 
 window.dispatchDataUpdate = function(type, data) {
     const event = new CustomEvent('dataUpdate', { detail: { type, data } });
@@ -107,8 +187,13 @@ window.addEventListener('dataUpdate', (e) => {
     }
 });
 
+// ============================================
+// ВРЕМЯ ТОБОЛЬСКА
+// ============================================
+
 function getTobolskNow() {
-    return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+    const now = new Date();
+    return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
 }
 
 function parseLocalDate(dateStr) {
@@ -142,15 +227,19 @@ function formatDateForDisplay(dateStr) {
     return `${day} ${month}`;
 }
 
+// ============================================
+// АВАТАРЫ
+// ============================================
+
 function getEmployeeAvatar(employeeName, size = 'small') {
     const profile = window.app.profiles[employeeName];
     if (!profile) return '👤';
     
     if (profile.avatar_url && profile.avatar_url.startsWith('data:image')) {
-        return '<img src="' + profile.avatar_url + '" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML=\'👤\'">';
+        return '<img src="' + escapeHtml(profile.avatar_url) + '" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerHTML=\'👤\'">';
     }
     
-    return profile.avatar || '👤';
+    return escapeHtml(profile.avatar) || '👤';
 }
 
 function getAvatarHtml(profile, size = 'small') {
@@ -165,11 +254,15 @@ function getAvatarHtml(profile, size = 'small') {
     const sizes = sizeMap[size] || sizeMap.small;
     
     if (profile.avatar_url && profile.avatar_url.startsWith('data:image')) {
-        return '<img src="' + profile.avatar_url + '" style="width: ' + sizes.width + '; height: ' + sizes.height + '; object-fit: cover; border-radius: ' + sizes.borderRadius + ';" onerror="this.onerror=null; this.parentElement.innerHTML=\'<div style=&quot;display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: ' + sizes.fontSize + ';&quot;>👤</div>\'">';
+        return '<img src="' + escapeHtml(profile.avatar_url) + '" style="width: ' + sizes.width + '; height: ' + sizes.height + '; object-fit: cover; border-radius: ' + sizes.borderRadius + ';" onerror="this.onerror=null; this.parentElement.innerHTML=\'<div style=&quot;display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; font-size: ' + sizes.fontSize + ';&quot;>👤</div>\'">';
     }
     
-    return '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: ' + sizes.borderRadius + '; font-size: ' + sizes.fontSize + ';">' + (profile.avatar || '👤') + '</div>';
+    return '<div style="display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; background: linear-gradient(135deg, #6366f1, #ec4899); border-radius: ' + sizes.borderRadius + '; font-size: ' + sizes.fontSize + ';">' + (escapeHtml(profile.avatar) || '👤') + '</div>';
 }
+
+// ============================================
+// WP БАЛАНС
+// ============================================
 
 function formatWP(amount) {
     if (amount === undefined || amount === null) return '0 WP';
@@ -194,154 +287,23 @@ function refreshAllBalanceDisplays() {
     
     const balance = window.app?.profiles?.[currentUser]?.coins || 0;
     
-    // Дашборд
     const userCoinsHeader = document.getElementById('userCoinsAmountHeader');
     if (userCoinsHeader) userCoinsHeader.textContent = balance.toLocaleString();
     
-    // Магазин
     const shopBalance = document.getElementById('userCoinsAmount');
     if (shopBalance) shopBalance.textContent = balance.toLocaleString();
     
-    // Профиль
     const profileCoins = document.getElementById('profileCoins');
     if (profileCoins) profileCoins.textContent = balance;
     
-    // Карточки сотрудников (если открыты)
     if (typeof renderEmployees === 'function') renderEmployees();
 }
 
 window.refreshAllBalanceDisplays = refreshAllBalanceDisplays;
 
-function showWPEarnedNotification(amount, source, targetElement = null) {
-    if (!targetElement) {
-        targetElement = document.getElementById('userCoinsAmount');
-    }
-    
-    if (!targetElement) return;
-    
-    const rect = targetElement.getBoundingClientRect();
-    
-    const notification = document.createElement('div');
-    notification.className = 'wp-earned-notification';
-    notification.innerHTML = `
-        <div class="wp-notification-content">
-            <span class="wp-notification-icon">💰</span>
-            <span class="wp-notification-amount">+${amount}</span>
-            <span class="wp-notification-source">${source}</span>
-        </div>
-    `;
-    notification.style.position = 'fixed';
-    notification.style.left = `${rect.left + rect.width / 2 - 60}px`;
-    notification.style.top = `${rect.top - 50}px`;
-    notification.style.zIndex = '10000';
-    notification.style.pointerEvents = 'none';
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.transition = 'all 0.5s ease';
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateY(-30px)';
-        setTimeout(() => notification.remove(), 500);
-    }, 2000);
-}
-
-function showWPSpentNotification(amount, source) {
-    const targetElement = document.getElementById('userCoinsAmount');
-    if (!targetElement) return;
-    
-    const rect = targetElement.getBoundingClientRect();
-    
-    const notification = document.createElement('div');
-    notification.className = 'wp-spent-notification';
-    notification.innerHTML = `
-        <div class="wp-notification-content">
-            <span class="wp-notification-icon">💸</span>
-            <span class="wp-notification-amount">-${amount}</span>
-            <span class="wp-notification-source">${source}</span>
-        </div>
-    `;
-    notification.style.position = 'fixed';
-    notification.style.left = `${rect.left + rect.width / 2 - 60}px`;
-    notification.style.top = `${rect.top - 50}px`;
-    notification.style.zIndex = '10000';
-    notification.style.pointerEvents = 'none';
-    
-    document.body.appendChild(notification);
-    
-    setTimeout(() => {
-        notification.style.transition = 'all 0.5s ease';
-        notification.style.opacity = '0';
-        notification.style.transform = 'translateY(-30px)';
-        setTimeout(() => notification.remove(), 500);
-    }, 2000);
-}
-
-const notificationStyles = document.createElement('style');
-notificationStyles.textContent = `
-    .wp-earned-notification, .wp-spent-notification {
-        animation: wpNotificationSlideIn 0.3s ease-out;
-    }
-    
-    .wp-notification-content {
-        background: linear-gradient(135deg, #1a1f2e, #0f1222);
-        border-radius: 40px;
-        padding: 8px 20px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-        border: 1px solid;
-    }
-    
-    .wp-earned-notification .wp-notification-content {
-        border-color: #10b981;
-    }
-    
-    .wp-spent-notification .wp-notification-content {
-        border-color: #ef4444;
-    }
-    
-    .wp-notification-icon {
-        font-size: 20px;
-    }
-    
-    .wp-notification-amount {
-        font-size: 18px;
-        font-weight: 700;
-    }
-    
-    .wp-earned-notification .wp-notification-amount {
-        color: #10b981;
-    }
-    
-    .wp-spent-notification .wp-notification-amount {
-        color: #ef4444;
-    }
-    
-    .wp-notification-source {
-        font-size: 11px;
-        color: #94a3b8;
-        padding-left: 10px;
-        border-left: 1px solid #2a3240;
-    }
-    
-    @keyframes wpNotificationSlideIn {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-`;
-
-if (!document.querySelector('#wpNotificationStyles')) {
-    notificationStyles.id = 'wpNotificationStyles';
-    document.head.appendChild(notificationStyles);
-}
+// ============================================
+// ТРАНЗАКЦИИ
+// ============================================
 
 function getTransactionIcon(type) {
     const icons = {
@@ -352,7 +314,8 @@ function getTransactionIcon(type) {
         'gift_receive': { icon: '🎁', color: '#ec4899', name: 'Получение подарка' },
         'shop_purchase': { icon: '🛒', color: '#8b5cf6', name: 'Покупка в магазине' },
         'fine': { icon: '⚠️', color: '#ef4444', name: 'Штраф' },
-        'admin_bonus': { icon: '👑', color: '#fbbf24', name: 'Бонус от директора' }
+        'admin_bonus': { icon: '👑', color: '#fbbf24', name: 'Бонус от директора' },
+        'achievement': { icon: '🏆', color: '#fbbf24', name: 'Достижение' }
     };
     return icons[type] || { icon: '💰', color: '#64748b', name: type };
 }
@@ -363,11 +326,8 @@ function formatTransactionDate(dateStr) {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     
-    if (date.toDateString() === today.toDateString()) {
-        return 'Сегодня';
-    } else if (date.toDateString() === yesterday.toDateString()) {
-        return 'Вчера';
-    }
+    if (date.toDateString() === today.toDateString()) return 'Сегодня';
+    else if (date.toDateString() === yesterday.toDateString()) return 'Вчера';
     
     const months = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 
                     'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
@@ -385,23 +345,35 @@ function getNextStreakInfo(currentStreak) {
     return { day: nextDay, bonus: nextBonus };
 }
 
-window.formatWP = formatWP;
-window.getCurrentBalance = getCurrentBalance;
-window.hasEnoughWP = hasEnoughWP;
-window.refreshAllBalanceDisplays = refreshAllBalanceDisplays;
-window.showWPEarnedNotification = showWPEarnedNotification;
-window.showWPSpentNotification = showWPSpentNotification;
-window.getTransactionIcon = getTransactionIcon;
-window.formatTransactionDate = formatTransactionDate;
-window.getStreakBonus = getStreakBonus;
-window.getNextStreakInfo = getNextStreakInfo;
+// ============================================
+// ЭКСПОРТ
+// ============================================
+
+window.escapeHtml = escapeHtml;
+window.formatDate = formatDate;
+window.formatDateTime = formatDateTime;
+window.formatTimeAgo = formatTimeAgo;
+window.showNotif = showNotif;
+window.debounce = debounce;
+window.throttle = throttle;
+window.roleNames = roleNames;
+window.rolesMap = rolesMap;
+window.statusesList = statusesList;
+window.avatars = avatars;
 window.getTobolskNow = getTobolskNow;
 window.parseLocalDate = parseLocalDate;
 window.getDayFromDateStr = getDayFromDateStr;
 window.getMonthNameFromDateStr = getMonthNameFromDateStr;
 window.formatDateForDisplay = formatDateForDisplay;
-window.dispatchDataUpdate = dispatchDataUpdate;
 window.getEmployeeAvatar = getEmployeeAvatar;
 window.getAvatarHtml = getAvatarHtml;
+window.formatWP = formatWP;
+window.getCurrentBalance = getCurrentBalance;
+window.hasEnoughWP = hasEnoughWP;
+window.refreshAllBalanceDisplays = refreshAllBalanceDisplays;
+window.getTransactionIcon = getTransactionIcon;
+window.formatTransactionDate = formatTransactionDate;
+window.getStreakBonus = getStreakBonus;
+window.getNextStreakInfo = getNextStreakInfo;
 
-console.log('✅ utils.js загружен');
+console.log('✅ utils.js загружен (исправленная версия)');

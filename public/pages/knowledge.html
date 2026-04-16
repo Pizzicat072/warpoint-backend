@@ -1,4 +1,4 @@
-<!-- C:\Users\МаксимДиана\warpoint-new\public\pages\knowledge.html -->
+<!-- public/pages/knowledge.html -->
 <div class="knowledge-container">
     <!-- ХЕДЕР -->
     <div class="knowledge-header">
@@ -9,12 +9,12 @@
         <p>Инструкции, правила и полезная информация для сотрудников</p>
     </div>
 
-    <!-- ПАНЕЛЬ ДЕЙСТВИЙ (кнопки будут показаны только если есть права) -->
+    <!-- ПАНЕЛЬ ДЕЙСТВИЙ -->
     <div class="action-bar" id="actionBar">
         <div class="search-wrapper">
             <i class="fas fa-search"></i>
             <input type="text" id="knowledgeSearch" placeholder="Поиск по статьям...">
-            <button class="clear-search" id="clearSearchBtn" style="display: none;">✕</button>
+            <button class="clear-search" id="clearSearchBtn" style="display: none;" aria-label="Очистить поиск">✕</button>
         </div>
         <div class="action-buttons" id="actionButtons">
             <!-- Кнопки будут добавлены через JS в зависимости от прав -->
@@ -51,7 +51,7 @@
             const actionButtons = document.getElementById('actionButtons');
             if (!actionButtons) return;
             
-            // Проверяем права через глобальные функции (будут доступны после загрузки knowledge.js)
+            // Проверяем права через глобальные функции
             setTimeout(() => {
                 if (typeof window.canManageCategories === 'function' && window.canManageCategories()) {
                     actionButtons.innerHTML = `
@@ -93,7 +93,7 @@
 
 <style>
 /* ============================================
-   ОСНОВНЫЕ СТИЛИ (БЕЗ ИЗМЕНЕНИЙ)
+   KNOWLEDGE BASE STYLES
    ============================================ */
 
 .knowledge-container {
@@ -563,15 +563,19 @@
     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
+.btn-primary {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 40px;
+    color: white;
+    font-weight: 500;
+    cursor: pointer;
+}
+
 @keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .knowledge-category {

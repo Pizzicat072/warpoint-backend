@@ -1,3 +1,5 @@
+// parsing-booking.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+
 const puppeteer = require('puppeteer');
 const chromium = require('@sparticuz/chromium');
 const fs = require('fs');
@@ -11,29 +13,87 @@ let lastParseTime = null;
 
 // Один браузер на все запросы
 let sharedBrowser = null;
+let browserInitPromise = null;
+
+// ============================================
+// ПОЛУЧЕНИЕ БРАУЗЕРА (С ЗАЩИТОЙ ОТ ГОНОК)
+// ============================================
 
 async function getBrowser() {
-    if (sharedBrowser && sharedBrowser.isConnected()) {
-        return sharedBrowser;
+    // Если браузер уже инициализируется, ждём
+    if (browserInitPromise) {
+        return await browserInitPromise;
     }
+    
+    // Если браузер жив, возвращаем его
+    if (sharedBrowser && sharedBrowser.isConnected()) {
+        try {
+            // Проверяем, что браузер действительно работает
+            await sharedBrowser.version();
+            return sharedBrowser;
+        } catch (e) {
+            console.log('?? Браузер отвалился, пересоздаём...');
+            sharedBrowser = null;
+        }
+    }
+    
+    // Закрываем старый браузер если есть
     if (sharedBrowser) {
         try { await sharedBrowser.close(); } catch(e) {}
+        sharedBrowser = null;
     }
-    sharedBrowser = await puppeteer.launch({
-        args: [
-            ...chromium.args,
-            '--single-process',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--disable-software-rasterizer'
-        ],
-        defaultViewport: { width: 800, height: 600 },
-        executablePath: await chromium.executablePath(),
-        headless: true,
-        timeout: 30000
-    });
-    return sharedBrowser;
+    
+    // Создаём новый браузер
+    browserInitPromise = (async () => {
+        try {
+            console.log('?? Запуск браузера...');
+            sharedBrowser = await puppeteer.launch({
+                args: [
+                    ...chromium.args,
+                    '--single-process',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox'
+                ],
+                defaultViewport: { width: 800, height: 600 },
+                executablePath: await chromium.executablePath(),
+                headless: true,
+                timeout: 30000
+            });
+            console.log('? Браузер запущен');
+            return sharedBrowser;
+        } catch (e) {
+            console.error('? Ошибка запуска браузера:', e.message);
+            throw e;
+        } finally {
+            browserInitPromise = null;
+        }
+    })();
+    
+    return await browserInitPromise;
 }
+
+// ============================================
+// ЗАКРЫТИЕ БРАУЗЕРА
+// ============================================
+
+async function closeBrowser() {
+    if (sharedBrowser) {
+        try {
+            await sharedBrowser.close();
+            console.log('?? Браузер закрыт');
+        } catch(e) {
+            console.error('Ошибка закрытия браузера:', e);
+        }
+        sharedBrowser = null;
+    }
+}
+
+// ============================================
+// КЛАСС ПАРСЕРА
+// ============================================
 
 class BookingParser {
     constructor() {
@@ -70,7 +130,9 @@ class BookingParser {
         const progressFile = path.join(this.dataDir, 'parsing-progress.json');
         try {
             fs.writeFileSync(progressFile, JSON.stringify(currentProgress, null, 2));
-        } catch (err) {}
+        } catch (err) {
+            console.error('Ошибка сохранения прогресса:', err);
+        }
         console.log(`?? [${percent}%] ${message}`);
         return currentProgress;
     }
@@ -144,7 +206,7 @@ class BookingParser {
         const monthName = time.monthName;
         const year = time.year;
         
-        console.log(`??? Парсинг ${this.city}, ${this.arena}`);
+        console.log(`?? Парсинг ${this.city}, ${this.arena}`);
         console.log(`?? Тобольск: ${time.dateStr}`);
         console.log(`?? Месяц: ${monthName} ${year}`);
         
@@ -204,6 +266,7 @@ class BookingParser {
             console.log(`?? Найдено дат: ${dates.length}`);
             
             if (dates.length === 0) {
+                await page.close();
                 isParsing = false;
                 return { success: false, error: 'Даты не найдены' };
             }
@@ -277,8 +340,10 @@ class BookingParser {
                 }
                 
                 result.dates[date.day] = dateData;
-                console.log(`   ? ${dateData.available.length} ?? ${dateData.partially.length} ? ${dateData.fullyBooked.length}`);
+                console.log(`   ? ${dateData.available.length} ?? ${dateData.partially.length} ?? ${dateData.fullyBooked.length}`);
             }
+            
+            await page.close();
             
             await this.saveProgress(8, 100, 'Сохранение...');
             
@@ -288,7 +353,6 @@ class BookingParser {
             console.log(`? Парсинг завершён за ${((Date.now() - startTime)/1000).toFixed(1)}с`);
             
             isParsing = false;
-            await page.close();
             return result;
             
         } catch (err) {
@@ -305,9 +369,27 @@ class BookingParser {
     isParsingNow() { return isParsing; }
 }
 
-// Закрываем браузер при завершении
-process.on('exit', () => { if (sharedBrowser) sharedBrowser.close(); });
-process.on('SIGINT', () => { if (sharedBrowser) sharedBrowser.close(); process.exit(); });
-process.on('SIGTERM', () => { if (sharedBrowser) sharedBrowser.close(); process.exit(); });
+// ============================================
+// ЭКСПОРТ И ОЧИСТКА
+// ============================================
+
+// Закрываем браузер при завершении процесса
+process.on('exit', () => {
+    if (sharedBrowser) {
+        sharedBrowser.close().catch(() => {});
+    }
+});
+
+process.on('SIGINT', async () => {
+    console.log('?? Получен SIGINT, закрываем браузер...');
+    await closeBrowser();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('?? Получен SIGTERM, закрываем браузер...');
+    await closeBrowser();
+    process.exit(0);
+});
 
 module.exports = { BookingParser };

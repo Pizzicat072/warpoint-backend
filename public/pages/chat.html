@@ -59,7 +59,7 @@
                 <button class="chat-emoji-btn" onclick="toggleEmojiPicker()">
                     <i class="far fa-smile"></i>
                 </button>
-                <textarea id="chatInput" class="chat-input" placeholder="Введите сообщение..." rows="1"></textarea>
+                <textarea id="chatInput" class="chat-input" placeholder="Введите сообщение..." rows="1" maxlength="2000"></textarea>
                 <button id="chatSendBtn" class="chat-send-btn" onclick="sendChatMessage()">
                     <i class="fas fa-paper-plane"></i>
                 </button>
@@ -113,7 +113,7 @@
         <div class="modal-body">
             <div class="form-group">
                 <label><i class="fas fa-comment"></i> Текст объявления</label>
-                <textarea id="announcementText" class="form-textarea" rows="4" placeholder="Введите важное сообщение..."></textarea>
+                <textarea id="announcementText" class="form-textarea" rows="4" placeholder="Введите важное сообщение..." maxlength="1000"></textarea>
             </div>
             
             <div class="form-group">
@@ -375,29 +375,6 @@
     object-fit: cover;
 }
 
-.contact-info {
-    flex: 1;
-    min-width: 0;
-}
-
-.contact-name {
-    font-weight: 600;
-    font-size: 14px;
-    color: #f1f5f9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.contact-last-message {
-    font-size: 11px;
-    color: #94a3b8;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-top: 2px;
-}
-
 .unread-badge {
     position: absolute;
     right: 16px;
@@ -597,21 +574,18 @@
     background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.05));
     border-left: 4px solid #8b5cf6;
     border-radius: 16px;
-    padding: 0;
 }
 
 .announcement-manager {
     background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05));
     border-left: 4px solid #f59e0b;
     border-radius: 16px;
-    padding: 0;
 }
 
 .announcement-urgent {
     background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.05));
     border-left: 4px solid #ef4444;
     border-radius: 16px;
-    padding: 0;
     animation: urgentPulse 2s ease-in-out;
 }
 
@@ -840,6 +814,20 @@
     padding: 12px 18px;
 }
 
+.btn-danger {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 40px;
+    color: #f87171;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger:hover {
+    background: rgba(239, 68, 68, 0.3);
+}
+
 /* Адаптив */
 @media (max-width: 768px) {
     .chat-premium-container {
@@ -876,22 +864,5 @@ function selectAnnouncementStyle(style) {
         opt.classList.remove('active');
         if (opt.dataset.style === style) opt.classList.add('active');
     });
-}
-
-// Заглушки для функций (если не определены в chat.js)
-if (typeof openAnnouncementModal !== 'function') {
-    window.openAnnouncementModal = function() { document.getElementById('announcementModal').classList.add('active'); };
-    window.closeAnnouncementModal = function() { document.getElementById('announcementModal').classList.remove('active'); };
-    window.openChatSettingsModal = function() { document.getElementById('chatSettingsModal').classList.add('active'); };
-    window.closeChatSettingsModal = function() { document.getElementById('chatSettingsModal').classList.remove('active'); };
-    window.toggleEmojiPicker = function() {
-        const picker = document.getElementById('emojiPicker');
-        if (picker) picker.style.display = picker.style.display === 'none' ? 'grid' : 'none';
-    };
-    window.addEmoji = function(emoji) {
-        const input = document.getElementById('chatInput');
-        if (input) { input.value += emoji; input.focus(); }
-        document.getElementById('emojiPicker').style.display = 'none';
-    };
 }
 </script>

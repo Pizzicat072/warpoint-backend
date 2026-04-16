@@ -1,16 +1,43 @@
-// public/js/api.js
+// public/js/api.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 // ============================================
 // ЗАЩИТА ОТ БЕСКОНЕЧНЫХ ЗАПРОСОВ
 // ============================================
 
-let pendingRequests = new Map(); // Отслеживание повторяющихся запросов
+let pendingRequests = new Map();
 let retryCount = 0;
 const MAX_RETRIES = 3;
+const API_TIMEOUT = 15000;
 
-// Оригинальная функция API-вызовов
+// Кэш для GET-запросов
+const apiCache = new Map();
+const CACHE_TTL = {
+    '/employees': 60000,
+    '/schedule': 30000,
+    '/tasks': 30000,
+    '/fines': 30000,
+    '/achievements': 120000,
+    '/knowledge/categories': 300000,
+    '/knowledge/articles': 300000,
+    '/fund': 60000,
+    '/weather': 300000
+};
+
+// ============================================
+// ОРИГИНАЛЬНАЯ ФУНКЦИЯ API-ВЫЗОВОВ
+// ============================================
+
 async function originalApiCall(endpoint, method = 'GET', body = null) {
     const token = localStorage.getItem('token');
+    
+    // 🔥 Проверка токена
+    if (!token && !endpoint.includes('/auth/')) {
+        console.log('🔐 Нет токена, требуется авторизация');
+        if (typeof window.authLogout === 'function') {
+            window.authLogout();
+        }
+        return { success: false, error: 'Требуется авторизация' };
+    }
     
     // 🔥 ПРОВЕРКА НА ПОВТОРЯЮЩИЕСЯ ЗАПРОСЫ
     const requestKey = `${method}:${endpoint}:${JSON.stringify(body)}`;
@@ -19,8 +46,21 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
         return pendingRequests.get(requestKey);
     }
     
+    // 🔥 ПРОВЕРКА КЭША ДЛЯ GET-ЗАПРОСОВ
+    if (method === 'GET') {
+        const cacheKey = endpoint.split('?')[0];
+        const ttl = CACHE_TTL[cacheKey];
+        if (ttl) {
+            const cached = apiCache.get(endpoint);
+            if (cached && Date.now() - cached.timestamp < ttl) {
+                console.log(`📦 Кэш: ${endpoint}`);
+                return cached.data;
+            }
+        }
+    }
+    
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
     
     const options = { 
         method, 
@@ -43,15 +83,37 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
             const response = await fetch(`/api${endpoint}`, options);
             clearTimeout(timeoutId);
             
+            // 🔥 ОБРАБОТКА 401
             if (response.status === 401) {
                 console.log('🔐 Токен истёк');
-                if (window.authLogout) window.authLogout();
-                return null;
+                if (typeof window.authLogout === 'function') {
+                    window.authLogout();
+                }
+                return { success: false, error: 'Сессия истекла' };
+            }
+            
+            // 🔥 ОБРАБОТКА ДРУГИХ ОШИБОК
+            if (!response.ok) {
+                console.error(`❌ API error: ${response.status} ${response.statusText}`);
+                return { success: false, error: `Ошибка сервера: ${response.status}` };
             }
             
             const data = await response.json();
-            retryCount = 0; // Сброс счётчика при успехе
+            
+            // 🔥 СОХРАНЯЕМ В КЭШ
+            if (method === 'GET') {
+                const cacheKey = endpoint.split('?')[0];
+                if (CACHE_TTL[cacheKey]) {
+                    apiCache.set(endpoint, {
+                        data: data,
+                        timestamp: Date.now()
+                    });
+                }
+            }
+            
+            retryCount = 0;
             return data;
+            
         } catch (e) {
             clearTimeout(timeoutId);
             
@@ -71,7 +133,7 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
                 return originalApiCall(endpoint, method, body);
             }
             
-            return null;
+            return { success: false, error: 'Ошибка соединения' };
         } finally {
             pendingRequests.delete(requestKey);
         }
@@ -81,7 +143,10 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
     return requestPromise;
 }
 
-// Обёртка для обработки новых достижений
+// ============================================
+// ОБЁРТКА ДЛЯ ОБРАБОТКИ НОВЫХ ДОСТИЖЕНИЙ
+// ============================================
+
 async function apiCall(endpoint, method = 'GET', body = null) {
     const response = await originalApiCall(endpoint, method, body);
     
@@ -89,20 +154,45 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         console.log('🎁 Получены новые достижения:', response.newAchievements);
         
         for (const ach of response.newAchievements) {
-            showNotif(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success');
+            showNotif(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
         }
         
         if (typeof loadAchievements === 'function') {
             setTimeout(() => loadAchievements(), 500);
         }
         
-        // 🔥 ВОТ СЮДА ДОБАВЬ ЭТИ СТРОКИ:
         if (typeof refreshAllBalanceDisplays === 'function') {
             setTimeout(() => refreshAllBalanceDisplays(), 300);
         }
     }
     
     return response;
+}
+
+// ============================================
+// ОЧИСТКА КЭША
+// ============================================
+
+function clearApiCache(endpoint = null) {
+    if (endpoint) {
+        apiCache.delete(endpoint);
+        console.log(`🧹 Кэш очищен: ${endpoint}`);
+    } else {
+        apiCache.clear();
+        console.log('🧹 Весь кэш API очищен');
+    }
+}
+
+function invalidateCache(patterns) {
+    for (const key of apiCache.keys()) {
+        for (const pattern of patterns) {
+            if (key.includes(pattern)) {
+                apiCache.delete(key);
+                console.log(`🧹 Кэш инвалидирован: ${key}`);
+                break;
+            }
+        }
+    }
 }
 
 // ============================================
@@ -122,11 +212,14 @@ async function loadEmployees() {
     isLoadingEmployees = true;
     try {
         const data = await apiCall('/data');
-        if (data) {
+        if (data && !data.error) {
             window.app = window.app || {};
             window.app.employees = data.employees || [];
             window.app.profiles = data.profiles || {};
             window.app.schedule = data.schedule || {};
+            window.app.tasks = data.tasks || [];
+            window.app.fines = data.fines || [];
+            
             for (let emp of window.app.employees) {
                 if (!window.app.profiles[emp]) {
                     window.app.profiles[emp] = { 
@@ -137,6 +230,8 @@ async function loadEmployees() {
                 }
             }
         }
+    } catch (e) {
+        console.error('Ошибка загрузки сотрудников:', e);
     } finally {
         isLoadingEmployees = false;
     }
@@ -147,10 +242,12 @@ async function loadTasks() {
     isLoadingTasks = true;
     try {
         const data = await apiCall('/tasks');
-        if (data) {
+        if (data && !data.error) {
             window.app = window.app || {};
             window.app.tasks = data;
         }
+    } catch (e) {
+        console.error('Ошибка загрузки задач:', e);
     } finally {
         isLoadingTasks = false;
     }
@@ -161,10 +258,12 @@ async function loadFines() {
     isLoadingFines = true;
     try {
         const data = await apiCall('/fines');
-        if (data) {
+        if (data && !data.error) {
             window.app = window.app || {};
             window.app.fines = data;
         }
+    } catch (e) {
+        console.error('Ошибка загрузки штрафов:', e);
     } finally {
         isLoadingFines = false;
     }
@@ -190,21 +289,10 @@ async function loadSchedule() {
             window.app = window.app || {};
             window.app.schedule = scheduleByDate;
         }
+    } catch (e) {
+        console.error('Ошибка загрузки графика:', e);
     } finally {
         isLoadingSchedule = false;
-    }
-}
-
-async function loadLastActivity() {
-    try {
-        const data = await apiCall('/last-activity');
-        if (data && data.success) {
-            window.app = window.app || {};
-            window.app.lastActivity = data.data || {};
-            localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
-        }
-    } catch (e) {
-        console.error('Ошибка загрузки активности:', e);
     }
 }
 
@@ -225,6 +313,7 @@ async function updateEmployeeAvatar(name, avatar) {
     const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar });
     if (response && response.success) {
         if (window.app?.profiles?.[name]) window.app.profiles[name].avatar = avatar;
+        invalidateCache(['/employees', '/data']);
         return true;
     }
     return false;
@@ -241,6 +330,7 @@ async function updateEmployeeAvatarBase64(name, base64) {
         if (name === window.app?.currentUser && typeof window.updateHeaderAvatar === 'function') {
             window.updateHeaderAvatar(base64, null);
         }
+        invalidateCache(['/employees', '/data']);
         return true;
     }
     return false;
@@ -256,9 +346,10 @@ window.loadEmployees = loadEmployees;
 window.loadTasks = loadTasks;
 window.loadFines = loadFines;
 window.loadSchedule = loadSchedule;
-window.loadLastActivity = loadLastActivity;
 window.updateEmployeeStatus = updateEmployeeStatus;
 window.updateEmployeeAvatar = updateEmployeeAvatar;
 window.updateEmployeeAvatarBase64 = updateEmployeeAvatarBase64;
+window.clearApiCache = clearApiCache;
+window.invalidateCache = invalidateCache;
 
-console.log('✅ api.js загружен (с защитой от бесконечных запросов)');
+console.log('✅ api.js загружен (с кэшированием и защитой)');

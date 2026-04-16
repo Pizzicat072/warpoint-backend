@@ -50,12 +50,12 @@
         <div class="emp-modal-body">
             <div class="emp-form-group">
                 <label><i class="fas fa-user"></i> Имя</label>
-                <input type="text" id="newEmpName" placeholder="Введите имя">
+                <input type="text" id="newEmpName" placeholder="Введите имя" autocomplete="off">
             </div>
             
             <div class="emp-form-group">
                 <label><i class="fas fa-lock"></i> Пароль</label>
-                <input type="password" id="newEmpPassword" placeholder="Придумайте пароль">
+                <input type="password" id="newEmpPassword" placeholder="Придумайте пароль" autocomplete="new-password">
             </div>
             
             <div class="emp-form-group">
@@ -167,7 +167,7 @@
 </div>
 
 <script>
-    function selectRole(role) {
+    window.selectRole = function(role) {
         document.getElementById('newEmpRole').value = role;
         document.querySelectorAll('.emp-role-option').forEach(opt => {
             opt.classList.remove('active');
@@ -177,34 +177,34 @@
                 radio.checked = true;
             }
         });
-    }
+    };
     
-    function openCreateEmployeeModal() {
+    window.openCreateEmployeeModal = function() {
         document.getElementById('createEmployeeModal').classList.add('active');
-        selectRole('operator');
-    }
+        window.selectRole('operator');
+    };
     
-    function closeCreateEmployeeModal() {
+    window.closeCreateEmployeeModal = function() {
         document.getElementById('createEmployeeModal').classList.remove('active');
         document.getElementById('newEmpName').value = '';
         document.getElementById('newEmpPassword').value = '';
         document.getElementById('newEmpBirthday').value = '';
         document.getElementById('newEmpPhone').value = '';
-    }
+    };
     
-    function closeAvatarModal() {
+    window.closeAvatarModal = function() {
         document.getElementById('avatarModal').classList.remove('active');
-    }
+    };
     
-    function closeAvatarPreviewModal() {
+    window.closeAvatarPreviewModal = function() {
         document.getElementById('avatarPreviewModal').classList.remove('active');
-    }
+    };
     
-    function closeProfileModal() {
+    window.closeProfileModal = function() {
         document.getElementById('profileModal').classList.remove('active');
-    }
+    };
     
-    function openAvatarUploadModal() {
+    window.openAvatarUploadModal = function() {
         var input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/jpeg,image/png,image/gif,image/webp';
@@ -225,8 +225,9 @@
             }
         };
         input.click();
-    }
+    };
     
+    // Показываем кнопку создания для директора
     setTimeout(function() {
         var btn = document.getElementById('createEmployeeBtn');
         if (btn && window.app && window.app.currentUserRole === 'director') {

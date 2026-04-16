@@ -2,13 +2,13 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>WARPOINT — Хаб сотрудников</title>
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* ===== СТИЛИ ПРЕЛОАДЕРА ===== */
+        /* ===== ПРЕЛОАДЕР ===== */
         #globalLoader {
             position: fixed;
             top: 0;
@@ -84,8 +84,8 @@
             50% { width: 70%; }
             100% { width: 100%; }
         }
-        
-        /* ===== ОСТАЛЬНЫЕ СТИЛИ ===== */
+
+        /* ===== ОСНОВНЫЕ СТИЛИ ===== */
         * {
             margin: 0;
             padding: 0;
@@ -128,7 +128,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 1000;
+            z-index: 100000;
             padding: 20px;
         }
         .login-card {
@@ -152,30 +152,23 @@
             width: 100px;
             height: 100px;
             margin: 0 auto 32px;
-            border-radius: 0;
-            overflow: visible;
-            box-shadow: none;
             background: transparent;
         }
         .login-logo-clean img {
             width: 100%;
             height: 100%;
             object-fit: contain;
-            display: block;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
         .login-brand-name {
             font-size: 28px;
             font-weight: 700;
-            letter-spacing: -0.5px;
             margin-bottom: 8px;
-            color: #ffffff;
         }
         .login-brand-sub {
             font-size: 13px;
             color: #9ca3af;
             margin-bottom: 40px;
-            font-weight: 400;
         }
         .login-field {
             position: relative;
@@ -187,7 +180,6 @@
             top: 50%;
             transform: translateY(-50%);
             color: #9ca3af;
-            font-size: 16px;
         }
         .login-field input {
             width: 100%;
@@ -195,18 +187,13 @@
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 16px;
-            color: #ffffff;
+            color: #fff;
             font-size: 15px;
             outline: none;
-            transition: all 0.2s;
         }
         .login-field input:focus {
             border-color: #6366f1;
-            background: rgba(0, 0, 0, 0.4);
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-        }
-        .login-field input::placeholder {
-            color: #6b7280;
         }
         .login-submit-btn {
             width: 100%;
@@ -217,21 +204,14 @@
             border-radius: 16px;
             color: white;
             font-weight: 600;
-            font-size: 15px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: all 0.2s;
         }
         .login-submit-btn:hover {
             background: #7c3aed;
-            transform: translateY(-1px);
-            box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
-        }
-        .login-submit-btn i {
-            font-size: 14px;
         }
         .login-footer-note {
             margin-top: 24px;
@@ -241,9 +221,6 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-        }
-        .login-footer-note i {
-            color: #10b981;
         }
         #mainContainer {
             position: relative;
@@ -265,14 +242,10 @@
             z-index: 9998;
             border: 1px solid rgba(255, 255, 255, 0.06);
             cursor: pointer;
-            transition: all 0.2s;
         }
         #syncIndicator i {
             font-size: 18px;
             color: #ef4444;
-        }
-        #syncIndicator.online {
-            border-color: #10b981;
         }
         #syncIndicator.online i {
             color: #10b981;
@@ -294,7 +267,7 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: 1000;
         }
         .logo-area {
             display: flex;
@@ -315,15 +288,12 @@
         .logo-text {
             font-size: 22px;
             font-weight: 700;
-            color: #ffffff;
         }
         .logo-badge {
             background: #6366f1;
             padding: 2px 8px;
             border-radius: 20px;
             font-size: 10px;
-            font-weight: 600;
-            color: white;
             margin-left: 8px;
         }
         .user-card {
@@ -333,7 +303,6 @@
             background: rgba(0, 0, 0, 0.2);
             border-radius: 40px;
             padding: 4px 16px 4px 8px;
-            border: 1px solid rgba(255, 255, 255, 0.04);
         }
         .user-avatar {
             width: 36px;
@@ -371,7 +340,6 @@
             color: #f87171;
             cursor: pointer;
             font-size: 11px;
-            transition: all 0.2s;
         }
         .logout-btn:hover {
             background: rgba(239, 68, 68, 0.1);
@@ -413,7 +381,7 @@
             border-radius: 16px;
             border: 1px solid rgba(255, 255, 255, 0.06);
             box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5);
-            z-index: 1000;
+            z-index: 9999;
             overflow: hidden;
             display: none;
         }
@@ -426,7 +394,7 @@
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             position: sticky;
             top: 72px;
-            z-index: 99;
+            z-index: 999;
             padding: 0 16px;
             overflow-x: auto;
         }
@@ -448,7 +416,6 @@
             border-radius: 12px;
             padding: 8px 16px;
             cursor: pointer;
-            transition: all 0.2s;
             white-space: nowrap;
         }
         .menu-item i {
@@ -462,10 +429,6 @@
         .menu-item:hover {
             background: rgba(255, 255, 255, 0.04);
         }
-        .menu-item:hover i,
-        .menu-item:hover .menu-tooltip {
-            color: #d1d5db;
-        }
         .menu-item.active {
             background: rgba(99, 102, 241, 0.1);
         }
@@ -474,35 +437,19 @@
             color: #818cf8;
         }
         @media (max-width: 768px) {
-            .header {
-                padding: 12px 16px;
-            }
-            .logo-text {
-                font-size: 18px;
-            }
-            .user-info {
-                display: none;
-            }
-            .main-menu {
-                top: 60px;
-            }
-            .menu-item .menu-tooltip {
-                display: none;
-            }
-            .notifications-dropdown {
-                width: calc(100% - 40px);
-                right: 20px;
-                left: 20px;
-            }
-            .login-card {
-                padding: 36px 28px;
-            }
+            .header { padding: 12px 16px; }
+            .logo-text { font-size: 18px; }
+            .user-info { display: none; }
+            .main-menu { top: 60px; }
+            .menu-item .menu-tooltip { display: none; }
+            .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
+            .login-card { padding: 36px 28px; }
         }
     </style>
 </head>
 <body>
 
-<!-- ПРЕЛОАДЕР С РЕАЛЬНОЙ ЗАГРУЗКОЙ -->
+<!-- ПРЕЛОАДЕР -->
 <div id="globalLoader">
     <div class="loader-content">
         <div class="loader-logo">
@@ -527,27 +474,22 @@
         <div class="login-logo-clean">
             <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
         </div>
-        
         <h1 class="login-brand-name">WARPOINT</h1>
         <p class="login-brand-sub">корпоративный портал</p>
-        
         <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
             <div class="login-field">
                 <i class="fas fa-user"></i>
                 <input type="text" id="loginName" placeholder="Логин" autocomplete="username">
             </div>
-            
             <div class="login-field">
                 <i class="fas fa-lock"></i>
                 <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
             </div>
-            
             <button type="submit" class="login-submit-btn">
                 <span>Войти</span>
                 <i class="fas fa-arrow-right"></i>
             </button>
         </form>
-        
         <div class="login-footer-note">
             <i class="fas fa-shield-alt"></i>
             <span>только для сотрудников</span>
@@ -596,6 +538,8 @@
     <div class="main-menu" id="mainMenu"></div>
     <div id="pageContainer"></div>
 </div>
+
+<!-- СКРИПТЫ -->
 <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
 <script src="/js/utils.js"></script>
 <script src="/js/api.js"></script>
@@ -628,7 +572,7 @@
     let isPusherInitializing = false;
     let pusherReconnectTimer = null;
     
-    // 🔥 РЕАЛЬНЫЙ ПРЕЛОАДЕР С ОТСЛЕЖИВАНИЕМ ЗАГРУЗКИ
+    // 🔥 РЕАЛЬНЫЙ ПРЕЛОАДЕР
     const requiredModules = [
         'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
         'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
@@ -643,25 +587,17 @@
     function updateLoaderProgress() {
         loadedModules++;
         const percent = Math.round((loadedModules / requiredModules.length) * 100);
-        if (loaderStatus) {
-            loaderStatus.textContent = `Загрузка модулей... ${loadedModules}/${requiredModules.length}`;
-        }
-        if (loaderProgressBar) {
-            loaderProgressBar.style.width = percent + '%';
-        }
+        if (loaderStatus) loaderStatus.textContent = `Загрузка модулей... ${loadedModules}/${requiredModules.length}`;
+        if (loaderProgressBar) loaderProgressBar.style.width = percent + '%';
     }
     
-    // Отслеживаем загрузку скриптов
     document.querySelectorAll('script[src*="/js/"]').forEach(script => {
         script.addEventListener('load', updateLoaderProgress);
-        script.addEventListener('error', () => {
-            console.error('❌ Ошибка загрузки:', script.src);
-            updateLoaderProgress();
-        });
+        script.addEventListener('error', () => console.error('❌ Ошибка загрузки:', script.src));
     });
     
     window.addEventListener('load', function() {
-        setTimeout(function() {
+        setTimeout(() => {
             const loader = document.getElementById('globalLoader');
             if (loader) {
                 loader.classList.add('fade-out');
@@ -739,18 +675,14 @@
             
             window.pusher.connection.bind('disconnected', () => {
                 console.log('🔴 Pusher отключён');
-                if (syncIndicator) {
-                    syncIndicator.classList.remove('online', 'connecting');
-                }
+                if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
                 isPusherInitializing = false;
                 schedulePusherReconnect();
             });
             
             window.pusher.connection.bind('error', (err) => {
                 console.error('❌ Pusher error:', err);
-                if (syncIndicator) {
-                    syncIndicator.classList.remove('online', 'connecting');
-                }
+                if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
                 isPusherInitializing = false;
                 schedulePusherReconnect();
             });
@@ -760,7 +692,7 @@
                 if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
                 if (typeof updateDashboardStats === 'function') updateDashboardStats();
                 if (typeof renderEmployees === 'function') renderEmployees();
-                showNotif(`📅 Смена для ${data.employee} обновлена`, 'info');
+                showNotif(`📅 Смена для ${escapeHtml(data.employee)} обновлена`, 'info');
             });
             
         } catch (err) {
@@ -787,25 +719,30 @@
     if (token) {
         const savedUser = localStorage.getItem('currentUser');
         if (savedUser) {
-            const user = JSON.parse(savedUser);
-            window.app = window.app || {};
-            window.app.currentUser = user.name;
-            window.app.currentUserRole = user.role;
-            
-            document.getElementById('loginModal').style.display = 'none';
-            document.getElementById('mainContainer').style.display = 'block';
-            document.getElementById('headerName').textContent = user.name;
-            
-            loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
-            setTimeout(() => initPusher(), 1000);
+            try {
+                const user = JSON.parse(savedUser);
+                window.app = window.app || {};
+                window.app.currentUser = user.name;
+                window.app.currentUserRole = user.role;
+                
+                document.getElementById('loginModal').style.display = 'none';
+                document.getElementById('mainContainer').style.display = 'block';
+                document.getElementById('headerName').textContent = user.name;
+                
+                loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
+                setTimeout(() => initPusher(), 1000);
+            } catch(e) {
+                localStorage.removeItem('currentUser');
+                localStorage.removeItem('token');
+            }
         }
     }
     
     window.updateHeaderAvatar = function(avatarUrl, avatarEmoji) {
         const headerAvatar = document.getElementById('headerAvatar');
         if (headerAvatar) {
-            if (avatarUrl) headerAvatar.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-            else if (avatarEmoji) headerAvatar.innerHTML = avatarEmoji;
+            if (avatarUrl) headerAvatar.innerHTML = `<img src="${escapeHtml(avatarUrl)}" style="width:100%;height:100%;object-fit:cover;">`;
+            else if (avatarEmoji) headerAvatar.innerHTML = escapeHtml(avatarEmoji);
             else headerAvatar.innerHTML = '👤';
         }
     };

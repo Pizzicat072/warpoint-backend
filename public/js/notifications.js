@@ -1,4 +1,4 @@
-// public/js/notifications.js - ПРЕМИУМ УВЕДОМЛЕНИЯ С ОЧЕРЕДЬЮ И СТАКИНГОМ
+// public/js/notifications.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 let notificationsList = [];
 let unreadCount = 0;
@@ -9,9 +9,10 @@ const MAX_NOTIFICATIONS = 50;
 let toastQueue = [];
 let isShowingToast = false;
 const TOAST_DELAY = 800;
+const TOAST_DURATION = 5000;
 
 // СТАКИНГ ОДИНАКОВЫХ УВЕДОМЛЕНИЙ
-let activeToasts = new Map(); // key -> { element, count, timeout }
+let activeToasts = new Map();
 
 // ЗАЩИТА ОТ ЧАСТЫХ ПРОВЕРОК
 let isInitialized = false;
@@ -42,33 +43,53 @@ function loadNotificationsFromStorage() {
             notificationsList = data.list || [];
             unreadCount = data.unread || 0;
             notificationIdCounter = data.counter || 0;
+            
+            // 🔥 Ограничиваем количество при загрузке
+            if (notificationsList.length > MAX_NOTIFICATIONS) {
+                notificationsList = notificationsList.slice(0, MAX_NOTIFICATIONS);
+            }
         }
     } catch (e) {
         console.error('Ошибка загрузки уведомлений:', e);
+        // 🔥 При ошибке сбрасываем
+        notificationsList = [];
+        unreadCount = 0;
+        notificationIdCounter = 0;
+        localStorage.removeItem('warpoint_notifications');
     }
 }
 
 function saveNotificationsToStorage() {
     try {
         localStorage.setItem('warpoint_notifications', JSON.stringify({
-            list: notificationsList,
+            list: notificationsList.slice(0, MAX_NOTIFICATIONS),
             unread: unreadCount,
             counter: notificationIdCounter
         }));
     } catch (e) {
         console.error('Ошибка сохранения уведомлений:', e);
+        // 🔥 Если localStorage переполнен, очищаем старые
+        if (e.name === 'QuotaExceededError') {
+            notificationsList = notificationsList.slice(0, 20);
+            try {
+                localStorage.setItem('warpoint_notifications', JSON.stringify({
+                    list: notificationsList,
+                    unread: unreadCount,
+                    counter: notificationIdCounter
+                }));
+            } catch(e2) {}
+        }
     }
 }
 
 // ============================================
-// ИНДИКАТОР СИНХРОНИЗАЦИИ (ТОЛЬКО ИКОНКА)
+// ИНДИКАТОР СИНХРОНИЗАЦИИ
 // ============================================
 
 function updateSyncIndicator() {
     const indicator = document.getElementById('syncIndicator');
     if (!indicator) return;
     
-    // Скрываем текст, оставляем только иконку
     const textSpan = indicator.querySelector('span');
     if (textSpan) textSpan.style.display = 'none';
     
@@ -124,7 +145,6 @@ function setSyncStatus(status) {
 // ============================================
 
 function getToastKey(notification) {
-    // Создаём уникальный ключ для стакинга (тип + заголовок + текст)
     return `${notification.type}_${notification.title}_${notification.text}`;
 }
 
@@ -145,7 +165,7 @@ function enqueueToast(notification) {
         
         // Сбрасываем таймер закрытия
         if (existing.timeout) clearTimeout(existing.timeout);
-        existing.timeout = setTimeout(() => closeToast(existing.element, key), 5000);
+        existing.timeout = setTimeout(() => closeToast(existing.element, key), TOAST_DURATION);
         
         console.log(`📨 Стакинг уведомления (×${existing.count}): ${notification.title}`);
         return;
@@ -207,8 +227,9 @@ function showToastNow(notification, key) {
         backdrop-filter: blur(20px);
     `;
     
+    // 🔥 XSS ЗАЩИТА
     toast.innerHTML = `
-        <div class="toast-icon" style="font-size: 32px; flex-shrink: 0;">${notification.icon}</div>
+        <div class="toast-icon" style="font-size: 32px; flex-shrink: 0;">${escapeHtml(notification.icon)}</div>
         <div style="flex: 1;">
             <div class="toast-title" style="font-weight: 700; font-size: 14px; margin-bottom: 4px; color: #f1f5f9;">${escapeHtml(notification.title)}</div>
             <div class="toast-text" style="font-size: 12px; color: #94a3b8; line-height: 1.4;">${escapeHtml(notification.text)}</div>
@@ -220,7 +241,7 @@ function showToastNow(notification, key) {
     document.body.appendChild(toast);
     
     // Сохраняем в активные
-    const timeoutId = setTimeout(() => closeToast(toast, key), 5000);
+    const timeoutId = setTimeout(() => closeToast(toast, key), TOAST_DURATION);
     activeToasts.set(key, { element: toast, count: 1, timeout: timeoutId });
     
     // Кнопка закрытия
@@ -383,7 +404,7 @@ function renderNotificationsDropdown() {
         html += `
             <div class="notification-item ${n.read ? '' : 'unread'}" onclick="markNotificationRead('${n.id}')">
                 <div style="display: flex; gap: 12px;">
-                    <div style="font-size: 24px;">${n.icon}</div>
+                    <div style="font-size: 24px;">${escapeHtml(n.icon)}</div>
                     <div style="flex: 1;">
                         <div class="notification-title">${escapeHtml(n.title)}</div>
                         <div class="notification-text">${escapeHtml(n.text)}</div>
@@ -471,6 +492,20 @@ function toggleNotificationsDropdown() {
 }
 
 // ============================================
+// ОЧИСТКА
+// ============================================
+
+function cleanupNotifications() {
+    if (window.channel) {
+        window.channel.unbind('global-notification');
+    }
+    if (window.privateChannel) {
+        window.privateChannel.unbind('personal-notification');
+    }
+    pusherBindingsSetup = false;
+}
+
+// ============================================
 // ЭКСПОРТ
 // ============================================
 
@@ -483,10 +518,11 @@ window.markAllNotificationsRead = markAllNotificationsRead;
 window.clearAllNotifications = clearAllNotifications;
 window.markNotificationRead = markNotificationRead;
 window.setSyncStatus = setSyncStatus;
+window.cleanupNotifications = cleanupNotifications;
 
 // Автозапуск
 setTimeout(() => {
     if (!isInitialized) initNotifications();
 }, 1000);
 
-console.log('✅ notifications.js загружен (премиум, стакинг, очередь)');
+console.log('✅ notifications.js загружен (исправленная версия)');

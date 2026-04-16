@@ -16,7 +16,7 @@
             <h1>Зарплата и мотивация</h1>
             <p>Управление начислениями и премиями сотрудников</p>
         </div>
-        <!-- 🔥 НОВОЕ: Отображение фонда -->
+        <!-- 🔥 ОТОБРАЖЕНИЕ ФОНДА -->
         <div class="salary-fund-display" id="salaryFundDisplay">
             <i class="fas fa-landmark"></i>
             <span>Корпоративный фонд: </span>
@@ -85,7 +85,7 @@
                 </div>
                 <div class="salary-field-input">
                     <span class="currency-symbol">₽</span>
-                    <input type="number" id="salaryOklad" class="salary-number-input" placeholder="0" value="0">
+                    <input type="number" id="salaryOklad" class="salary-number-input" placeholder="0" value="0" min="0">
                 </div>
             </div>
 
@@ -98,7 +98,7 @@
                     </div>
                     <div class="salary-field-input">
                         <span class="currency-symbol">₽</span>
-                        <input type="number" id="salaryEvent" class="salary-number-input" placeholder="0" value="0">
+                        <input type="number" id="salaryEvent" class="salary-number-input" placeholder="0" value="0" min="0">
                     </div>
                 </div>
 
@@ -109,7 +109,7 @@
                     </div>
                     <div class="salary-field-input">
                         <span class="currency-symbol">₽</span>
-                        <input type="number" id="salaryTurnover" class="salary-number-input" placeholder="0" value="0">
+                        <input type="number" id="salaryTurnover" class="salary-number-input" placeholder="0" value="0" min="0">
                     </div>
                 </div>
 
@@ -120,7 +120,7 @@
                     </div>
                     <div class="salary-field-input">
                         <span class="currency-symbol">₽</span>
-                        <input type="number" id="salaryBonus35" class="salary-number-input" placeholder="0" value="0">
+                        <input type="number" id="salaryBonus35" class="salary-number-input" placeholder="0" value="0" min="0">
                     </div>
                 </div>
 
@@ -131,19 +131,19 @@
                     </div>
                     <div class="salary-field-input">
                         <span class="currency-symbol">₽</span>
-                        <input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0">
+                        <input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0" min="0">
                     </div>
                 </div>
                 
                 <!-- 🔥 НОВОЕ: Доп. мотивация -->
-                <div class="salary-field">
+                <div class="salary-field extra-field">
                     <div class="salary-field-label">
                         <i class="fas fa-gift"></i>
                         <span>ДОП. МОТИВАЦИЯ</span>
                     </div>
                     <div class="salary-field-input">
                         <span class="currency-symbol">₽</span>
-                        <input type="number" id="salaryExtraMotivation" class="salary-number-input" placeholder="0" value="0">
+                        <input type="number" id="salaryExtraMotivation" class="salary-number-input" placeholder="0" value="0" min="0">
                     </div>
                 </div>
             </div>
@@ -177,7 +177,7 @@
 
 <style>
 /* ============================================
-   PREMIUM SALARY PAGE STYLES v3
+   PREMIUM SALARY PAGE STYLES v4
    ============================================ */
 
 @keyframes floatGlow {
@@ -314,7 +314,7 @@
     margin: 0;
 }
 
-/* 🔥 НОВОЕ: Стиль для отображения фонда */
+/* 🔥 Отображение фонда */
 .salary-fund-display {
     display: flex;
     align-items: center;
@@ -447,7 +447,7 @@
     box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
 }
 
-/* Table Container - ОБЯЗАТЕЛЬНАЯ ГОРИЗОНТАЛЬНАЯ ПРОКРУТКА */
+/* Table Container */
 .salary-table-container {
     background: rgba(17, 24, 39, 0.5);
     backdrop-filter: blur(12px);
@@ -461,7 +461,6 @@
     -webkit-overflow-scrolling: touch;
 }
 
-/* Таблица - ПРИНУДИТЕЛЬНАЯ ШИРИНА */
 .salary-table {
     width: auto;
     min-width: 100%;
@@ -471,7 +470,6 @@
     white-space: nowrap;
 }
 
-/* Заголовки таблицы */
 .salary-table th {
     padding: 14px 6px;
     text-align: center;
@@ -486,7 +484,6 @@
     min-width: 55px;
 }
 
-/* Ячейки таблицы */
 .salary-table td {
     padding: 10px 4px;
     text-align: center;
@@ -494,7 +491,6 @@
     font-size: 11px;
 }
 
-/* Ячейка дня - фиксированная минимальная ширина */
 .day-cell {
     cursor: pointer;
     transition: all 0.2s;
@@ -521,7 +517,6 @@
     background: rgba(251, 191, 36, 0.08);
 }
 
-/* Сотрудник - фиксированная ширина */
 .salary-employee-cell {
     position: sticky;
     left: 0;
@@ -569,7 +564,6 @@
     white-space: nowrap;
 }
 
-/* Итоговая ячейка */
 .salary-total-cell {
     font-weight: 700;
     color: #fbbf24;
@@ -586,7 +580,6 @@
     transform: scale(1.02);
 }
 
-/* Разделитель */
 .salary-separator td {
     padding: 6px 0;
 }
@@ -768,6 +761,11 @@
     transform: translateY(-1px);
 }
 
+.salary-field.extra-field {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.08), rgba(245, 158, 11, 0.02));
+    border: 1px solid rgba(251, 191, 36, 0.2);
+}
+
 .salary-field-label {
     display: flex;
     align-items: center;
@@ -918,7 +916,7 @@
     color: #e2e8f0;
 }
 
-/* 🔥 НОВОЕ: Стили для детализации итога */
+/* 🔥 Стили для детализации итога */
 .breakdown-item {
     display: flex;
     justify-content: space-between;
