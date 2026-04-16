@@ -271,25 +271,34 @@
             margin-top: 10px;
         }
         
-        .loader-status {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 14px;
-            padding: 0 6px;
-        }
-        
-        .status-text {
-            font-size: 14px;
-            color: #94a3b8;
-            letter-spacing: 0.5px;
-        }
-        
-        .status-count {
-            font-size: 14px;
-            font-weight: 600;
-            color: #a78bfa;
-        }
+        /* Статус */
+.loader-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+    padding: 0 6px;
+}
+
+.status-text {
+    font-size: 14px;
+    color: #94a3b8;
+    letter-spacing: 0.5px;
+}
+
+/* 🔥 ИСПРАВЛЕНО СЛИПАНИЕ */
+.status-count {
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.status-count span {
+    display: inline-block;
+}
         
         .loader-progress-wrapper {
             position: relative;
@@ -960,140 +969,196 @@
     let isPusherInitializing = false;
     let pusherReconnectTimer = null;
     
-    // 🔥 ПРЕМИУМ ПРЕЛОАДЕР С ТРАНСФОРМАЦИЕЙ ЛОГОТИПА
-    const requiredModules = [
-        'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
-        'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
-        'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
-        'vp.js', 'salary.js', 'admin.js', 'reports.js'
-    ];
+// 🔥 ПРЕМИУМ ПРЕЛОАДЕР С РЕАЛЬНОЙ ЗАГРУЗКОЙ ВСЕХ МОДУЛЕЙ
+const requiredModules = [
+    'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
+    'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
+    'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
+    'vp.js', 'salary.js', 'admin.js', 'reports.js'
+];
+
+const loaderTips = [
+    '💡 WARPOINT — корпоративный портал',
+    '💡 Управляйте задачами и графиком',
+    '💡 Следите за рейтингом команды',
+    '💡 Получайте достижения и бонусы',
+    '💡 Общайтесь в чате с коллегами',
+    '💡 Добро пожаловать в команду!'
+];
+
+let loadedModules = 0;
+let tipIndex = 0;
+let animationStarted = false;
+let allModulesLoaded = false;
+let minimumDisplayTime = false;
+const MINIMUM_DISPLAY_MS = 3500; // Минимальное время показа прелоадера (3.5 секунды)
+const startTime = Date.now();
+
+const logoImageStage = document.getElementById('logoImageStage');
+const logoTextStage = document.getElementById('logoTextStage');
+const progressSection = document.getElementById('progressSection');
+const loaderTip = document.getElementById('loaderTip');
+const loaderStatus = document.getElementById('loaderStatus');
+const loaderProgressBar = document.getElementById('loaderProgressBar');
+const loaderPercent = document.getElementById('loaderPercent');
+const loaderModuleCount = document.getElementById('loaderModuleCount');
+const loaderParticles = document.getElementById('loaderParticles');
+
+// Создаём частицы
+if (loaderParticles) {
+    for (let i = 0; i < 30; i++) {
+        const particle = document.createElement('div');
+        particle.className = 'loader-particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = (Math.random() * 6) + 's';
+        particle.style.animationDuration = (4 + Math.random() * 4) + 's';
+        particle.style.opacity = Math.random() * 0.5 + 0.3;
+        particle.style.width = (2 + Math.random() * 4) + 'px';
+        particle.style.height = particle.style.width;
+        loaderParticles.appendChild(particle);
+    }
+}
+
+// Смена подсказок
+setInterval(() => {
+    tipIndex = (tipIndex + 1) % loaderTips.length;
+    if (loaderTip) {
+        const tipText = loaderTip.querySelector('.tip-text');
+        if (tipText) tipText.textContent = loaderTips[tipIndex];
+    }
+}, 3000);
+
+// 🔥 АНИМАЦИЯ ТРАНСФОРМАЦИИ ЛОГОТИПА
+function startLogoTransformation() {
+    if (animationStarted) return;
+    animationStarted = true;
     
-    const loaderTips = [
-        'WARPOINT — корпоративный портал',
-        'Управляйте задачами и графиком',
-        'Следите за рейтингом команды',
-        'Получайте достижения и бонусы',
-        'Общайтесь в чате с коллегами',
-        'Добро пожаловать в команду!'
-    ];
+    // Шаг 1: Уменьшаем и скрываем изображение
+    setTimeout(() => {
+        if (logoImageStage) {
+            logoImageStage.style.transform = 'translate(-50%, -50%) scale(0)';
+            logoImageStage.style.opacity = '0';
+        }
+    }, 200);
     
-    let loadedModules = 0;
-    let tipIndex = 0;
-    let animationStarted = false;
+    // Шаг 2: Показываем текст WARPOINT
+    setTimeout(() => {
+        if (logoTextStage) {
+            logoTextStage.style.display = 'block';
+            setTimeout(() => {
+                logoTextStage.style.opacity = '1';
+            }, 20);
+        }
+    }, 600);
     
-    const logoImageStage = document.getElementById('logoImageStage');
-    const logoTextStage = document.getElementById('logoTextStage');
-    const progressSection = document.getElementById('progressSection');
-    const loaderTip = document.getElementById('loaderTip');
-    const loaderStatus = document.getElementById('loaderStatus');
-    const loaderProgressBar = document.getElementById('loaderProgressBar');
-    const loaderPercent = document.getElementById('loaderPercent');
-    const loaderModuleCount = document.getElementById('loaderModuleCount');
-    const loaderParticles = document.getElementById('loaderParticles');
+    // Шаг 3: Добавляем HUB справа
+    setTimeout(() => {
+        if (logoTextStage) {
+            logoTextStage.classList.add('show-hub');
+        }
+    }, 1000);
     
-    // Создаём частицы
-    if (loaderParticles) {
-        for (let i = 0; i < 30; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'loader-particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = (Math.random() * 6) + 's';
-            particle.style.animationDuration = (4 + Math.random() * 4) + 's';
-            particle.style.opacity = Math.random() * 0.5 + 0.3;
-            particle.style.width = (2 + Math.random() * 4) + 'px';
-            particle.style.height = particle.style.width;
-            loaderParticles.appendChild(particle);
+    // Шаг 4: Показываем прогресс-бар
+    setTimeout(() => {
+        if (progressSection) progressSection.style.opacity = '1';
+        if (loaderTip) loaderTip.style.opacity = '1';
+    }, 1400);
+}
+
+// Запускаем анимацию
+setTimeout(startLogoTransformation, 100);
+
+// Отслеживаем загрузку модулей
+function updateLoaderProgress() {
+    loadedModules++;
+    const percent = Math.round((loadedModules / requiredModules.length) * 100);
+    
+    if (loaderModuleCount) {
+        // 🔥 ИСПРАВЛЕНО СЛИПАНИЕ: пробел между числом и текстом
+        loaderModuleCount.innerHTML = `<span style="font-weight:700;color:#a78bfa;">${loadedModules}</span><span style="color:#64748b;">/${requiredModules.length}</span>`;
+    }
+    if (loaderProgressBar) {
+        loaderProgressBar.style.width = percent + '%';
+    }
+    if (loaderPercent) {
+        loaderPercent.textContent = percent + '%';
+    }
+    
+    // Меняем текст статуса
+    if (loaderStatus) {
+        const statusText = loaderStatus.querySelector('.status-text');
+        if (statusText) {
+            if (percent < 30) statusText.textContent = '⚡ Загрузка ядра';
+            else if (percent < 60) statusText.textContent = '📦 Загрузка модулей';
+            else if (percent < 90) statusText.textContent = '🔧 Инициализация';
+            else statusText.textContent = '🚀 Запуск системы';
         }
     }
     
-    // Смена подсказок
-    setInterval(() => {
-        tipIndex = (tipIndex + 1) % loaderTips.length;
-        if (loaderTip) {
-            const tipText = loaderTip.querySelector('.tip-text');
-            if (tipText) tipText.textContent = loaderTips[tipIndex];
-        }
-    }, 3000);
+    // Проверяем, все ли модули загружены
+    if (loadedModules >= requiredModules.length) {
+        allModulesLoaded = true;
+        console.log('✅ Все модули загружены!');
+        tryToHideLoader();
+    }
+}
+
+// Пытаемся скрыть прелоадер (ждём минимальное время)
+function tryToHideLoader() {
+    if (!allModulesLoaded) return;
     
-    // 🔥 АНИМАЦИЯ ТРАНСФОРМАЦИИ ЛОГОТИПА
-    function startLogoTransformation() {
-        if (animationStarted) return;
-        animationStarted = true;
-        
-        // Шаг 1: Уменьшаем и скрываем изображение
-        setTimeout(() => {
-            if (logoImageStage) {
-                logoImageStage.style.transform = 'translate(-50%, -50%) scale(0)';
-                logoImageStage.style.opacity = '0';
-            }
-        }, 200);
-        
-        // Шаг 2: Показываем текст WARPOINT
-        setTimeout(() => {
-            if (logoTextStage) {
-                logoTextStage.style.display = 'block';
-                setTimeout(() => {
-                    logoTextStage.style.opacity = '1';
-                }, 20);
-            }
-        }, 600);
-        
-        // Шаг 3: Добавляем HUB справа
-        setTimeout(() => {
-            if (logoTextStage) {
-                logoTextStage.classList.add('show-hub');
-            }
-        }, 1000);
-        
-        // Шаг 4: Показываем прогресс-бар
-        setTimeout(() => {
-            if (progressSection) progressSection.style.opacity = '1';
-            if (loaderTip) loaderTip.style.opacity = '1';
-        }, 1400);
+    const elapsed = Date.now() - startTime;
+    if (elapsed < MINIMUM_DISPLAY_MS) {
+        // Ждём оставшееся время
+        setTimeout(tryToHideLoader, MINIMUM_DISPLAY_MS - elapsed);
+        return;
     }
     
-    // Запускаем анимацию
-    setTimeout(startLogoTransformation, 100);
-    
-    // Отслеживаем загрузку модулей
-    function updateLoaderProgress() {
-        loadedModules++;
-        const percent = Math.round((loadedModules / requiredModules.length) * 100);
-        
-        if (loaderModuleCount) loaderModuleCount.textContent = `${loadedModules}/${requiredModules.length}`;
-        if (loaderProgressBar) loaderProgressBar.style.width = percent + '%';
-        if (loaderPercent) loaderPercent.textContent = percent + '%';
-        
-        if (loaderStatus) {
-            const statusText = loaderStatus.querySelector('.status-text');
-            if (statusText) {
-                if (percent < 30) statusText.textContent = 'Загрузка ядра...';
-                else if (percent < 60) statusText.textContent = 'Загрузка модулей...';
-                else if (percent < 90) statusText.textContent = 'Инициализация...';
-                else statusText.textContent = 'Запуск системы...';
+    // Плавно скрываем
+    const loader = document.getElementById('globalLoader');
+    if (loader && !loader.classList.contains('fade-out')) {
+        console.log('🎬 Скрываем прелоадер, время показа:', elapsed, 'ms');
+        loader.classList.add('fade-out');
+        setTimeout(() => {
+            loader.remove();
+            if (typeof showNotif === 'function') {
+                setTimeout(() => showNotif('🚀 Добро пожаловать в WARPOINT HUB!', 'success'), 300);
             }
-        }
+        }, 800);
     }
-    
-    document.querySelectorAll('script[src*="/js/"]').forEach(script => {
-        script.addEventListener('load', updateLoaderProgress);
-        script.addEventListener('error', () => console.error('❌ Ошибка загрузки:', script.src));
+}
+
+// Отслеживаем загрузку скриптов
+document.querySelectorAll('script[src*="/js/"]').forEach(script => {
+    script.addEventListener('load', updateLoaderProgress);
+    script.addEventListener('error', () => {
+        console.error('❌ Ошибка загрузки:', script.src);
+        // Всё равно считаем как загруженный, чтобы не зависнуть
+        updateLoaderProgress();
     });
-    
-    window.addEventListener('load', function() {
-        setTimeout(function() {
-            const loader = document.getElementById('globalLoader');
-            if (loader) {
-                loader.classList.add('fade-out');
-                setTimeout(() => {
-                    loader.remove();
-                    if (typeof showNotif === 'function') {
-                        setTimeout(() => showNotif('🚀 Добро пожаловать в WARPOINT HUB!', 'success'), 300);
-                    }
-                }, 800);
-            }
-        }, 400);
-    });
+});
+
+// Если через 10 секунд ничего не загрузилось - принудительно скрываем
+setTimeout(() => {
+    if (!allModulesLoaded) {
+        console.warn('⚠️ Таймаут загрузки модулей, принудительное скрытие прелоадера');
+        allModulesLoaded = true;
+        tryToHideLoader();
+    }
+}, 10000);
+
+// Фолбэк для window.load
+window.addEventListener('load', function() {
+    console.log('📄 Страница загружена');
+    // Отмечаем, что все модули загружены (если ещё нет)
+    if (!allModulesLoaded) {
+        // Подгоняем счётчик
+        loadedModules = requiredModules.length;
+        updateLoaderProgress();
+        allModulesLoaded = true;
+    }
+    tryToHideLoader();
+});
     
     // ============================================
     // PUSHER
