@@ -231,7 +231,7 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`);
     } catch (err) {}
     
-    try {
+        try {
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
@@ -247,16 +247,13 @@ async function initDatabase() {
         await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
         await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_motivation INTEGER DEFAULT 0`);
-         await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`);
+        await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`);
         console.log('✅ Добавлена колонка icon в achievements');
     } catch (err) {
         console.log('⚠️ Ошибка добавления icon:', err.message);
     }
     
     console.log('✅ Миграции: добавлены все недостающие колонки');
-} catch (err) {
-    console.log('⚠️ Ошибка миграций:', err.message);
-}
     
     try {
         const directorCheck = await pool.query('SELECT * FROM employees WHERE role = $1 LIMIT 1', ['director']);
