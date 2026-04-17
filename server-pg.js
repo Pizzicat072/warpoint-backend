@@ -234,7 +234,7 @@ async function initDatabase() {
         `CREATE TABLE IF NOT EXISTS schedule (id SERIAL PRIMARY KEY, date DATE NOT NULL, employee VARCHAR(100) NOT NULL, shift_time VARCHAR(10), shift_status VARCHAR(30) DEFAULT 'working', version INTEGER DEFAULT 1, is_special BOOLEAN DEFAULT FALSE, special_end_time VARCHAR(100), shift_paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(date, employee))`,
         `CREATE TABLE IF NOT EXISTS schedule_special_cases (id SERIAL PRIMARY KEY, date DATE NOT NULL UNIQUE, cases JSONB DEFAULT '{}', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS exchange_requests (id SERIAL PRIMARY KEY, from_employee VARCHAR(100) NOT NULL, to_employee VARCHAR(100) NOT NULL, from_date DATE NOT NULL, to_date DATE NOT NULL, from_shift_time VARCHAR(10), to_shift_time VARCHAR(10), status VARCHAR(20) DEFAULT 'pending', comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-        `CREATE TABLE IF NOT EXISTS vp_bookings (id SERIAL PRIMARY KEY, admin VARCHAR(50) NOT NULL, event_date DATE NOT NULL, event_time TIME NOT NULL, customer_name VARCHAR(255) NOT NULL, amount INTEGER DEFAULT 2000, payment_type VARCHAR(30) DEFAULT 'evotor_card', booking_date DATE NOT NULL, photo_status VARCHAR(20) DEFAULT 'pending', script_status VARCHAR(20) DEFAULT 'not_sent', cancelled BOOLEAN DEFAULT FALSE, cancelled_at TIMESTAMP, created_by VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, comment TEXT, is_archived BOOLEAN DEFAULT FALSE)`,
+        `CREATE TABLE IF NOT EXISTS vp_bookings (id SERIAL PRIMARY KEY, admin VARCHAR(50) NOT NULL, event_date DATE NOT NULL, event_time TIME NOT NULL, customer_name VARCHAR(255) NOT NULL, amount INTEGER DEFAULT 2000, payment_type VARCHAR(30) DEFAULT 'evotor_card', booking_date DATE NOT NULL, photo_status VARCHAR(20) DEFAULT 'pending', script_status VARCHAR(20) DEFAULT 'not_sent', cancelled BOOLEAN DEFAULT FALSE, cancelled_at TIMESTAMP, created_by VARCHAR(100), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, comment TEXT, is_archived BOOLEAN DEFAULT FALSE, duration INTEGER DEFAULT 1)`,
         `CREATE TABLE IF NOT EXISTS salary_daily_new (id SERIAL PRIMARY KEY, employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, day_number INTEGER NOT NULL, month_year VARCHAR(7) NOT NULL, oklad INTEGER DEFAULT 0, event INTEGER DEFAULT 0, turnover INTEGER DEFAULT 0, bonus35 INTEGER DEFAULT 0, video INTEGER DEFAULT 0, extra_motivation INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee_id, day_number, month_year))`,
         `CREATE TABLE IF NOT EXISTS corporate_fund (id SERIAL PRIMARY KEY, amount INTEGER DEFAULT 0, period_type VARCHAR(20) DEFAULT 'all', period_start DATE, period_end DATE, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS knowledge_categories (id SERIAL PRIMARY KEY, name VARCHAR(100) NOT NULL, icon VARCHAR(10) DEFAULT '📁', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
@@ -261,7 +261,10 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_views_user ON knowledge_views(user_id)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender)`); // 🔥 ДОБАВЛЕНО
-    } catch (err) {}
+     await pool.query(`CREATE INDEX IF NOT EXISTS idx_vp_event_date ON vp_bookings(event_date)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_vp_is_archived ON vp_bookings(is_archived) WHERE is_archived = FALSE`);
+    
+} catch (err) {}
     
     // Миграции
     try {
@@ -272,6 +275,7 @@ async function initDatabase() {
         await pool.query(`ALTER TABLE schedule ADD COLUMN IF NOT EXISTS shift_paid BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE exchange_requests ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE vp_bookings ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE`);
+await pool.query(`ALTER TABLE vp_bookings ADD COLUMN IF NOT EXISTS duration INTEGER DEFAULT 1`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS bonus_streak INTEGER DEFAULT 1`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS last_bonus_claimed_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS balance_before INTEGER DEFAULT 0`);
@@ -2024,11 +2028,15 @@ app.post('/api/vp', authMiddleware, async (req, res) => {
     if (!vp || !vp.customerName || !vp.admin || !vp.eventDate) {
         return res.status(400).json({ error: 'Не заполнены обязательные поля' });
     }
+    
+    // 🔥 Добавляем duration (по умолчанию 1)
+    const duration = vp.duration || 1;
+    
     try { 
         await pool.query(
-            `INSERT INTO vp_bookings (admin, event_date, event_time, customer_name, amount, payment_type, booking_date, created_by, photo_status, script_status) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'not_sent')`,
-            [vp.admin, vp.eventDate, vp.eventTime, vp.customerName, vp.amount, vp.paymentType, vp.bookingDate, req.user.username]
+            `INSERT INTO vp_bookings (admin, event_date, event_time, customer_name, amount, payment_type, booking_date, created_by, photo_status, script_status, duration) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', 'not_sent', $9)`,
+            [vp.admin, vp.eventDate, vp.eventTime, vp.customerName, vp.amount, vp.paymentType, vp.bookingDate, req.user.username, duration]
         ); 
         res.json({ success: true }); 
     } catch (err) { 
@@ -2043,7 +2051,7 @@ app.put('/api/vp/:id', authMiddleware, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
     
-    const { photoStatus, scriptStatus, is_archived, eventDate, eventTime, customerName, admin, amount, paymentType, comment } = req.body;
+    const { photoStatus, scriptStatus, is_archived, eventDate, eventTime, customerName, admin, amount, paymentType, comment, duration } = req.body;
     
     try {
         const existing = await pool.query('SELECT * FROM vp_bookings WHERE id = $1', [id]);
@@ -2074,6 +2082,10 @@ app.put('/api/vp/:id', authMiddleware, async (req, res) => {
         if (amount !== undefined) { updateFields.push(`amount = $${paramIndex++}`); values.push(amount); }
         if (paymentType !== undefined) { updateFields.push(`payment_type = $${paramIndex++}`); values.push(paymentType); }
         if (comment !== undefined) { updateFields.push(`comment = $${paramIndex++}`); values.push(comment); }
+if (duration !== undefined) {
+    updateFields.push(`duration = $${paramIndex++}`);
+    values.push(duration);
+}
         
         if (updateFields.length > 0) {
             updateFields.push(`updated_at = CURRENT_TIMESTAMP`);

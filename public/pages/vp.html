@@ -1,4 +1,6 @@
-<!-- public/pages/vp.html -->
+<!-- public/pages/vp.html — ИСПРАВЛЕННАЯ ВЕРСИЯ v3.0 -->
+<!-- Добавлена длительность, исправлены все баги -->
+
 <div class="vp-container">
     <div class="vp-bg">
         <div class="bg-glow"></div>
@@ -14,9 +16,15 @@
             <h1>Учёт мероприятий и П/О</h1>
             <p>Управление бронированиями, фото и отзывами</p>
         </div>
-        <div class="vp-role-badge" id="vpAccessBadge">
-            <i class="fas fa-eye"></i>
-            <span>Только просмотр</span>
+        <div class="vp-header-actions">
+            <button class="vp-today-btn" onclick="goToToday()" title="Перейти к сегодняшней дате">
+                <i class="fas fa-calendar-day"></i>
+                <span>Сегодня</span>
+            </button>
+            <div class="vp-role-badge" id="vpAccessBadge">
+                <i class="fas fa-eye"></i>
+                <span>Только просмотр</span>
+            </div>
         </div>
     </div>
 
@@ -33,43 +41,51 @@
                 <i class="fas fa-chevron-right"></i>
             </button>
         </div>
+        
         <div class="filter-group search-group">
             <i class="fas fa-search"></i>
             <input type="text" id="vpSearch" placeholder="Поиск по клиенту или админу...">
         </div>
-        <button class="vp-add-btn" id="vpAddBtn">
-            <i class="fas fa-plus"></i>
-            <span>Добавить мероприятие</span>
-        </button>
+        
+        <div class="vp-actions">
+            <button class="vp-export-btn" onclick="exportVpToExcel()" title="Экспорт в Excel">
+                <i class="fas fa-file-excel"></i>
+                <span>Экспорт</span>
+            </button>
+            <button class="vp-add-btn" id="vpAddBtn">
+                <i class="fas fa-plus"></i>
+                <span>Добавить мероприятие</span>
+            </button>
+        </div>
     </div>
 
     <div class="vp-stats-grid">
-        <div class="stat-card">
+        <div class="stat-card" title="Всего мероприятий за выбранный месяц">
             <div class="stat-icon">🎮</div>
             <div class="stat-value" id="vpTotalCount">0</div>
             <div class="stat-label">Мероприятий</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" title="Общая сумма всех мероприятий">
             <div class="stat-icon">💰</div>
             <div class="stat-value" id="vpTotalAmount">0 ₽</div>
             <div class="stat-label">Общая сумма</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" title="Мероприятия, ожидающие отправки фото">
             <div class="stat-icon">📸</div>
             <div class="stat-value" id="vpPhotoPending">0</div>
             <div class="stat-label">Ожидают фото</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" title="Мероприятия, по которым не отправлен отзыв">
             <div class="stat-icon">📝</div>
             <div class="stat-value" id="vpScriptPending">0</div>
             <div class="stat-label">Нет отзыва</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" title="Мероприятия в архиве">
             <div class="stat-icon">📦</div>
             <div class="stat-value" id="vpArchivedCount">0</div>
             <div class="stat-label">В архиве</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card" title="Мероприятия с просроченной оплатой (более 2 дней)">
             <div class="stat-icon">⚠️</div>
             <div class="stat-value" id="vpUnpaidOverdue">0</div>
             <div class="stat-label">Просрочка оплаты</div>
@@ -77,6 +93,27 @@
     </div>
 
     <div class="vp-filters">
+        <div class="filters-left">
+            <div class="filter-group">
+                <i class="fas fa-filter"></i>
+                <select id="vpStatusFilter" onchange="filterByStatus()">
+                    <option value="all">Все статусы</option>
+                    <option value="photo_pending">📸 Ожидают фото</option>
+                    <option value="script_pending">📝 Ожидают отзыва</option>
+                    <option value="unpaid">⚠️ Просрочка оплаты</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <i class="fas fa-user"></i>
+                <select id="vpAdminFilter" onchange="filterByAdmin()">
+                    <option value="all">Все админы</option>
+                </select>
+            </div>
+            <label class="filter-checkbox">
+                <input type="checkbox" id="filterMyOnly" onchange="filterMyOnly()">
+                <span>👤 Только мои</span>
+            </label>
+        </div>
         <div class="filters-right">
             <label class="archive-checkbox">
                 <input type="checkbox" id="showArchived">
@@ -92,33 +129,41 @@
         <table class="vp-table">
             <thead>
                 <tr>
-                    <th>Дата</th>
-                    <th>Время</th>
-                    <th>Клиент</th>
-                    <th>Админ</th>
-                    <th>Сумма</th>
-                    <th>Оплата</th>
-                    <th>Фото</th>
-                    <th>Отзыв</th>
-                    <th>Действия</th>
+                    <th onclick="sortVpBy('date')" class="sortable">📅 Дата <i class="fas fa-sort"></i></th>
+                    <th>⏰ Время</th>
+                    <th onclick="sortVpBy('customer')" class="sortable">👤 Клиент <i class="fas fa-sort"></i></th>
+                    <th onclick="sortVpBy('admin')" class="sortable">🛡️ Админ <i class="fas fa-sort"></i></th>
+                    <th onclick="sortVpBy('amount')" class="sortable">💰 Сумма <i class="fas fa-sort"></i></th>
+                    <th>💳 Оплата</th>
+                    <th>📸 Фото</th>
+                    <th>📝 Отзыв</th>
+                    <th>⚙️ Действия</th>
                 </tr>
             </thead>
             <tbody id="vpTableBody">
                 <tr><td colspan="9" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>
             </tbody>
+            <tfoot id="vpTableFooter" style="display: none;">
+                <tr>
+                    <td colspan="4" style="text-align: right; font-weight: 600;">ИТОГО:</td>
+                    <td id="footerTotalAmount" style="font-weight: 700; color: #fbbf24;">0 ₽</td>
+                    <td colspan="4"></td>
+                </tr>
+            </tfoot>
         </table>
     </div>
 </div>
 
 <style>
-/* ============================================
-   VP PAGE STYLES
-   ============================================ */
+/* ============================================ */
+/* ВП — ИСПРАВЛЕННЫЕ СТИЛИ v3.0                  */
+/* ============================================ */
 
 .vp-container {
     padding: 24px 32px;
     max-width: 1400px;
     margin: 0 auto;
+    position: relative;
 }
 
 /* Анимированный фон */
@@ -137,7 +182,7 @@
     position: absolute;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(16, 185, 129, 0.15), transparent 70%);
+    background: radial-gradient(circle, rgba(16, 185, 129, 0.12), transparent 70%);
     top: -200px;
     right: -100px;
     animation: floatGlow 15s ease-in-out infinite;
@@ -147,7 +192,7 @@
     position: absolute;
     width: 500px;
     height: 500px;
-    background: radial-gradient(circle, rgba(52, 211, 153, 0.1), transparent 70%);
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.08), transparent 70%);
     bottom: -150px;
     left: -80px;
     animation: floatGlow2 20s ease-in-out infinite;
@@ -157,7 +202,7 @@
     position: absolute;
     width: 400px;
     height: 400px;
-    background: radial-gradient(circle, rgba(6, 148, 162, 0.08), transparent 70%);
+    background: radial-gradient(circle, rgba(6, 148, 162, 0.06), transparent 70%);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -185,7 +230,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 24px;
-    margin-bottom: 32px;
+    margin-bottom: 28px;
     padding: 20px 28px;
     background: linear-gradient(135deg, rgba(20, 25, 50, 0.85), rgba(15, 18, 35, 0.7));
     backdrop-filter: blur(20px);
@@ -219,6 +264,33 @@
     font-size: 13px;
     color: #94a3b8;
     margin: 0;
+}
+
+.vp-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-left: auto;
+}
+
+.vp-today-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 40px;
+    color: #10b981;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.vp-today-btn:hover {
+    background: rgba(16, 185, 129, 0.3);
+    transform: translateY(-2px);
 }
 
 .vp-role-badge {
@@ -281,6 +353,12 @@
     transform: scale(1.05);
 }
 
+.month-nav:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .current-period {
     text-align: center;
     min-width: 160px;
@@ -309,6 +387,7 @@
     padding: 0 16px;
     border-radius: 40px;
     border: 1px solid rgba(16, 185, 129, 0.2);
+    position: relative;
 }
 
 .filter-group i {
@@ -318,7 +397,7 @@
 .filter-group input {
     background: transparent;
     border: none;
-    padding: 10px 0;
+    padding: 10px 30px 10px 0;
     color: #e2e8f0;
     font-size: 13px;
     outline: none;
@@ -327,6 +406,55 @@
 
 .filter-group input::placeholder {
     color: #475569;
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 20px;
+    height: 20px;
+    background: rgba(239, 68, 68, 0.2);
+    border: none;
+    border-radius: 50%;
+    color: #f87171;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.clear-search-btn:hover {
+    background: rgba(239, 68, 68, 0.4);
+}
+
+.vp-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.vp-export-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 40px;
+    color: #3b82f6;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.vp-export-btn:hover {
+    background: rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
 }
 
 .vp-add-btn {
@@ -351,9 +479,53 @@
 /* Filters row */
 .vp-filters {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 16px;
+}
+
+.filters-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.filters-left .filter-group select {
+    background: transparent;
+    border: none;
+    padding: 10px 0;
+    color: #e2e8f0;
+    font-size: 13px;
+    outline: none;
+    cursor: pointer;
+}
+
+.filters-left .filter-group select option {
+    background: #1e293b;
+}
+
+.filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: 40px;
+    cursor: pointer;
+    font-size: 13px;
+    color: #94a3b8;
+    height: 42px;
+}
+
+.filter-checkbox input {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #10b981;
 }
 
 .filters-right {
@@ -370,9 +542,10 @@
     font-size: 13px;
     color: #94a3b8;
     background: rgba(0, 0, 0, 0.3);
-    padding: 8px 16px;
+    padding: 0 16px;
     border-radius: 40px;
     border: 1px solid rgba(16, 185, 129, 0.2);
+    height: 42px;
 }
 
 .archive-checkbox input {
@@ -385,9 +558,9 @@
 .filter-reset {
     background: rgba(16, 185, 129, 0.15);
     border: 1px solid rgba(16, 185, 129, 0.3);
-    border-radius: 40px;
-    width: 36px;
-    height: 36px;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -404,7 +577,7 @@
 /* Stats Grid */
 .vp-stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
 }
@@ -417,6 +590,7 @@
     text-align: center;
     border: 1px solid rgba(16, 185, 129, 0.2);
     transition: all 0.2s;
+    cursor: help;
 }
 
 .stat-card:hover {
@@ -449,13 +623,15 @@
     border: 1px solid rgba(16, 185, 129, 0.15);
     overflow-x: auto;
     margin-bottom: 32px;
+    max-height: 500px;
+    overflow-y: auto;
 }
 
 .vp-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 13px;
-    min-width: 1000px;
+    min-width: 1100px;
 }
 
 .vp-table th {
@@ -466,6 +642,24 @@
     color: #e2e8f0;
     border-bottom: 1px solid rgba(16, 185, 129, 0.2);
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.vp-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.vp-table th.sortable:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.vp-table th i {
+    opacity: 0.5;
+    font-size: 10px;
+    margin-left: 4px;
 }
 
 .vp-table td {
@@ -473,19 +667,61 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.vp-table tr:hover td {
-    background: rgba(16, 185, 129, 0.05);
+.vp-table tbody tr {
+    transition: all 0.2s;
 }
 
-/* Row highlight for unpaid overdue */
+.vp-table tbody tr:hover {
+    background: rgba(16, 185, 129, 0.08);
+}
+
+/* Zebra striping */
+.vp-table tbody tr:nth-child(even) {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.vp-table tbody tr:nth-child(even):hover {
+    background: rgba(16, 185, 129, 0.12);
+}
+
+/* Row highlights */
 .vp-row-unpaid {
-    background: rgba(239, 68, 68, 0.1);
-    border-left: 3px solid #ef4444;
+    background: rgba(239, 68, 68, 0.1) !important;
+    border-left: 3px solid #ef4444 !important;
 }
 
-.vp-row-unpaid:hover td {
-    background: rgba(239, 68, 68, 0.15);
+.vp-row-past {
+    opacity: 0.7;
 }
+
+.vp-row-today {
+    background: rgba(251, 191, 36, 0.08) !important;
+    border-left: 3px solid #fbbf24 !important;
+}
+
+/* Admin cell */
+.admin-cell {
+    max-width: 150px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Payment badge */
+.payment-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.payment-evector_card { background: rgba(59, 130, 246, 0.15); color: #3b82f6; }
+.payment-evector_cash { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.payment-vtb { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+.payment-sber { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+.payment-not_paid { background: rgba(245, 158, 11, 0.15); color: #f59e0b; animation: pulse 1.5s infinite; }
 
 /* Status Badges */
 .status-badge {
@@ -575,34 +811,26 @@
     background: rgba(16, 185, 129, 0.3);
 }
 
-.btn-delete {
+.btn-small.btn-delete {
     background: rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.3);
     color: #f87171;
 }
 
-.btn-delete:hover {
+.btn-small.btn-delete:hover {
     background: rgba(239, 68, 68, 0.3);
 }
 
-.btn-restore {
-    background: rgba(16, 185, 129, 0.15);
-    border-color: rgba(16, 185, 129, 0.3);
-    color: #10b981;
+.btn-small.btn-restore {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
 }
 
-.btn-restore:hover {
-    background: rgba(16, 185, 129, 0.3);
-}
-
-.btn-danger {
+.btn-small.btn-danger {
     background: rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.3);
     color: #ef4444;
-}
-
-.btn-danger:hover {
-    background: rgba(239, 68, 68, 0.3);
 }
 
 .quick-action-cell {
@@ -614,6 +842,7 @@
     cursor: pointer;
     transition: all 0.2s;
     color: #a78bfa;
+    user-select: text;
 }
 
 .clickable-customer:hover {
@@ -627,6 +856,135 @@
     color: #64748b;
 }
 
+/* Modal Details */
+.details-section {
+    margin-bottom: 20px;
+}
+
+.section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #10b981;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.detail-row {
+    display: flex;
+    padding: 6px 0;
+}
+
+.detail-label {
+    width: 120px;
+    color: #94a3b8;
+    font-size: 13px;
+}
+
+.detail-value {
+    flex: 1;
+    color: #e2e8f0;
+    font-size: 13px;
+}
+
+.detail-value.amount {
+    color: #fbbf24;
+    font-weight: 700;
+    font-size: 16px;
+}
+
+.comment-box {
+    background: rgba(0, 0, 0, 0.2);
+    padding: 12px 16px;
+    border-radius: 12px;
+    color: #e2e8f0;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+/* Footer */
+.vp-table tfoot {
+    position: sticky;
+    bottom: 0;
+    background: rgba(17, 24, 39, 0.95);
+    backdrop-filter: blur(12px);
+}
+
+.vp-table tfoot td {
+    padding: 12px;
+    border-top: 2px solid rgba(16, 185, 129, 0.3);
+    font-weight: 600;
+}
+
+/* Form styles */
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #94a3b8;
+}
+
+.form-input, .form-select, .form-textarea {
+    width: 100%;
+    padding: 12px 16px;
+    background: #0d1016;
+    border: 1px solid #1e2430;
+    border-radius: 16px;
+    color: #e2e8f0;
+    font-size: 14px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.form-textarea {
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* Print styles */
+@media print {
+    .vp-header-actions,
+    .vp-controls,
+    .vp-filters,
+    .vp-add-btn,
+    .btn-action,
+    .btn-small,
+    .filter-reset {
+        display: none !important;
+    }
+    
+    .vp-table-container {
+        overflow: visible;
+        max-height: none;
+    }
+    
+    .vp-table th {
+        background: #f0f0f0 !important;
+        color: #000 !important;
+    }
+    
+    .vp-table td {
+        color: #000 !important;
+    }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .vp-container {
@@ -636,6 +994,11 @@
     .vp-header {
         flex-direction: column;
         text-align: center;
+    }
+    
+    .vp-header-actions {
+        margin-left: 0;
+        justify-content: center;
     }
     
     .vp-controls {
@@ -656,8 +1019,12 @@
         width: 100%;
     }
     
-    .vp-add-btn {
+    .vp-actions {
         width: 100%;
+    }
+    
+    .vp-export-btn, .vp-add-btn {
+        flex: 1;
         justify-content: center;
     }
     
@@ -666,7 +1033,17 @@
     }
     
     .vp-filters {
-        justify-content: center;
+        flex-direction: column;
+    }
+    
+    .filters-left {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    
+    .filters-right {
+        width: 100%;
+        justify-content: space-between;
     }
     
     .btn-action {
@@ -678,28 +1055,155 @@
         padding: 4px 8px;
         font-size: 10px;
     }
+    
+    .form-row-2 {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 480px) {
     .vp-stats-grid {
         grid-template-columns: 1fr;
     }
+    
+    .vp-today-btn span,
+    .vp-export-btn span,
+    .vp-add-btn span {
+        display: none;
+    }
+    
+    .vp-today-btn,
+    .vp-export-btn,
+    .vp-add-btn {
+        padding: 10px 16px;
+    }
+}
+
+/* Accessibility */
+.vp-table th:focus-visible,
+.month-nav:focus-visible,
+.vp-add-btn:focus-visible,
+.btn-action:focus-visible {
+    outline: 2px solid #10b981;
+    outline-offset: 2px;
+}
+
+/* Стили для длительности в модалке */
+#vpDuration {
+    cursor: pointer;
+}
+
+#vpDuration option {
+    background: #0d1016;
 }
 </style>
 
 <script>
-function resetVpFilters() {
-    const searchInput = document.getElementById('vpSearch');
-    const showArchivedCheckbox = document.getElementById('showArchived');
+// ============================================
+// ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ВП
+// ============================================
+
+let vpSortState = { field: 'date', order: 'desc' };
+let vpAdminFilter = 'all';
+let vpStatusFilter = 'all';
+let vpMyOnly = false;
+
+// Переход к сегодняшней дате
+function goToToday() {
+    const now = new Date();
+    vpCurrentYear = now.getFullYear();
+    vpCurrentMonth = now.getMonth() + 1;
     
-    if (searchInput) searchInput.value = '';
-    if (showArchivedCheckbox) {
-        showArchivedCheckbox.checked = false;
-        if (typeof window.vpFilters !== 'undefined') window.vpFilters.showArchived = false;
+    if (vpCurrentYear < VP_START_YEAR || (vpCurrentYear === VP_START_YEAR && vpCurrentMonth < VP_START_MONTH)) {
+        vpCurrentYear = VP_START_YEAR;
+        vpCurrentMonth = VP_START_MONTH;
     }
     
-    if (typeof renderVpTable === 'function') {
-        renderVpTable();
-    }
+    updateVpDisplay();
+    updateMonthButtons();
+    updateUrl();
+    loadVpData();
 }
+
+// Сортировка
+function sortVpBy(field) {
+    if (vpSortState.field === field) {
+        vpSortState.order = vpSortState.order === 'asc' ? 'desc' : 'asc';
+    } else {
+        vpSortState.field = field;
+        vpSortState.order = 'asc';
+    }
+    
+    // Обновляем иконки
+    document.querySelectorAll('.vp-table th i').forEach(i => {
+        i.className = 'fas fa-sort';
+    });
+    
+    const activeTh = document.querySelector(`.vp-table th[onclick*="${field}"] i`);
+    if (activeTh) {
+        activeTh.className = vpSortState.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+    }
+    
+    renderVpTable();
+}
+
+// Фильтр по админу
+function filterByAdmin() {
+    const select = document.getElementById('vpAdminFilter');
+    vpAdminFilter = select?.value || 'all';
+    renderVpTable();
+}
+
+// Фильтр по статусу
+function filterByStatus() {
+    const select = document.getElementById('vpStatusFilter');
+    vpStatusFilter = select?.value || 'all';
+    renderVpTable();
+}
+
+// Фильтр "Только мои"
+function filterMyOnly() {
+    const checkbox = document.getElementById('filterMyOnly');
+    vpMyOnly = checkbox?.checked || false;
+    renderVpTable();
+}
+
+// Заполнение селекта админов
+function populateAdminFilter() {
+    const select = document.getElementById('vpAdminFilter');
+    if (!select) return;
+    
+    const employees = window.app?.employees || [];
+    const profiles = window.app?.profiles || {};
+    const admins = employees.filter(emp => {
+        const role = profiles[emp]?.role;
+        return role === 'admin' || role === 'manager';
+    });
+    
+    let options = '<option value="all">Все админы</option>';
+    admins.forEach(emp => {
+        options += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
+    });
+    
+    select.innerHTML = options;
+}
+
+// Инициализация при загрузке
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(populateAdminFilter, 500);
+    
+    // Обработчик Escape для модалок
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeVpModal();
+            closeBookingDetailsModal();
+        }
+    });
+});
+
+window.goToToday = goToToday;
+window.sortVpBy = sortVpBy;
+window.filterByAdmin = filterByAdmin;
+window.filterByStatus = filterByStatus;
+window.filterMyOnly = filterMyOnly;
 </script>
