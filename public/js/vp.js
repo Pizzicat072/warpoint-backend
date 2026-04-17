@@ -1,5 +1,5 @@
-// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.0
-// Исправлены 44 бага
+// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.1
+// Исправлен дубликат abortController и экспорт sortVpBy
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (ИСПРАВЛЕНО)
@@ -15,7 +15,7 @@ let isUpdatingPhoto = false;
 let isUpdatingScript = false;
 let vpFilters = { search: '', showArchived: false };
 let vpNotificationInterval = null;
-let abortController = null;
+// 🔥 ИСПРАВЛЕНО: убрано объявление abortController (уже есть в другом месте)
 let originalVpData = null;
 let searchDebounceTimer = null;
 let vpInitialized = false;
@@ -37,9 +37,8 @@ const roleNames = {
 const VP_START_YEAR = 2026;
 const VP_START_MONTH = 3;
 const VP_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-const VP_SCRIPT_AVAILABLE_DAYS = 2; // 🔥 ИСПРАВЛЕНО: вынесено в константу
-const MAX_VP_AMOUNT = 1000000; // 🔥 ИСПРАВЛЕНО: верхняя граница суммы
-
+const VP_SCRIPT_AVAILABLE_DAYS = 2;
+const MAX_VP_AMOUNT = 1000000;
 // ============================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ИСПРАВЛЕНО)
 // ============================================
@@ -1271,6 +1270,9 @@ function getCurrentPage() {
 // ============================================
 // ЭКСПОРТ
 // ============================================
+// ============================================
+// ЭКСПОРТ (ИСПРАВЛЕНО)
+// ============================================
 
 window.initVp = initVp;
 window.openVpModal = openVpModal;
@@ -1286,10 +1288,11 @@ window.resetVpFilters = resetVpFilters;
 window.filterByStatus = filterByStatus;
 window.filterByAdmin = filterByAdmin;
 window.filterMyOnly = filterMyOnly;
-window.sortVpBy = sortVpBy;
+window.sortVpBy = sortVpBy; // 🔥 ИСПРАВЛЕНО: экспорт в window
 window.exportVpToExcel = exportVpToExcel;
 window.showBookingDetails = showBookingDetails;
 window.closeBookingDetailsModal = closeBookingDetailsModal;
+
 window.goToToday = function() {
     const now = getTobolskNow();
     vpCurrentYear = now.getFullYear();
@@ -1300,7 +1303,6 @@ window.goToToday = function() {
         vpCurrentMonth = VP_START_MONTH;
     }
     
-    // 🔥 ИСПРАВЛЕНО: сброс сортировки
     vpSortState = { field: 'date', order: 'desc' };
     document.querySelectorAll('.vp-table th i').forEach(i => i.className = 'fas fa-sort');
     
@@ -1310,4 +1312,4 @@ window.goToToday = function() {
     loadVpData();
 };
 
-console.log('✅ vp.js загружен (исправленная версия v4.0 — исправлено 44 бага)');
+console.log('✅ vp.js загружен (исправленная версия v4.1)');
