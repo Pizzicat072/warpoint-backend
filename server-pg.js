@@ -7,8 +7,8 @@ const cron = require('node-cron');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
-const bcrypt = require('bcrypt'); // 🔥 ДОБАВЛЕНО: хеширование паролей
-const rateLimit = require('express-rate-limit'); // 🔥 ДОБАВЛЕНО: защита от брутфорса
+const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
 
 dotenv.config();
 
@@ -19,10 +19,13 @@ const JWT_SECRET = process.env.JWT_SECRET || (() => {
     return 'warpoint-secret-key-2024'; 
 })();
 
+// 🔥 ВОТ ЭТУ СТРОКУ ДОБАВЬ:
+app.set('trust proxy', 1);
+
 // 🔥 RATE LIMITER ДЛЯ ВХОДА (защита от брутфорса)
 const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 минут
-    max: 10, // 10 попыток
+    windowMs: 15 * 60 * 1000,
+    max: 10,
     message: { error: 'Слишком много попыток входа. Попробуйте позже.' },
     standardHeaders: true,
     legacyHeaders: false,
