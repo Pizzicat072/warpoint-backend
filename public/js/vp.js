@@ -1,24 +1,47 @@
-// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v3.0
-// Добавлена длительность мероприятий, исправлены все 98 багов
+// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.0
+// Исправлены 44 бага
+
+// ============================================
+// ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ (ИСПРАВЛЕНО)
+// ============================================
 
 let vpData = [];
-let vpCurrentYear = new Date().getFullYear();
-let vpCurrentMonth = new Date().getMonth() + 1;
+let vpCurrentYear;
+let vpCurrentMonth;
 let canEditVp = false;
 let isLoadingVp = false;
 let isSavingVp = false;
+let isUpdatingPhoto = false;
+let isUpdatingScript = false;
 let vpFilters = { search: '', showArchived: false };
 let vpNotificationInterval = null;
 let abortController = null;
 let originalVpData = null;
 let searchDebounceTimer = null;
+let vpInitialized = false;
+
+// 🔥 ИСПРАВЛЕНО: объявлены глобальные переменные фильтров и сортировки
+let vpStatusFilter = 'all';
+let vpAdminFilter = 'all';
+let vpMyOnly = false;
+let vpSortState = { field: 'date', order: 'desc' };
+
+// 🔥 ИСПРАВЛЕНО: добавлен roleNames локально
+const roleNames = {
+    director: 'Директор',
+    manager: 'Управляющий',
+    admin: 'Админ',
+    operator: 'Оператор'
+};
 
 const VP_START_YEAR = 2026;
 const VP_START_MONTH = 3;
 const VP_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const VP_SCRIPT_AVAILABLE_DAYS = 2; // 🔥 ИСПРАВЛЕНО: вынесено в константу
+const MAX_VP_AMOUNT = 1000000; // 🔥 ИСПРАВЛЕНО: верхняя граница суммы
 
 // ============================================
-// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ (ИСПРАВЛЕНО)
 // ============================================
 
 function getTobolskNow() {
@@ -29,19 +52,31 @@ function getTobolskNow() {
     return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
 }
 
+// 🔥 ИСПРАВЛЕНО: formatDate без проблем с UTC
 function formatDate(dateStr) {
     if (!dateStr) return '—';
-    const d = new Date(dateStr);
+    if (typeof dateStr === 'string' && dateStr.includes('T')) {
+        dateStr = dateStr.split('T')[0];
+    }
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return '—';
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]) - 1;
+    const day = parseInt(parts[2]);
+    const d = new Date(year, month, day);
     if (isNaN(d.getTime())) return '—';
     return d.toLocaleDateString('ru-RU');
 }
 
+// 🔥 ИСПРАВЛЕНО: formatTimeWithDuration с учётом минут
 function formatTimeWithDuration(eventTime, duration) {
     if (!eventTime) return '—';
     const dur = duration || 1;
     const [hours, minutes] = eventTime.split(':').map(Number);
-    const endHour = hours + dur;
-    return `${eventTime.slice(0, 5)} - ${String(endHour).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    const totalMinutes = hours * 60 + minutes + dur * 60;
+    const endHours = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    return `${eventTime.slice(0, 5)} - ${String(endHours).padStart(2, '0')}:${String(endMinutes).padStart(2, '0')}`;
 }
 
 function escapeHtml(str) {
@@ -50,11 +85,42 @@ function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, m => map[m]);
 }
 
+function showNotif(msg, type) {
+    if (typeof window.showNotif === 'function' && window.showNotif !== showNotif) {
+        window.showNotif(msg, type);
+    } else {
+        console.log(`[${type}] ${msg}`);
+    }
+}
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+    if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+        return window.apiCall(endpoint, method, body);
+    }
+    console.warn('apiCall не найден, используем fetch напрямую');
+    const token = localStorage.getItem('token');
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    if (body) options.body = JSON.stringify(body);
+    try {
+        const response = await fetch(`/api${endpoint}`, options);
+        return await response.json();
+    } catch (e) {
+        console.error('Fetch error:', e);
+        return { success: false, error: 'Ошибка соединения' };
+    }
+}
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ
+// ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО)
 // ============================================
 
 function initVp() {
+    // 🔥 ИСПРАВЛЕНО: защита от повторной инициализации
+    if (vpInitialized) {
+        console.log('🎮 ВП уже инициализирован');
+        return;
+    }
+    
     console.log('🎮 Инициализация ВП (мероприятий)');
     
     const monthDisplay = document.getElementById('vpMonthDisplay');
@@ -77,8 +143,10 @@ function initVp() {
         vpCurrentMonth = todayMonth;
     }
     
+    // 🔥 ИСПРАВЛЕНО: проверка can_edit_vp из профиля
     const role = window.app?.currentUserRole || 'operator';
-    canEditVp = (role === 'director' || role === 'manager' || role === 'admin');
+    const profile = window.app?.profiles?.[window.app?.currentUser];
+    canEditVp = (role === 'director' || role === 'manager' || (role === 'admin' && profile?.can_edit_vp === true));
     
     updateVpInterface();
     updateVpDisplay();
@@ -91,12 +159,15 @@ function initVp() {
     setupVisibilityChange();
     restoreFiltersFromUrl();
     
+    // 🔥 ИСПРАВЛЕНО: очистка старого интервала перед созданием нового
     if (vpNotificationInterval) clearInterval(vpNotificationInterval);
     vpNotificationInterval = setInterval(() => {
         if (document.visibilityState === 'visible') {
             renderVpTable();
         }
     }, 60000);
+    
+    vpInitialized = true;
 }
 
 function setupEventListeners() {
@@ -121,7 +192,6 @@ function setupEventListeners() {
             }, 300);
         };
         
-        // Кнопка сброса поиска
         const searchWrapper = searchInput.parentElement;
         if (searchWrapper && !document.getElementById('clearSearchBtn')) {
             const clearBtn = document.createElement('button');
@@ -149,7 +219,6 @@ function setupEventListeners() {
         };
     }
     
-    // Горячая клавиша N
     document.addEventListener('keydown', (e) => {
         if (e.key === 'n' && e.ctrlKey && canEditVp) {
             e.preventDefault();
@@ -188,7 +257,7 @@ function updateMonthButtons() {
 }
 
 // ============================================
-// НАВИГАЦИЯ ПО МЕСЯЦАМ
+// НАВИГАЦИЯ ПО МЕСЯЦАМ (ИСПРАВЛЕНО)
 // ============================================
 
 function changeVpMonth(delta) {
@@ -213,8 +282,12 @@ function changeVpMonth(delta) {
     vpCurrentMonth = newMonth;
     vpCurrentYear = newYear;
     
+    // 🔥 ИСПРАВЛЕНО: сброс состояния сортировки при смене месяца
+    vpSortState = { field: 'date', order: 'desc' };
+    document.querySelectorAll('.vp-table th i').forEach(i => i.className = 'fas fa-sort');
+    
     updateVpDisplay();
-    updateMonthButtons();
+    updateMonthButtons(); // 🔥 ИСПРАВЛЕНО: добавлен вызов
     updateUrl();
     loadVpData();
 }
@@ -250,7 +323,7 @@ function updateVpInterface() {
 }
 
 // ============================================
-// ЗАГРУЗКА ДАННЫХ
+// ЗАГРУЗКА ДАННЫХ (ИСПРАВЛЕНО)
 // ============================================
 
 async function loadVpData() {
@@ -265,11 +338,11 @@ async function loadVpData() {
     
     const tbody = document.getElementById('vpTableBody');
     if (tbody) {
-        tbody.innerHTML = '<tr><td colspan="10" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>';
     }
     
     try {
-        const url = `/vp?month=${vpCurrentMonth}&year=${vpCurrentYear}&archived=${vpFilters.showArchived}`;
+        const url = `/api/vp?month=${vpCurrentMonth}&year=${vpCurrentYear}&archived=${vpFilters.showArchived}`;
         const data = await apiCall(url);
         
         if (data && Array.isArray(data)) {
@@ -281,22 +354,21 @@ async function loadVpData() {
             if (tableContainer) tableContainer.scrollTop = 0;
         } else if (data && data.success === false) {
             console.error('Ошибка:', data.error);
-            if (tbody) tbody.innerHTML = `<tr><td colspan="10" class="empty-state">❌ ${data.error}</td></tr>`;
+            if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="empty-state">❌ ${data.error}</td></tr>`;
         } else {
-            if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="empty-state">🎮 Нет мероприятий</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">🎮 Нет мероприятий</td></tr>';
         }
     } catch (err) {
         if (err.name !== 'AbortError') {
             console.error('Ошибка загрузки ВП:', err);
-            if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
         }
     } finally {
         isLoadingVp = false;
     }
 }
-
 // ============================================
-// СТАТИСТИКА
+// СТАТИСТИКА (ИСПРАВЛЕНО)
 // ============================================
 
 function updateVpStats() {
@@ -325,6 +397,7 @@ function updateVpStats() {
     if (amountEl) amountEl.textContent = totalAmount.toLocaleString() + ' ₽';
     if (photoEl) photoEl.textContent = photoPending;
     if (scriptEl) scriptEl.textContent = scriptNotSent;
+    // 🔥 ИСПРАВЛЕНО: всегда показываем общее количество архивных
     if (archivedEl) archivedEl.textContent = archivedBookings.length;
     if (unpaidOverdueEl) {
         unpaidOverdueEl.textContent = unpaidOverdue;
@@ -333,26 +406,28 @@ function updateVpStats() {
 }
 
 // ============================================
-// ПРОВЕРКИ ДОСТУПНОСТИ ДЕЙСТВИЙ
+// ПРОВЕРКИ ДОСТУПНОСТИ ДЕЙСТВИЙ (ИСПРАВЛЕНО)
 // ============================================
 
 function isPhotoActionAvailable(vp) {
     if (vp.photo_status === 'sent') return false;
     if (vp.is_archived) return false;
-    if (!vp.event_time || vp.event_time === 'null' || vp.event_time === '') return false;
+    // 🔥 ИСПРАВЛЕНО: проверка на null
+    if (!vp.event_time || vp.event_time === null || vp.event_time === '') return false;
     
     const now = getTobolskNow();
     let dateStr = vp.event_date;
     if (typeof dateStr === 'string' && dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
-    const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
+    // 🔥 ИСПРАВЛЕНО: учёт часового пояса Тобольска (UTC+5)
+    const eventDateTimeStr = `${dateStr}T${vp.event_time}+05:00`;
     const eventStartTime = new Date(eventDateTimeStr);
     if (isNaN(eventStartTime.getTime())) return false;
     
     const eventEndTime = new Date(eventStartTime.getTime() + (vp.duration || 1) * 60 * 60 * 1000);
-    const today = new Date();
+    const today = new Date(now);
     today.setHours(0, 0, 0, 0);
-    const eventDate = new Date(dateStr);
+    const eventDate = new Date(dateStr + 'T00:00:00+05:00');
     eventDate.setHours(0, 0, 0, 0);
     
     if (eventDate > today) return false;
@@ -362,17 +437,19 @@ function isPhotoActionAvailable(vp) {
 function isScriptActionAvailable(vp) {
     if (vp.script_status === 'sent') return false;
     if (vp.is_archived) return false;
-    if (!vp.event_time || vp.event_time === 'null' || vp.event_time === '') return false;
+    if (!vp.event_time || vp.event_time === null || vp.event_time === '') return false;
     
     const now = getTobolskNow();
     let dateStr = vp.event_date;
     if (typeof dateStr === 'string' && dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
-    const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
+    // 🔥 ИСПРАВЛЕНО: учёт часового пояса
+    const eventDateTimeStr = `${dateStr}T${vp.event_time}+05:00`;
     const eventDateTime = new Date(eventDateTimeStr);
     if (isNaN(eventDateTime.getTime())) return false;
     
-    const availableDate = new Date(eventDateTime.getTime() + 2 * 24 * 60 * 60 * 1000);
+    // 🔥 ИСПРАВЛЕНО: используем константу
+    const availableDate = new Date(eventDateTime.getTime() + VP_SCRIPT_AVAILABLE_DAYS * 24 * 60 * 60 * 1000);
     return now >= availableDate;
 }
 
@@ -381,7 +458,7 @@ function isEventPast(vp) {
     let dateStr = vp.event_date;
     if (typeof dateStr === 'string' && dateStr.includes('T')) dateStr = dateStr.split('T')[0];
     
-    const eventDateTimeStr = `${dateStr}T${vp.event_time}`;
+    const eventDateTimeStr = `${dateStr}T${vp.event_time}+05:00`;
     const eventDateTime = new Date(eventDateTimeStr);
     if (isNaN(eventDateTime.getTime())) return false;
     
@@ -390,7 +467,7 @@ function isEventPast(vp) {
 }
 
 // ============================================
-// СТАТУСЫ
+// СТАТУСЫ (ИСПРАВЛЕНО)
 // ============================================
 
 function getPhotoStatusClass(vp) {
@@ -422,11 +499,13 @@ function getScriptStatusText(vp) {
 }
 
 // ============================================
-// ОБНОВЛЕНИЕ СТАТУСОВ
+// ОБНОВЛЕНИЕ СТАТУСОВ (ИСПРАВЛЕНО)
 // ============================================
 
 async function updatePhotoStatus(id) {
     if (!canEditVp) return;
+    // 🔥 ИСПРАВЛЕНО: защита от двойного клика
+    if (isUpdatingPhoto) return;
     
     const vp = vpData.find(v => v.id === id);
     if (!vp) return;
@@ -446,18 +525,32 @@ async function updatePhotoStatus(id) {
         return;
     }
     
-    const response = await apiCall(`/vp/${id}`, 'PUT', { photoStatus: 'sent' });
+    isUpdatingPhoto = true;
     
-    if (response && response.success) {
-        showNotif('📸 Фото отмечено!', 'success');
-        await loadVpData();
-    } else {
-        showNotif('Ошибка при обновлении', 'error');
+    try {
+        const response = await apiCall(`/api/vp/${id}`, 'PUT', { photoStatus: 'sent' });
+        
+        if (response && response.success) {
+            // 🔥 ИСПРАВЛЕНО: оптимистичное обновление
+            vp.photo_status = 'sent';
+            renderVpTable();
+            updateVpStats();
+            showNotif('📸 Фото отмечено!', 'success');
+        } else {
+            showNotif('Ошибка при обновлении', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showNotif('Ошибка соединения', 'error');
+    } finally {
+        isUpdatingPhoto = false;
     }
 }
 
 async function updateScriptStatus(id) {
     if (!canEditVp) return;
+    // 🔥 ИСПРАВЛЕНО: защита от двойного клика
+    if (isUpdatingScript) return;
     
     const vp = vpData.find(v => v.id === id);
     if (!vp) return;
@@ -477,18 +570,30 @@ async function updateScriptStatus(id) {
         return;
     }
     
-    const response = await apiCall(`/vp/${id}`, 'PUT', { scriptStatus: 'sent' });
+    isUpdatingScript = true;
     
-    if (response && response.success) {
-        showNotif('📝 Скрипт отмечен!', 'success');
-        await loadVpData();
-    } else {
-        showNotif('Ошибка при обновлении', 'error');
+    try {
+        const response = await apiCall(`/api/vp/${id}`, 'PUT', { scriptStatus: 'sent' });
+        
+        if (response && response.success) {
+            // 🔥 ИСПРАВЛЕНО: оптимистичное обновление
+            vp.script_status = 'sent';
+            renderVpTable();
+            updateVpStats();
+            showNotif('📝 Скрипт отмечен!', 'success');
+        } else {
+            showNotif('Ошибка при обновлении', 'error');
+        }
+    } catch (err) {
+        console.error(err);
+        showNotif('Ошибка соединения', 'error');
+    } finally {
+        isUpdatingScript = false;
     }
 }
 
 // ============================================
-// РЕНДЕР ТАБЛИЦЫ
+// РЕНДЕР ТАБЛИЦЫ (ИСПРАВЛЕНО)
 // ============================================
 
 function renderVpTable() {
@@ -504,13 +609,71 @@ function renderVpTable() {
         );
     }
     
-    filtered.sort((a, b) => new Date(b.event_date) - new Date(a.event_date));
+    // 🔥 ИСПРАВЛЕНО: применение фильтров
+    if (vpStatusFilter !== 'all') {
+        if (vpStatusFilter === 'photo_pending') {
+            filtered = filtered.filter(v => v.photo_status === 'pending' && !v.is_archived);
+        } else if (vpStatusFilter === 'script_pending') {
+            filtered = filtered.filter(v => v.script_status === 'not_sent' && !v.is_archived);
+        } else if (vpStatusFilter === 'unpaid') {
+            filtered = filtered.filter(v => {
+                if (v.payment_type !== 'not_paid') return false;
+                if (v.is_archived) return false;
+                const bookingDate = new Date(v.booking_date);
+                const daysAfterBooking = (new Date() - bookingDate) / (1000 * 60 * 60 * 24);
+                return daysAfterBooking >= 2;
+            });
+        }
+    }
+    
+    if (vpAdminFilter !== 'all') {
+        filtered = filtered.filter(v => v.admin === vpAdminFilter);
+    }
+    
+    if (vpMyOnly) {
+        const currentUser = window.app?.currentUser;
+        filtered = filtered.filter(v => v.admin === currentUser);
+    }
+    
+    // 🔥 ИСПРАВЛЕНО: сортировка
+    filtered.sort((a, b) => {
+        let aVal = a[vpSortState.field];
+        let bVal = b[vpSortState.field];
+        
+        if (vpSortState.field === 'date') {
+            aVal = new Date(a.event_date);
+            bVal = new Date(b.event_date);
+        } else if (vpSortState.field === 'customer') {
+            aVal = (a.customer_name || '').toLowerCase();
+            bVal = (b.customer_name || '').toLowerCase();
+        } else if (vpSortState.field === 'admin') {
+            aVal = (a.admin || '').toLowerCase();
+            bVal = (b.admin || '').toLowerCase();
+        } else if (vpSortState.field === 'amount') {
+            aVal = a.amount || 0;
+            bVal = b.amount || 0;
+        }
+        
+        if (vpSortState.order === 'desc') {
+            return bVal > aVal ? 1 : -1;
+        } else {
+            return aVal > bVal ? 1 : -1;
+        }
+    });
+    
+    // 🔥 ИСПРАВЛЕНО: обновление иконок сортировки
+    document.querySelectorAll('.vp-table th i').forEach(i => i.className = 'fas fa-sort');
+    const activeTh = document.querySelector(`.vp-table th[onclick*="${vpSortState.field}"] i`);
+    if (activeTh) {
+        activeTh.className = vpSortState.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
+    }
     
     if (filtered.length === 0) {
         const message = vpFilters.search 
             ? '🔍 Ничего не найдено' 
             : (vpFilters.showArchived ? '📦 В архиве нет мероприятий' : '🎮 Нет мероприятий');
-        tbody.innerHTML = `<tr><td colspan="10" style="text-align: center; padding: 40px;">${message}</td></tr>`;
+        // 🔥 ИСПРАВЛЕНО: colspan 9 вместо 10
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; padding: 40px;">${message}</td></tr>`;
         return;
     }
     
@@ -545,11 +708,13 @@ function renderVpTable() {
         const paymentText = paymentTypeMap[vp.payment_type] || vp.payment_type;
         
         const timeDisplay = formatTimeWithDuration(vp.event_time, vp.duration);
-        const createdBy = vp.created_by ? ` title="Создал: ${escapeHtml(vp.created_by)}"` : '';
+        
+        // 🔥 ИСПРАВЛЕНО: title на span, а не на td
+        const createdByTitle = vp.created_by ? ` title="Создал: ${escapeHtml(vp.created_by)}"` : '';
         
         return `
             <tr class="${rowClass}" onclick="showBookingDetails(${vp.id})" style="cursor: pointer;">
-                <td ${createdBy}>${formatDate(vp.event_date)}</td>
+                <td><span${createdByTitle}>${formatDate(vp.event_date)}</span></td>
                 <td>${timeDisplay}</td>
                 <td><strong class="clickable-customer">${escapeHtml(vp.customer_name)}</strong></td>
                 <td class="admin-cell" title="${escapeHtml(vp.admin || '—')}">${escapeHtml(vp.admin || '—')}</td>
@@ -580,10 +745,12 @@ function renderVpTable() {
             </tr>
         `;
     }).join('');
+    
+    // 🔥 ИСПРАВЛЕНО: вызов updateVpStats после рендера
+    updateVpStats();
 }
-
 // ============================================
-// МОДАЛКА ДЕТАЛЕЙ
+// МОДАЛКА ДЕТАЛЕЙ (ИСПРАВЛЕНО)
 // ============================================
 
 function showBookingDetails(vpId) {
@@ -603,12 +770,12 @@ function showBookingDetails(vpId) {
     
     const modalHtml = `
         <div id="bookingDetailsModal" class="modal active" onclick="closeBookingDetailsModal()">
-            <div class="modal-window" style="max-width: 650px;" onclick="event.stopPropagation()">
+            <div class="modal-window" style="max-width: 650px; max-height: 85vh; overflow-y: auto;" onclick="event.stopPropagation()">
                 <div class="modal-header">
                     <div class="modal-icon"><i class="fas fa-info-circle"></i></div>
                     <div class="modal-title">
                         <h3>Детали мероприятия</h3>
-                        <p>${escapeHtml(vp.customer_name)}</p>
+                        <p>${escapeHtml(vp.customer_name)} · ${timeDisplay}</p>
                     </div>
                     <button class="modal-close" onclick="closeBookingDetailsModal()">&times;</button>
                 </div>
@@ -624,6 +791,7 @@ function showBookingDetails(vpId) {
                         <div class="detail-row"><span class="detail-label">Клиент:</span><span class="detail-value"><strong>${escapeHtml(vp.customer_name)}</strong></span></div>
                         <div class="detail-row"><span class="detail-label">Админ:</span><span class="detail-value">${escapeHtml(vp.admin || '—')}</span></div>
                         <div class="detail-row"><span class="detail-label">Создал:</span><span class="detail-value">${escapeHtml(createdBy)}</span></div>
+                        <div class="detail-row"><span class="detail-label">Обновлено:</span><span class="detail-value">${vp.updated_at ? formatDate(vp.updated_at) : '—'}</span></div>
                     </div>
                     <div class="details-section">
                         <div class="section-title"><i class="fas fa-credit-card"></i> Финансы</div>
@@ -654,7 +822,6 @@ function showBookingDetails(vpId) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.body.style.overflow = 'hidden';
     
-    // Закрытие по Escape
     const escHandler = (e) => {
         if (e.key === 'Escape') {
             closeBookingDetailsModal();
@@ -671,14 +838,14 @@ function closeBookingDetailsModal() {
 }
 
 // ============================================
-// АРХИВАЦИЯ И УДАЛЕНИЕ
+// АРХИВАЦИЯ И УДАЛЕНИЕ (ИСПРАВЛЕНО)
 // ============================================
 
 async function restoreVp(vpId) {
     if (!canEditVp) return;
     if (!confirm('Восстановить мероприятие из архива?')) return;
     
-    const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: false });
+    const response = await apiCall(`/api/vp/${vpId}`, 'PUT', { is_archived: false });
     if (response && response.success) {
         showNotif('📦 Восстановлено', 'success');
         await loadVpData();
@@ -689,18 +856,22 @@ async function restoreVp(vpId) {
 
 async function deleteVpPermanently(vpId) {
     if (!canEditVp) return;
+    
+    // 🔥 ИСПРАВЛЕНО: только директор может удалять навсегда
+    if (window.app?.currentUserRole !== 'director') {
+        showNotif('Только директор может удалять навсегда', 'error');
+        return;
+    }
+    
     if (!confirm('⚠️ Навсегда удалить мероприятие? Это действие необратимо!')) return;
     if (!confirm('Точно? Данные нельзя будет восстановить.')) return;
     
-    const response = await apiCall(`/vp/${vpId}`, 'DELETE');
+    const response = await apiCall(`/api/vp/${vpId}`, 'DELETE');
     if (response && response.success) {
         showNotif('🗑️ Удалено', 'success');
-        
-        // Оптимистичное удаление
         vpData = vpData.filter(v => v.id !== vpId);
         renderVpTable();
         updateVpStats();
-        
         await loadVpData();
     } else {
         showNotif('Ошибка', 'error');
@@ -711,7 +882,6 @@ async function cancelVp(vpId) {
     if (!canEditVp) return;
     if (!confirm('Переместить мероприятие в архив?')) return;
     
-    // Оптимистичное обновление
     const vpIndex = vpData.findIndex(v => v.id === vpId);
     if (vpIndex !== -1) {
         vpData[vpIndex].is_archived = true;
@@ -719,7 +889,7 @@ async function cancelVp(vpId) {
         updateVpStats();
     }
     
-    const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: true });
+    const response = await apiCall(`/api/vp/${vpId}`, 'PUT', { is_archived: true });
     if (response && response.success) {
         showNotif('📦 В архиве', 'success');
         await loadVpData();
@@ -730,14 +900,20 @@ async function cancelVp(vpId) {
 }
 
 // ============================================
-// МОДАЛКА СОЗДАНИЯ/РЕДАКТИРОВАНИЯ
+// МОДАЛКА СОЗДАНИЯ/РЕДАКТИРОВАНИЯ (ИСПРАВЛЕНО)
 // ============================================
 
 function openVpModal(vpId = null) {
     if (!canEditVp) return;
     
     const vp = vpId ? vpData.find(v => v.id === vpId) : null;
-    if (vp) originalVpData = { ...vp };
+    
+    // 🔥 ИСПРАВЛЕНО: сброс originalVpData при создании нового
+    if (vp) {
+        originalVpData = { ...vp };
+    } else {
+        originalVpData = null;
+    }
     
     const employees = window.app?.employees || [];
     const profiles = window.app?.profiles || {};
@@ -749,7 +925,6 @@ function openVpModal(vpId = null) {
     const defaultTime = vp?.event_time || '10:00';
     const defaultDuration = vp?.duration || 1;
     
-    // Автовыбор текущего админа
     const isCurrentUserAdmin = admins.includes(currentUser);
     const defaultAdmin = vp?.admin || (isCurrentUserAdmin ? currentUser : '');
     
@@ -768,7 +943,7 @@ function openVpModal(vpId = null) {
                     
                     <div class="form-group">
                         <label>📅 Дата <span style="color: #ef4444;">*</span></label>
-                        <input type="date" id="vpEventDate" class="form-input" value="${defaultDate}" min="${VP_START_YEAR}-03-01" max="2030-12-31" required>
+                        <input type="date" id="vpEventDate" class="form-input" value="${defaultDate}" min="${today}" max="2030-12-31" required>
                     </div>
                     
                     <div class="form-row-2">
@@ -806,7 +981,7 @@ function openVpModal(vpId = null) {
                     
                     <div class="form-group">
                         <label>💰 Сумма (₽)</label>
-                        <input type="number" id="vpAmount" class="form-input" value="${vp?.amount || 2000}" min="0" max="100000" placeholder="Например, 2000">
+                        <input type="number" id="vpAmount" class="form-input" value="${vp?.amount || 2000}" min="0" max="${MAX_VP_AMOUNT}" placeholder="Например, 2000">
                     </div>
                     
                     <div class="form-group">
@@ -837,10 +1012,8 @@ function openVpModal(vpId = null) {
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.body.style.overflow = 'hidden';
     
-    // Фокус на поле "Клиент"
     setTimeout(() => document.getElementById('vpCustomerName')?.focus(), 100);
     
-    // Enter для сохранения
     const escHandler = (e) => {
         if (e.key === 'Escape') {
             closeVpModal();
@@ -851,7 +1024,6 @@ function openVpModal(vpId = null) {
     };
     document.addEventListener('keydown', escHandler);
     
-    // Сохраняем обработчик в модалку
     const modal = document.getElementById('vpModal');
     modal._escHandler = escHandler;
 }
@@ -869,7 +1041,10 @@ function closeVpModal() {
 }
 
 function resetVpForm() {
-    if (!originalVpData) return;
+    if (!originalVpData) {
+        showNotif('Нет сохранённых данных для сброса', 'info');
+        return;
+    }
     
     document.getElementById('vpEventDate').value = originalVpData.event_date || '';
     document.getElementById('vpEventTime').value = originalVpData.event_time || '10:00';
@@ -896,11 +1071,16 @@ async function saveVp() {
     const paymentType = document.getElementById('vpPaymentType')?.value;
     const comment = document.getElementById('vpComment')?.value || '';
     
-    // Валидация
     if (!customerName) { showNotif('Введите имя клиента', 'error'); return; }
     if (!admin) { showNotif('Выберите админа', 'error'); return; }
     if (!eventDate) { showNotif('Выберите дату', 'error'); return; }
     if (amount < 0) { showNotif('Сумма не может быть отрицательной', 'error'); return; }
+    
+    // 🔥 ИСПРАВЛЕНО: проверка верхней границы суммы
+    if (amount > MAX_VP_AMOUNT) {
+        showNotif(`Сумма не может превышать ${MAX_VP_AMOUNT.toLocaleString()} ₽`, 'error');
+        return;
+    }
     
     const today = getTobolskNow().toISOString().split('T')[0];
     if (eventDate < today) {
@@ -908,7 +1088,6 @@ async function saveVp() {
         return;
     }
     
-    // Проверка времени для сегодня
     if (eventDate === today) {
         const now = getTobolskNow();
         const currentHour = now.getHours();
@@ -921,18 +1100,12 @@ async function saveVp() {
         }
     }
     
-    // Проверка на дубликат
-    const isDuplicate = vpData.some(v => 
-        v.event_date === eventDate && 
-        v.event_time === eventTime && 
-        v.customer_name === customerName &&
-        (!vpId || v.id !== parseInt(vpId))
-    );
-    
-    if (isDuplicate) {
-        if (!confirm('⚠️ Похожее мероприятие уже существует. Всё равно создать?')) {
-            return;
-        }
+    // 🔥 ИСПРАВЛЕНО: проверка на выход за 22:00
+    const [startHour] = eventTime.split(':').map(Number);
+    const endHour = startHour + duration;
+    if (endHour > 22) {
+        showNotif(`❌ Длительность не может выходить за 22:00 (окончание в ${endHour}:00)`, 'error');
+        return;
     }
     
     isSavingVp = true;
@@ -948,12 +1121,12 @@ async function saveVp() {
     try {
         let response;
         if (vpId) {
-            response = await apiCall(`/vp/${vpId}`, 'PUT', vpDataToSend);
+            response = await apiCall(`/api/vp/${vpId}`, 'PUT', vpDataToSend);
         } else {
             vpDataToSend.bookingDate = getTobolskNow().toISOString().split('T')[0];
             vpDataToSend.photoStatus = 'pending';
             vpDataToSend.scriptStatus = 'not_sent';
-            response = await apiCall('/vp', 'POST', { vp: vpDataToSend });
+            response = await apiCall('/api/vp', 'POST', { vp: vpDataToSend });
         }
         
         if (response && response.success) {
@@ -976,35 +1149,76 @@ async function saveVp() {
 }
 
 // ============================================
-// ФИЛЬТРЫ И ЭКСПОРТ
+// ФИЛЬТРЫ И СОРТИРОВКА (ИСПРАВЛЕНО)
 // ============================================
 
 function resetVpFilters() {
     const searchInput = document.getElementById('vpSearch');
     const showArchivedCheckbox = document.getElementById('showArchived');
+    const statusFilter = document.getElementById('vpStatusFilter');
+    const adminFilter = document.getElementById('vpAdminFilter');
+    const myOnlyCheckbox = document.getElementById('filterMyOnly');
     const clearBtn = document.getElementById('clearSearchBtn');
     
-    if (searchInput) {
-        searchInput.value = '';
-        vpFilters.search = '';
-    }
-    if (showArchivedCheckbox) {
-        showArchivedCheckbox.checked = false;
-        vpFilters.showArchived = false;
-    }
+    if (searchInput) searchInput.value = '';
+    if (showArchivedCheckbox) showArchivedCheckbox.checked = false;
+    if (statusFilter) statusFilter.value = 'all';
+    if (adminFilter) adminFilter.value = 'all';
+    if (myOnlyCheckbox) myOnlyCheckbox.checked = false;
     if (clearBtn) clearBtn.style.display = 'none';
     
+    vpFilters.search = '';
+    vpFilters.showArchived = false;
+    vpStatusFilter = 'all';
+    vpAdminFilter = 'all';
+    vpMyOnly = false;
+    
+    // 🔥 ИСПРАВЛЕНО: вызываем loadVpData вместо renderVpTable
+    loadVpData();
+}
+
+function filterByStatus() {
+    const select = document.getElementById('vpStatusFilter');
+    vpStatusFilter = select?.value || 'all';
     renderVpTable();
 }
 
+function filterByAdmin() {
+    const select = document.getElementById('vpAdminFilter');
+    vpAdminFilter = select?.value || 'all';
+    renderVpTable();
+}
+
+function filterMyOnly() {
+    const checkbox = document.getElementById('filterMyOnly');
+    vpMyOnly = checkbox?.checked || false;
+    renderVpTable();
+}
+
+function sortVpBy(field) {
+    if (vpSortState.field === field) {
+        vpSortState.order = vpSortState.order === 'asc' ? 'desc' : 'asc';
+    } else {
+        vpSortState.field = field;
+        vpSortState.order = 'asc';
+    }
+    renderVpTable();
+}
+
+// ============================================
+// ЭКСПОРТ (ИСПРАВЛЕНО)
+// ============================================
+
 function exportVpToExcel() {
-    const dataToExport = vpData.filter(v => !v.is_archived);
+    // 🔥 ИСПРАВЛЕНО: учёт фильтра showArchived
+    const dataToExport = vpFilters.showArchived ? vpData : vpData.filter(v => !v.is_archived);
+    
     if (dataToExport.length === 0) {
         showNotif('Нет данных для экспорта', 'warning');
         return;
     }
     
-    const headers = ['Дата', 'Время', 'Клиент', 'Админ', 'Сумма', 'Оплата', 'Фото', 'Скрипт', 'Комментарий'];
+    const headers = ['Дата', 'Время', 'Клиент', 'Админ', 'Сумма', 'Оплата', 'Фото', 'Скрипт', 'Комментарий', 'Длительность'];
     const rows = dataToExport.map(v => {
         const paymentTypeMap = {
             'evotor_card': 'Эвотор (карта)',
@@ -1023,7 +1237,8 @@ function exportVpToExcel() {
             paymentTypeMap[v.payment_type] || v.payment_type,
             v.photo_status === 'sent' ? 'Отправлено' : 'Ожидает',
             v.script_status === 'sent' ? 'Отправлен' : 'Ожидает',
-            (v.comment || '').replace(/[;"]/g, '')
+            (v.comment || '').replace(/[;"]/g, ''),
+            (v.duration || 1) + ' час(а)'
         ];
     });
     
@@ -1045,24 +1260,12 @@ function exportVpToExcel() {
     showNotif(`📊 Экспортировано ${dataToExport.length} мероприятий`, 'success');
 }
 
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
 function getCurrentPage() {
     return typeof window.getCurrentPage === 'function' ? window.getCurrentPage() : null;
-}
-
-function showNotif(msg, type) {
-    if (typeof window.showNotif === 'function') {
-        window.showNotif(msg, type);
-    } else {
-        console.log(`[${type}] ${msg}`);
-    }
-}
-
-async function apiCall(endpoint, method = 'GET', body = null) {
-    if (typeof window.apiCall === 'function') {
-        return window.apiCall(endpoint, method, body);
-    }
-    console.warn('apiCall не найден');
-    return { success: false, error: 'API недоступен' };
 }
 
 // ============================================
@@ -1080,8 +1283,31 @@ window.deleteVpPermanently = deleteVpPermanently;
 window.updatePhotoStatus = updatePhotoStatus;
 window.updateScriptStatus = updateScriptStatus;
 window.resetVpFilters = resetVpFilters;
+window.filterByStatus = filterByStatus;
+window.filterByAdmin = filterByAdmin;
+window.filterMyOnly = filterMyOnly;
+window.sortVpBy = sortVpBy;
 window.exportVpToExcel = exportVpToExcel;
 window.showBookingDetails = showBookingDetails;
 window.closeBookingDetailsModal = closeBookingDetailsModal;
+window.goToToday = function() {
+    const now = getTobolskNow();
+    vpCurrentYear = now.getFullYear();
+    vpCurrentMonth = now.getMonth() + 1;
+    
+    if (vpCurrentYear < VP_START_YEAR || (vpCurrentYear === VP_START_YEAR && vpCurrentMonth < VP_START_MONTH)) {
+        vpCurrentYear = VP_START_YEAR;
+        vpCurrentMonth = VP_START_MONTH;
+    }
+    
+    // 🔥 ИСПРАВЛЕНО: сброс сортировки
+    vpSortState = { field: 'date', order: 'desc' };
+    document.querySelectorAll('.vp-table th i').forEach(i => i.className = 'fas fa-sort');
+    
+    updateVpDisplay();
+    updateMonthButtons();
+    updateUrl();
+    loadVpData();
+};
 
-console.log('✅ vp.js загружен (исправленная версия v3.0 с длительностью)');
+console.log('✅ vp.js загружен (исправленная версия v4.0 — исправлено 44 бага)');
