@@ -1,4 +1,6 @@
-// public/js/achievements.js — ОБЁРНУТ В IIFE
+// public/js/achievements.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
+// Исправлен баг: рейтинг не обновлялся в карточках при получении достижения
+
 (function() {
     'use strict';
     
@@ -302,7 +304,7 @@
     }
 
     // ============================================
-    // ПОЛУЧЕНИЕ НАГРАДЫ
+    // ПОЛУЧЕНИЕ НАГРАДЫ (ИСПРАВЛЕНО)
     // ============================================
 
     async function claimAchievement(achievementId) {
@@ -346,8 +348,39 @@
                 invalidateAchievementsCache();
                 renderAchievements();
                 
-                if (typeof loadEmployees === 'function') await loadEmployees();
-                if (typeof showNotif === 'function') showNotif(`+${data.coins} WP!`, 'success');
+                // 🔥 ИСПРАВЛЕНО: обновляем данные сотрудников
+                if (typeof loadEmployees === 'function') {
+                    await loadEmployees();
+                }
+                
+                // 🔥 ИСПРАВЛЕНО: обновляем карточки сотрудников (рейтинг и монеты)
+                if (typeof renderEmployees === 'function') {
+                    renderEmployees();
+                }
+                
+                // 🔥 ИСПРАВЛЕНО: обновляем рейтинг в таблице рейтинга
+                if (typeof renderRatingTable === 'function') {
+                    renderRatingTable();
+                }
+                
+                // 🔥 ИСПРАВЛЕНО: обновляем баланс в хедере
+                if (typeof refreshAllBalanceDisplays === 'function') {
+                    refreshAllBalanceDisplays();
+                }
+                
+                // 🔥 ИСПРАВЛЕНО: обновляем статистику дашборда
+                if (typeof updateDashboardStats === 'function') {
+                    updateDashboardStats();
+                }
+                
+                // 🔥 Отправляем событие обновления данных
+                if (typeof window.dispatchDataUpdate === 'function') {
+                    window.dispatchDataUpdate('achievement', { id: achievementId, coins: data.coins });
+                }
+                
+                if (typeof showNotif === 'function') {
+                    showNotif(`+${data.coins} WP!`, 'success');
+                }
             } else {
                 if (typeof showNotif === 'function') showNotif(data.error || 'Ошибка', 'error');
             }
@@ -384,5 +417,5 @@
     window.toggleCategory = toggleCategory;
     window.invalidateAchievementsCache = invalidateAchievementsCache;
 
-    console.log('✅ achievements.js загружен');
+    console.log('✅ achievements.js загружен (исправленная версия v2.0)');
 })();

@@ -7,12 +7,35 @@ const cron = require('node-cron');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs');
+const bcrypt = require('bcrypt'); // 🔥 ДОБАВЛЕНО: хеширование паролей
+const rateLimit = require('express-rate-limit'); // 🔥 ДОБАВЛЕНО: защита от брутфорса
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 10000;
-const JWT_SECRET = process.env.JWT_SECRET || 'warpoint-secret-key-2024';
+const JWT_SECRET = process.env.JWT_SECRET || (() => { 
+    console.error('⚠️ ВНИМАНИЕ: Используется JWT_SECRET по умолчанию! Настройте .env!'); 
+    return 'warpoint-secret-key-2024'; 
+})();
+
+// 🔥 RATE LIMITER ДЛЯ ВХОДА (защита от брутфорса)
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 минут
+    max: 10, // 10 попыток
+    message: { error: 'Слишком много попыток входа. Попробуйте позже.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+// 🔥 ОБЩИЙ RATE LIMITER ДЛЯ API
+const apiLimiter = rateLimit({
+    windowMs: 1 * 60 * 1000, // 1 минута
+    max: 100, // 100 запросов
+    message: { error: 'Слишком много запросов. Попробуйте позже.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
 
 // ============================================
 // ОБРАБОТКА НЕОБРАБОТАННЫХ ОШИБОК
@@ -33,7 +56,7 @@ process.on('unhandledRejection', (reason, promise) => {
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 3,
+    max: 5, // 🔥 Увеличено с 3 до 5
     min: 0,
     idleTimeoutMillis: 10000,
     connectionTimeoutMillis: 8000,
@@ -52,10 +75,10 @@ setInterval(() => {
 // ============================================
 
 const pusher = new Pusher({
-    appId: process.env.PUSHER_APP_ID || '2132614',
-    key: process.env.PUSHER_KEY || '91e6eb7093c4b16a3275',
-    secret: process.env.PUSHER_SECRET || 'bdb04959199327724ca8',
-    cluster: process.env.PUSHER_CLUSTER || 'ap1',
+    appId: process.env.PUSHER_APP_ID,
+    key: process.env.PUSHER_KEY,
+    secret: process.env.PUSHER_SECRET,
+    cluster: process.env.PUSHER_CLUSTER,
     useTLS: true,
     maxRetries: 3,
     retryDelay: 5000
@@ -78,6 +101,9 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static('public'));
+
+// 🔥 Применяем rate limiter ко всем API-запросам
+app.use('/api/', apiLimiter);
 
 app.use((req, res, next) => {
     const timeout = setTimeout(() => {
@@ -189,15 +215,15 @@ async function sendGlobalNotification(type, data, excludeUser = null) {
 
 async function initDatabase() {
     const tableQueries = [
-        `CREATE TABLE IF NOT EXISTS achievements (id VARCHAR(100) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, category VARCHAR(50), required_value INTEGER NOT NULL, coins_reward INTEGER DEFAULT 0, sort_order INTEGER DEFAULT 0)`,
+        `CREATE TABLE IF NOT EXISTS achievements (id VARCHAR(100) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, category VARCHAR(50), required_value INTEGER NOT NULL, coins_reward INTEGER DEFAULT 0, sort_order INTEGER DEFAULT 0, icon VARCHAR(10) DEFAULT '🏆')`,
         `CREATE TABLE IF NOT EXISTS user_achievements (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE, claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, achievement_id))`,
         `CREATE TABLE IF NOT EXISTS pending_achievements (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE, completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, achievement_id))`,
         `CREATE TABLE IF NOT EXISTS system_settings (id SERIAL PRIMARY KEY, setting_key VARCHAR(100) UNIQUE NOT NULL, setting_value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-        `CREATE TABLE IF NOT EXISTS employees (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, avatar VARCHAR(10) DEFAULT '👤', avatar_url TEXT, status VARCHAR(100) DEFAULT '💼 Работаю', coins INTEGER DEFAULT 100, rating INTEGER DEFAULT 0, role VARCHAR(50) DEFAULT 'operator', hours INTEGER DEFAULT 0, birthday DATE, phone VARCHAR(20), last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP, dashboard_style VARCHAR(50) DEFAULT 'glass', bought_styles TEXT DEFAULT '["glass"]', can_edit_vp BOOLEAN DEFAULT FALSE, active_status VARCHAR(100) DEFAULT NULL, last_bonus_claimed_at TIMESTAMP, bonus_streak INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-        `CREATE TABLE IF NOT EXISTS passwords (username VARCHAR(100) PRIMARY KEY, password VARCHAR(255) NOT NULL)`,
+        `CREATE TABLE IF NOT EXISTS employees (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, avatar VARCHAR(10) DEFAULT '👤', avatar_url TEXT, status VARCHAR(100) DEFAULT '💼 Работаю', coins INTEGER DEFAULT 100, rating INTEGER DEFAULT 0, role VARCHAR(50) DEFAULT 'operator', hours NUMERIC(10,2) DEFAULT 0, birthday DATE, phone VARCHAR(20), last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP, dashboard_style VARCHAR(50) DEFAULT 'glass', bought_styles TEXT DEFAULT '["glass"]', can_edit_vp BOOLEAN DEFAULT FALSE, active_status VARCHAR(100) DEFAULT NULL, last_bonus_claimed_at TIMESTAMP, bonus_streak INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+        `CREATE TABLE IF NOT EXISTS passwords (id SERIAL PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password_hash VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS messages (id SERIAL PRIMARY KEY, room VARCHAR(100) NOT NULL, sender VARCHAR(100) NOT NULL, text TEXT NOT NULL, time BIGINT NOT NULL, action_data JSONB, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
-        `CREATE TABLE IF NOT EXISTS stickers (id SERIAL PRIMARY KEY, sender VARCHAR(100), employee VARCHAR(100) NOT NULL, gift_id VARCHAR(50) NOT NULL, quantity INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee, gift_id))`,
-        `CREATE TABLE IF NOT EXISTS tasks (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, author VARCHAR(100) NOT NULL, executor VARCHAR(100) NOT NULL, priority VARCHAR(20) DEFAULT 'medium', deadline DATE, progress INTEGER DEFAULT 0, comment TEXT, recurring VARCHAR(20) DEFAULT 'none', status VARCHAR(20) DEFAULT 'in_progress', parent_id INTEGER DEFAULT NULL, is_group_task VARCHAR(20) DEFAULT NULL, group_members JSONB DEFAULT NULL, group_progress JSONB DEFAULT NULL, is_archived BOOLEAN DEFAULT FALSE, penalty_applied BOOLEAN DEFAULT FALSE, completed_at TIMESTAMP DEFAULT NULL, archived_at TIMESTAMP DEFAULT NULL, restored_at TIMESTAMP DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+        `CREATE TABLE IF NOT EXISTS stickers (id SERIAL PRIMARY KEY, sender VARCHAR(100), employee VARCHAR(100) NOT NULL, gift_id VARCHAR(50) NOT NULL, quantity INTEGER DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee, gift_id, sender))`,
+        `CREATE TABLE IF NOT EXISTS tasks (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, author VARCHAR(100) NOT NULL, executor VARCHAR(100), priority VARCHAR(20) DEFAULT 'medium', deadline DATE, progress INTEGER DEFAULT 0, comment TEXT, recurring VARCHAR(20) DEFAULT 'none', status VARCHAR(20) DEFAULT 'in_progress', parent_id INTEGER DEFAULT NULL, is_group_task VARCHAR(20) DEFAULT NULL, group_members JSONB DEFAULT NULL, group_progress JSONB DEFAULT NULL, is_archived BOOLEAN DEFAULT FALSE, penalty_applied BOOLEAN DEFAULT FALSE, completed_at TIMESTAMP DEFAULT NULL, archived_at TIMESTAMP DEFAULT NULL, restored_at TIMESTAMP DEFAULT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS subtasks (id SERIAL PRIMARY KEY, task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE, name VARCHAR(255) NOT NULL, completed BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS task_attachments (id SERIAL PRIMARY KEY, task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE, filename VARCHAR(255) NOT NULL, file_data TEXT, file_size INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS fines (id SERIAL PRIMARY KEY, date DATE NOT NULL, employee VARCHAR(100) NOT NULL, type VARCHAR(50) DEFAULT 'other', amount INTEGER DEFAULT 0, coins INTEGER DEFAULT 0, rating INTEGER DEFAULT 0, description TEXT, status VARCHAR(30) DEFAULT 'pending', created_by VARCHAR(100), manager_comment TEXT, director_comment TEXT, director_decision VARCHAR(20), appeal_reason TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
@@ -215,7 +241,9 @@ async function initDatabase() {
         `CREATE TABLE IF NOT EXISTS transactions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, type VARCHAR(50) NOT NULL, amount INTEGER NOT NULL, balance_before INTEGER DEFAULT 0, balance_after INTEGER DEFAULT 0, reference_id INTEGER, comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS daily_bonus_history (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, streak_day INTEGER NOT NULL, amount INTEGER NOT NULL, claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
         `CREATE TABLE IF NOT EXISTS shift_earnings (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, date DATE NOT NULL, hours_worked NUMERIC(5,2) NOT NULL, wp_earned INTEGER NOT NULL, paid_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, date))`,
-        `CREATE TABLE IF NOT EXISTS global_notifications (id SERIAL PRIMARY KEY, type VARCHAR(50), icon VARCHAR(10), title VARCHAR(255), text TEXT, time BIGINT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
+        `CREATE TABLE IF NOT EXISTS global_notifications (id SERIAL PRIMARY KEY, type VARCHAR(50), icon VARCHAR(10), title VARCHAR(255), text TEXT, time BIGINT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+        // 🔥 НОВАЯ ТАБЛИЦА: история изменений профиля
+        `CREATE TABLE IF NOT EXISTS profile_history (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, changed_by INTEGER REFERENCES employees(id) ON DELETE SET NULL, field_name VARCHAR(50) NOT NULL, old_value TEXT, new_value TEXT, changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`
     ];
     
     for (const query of tableQueries) {
@@ -229,9 +257,11 @@ async function initDatabase() {
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_schedule_date ON schedule(date)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_knowledge_views_user ON knowledge_views(user_id)`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender)`); // 🔥 ДОБАВЛЕНО
     } catch (err) {}
     
-        try {
+    // Миграции
+    try {
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS penalty_applied BOOLEAN DEFAULT FALSE`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP DEFAULT NULL`);
         await pool.query(`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived_at TIMESTAMP DEFAULT NULL`);
@@ -248,30 +278,46 @@ async function initDatabase() {
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
         await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_motivation INTEGER DEFAULT 0`);
         await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`);
-        console.log('✅ Добавлена колонка icon в achievements');
+        // 🔥 ИСПРАВЛЕНО: меняем тип hours на NUMERIC для точности
+        await pool.query(`ALTER TABLE employees ALTER COLUMN hours TYPE NUMERIC(10,2)`);
     } catch (err) {
-        console.log('⚠️ Ошибка добавления icon:', err.message);
+        console.log('⚠️ Ошибка миграции:', err.message);
     }
     
     console.log('✅ Миграции: добавлены все недостающие колонки');
     
+    // 🔥 ИСПРАВЛЕНО: хешируем пароль директора
     try {
         const directorCheck = await pool.query('SELECT * FROM employees WHERE role = $1 LIMIT 1', ['director']);
         if (directorCheck.rows.length === 0) {
-            await pool.query(`INSERT INTO employees (name, avatar, coins, rating, role, birthday, phone, dashboard_style, bought_styles, bonus_streak) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`, ['Денис', '👑', 100, 0, 'director', '', '', 'glass', '["glass"]', 1]);
-            await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', ['Денис', 'denis_1']);
+            const hashedPassword = await bcrypt.hash('denis_1', 10);
+            await pool.query(
+                `INSERT INTO employees (name, avatar, coins, rating, role, birthday, phone, dashboard_style, bought_styles, bonus_streak) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                ['Денис', '👑', 100, 0, 'director', '', '', 'glass', '["glass"]', 1]
+            );
+            await pool.query('INSERT INTO passwords (username, password_hash) VALUES ($1, $2)', ['Денис', hashedPassword]);
             console.log('✅ Директор Денис создан');
         }
+    } catch (err) {
+        console.error('❌ Ошибка создания директора:', err);
+    }
+    
+    try { 
+        const fundCheck = await pool.query('SELECT id FROM corporate_fund LIMIT 1'); 
+        if (fundCheck.rows.length === 0) { 
+            await pool.query('INSERT INTO corporate_fund (amount) VALUES (0)'); 
+        } 
     } catch (err) {}
     
-    try { const fundCheck = await pool.query('SELECT id FROM corporate_fund LIMIT 1'); if (fundCheck.rows.length === 0) { await pool.query('INSERT INTO corporate_fund (amount) VALUES (0)'); } } catch (err) {}
-    try { await pool.query(`UPDATE employees SET bonus_streak = 1 WHERE bonus_streak IS NULL`); } catch (err) {}
+    try { 
+        await pool.query(`UPDATE employees SET bonus_streak = 1 WHERE bonus_streak IS NULL`); 
+    } catch (err) {}
     
     console.log('✅ Database initialized');
 }
 
 // ============================================
-// INIT ACHIEVEMENTS
+// INIT ACHIEVEMENTS (без изменений, та же функция)
 // ============================================
 
 async function initAchievements() {
@@ -339,11 +385,21 @@ async function initAchievements() {
     ];
     
     for (const ach of achievements) {
-        await pool.query(`INSERT INTO achievements (id, name, description, category, required_value, coins_reward, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, category = EXCLUDED.category, required_value = EXCLUDED.required_value, coins_reward = EXCLUDED.coins_reward, sort_order = EXCLUDED.sort_order`, [ach.id, ach.name, ach.description, ach.category, ach.required_value, ach.coins_reward, ach.sort_order]);
+        await pool.query(
+            `INSERT INTO achievements (id, name, description, category, required_value, coins_reward, sort_order) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7) 
+             ON CONFLICT (id) DO UPDATE SET 
+                name = EXCLUDED.name, 
+                description = EXCLUDED.description, 
+                category = EXCLUDED.category, 
+                required_value = EXCLUDED.required_value, 
+                coins_reward = EXCLUDED.coins_reward, 
+                sort_order = EXCLUDED.sort_order`,
+            [ach.id, ach.name, ach.description, ach.category, ach.required_value, ach.coins_reward, ach.sort_order]
+        );
     }
     console.log(`✅ Инициализировано ${achievements.length} достижений`);
 }
-
 // ============================================
 // ЛОГИРОВАНИЕ ТРАНЗАКЦИЙ
 // ============================================
@@ -351,9 +407,27 @@ async function initAchievements() {
 async function logTransaction(userId, type, amount, balanceBefore, balanceAfter, referenceId = null, comment = null) {
     if (!userId) return;
     try {
-        await pool.query(`INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, reference_id, comment) VALUES ($1, $2, $3, $4, $5, $6, $7)`, [userId, type, amount, balanceBefore, balanceAfter, referenceId, comment]);
+        await pool.query(
+            `INSERT INTO transactions (user_id, type, amount, balance_before, balance_after, reference_id, comment) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [userId, type, amount, balanceBefore, balanceAfter, referenceId, comment]
+        );
     } catch (err) {
         console.error('Error logging transaction:', err);
+    }
+}
+
+// 🔥 НОВОЕ: ЛОГИРОВАНИЕ ИЗМЕНЕНИЙ ПРОФИЛЯ
+async function logProfileChange(userId, changedBy, fieldName, oldValue, newValue) {
+    if (!userId) return;
+    try {
+        await pool.query(
+            `INSERT INTO profile_history (user_id, changed_by, field_name, old_value, new_value) 
+             VALUES ($1, $2, $3, $4, $5)`,
+            [userId, changedBy, fieldName, oldValue, newValue]
+        );
+    } catch (err) {
+        console.error('Error logging profile change:', err);
     }
 }
 
@@ -363,25 +437,48 @@ async function logTransaction(userId, type, amount, balanceBefore, balanceAfter,
 
 async function checkAndPenalizeOverdueTasks() {
     const today = new Date().toISOString().split('T')[0];
-    const overdueTasks = await pool.query(`SELECT id, name, author, executor, priority, is_group_task, group_members, penalty_applied FROM tasks WHERE deadline < $1 AND status != 'completed' AND status != 'failed' AND (penalty_applied IS NULL OR penalty_applied = false)`, [today]);
+    const overdueTasks = await pool.query(
+        `SELECT id, name, author, executor, priority, is_group_task, group_members, penalty_applied 
+         FROM tasks 
+         WHERE deadline < $1 
+           AND status != 'completed' 
+           AND status != 'failed' 
+           AND (penalty_applied IS NULL OR penalty_applied = false)`,
+        [today]
+    );
+    
     let createdCount = 0;
     for (const task of overdueTasks.rows) {
         let executors = [];
-        if (task.is_group_task === 'operators') { const operators = await pool.query(`SELECT name FROM employees WHERE role = 'operator'`); executors = operators.rows.map(row => row.name); }
-        else if (task.is_group_task === 'admins') { const admins = await pool.query(`SELECT name FROM employees WHERE role = 'admin'`); executors = admins.rows.map(row => row.name); }
-        else if (task.group_members && Array.isArray(task.group_members)) { executors = task.group_members.map(m => m.name); }
-        else if (task.executor) { executors = [task.executor]; }
+        if (task.is_group_task === 'operators') { 
+            const operators = await pool.query(`SELECT name FROM employees WHERE role = 'operator'`); 
+            executors = operators.rows.map(row => row.name); 
+        } else if (task.is_group_task === 'admins') { 
+            const admins = await pool.query(`SELECT name FROM employees WHERE role = 'admin'`); 
+            executors = admins.rows.map(row => row.name); 
+        } else if (task.group_members && Array.isArray(task.group_members)) { 
+            executors = task.group_members.map(m => m.name); 
+        } else if (task.executor) { 
+            executors = [task.executor]; 
+        }
+        
         const description = `📋 Просрочена задача: "${task.name}"\n📅 Дедлайн: ${task.deadline || 'не указан'}\n👤 Постановщик: ${task.author}`;
+        
         for (const executor of executors) {
-            await pool.query(`INSERT INTO fines (date, employee, type, description, status, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`, [today, executor, 'task_overdue', description, 'pending', '🤖 Система']);
+            await pool.query(
+                `INSERT INTO fines (date, employee, type, description, status, created_by, created_at) 
+                 VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)`,
+                [today, executor, 'task_overdue', description, 'pending', '🤖 Система']
+            );
             createdCount++;
         }
         await pool.query(`UPDATE tasks SET penalty_applied = true, status = 'overdue' WHERE id = $1`, [task.id]);
     }
     return createdCount;
 }
+
 // ============================================
-// НАЧИСЛЕНИЕ WP ЗА СМЕНЫ
+// НАЧИСЛЕНИЕ WP ЗА СМЕНЫ (ИСПРАВЛЕНО)
 // ============================================
 
 async function processShiftEarnings() {
@@ -408,7 +505,7 @@ async function processShiftEarnings() {
         for (const shift of shifts.rows) {
             const [startHour] = shift.shift_time.split(':').map(Number);
             let endHour = 22;
-            if (shift.is_special && shift.special_end_time) {
+            if (shift.is_special && shift.special_end_time && !shift.special_end_time.startsWith('exchange_')) {
                 endHour = parseInt(shift.special_end_time.split(':')[0]);
             }
             let hoursWorked = Math.max(0, endHour - startHour);
@@ -419,6 +516,10 @@ async function processShiftEarnings() {
                 const balanceAfter = balanceBefore + wpEarned;
                 
                 await client.query(`UPDATE employees SET coins = coins + $1 WHERE id = $2`, [wpEarned, shift.user_id]);
+                
+                // 🔥 ИСПРАВЛЕНО: обновляем часы сотрудника
+                await client.query(`UPDATE employees SET hours = hours + $1 WHERE id = $2`, [hoursWorked, shift.user_id]);
+                
                 await client.query(`UPDATE schedule SET shift_paid = true WHERE date = $1::date AND employee = $2`, [yesterdayStr, shift.employee]);
                 await client.query(
                     `INSERT INTO shift_earnings (user_id, date, hours_worked, wp_earned) VALUES ($1, $2, $3, $4) 
@@ -520,10 +621,10 @@ async function getUserStats(userId, username) {
     }
     
     if (isDirector || isManager) {
-        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'`);
+        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed' AND (is_archived IS NULL OR is_archived = false)`);
         tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
     } else {
-        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE executor = $1 AND status = 'completed'`, [username]);
+        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE executor = $1 AND status = 'completed' AND (is_archived IS NULL OR is_archived = false)`, [username]);
         tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
     }
     
@@ -677,13 +778,10 @@ async function checkAndGrantAchievements(userId, username) {
             }
         }
         
-        // ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О НОВЫХ ДОСТИЖЕНИЯХ
         if (newAchievements.length > 0) {
             const pusherInstance = app.get('pusher');
             
-            // Сохраняем достижения в таблицу для отображения в карточке
             for (const ach of newAchievements) {
-                // Добавляем в кэш пользователя
                 await pool.query(
                     `INSERT INTO user_achievements (user_id, achievement_id, claimed_at) 
                      VALUES ($1, $2, CURRENT_TIMESTAMP) 
@@ -703,7 +801,6 @@ async function checkAndGrantAchievements(userId, username) {
                 });
             }
             
-            // Обновляем данные пользователя для отображения в карточке
             await pool.query(`UPDATE employees SET rating = rating + $1 WHERE id = $2`, [newAchievements.reduce((sum, a) => sum + (a.coins || 0), 0), userId]);
         }
         return { granted: grantedCount, achievements: newAchievements };
@@ -712,12 +809,14 @@ async function checkAndGrantAchievements(userId, username) {
         return { granted: 0, achievements: [] };
     }
 }
+
 async function checkHasFullProfile(userId) {
     const res = await pool.query(`SELECT birthday, phone FROM employees WHERE id = $1`, [userId]);
     if (res.rows.length === 0) return false;
     const emp = res.rows[0];
     return emp.birthday && emp.phone && emp.birthday !== '' && emp.phone !== '';
 }
+
 // ============================================
 // АВТО-ОТМЕНА ПРОСРОЧЕННЫХ ЗАПРОСОВ НА ОБМЕН
 // ============================================
@@ -753,34 +852,64 @@ async function autoExpireExchangeRequests() {
         client.release();
     }
 }
-
 // ============================================
-// AUTH API
+// AUTH API (ИСПРАВЛЕНО)
 // ============================================
 
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) {
         return res.status(400).json({ error: 'Логин и пароль обязательны' });
     }
     
     try {
+        // 🔥 ИСПРАВЛЕНО: получаем хеш пароля
         const user = await pool.query('SELECT * FROM passwords WHERE username = $1', [username]);
-        if (user.rows.length > 0 && user.rows[0].password === password) {
-            const profile = await pool.query('SELECT * FROM employees WHERE name = $1', [username]);
-            if (profile.rows.length === 0) return res.status(401).json({ error: 'Сотрудник не найден' });
-            
-            await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [username]);
-            
-            const token = jwt.sign({ username, role: profile.rows[0].role, id: profile.rows[0].id }, JWT_SECRET, { expiresIn: '7d' });
-            const achievementResult = await checkAndGrantAchievements(profile.rows[0].id, username);
-            
-            res.json({ success: true, user: profile.rows[0], token, newAchievements: achievementResult.achievements });
-        } else {
-            res.status(401).json({ error: 'Неверный логин или пароль' });
+        if (user.rows.length === 0) {
+            return res.status(401).json({ error: 'Неверный логин или пароль' });
         }
+        
+        // 🔥 ИСПРАВЛЕНО: сравниваем хеши
+        const validPassword = await bcrypt.compare(password, user.rows[0].password_hash);
+        if (!validPassword) {
+            return res.status(401).json({ error: 'Неверный логин или пароль' });
+        }
+        
+        const profile = await pool.query('SELECT * FROM employees WHERE name = $1', [username]);
+        if (profile.rows.length === 0) {
+            return res.status(401).json({ error: 'Сотрудник не найден' });
+        }
+        
+        await pool.query('UPDATE employees SET last_active = CURRENT_TIMESTAMP WHERE name = $1', [username]);
+        
+        const token = jwt.sign({ username, role: profile.rows[0].role, id: profile.rows[0].id }, JWT_SECRET, { expiresIn: '7d' });
+        const achievementResult = await checkAndGrantAchievements(profile.rows[0].id, username);
+        
+        res.json({ success: true, user: profile.rows[0], token, newAchievements: achievementResult.achievements });
     } catch (err) {
         console.error('Login error:', err);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 🔥 НОВОЕ: СМЕНА ПАРОЛЯ
+app.put('/api/employees/:name/password', authMiddleware, async (req, res) => {
+    if (req.user.role !== 'director') {
+        return res.status(403).json({ error: 'Только директор может менять пароли' });
+    }
+    
+    const { name } = req.params;
+    const { password } = req.body;
+    
+    if (!password || password.length < 3) {
+        return res.status(400).json({ error: 'Пароль должен быть не менее 3 символов' });
+    }
+    
+    try {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await pool.query('UPDATE passwords SET password_hash = $1 WHERE username = $2', [hashedPassword, name]);
+        res.json({ success: true });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
@@ -797,7 +926,6 @@ app.get('/api/data', authMiddleware, async (req, res) => {
         const messages = await pool.query('SELECT * FROM messages ORDER BY time DESC LIMIT 500');
         const schedule = await pool.query('SELECT * FROM schedule');
         
-        // ПОЛУЧАЕМ ДОСТИЖЕНИЯ ДЛЯ КАЖДОГО СОТРУДНИКА
         const userAchievements = {};
         for (const emp of employees.rows) {
             const achievementsRes = await pool.query(
@@ -811,7 +939,6 @@ app.get('/api/data', authMiddleware, async (req, res) => {
             userAchievements[emp.name] = achievementsRes.rows;
         }
         
-        // ПОЛУЧАЕМ КУПЛЕННЫЕ СТАТУСЫ ДЛЯ КАЖДОГО СОТРУДНИКА
         const userStatuses = {};
         for (const emp of employees.rows) {
             const statusesRes = await pool.query(
@@ -851,7 +978,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
                     coins: e.coins, 
                     rating: e.rating, 
                     role: e.role, 
-                    hours: e.hours, 
+                    hours: parseFloat(e.hours) || 0, 
                     birthday: e.birthday, 
                     phone: e.phone, 
                     last_active: e.last_active, 
@@ -946,7 +1073,7 @@ app.put('/api/tasks/:id', authMiddleware, async (req, res) => {
             else if (oldTask.priority === 'medium') wpReward = 8;
             else if (oldTask.priority === 'low') wpReward = 3;
             
-            if (wpReward > 0) {
+            if (wpReward > 0 && oldTask.executor) {
                 const executor = await pool.query('SELECT id, coins FROM employees WHERE name = $1', [oldTask.executor]);
                 if (executor.rows.length > 0) {
                     const balanceBefore = executor.rows[0].coins;
@@ -961,10 +1088,12 @@ app.put('/api/tasks/:id', authMiddleware, async (req, res) => {
                     try { await sendGlobalNotification('task_completed', { executor: oldTask.executor, taskName: oldTask.name }); } catch (err) {}
                 }
             }
-            const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [oldTask.executor]);
-            if (executorRes.rows.length > 0) {
-                const result = await checkAndGrantAchievements(executorRes.rows[0].id, oldTask.executor);
-                newAchievements = result.achievements;
+            if (oldTask.executor) {
+                const executorRes = await pool.query('SELECT id FROM employees WHERE name = $1', [oldTask.executor]);
+                if (executorRes.rows.length > 0) {
+                    const result = await checkAndGrantAchievements(executorRes.rows[0].id, oldTask.executor);
+                    newAchievements = result.achievements;
+                }
             }
         }
         
@@ -1016,6 +1145,7 @@ app.delete('/api/tasks/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 // ============================================
 // FINES API
 // ============================================
@@ -1198,7 +1328,7 @@ app.post('/api/schedule/special-cases', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// EMPLOYEES API
+// EMPLOYEES API (ИСПРАВЛЕНО)
 // ============================================
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
@@ -1218,9 +1348,12 @@ app.post('/api/employees', authMiddleware, async (req, res) => {
     
     if (!name || !password) return res.status(400).json({ error: 'Имя и пароль обязательны' });
     
-    try { 
+    try {
+        // 🔥 ИСПРАВЛЕНО: хешируем пароль
+        const hashedPassword = await bcrypt.hash(password, 10);
+        
         await pool.query(`INSERT INTO employees (name, role, birthday, phone, bonus_streak) VALUES ($1, $2, $3, $4, 1)`, [name, role || 'operator', birthday || null, phone || null]); 
-        await pool.query('INSERT INTO passwords (username, password) VALUES ($1, $2)', [name, password]); 
+        await pool.query('INSERT INTO passwords (username, password_hash) VALUES ($1, $2)', [name, hashedPassword]); 
         try { await sendGlobalNotification('new_employee', { name }); } catch (err) {} 
         res.json({ success: true }); 
     } catch (err) { 
@@ -1229,22 +1362,76 @@ app.post('/api/employees', authMiddleware, async (req, res) => {
     }
 });
 
+// 🔥 ИСПРАВЛЕНО: PUT /api/profiles/:name с логированием и очисткой avatar_url
 app.put('/api/profiles/:name', authMiddleware, async (req, res) => {
     const { name } = req.params; 
     const updates = req.body;
-    try { 
+    const currentUser = req.user;
+    
+    // Проверка прав: только директор или сам пользователь
+    if (currentUser.role !== 'director' && currentUser.username !== name) {
+        return res.status(403).json({ error: 'Нет прав на редактирование этого профиля' });
+    }
+    
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        
+        // Получаем старые значения для логирования
+        const oldProfile = await client.query('SELECT * FROM employees WHERE name = $1', [name]);
+        if (oldProfile.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Сотрудник не найден' });
+        }
+        const oldData = oldProfile.rows[0];
+        
         const allowedFields = ['avatar', 'avatar_url', 'status', 'phone', 'birthday', 'name', 'active_status']; 
         const filteredUpdates = {}; 
-        for (const key of allowedFields) { if (updates[key] !== undefined) filteredUpdates[key] = updates[key]; } 
-        if (Object.keys(filteredUpdates).length === 0) return res.json({ success: true }); 
+        
+        for (const key of allowedFields) { 
+            if (updates[key] !== undefined) {
+                filteredUpdates[key] = updates[key];
+                
+                // 🔥 ИСПРАВЛЕНО: если меняем avatar, очищаем avatar_url
+                if (key === 'avatar') {
+                    filteredUpdates['avatar_url'] = null;
+                }
+                // 🔥 ИСПРАВЛЕНО: если меняем avatar_url, очищаем avatar
+                if (key === 'avatar_url') {
+                    filteredUpdates['avatar'] = null;
+                }
+            }
+        }
+        
+        if (Object.keys(filteredUpdates).length === 0) {
+            await client.query('COMMIT');
+            return res.json({ success: true });
+        }
+        
         const setClause = Object.keys(filteredUpdates).map((key, i) => `${key} = $${i + 2}`).join(', '); 
-        await pool.query(`UPDATE employees SET ${setClause} WHERE name = $1`, [name, ...Object.values(filteredUpdates)]); 
+        await client.query(`UPDATE employees SET ${setClause} WHERE name = $1`, [name, ...Object.values(filteredUpdates)]);
+        
+        // 🔥 Логируем изменения
+        const userId = oldData.id;
+        const changedBy = currentUser.id;
+        for (const [field, newValue] of Object.entries(filteredUpdates)) {
+            const oldValue = oldData[field];
+            if (String(oldValue) !== String(newValue)) {
+                await logProfileChange(userId, changedBy, field, String(oldValue || ''), String(newValue || ''));
+            }
+        }
+        
+        await client.query('COMMIT');
         res.json({ success: true }); 
     } catch (err) { 
+        await client.query('ROLLBACK');
         res.status(500).json({ error: err.message }); 
+    } finally {
+        client.release();
     }
 });
 
+// 🔥 ИСПРАВЛЕНО: DELETE /api/employees/:name с полной очисткой данных
 app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director') return res.status(403).json({ error: 'Доступ только директору' });
     if (req.params.name === 'Денис') return res.status(400).json({ error: 'Нельзя удалить директора' });
@@ -1252,8 +1439,33 @@ app.delete('/api/employees/:name', authMiddleware, async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        
+        const empRes = await client.query('SELECT id FROM employees WHERE name = $1', [req.params.name]);
+        if (empRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Сотрудник не найден' });
+        }
+        const userId = empRes.rows[0].id;
+        
+        // 🔥 Удаляем все связанные данные
+        await client.query('DELETE FROM messages WHERE sender = $1 OR room = $1', [req.params.name]);
+        await client.query('UPDATE tasks SET executor = NULL WHERE executor = $1', [req.params.name]);
+        await client.query('DELETE FROM fines WHERE employee = $1', [req.params.name]);
+        await client.query('DELETE FROM schedule WHERE employee = $1', [req.params.name]);
+        await client.query('DELETE FROM stickers WHERE employee = $1 OR sender = $1', [req.params.name]);
+        await client.query('DELETE FROM exchange_requests WHERE from_employee = $1 OR to_employee = $1', [req.params.name]);
+        await client.query('DELETE FROM user_achievements WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM pending_achievements WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM user_statuses WHERE employee_id = $1', [userId]);
+        await client.query('DELETE FROM transactions WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM daily_bonus_history WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM shift_earnings WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM knowledge_views WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM profile_history WHERE user_id = $1', [userId]);
+        
         await client.query('DELETE FROM employees WHERE name = $1', [req.params.name]);
         await client.query('DELETE FROM passwords WHERE username = $1', [req.params.name]);
+        
         await client.query('COMMIT');
         res.json({ success: true }); 
     } catch (err) { 
@@ -1278,7 +1490,6 @@ app.put('/api/employees/:name/role', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
-
 // ============================================
 // CHAT API
 // ============================================
@@ -1356,7 +1567,7 @@ app.get('/api/chat/history/:room', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// GIFTS API
+// GIFTS API (ИСПРАВЛЕНО: учёт отправителя)
 // ============================================
 
 app.post('/api/gifts', authMiddleware, async (req, res) => {
@@ -1387,12 +1598,19 @@ app.post('/api/gifts', authMiddleware, async (req, res) => {
         }
         
         await client.query('UPDATE employees SET rating = rating + $1 WHERE name = $2', [ratingChange * (quantity || 1), recipient]);
-        await client.query(`INSERT INTO stickers (employee, gift_id, quantity) VALUES ($1, $2, $3) ON CONFLICT (employee, gift_id) DO UPDATE SET quantity = stickers.quantity + $3`, [recipient, giftId, quantity || 1]);
+        
+        // 🔥 ИСПРАВЛЕНО: сохраняем отправителя
+        const actualSender = sender === '🕵️ Аноним' ? '🕵️ Аноним' : sender;
+        await client.query(
+            `INSERT INTO stickers (sender, employee, gift_id, quantity) VALUES ($1, $2, $3, $4) 
+             ON CONFLICT (employee, gift_id, sender) DO UPDATE SET quantity = stickers.quantity + $4`,
+            [actualSender, recipient, giftId, quantity || 1]
+        );
         
         await client.query('COMMIT');
         
         try { 
-            await sendGlobalNotification('gift_sent', { sender: sender === '🕵️ Аноним' ? 'Аноним' : sender, recipient, giftName: giftId }); 
+            await sendGlobalNotification('gift_sent', { sender: actualSender, recipient, giftName: giftId }); 
         } catch (err) {}
         
         const achievementResult = await checkAndGrantAchievements(recipientResult.rows[0].id, recipient);
@@ -1410,8 +1628,12 @@ app.post('/api/gifts', authMiddleware, async (req, res) => {
 // ============================================
 
 app.get('/api/weather', async (req, res) => {
+    if (res.headersSent) return;
+    
     try {
         const weather = await fetchWeather();
+        if (res.headersSent) return;
+        
         res.json({ 
             success: true, 
             temp: weather.temperature, 
@@ -1422,7 +1644,10 @@ app.get('/api/weather', async (req, res) => {
             icon: weather.icon 
         });
     } catch (err) {
-        res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' });
+        console.error('❌ Ошибка погоды:', err.message);
+        if (!res.headersSent) {
+            res.json({ success: true, temp: 0, tempDisplay: '0', desc: 'Нет данных', icon: '🌡️' });
+        }
     }
 });
 
@@ -1493,8 +1718,9 @@ app.post('/api/achievements/check', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
+
 // ============================================
-// PARSING API (ИСПРАВЛЕННЫЙ)
+// PARSING API
 // ============================================
 
 const { BookingParser } = require('./parsing-booking.js');
@@ -1504,7 +1730,6 @@ app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
     try { 
         if (fs.existsSync(dataPath)) { 
             const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
-            // 🔥 Добавляем success: true для совместимости
             res.json({ success: true, ...data }); 
         } else { 
             res.json({ success: false, error: 'Нет данных', dates: {} }); 
@@ -1538,14 +1763,12 @@ app.post('/api/parsing/run', authMiddleware, async (req, res) => {
     
     try { 
         const parser = new BookingParser(); 
-        // Запускаем парсинг асинхронно, чтобы не блокировать ответ
         parser.parseAvailability().then(result => {
             console.log('✅ Парсинг завершён:', result.success ? 'успешно' : 'с ошибкой');
         }).catch(err => {
             console.error('❌ Ошибка парсинга:', err);
         });
         
-        // Сразу отвечаем, что парсинг запущен
         res.json({ success: true, message: 'Парсинг запущен' }); 
     } catch (err) { 
         console.error('❌ Ошибка запуска парсинга:', err);
@@ -1567,6 +1790,7 @@ app.post('/api/parsing/reset', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message }); 
     }
 });
+
 // ============================================
 // USER API
 // ============================================
@@ -1762,7 +1986,7 @@ app.post('/api/salary/day/save', authMiddleware, async (req, res) => {
             [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]
         );
         res.json({ success: true });
-    } catch (err) {
+    } catch (87) {
         res.status(500).json({ error: err.message });
     }
 });
@@ -1822,7 +2046,6 @@ app.put('/api/vp/:id', authMiddleware, async (req, res) => {
         const existing = await pool.query('SELECT * FROM vp_bookings WHERE id = $1', [id]);
         if (existing.rows.length === 0) return res.status(404).json({ error: 'Мероприятие не найдено' });
         
-        // Валидация значений
         const validPhotoStatus = ['pending', 'sent'];
         const validScriptStatus = ['not_sent', 'sent'];
         
@@ -1831,51 +2054,23 @@ app.put('/api/vp/:id', authMiddleware, async (req, res) => {
         let paramIndex = 1;
         
         if (photoStatus !== undefined) {
-            if (!validPhotoStatus.includes(photoStatus)) {
-                return res.status(400).json({ error: 'Неверный photoStatus' });
-            }
+            if (!validPhotoStatus.includes(photoStatus)) return res.status(400).json({ error: 'Неверный photoStatus' });
             updateFields.push(`photo_status = $${paramIndex++}`);
             values.push(photoStatus);
         }
         if (scriptStatus !== undefined) {
-            if (!validScriptStatus.includes(scriptStatus)) {
-                return res.status(400).json({ error: 'Неверный scriptStatus' });
-            }
+            if (!validScriptStatus.includes(scriptStatus)) return res.status(400).json({ error: 'Неверный scriptStatus' });
             updateFields.push(`script_status = $${paramIndex++}`);
             values.push(scriptStatus);
         }
-        if (is_archived !== undefined) {
-            updateFields.push(`is_archived = $${paramIndex++}`);
-            values.push(is_archived);
-        }
-        if (eventDate !== undefined) {
-            updateFields.push(`event_date = $${paramIndex++}`);
-            values.push(eventDate);
-        }
-        if (eventTime !== undefined) {
-            updateFields.push(`event_time = $${paramIndex++}`);
-            values.push(eventTime);
-        }
-        if (customerName !== undefined) {
-            updateFields.push(`customer_name = $${paramIndex++}`);
-            values.push(customerName);
-        }
-        if (admin !== undefined) {
-            updateFields.push(`admin = $${paramIndex++}`);
-            values.push(admin);
-        }
-        if (amount !== undefined) {
-            updateFields.push(`amount = $${paramIndex++}`);
-            values.push(amount);
-        }
-        if (paymentType !== undefined) {
-            updateFields.push(`payment_type = $${paramIndex++}`);
-            values.push(paymentType);
-        }
-        if (comment !== undefined) {
-            updateFields.push(`comment = $${paramIndex++}`);
-            values.push(comment);
-        }
+        if (is_archived !== undefined) { updateFields.push(`is_archived = $${paramIndex++}`); values.push(is_archived); }
+        if (eventDate !== undefined) { updateFields.push(`event_date = $${paramIndex++}`); values.push(eventDate); }
+        if (eventTime !== undefined) { updateFields.push(`event_time = $${paramIndex++}`); values.push(eventTime); }
+        if (customerName !== undefined) { updateFields.push(`customer_name = $${paramIndex++}`); values.push(customerName); }
+        if (admin !== undefined) { updateFields.push(`admin = $${paramIndex++}`); values.push(admin); }
+        if (amount !== undefined) { updateFields.push(`amount = $${paramIndex++}`); values.push(amount); }
+        if (paymentType !== undefined) { updateFields.push(`payment_type = $${paramIndex++}`); values.push(paymentType); }
+        if (comment !== undefined) { updateFields.push(`comment = $${paramIndex++}`); values.push(comment); }
         
         if (updateFields.length > 0) {
             updateFields.push(`updated_at = CURRENT_TIMESTAMP`);
@@ -1889,6 +2084,7 @@ app.put('/api/vp/:id', authMiddleware, async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
 app.delete('/api/vp/:id', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director' && req.user.role !== 'manager') {
         return res.status(403).json({ error: 'Доступ запрещён' });
@@ -1934,9 +2130,7 @@ app.post('/api/knowledge/categories', authMiddleware, async (req, res) => {
 });
 
 app.put('/api/knowledge/categories/:id', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager') {
-        return res.status(403).json({ error: 'Доступ запрещён' });
-    }
+    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
     
@@ -1950,9 +2144,7 @@ app.put('/api/knowledge/categories/:id', authMiddleware, async (req, res) => {
 });
 
 app.delete('/api/knowledge/categories/:id', authMiddleware, async (req, res) => {
-    if (req.user.role !== 'director' && req.user.role !== 'manager') {
-        return res.status(403).json({ error: 'Доступ запрещён' });
-    }
+    if (req.user.role !== 'director' && req.user.role !== 'manager') return res.status(403).json({ error: 'Доступ запрещён' });
     const id = parseInt(req.params.id);
     if (isNaN(id) || id <= 0) return res.status(400).json({ error: 'Неверный ID' });
     
@@ -2044,8 +2236,7 @@ app.post('/api/fund/update', authMiddleware, async (req, res) => {
         if (reset) {
             await pool.query('INSERT INTO corporate_fund (amount) VALUES (0)');
         } else {
-            const newAmount = amount !== undefined ? amount : 0;
-            await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [newAmount]);
+            await pool.query('INSERT INTO corporate_fund (amount) VALUES ($1)', [amount || 0]);
         }
         res.json({ success: true }); 
     } catch (err) { 
@@ -2450,6 +2641,32 @@ setInterval(() => {
 }, 60000);
 
 // ============================================
+// PUSHER AUTH (ДОБАВЛЕНО)
+// ============================================
+
+app.post('/api/pusher/auth', authMiddleware, (req, res) => {
+    const pusherInstance = app.get('pusher');
+    if (!pusherInstance) {
+        return res.status(500).json({ error: 'Pusher not configured' });
+    }
+    
+    const socketId = req.body.socket_id;
+    const channel = req.body.channel_name;
+    
+    // Проверка прав доступа к каналу
+    if (channel.startsWith('private-user-')) {
+        const username = channel.replace('private-user-', '');
+        // Только сам пользователь может подписаться на свой канал
+        if (transliterate(req.user.username) !== username && req.user.role !== 'director') {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+    }
+    
+    const auth = pusherInstance.authorizeChannel(socketId, channel);
+    res.send(auth);
+});
+
+// ============================================
 // СТАТИЧЕСКИЕ ФАЙЛЫ
 // ============================================
 
@@ -2469,7 +2686,8 @@ app.get('/pages/:page', (req, res) => { res.sendFile(path.join(__dirname, 'publi
         console.log(`\n🚀 WARPOINT Server running on port ${PORT}`);
         console.log(`👤 Директор: Денис / denis_1`);
         console.log(`🛡️ Защита от SQL-инъекций активирована`);
-        console.log(`🔐 Транзакции для критических операций`);
+        console.log(`🔐 Пароли хешируются (bcrypt)`);
+        console.log(`🔒 Rate limiting активирован`);
         console.log(`📊 Мониторинг памяти включен\n`);
     });
 })();

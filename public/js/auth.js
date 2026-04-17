@@ -1,9 +1,10 @@
-// public/js/auth.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/auth.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
+// Исправлен баг: "В сети" не обновлялся при heartbeat
 
 let isLoggingIn = false;
 let heartbeatInterval = null;
 let lastHeartbeat = 0;
-const HEARTBEAT_INTERVAL = 60000;
+const HEARTBEAT_INTERVAL = 60000; // 1 минута
 const TOKEN_EXPIRY_CHECK_INTERVAL = 300000; // 5 минут
 
 // ============================================
@@ -118,13 +119,11 @@ async function login() {
             
         } else {
             showNotif(data.error || 'Неверный логин или пароль', 'error');
-            // 🔥 Скрываем прелоадер при ошибке
             hideGlobalLoaderOnError();
         }
     } catch (err) {
         console.error('❌ Ошибка входа:', err);
         showNotif('Ошибка соединения с сервером.', 'error');
-        // 🔥 Скрываем прелоадер при ошибке
         hideGlobalLoaderOnError();
     } finally {
         if (loginBtn) {
@@ -247,13 +246,18 @@ async function loadLastActivity() {
         window.app.lastActivity[window.app.currentUser] = Date.now();
     }
     
+    // 🔥 ИСПРАВЛЕНО: вызываем renderEmployees для обновления "В сети"
     if (typeof renderEmployees === 'function') renderEmployees();
     if (typeof loadActivity === 'function') loadActivity();
 }
 
 // ============================================
-// HEARTBEAT
+// HEARTBEAT (ИСПРАВЛЕНО)
 // ============================================
+
+// 🔥 Флаг для отслеживания последнего рендера
+let lastActivityRenderTime = 0;
+const ACTIVITY_RENDER_DEBOUNCE = 5000; // 5 секунд
 
 async function sendHeartbeat() {
     if (checkTokenAndLogout()) return;
@@ -275,29 +279,58 @@ async function sendHeartbeat() {
         });
         
         if (response.ok && window.app && window.app.currentUser) {
+            // 🔥 Обновляем lastActivity для текущего пользователя
             window.app.lastActivity = window.app.lastActivity || {};
             window.app.lastActivity[window.app.currentUser] = Date.now();
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
             
-            if (!window._lastActivityRender || Date.now() - window._lastActivityRender > 5000) {
-                window._lastActivityRender = Date.now();
-                if (typeof renderEmployees === 'function') renderEmployees();
-                if (typeof loadActivity === 'function') loadActivity();
+            // 🔥 ИСПРАВЛЕНО: вызываем renderEmployees с debounce
+            if (now - lastActivityRenderTime > ACTIVITY_RENDER_DEBOUNCE) {
+                lastActivityRenderTime = now;
+                
+                if (typeof renderEmployees === 'function') {
+                    renderEmployees();
+                }
+                if (typeof loadActivity === 'function') {
+                    loadActivity();
+                }
+                
+                // 🔥 Отправляем событие обновления данных
+                if (typeof window.dispatchDataUpdate === 'function') {
+                    window.dispatchDataUpdate('heartbeat', { user: window.app.currentUser });
+                }
             }
+            
+            // 🔥 Обновляем индикатор синхронизации если есть
+            if (typeof setSyncStatus === 'function') {
+                setSyncStatus('online');
+            }
+        } else if (response.status === 401) {
+            console.log('🔐 Токен истёк при heartbeat');
+            authLogout();
         }
     } catch (e) {
         console.error('Heartbeat error:', e);
+        if (typeof setSyncStatus === 'function') {
+            setSyncStatus('offline');
+        }
     }
 }
 
 function startHeartbeat(intervalMs = HEARTBEAT_INTERVAL) {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    
+    // 🔥 Отправляем первый heartbeat сразу
     sendHeartbeat();
+    
+    // 🔥 Запускаем интервал
     heartbeatInterval = setInterval(() => sendHeartbeat(), intervalMs);
+    
+    console.log('💓 Heartbeat запущен (интервал: ' + intervalMs/1000 + 'с)');
 }
 
 // ============================================
-// ТРЕКЕР АКТИВНОСТИ
+// ТРЕКЕР АКТИВНОСТИ (ИСПРАВЛЕНО)
 // ============================================
 
 function initActivityTracker() {
@@ -307,20 +340,32 @@ function initActivityTracker() {
             window.app.lastActivity[window.app.currentUser] = Date.now();
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
             
-            if (!window._lastActivityRender || Date.now() - window._lastActivityRender > 5000) {
-                window._lastActivityRender = Date.now();
-                if (typeof renderEmployees === 'function') renderEmployees();
-                if (typeof loadActivity === 'function') loadActivity();
+            // 🔥 Обновляем с debounce
+            const now = Date.now();
+            if (now - lastActivityRenderTime > ACTIVITY_RENDER_DEBOUNCE) {
+                lastActivityRenderTime = now;
+                
+                if (typeof renderEmployees === 'function') {
+                    renderEmployees();
+                }
+                if (typeof loadActivity === 'function') {
+                    loadActivity();
+                }
             }
         }
     };
     
+    // События, которые считаются активностью
     ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
         document.addEventListener(event, updateActivity, { passive: true });
     });
     
     document.addEventListener('visibilitychange', () => { 
-        if (!document.hidden) updateActivity(); 
+        if (!document.hidden) {
+            updateActivity();
+            // 🔥 При возвращении на вкладку отправляем heartbeat
+            sendHeartbeat();
+        }
     });
     
     console.log('✅ Activity tracker инициализирован');
@@ -355,4 +400,4 @@ window.initActivityTracker = initActivityTracker;
 window.loadLastActivity = loadLastActivity;
 window.checkTokenAndLogout = checkTokenAndLogout;
 
-console.log('✅ auth.js загружен (исправленная версия)');
+console.log('✅ auth.js загружен (исправленная версия v2.0)');

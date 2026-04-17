@@ -1,4 +1,5 @@
-// public/js/chat.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/chat.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
+// Исправлены: фокус на чат, повторный клик, очистка слушателей
 
 // ============================================
 // ЗАЩИТА ОТ РЕКУРСИИ И СПАМА
@@ -20,6 +21,9 @@ let pusherListenersSetup = false;
 let lastMessageTime = 0;
 const MESSAGE_COOLDOWN = 500;
 const MAX_MESSAGE_LENGTH = 2000;
+
+// 🔥 Экспортируем chatUnread для использования в employees.js
+window.chatUnread = chatUnread;
 
 // ============================================
 // ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
@@ -54,7 +58,7 @@ function initChat() {
 function setupEmojiPickerClose() {
     document.addEventListener('click', function(e) {
         const picker = document.getElementById('emojiPicker');
-        const emojiBtn = document.getElementById('chatEmojiBtn');
+        const emojiBtn = document.querySelector('.chat-emoji-btn');
         if (picker && emojiBtn) {
             if (!picker.contains(e.target) && e.target !== emojiBtn && !emojiBtn.contains(e.target)) {
                 picker.style.display = 'none';
@@ -183,7 +187,7 @@ function renderChatContacts() {
         html += '<div style="font-size: 11px; opacity: 0.6;">' + (contact.type === 'general' ? 'Общий чат' : 'Личный чат');
         if (msgCount > 0) html += ' · ' + msgCount;
         html += '</div></div>';
-        if (unreadCount > 0) html += '<div class="unread-badge">' + unreadCount + '</div>';
+        if (unreadCount > 0) html += '<div class="unread-badge">' + (unreadCount > 99 ? '99+' : unreadCount) + '</div>';
         html += '</div>';
     }
     
@@ -198,6 +202,7 @@ function renderChatMessages() {
     const container = document.getElementById('chatMessages');
     const headerName = document.getElementById('chatHeaderName');
     const headerStatus = document.getElementById('chatHeaderStatus');
+    const headerAvatar = document.getElementById('chatHeaderAvatar');
     
     if (!container) return;
     
@@ -207,10 +212,16 @@ function renderChatMessages() {
         if (currentChatRoom === 'general') {
             headerName.innerHTML = '💬 Общий чат';
             headerStatus.innerHTML = 'Все сотрудники';
+            if (headerAvatar) headerAvatar.innerHTML = '💬';
         } else {
             headerName.innerHTML = escapeHtml(currentChatRoom);
             const profile = window.app?.profiles?.[currentChatRoom];
             headerStatus.innerHTML = (profile && profile.role) ? roleNames[profile.role] : 'Сотрудник';
+            
+            // 🔥 Обновляем аватар в хедере чата
+            if (headerAvatar && profile) {
+                headerAvatar.innerHTML = getAvatarHtml(profile, 'small');
+            }
         }
     }
     
@@ -219,9 +230,16 @@ function renderChatMessages() {
         return;
     }
     
+    // 🔥 Сбрасываем непрочитанные для текущего чата
     if (chatUnread[currentChatRoom]) {
         delete chatUnread[currentChatRoom];
+        window.chatUnread = chatUnread;
         renderChatContacts();
+        
+        // 🔥 Обновляем карточки сотрудников (бейджи сообщений)
+        if (typeof renderEmployees === 'function') {
+            renderEmployees();
+        }
     }
     
     const sorted = [...messages].sort((a, b) => a.time - b.time);
@@ -476,7 +494,7 @@ async function sendChatMessage() {
 }
 
 // ============================================
-// ПЕРЕКЛЮЧЕНИЕ ЧАТА
+// ПЕРЕКЛЮЧЕНИЕ ЧАТА (ИСПРАВЛЕНО)
 // ============================================
 
 function switchChat(roomId) {
@@ -507,6 +525,12 @@ function switchChat(roomId) {
     
     renderChatContacts();
     renderChatMessages();
+    
+    // 🔥 ИСПРАВЛЕНО: фокус на поле ввода после переключения
+    setTimeout(() => {
+        const input = document.getElementById('chatInput');
+        if (input) input.focus();
+    }, 100);
     
     isSwitchingChat = false;
 }
@@ -545,7 +569,14 @@ function setupPusherListeners() {
                     renderChatMessages();
                 } else {
                     chatUnread.general = (chatUnread.general || 0) + 1;
+                    window.chatUnread = chatUnread;
                     renderChatContacts();
+                    
+                    // 🔥 Обновляем карточки сотрудников
+                    if (typeof renderEmployees === 'function') {
+                        renderEmployees();
+                    }
+                    
                     showNotif('💬 ' + data.message.sender + ': ' + data.message.text.substring(0, 50), 'info');
                 }
             }
@@ -565,6 +596,7 @@ function setupPusherListeners() {
                     renderChatMessages();
                 } else {
                     chatUnread.general = (chatUnread.general || 0) + 1;
+                    window.chatUnread = chatUnread;
                     renderChatContacts();
                     showNotif('📢 ОБЪЯВЛЕНИЕ: ' + announcement.text.substring(0, 50), 'warning');
                 }
@@ -628,7 +660,14 @@ function setupPusherListeners() {
                     renderChatMessages();
                 } else {
                     chatUnread[roomId] = (chatUnread[roomId] || 0) + 1;
+                    window.chatUnread = chatUnread;
                     renderChatContacts();
+                    
+                    // 🔥 Обновляем карточки сотрудников
+                    if (typeof renderEmployees === 'function') {
+                        renderEmployees();
+                    }
+                    
                     showNotif('💬 Личное от ' + data.from + ': ' + data.message.text.substring(0, 50), 'info');
                 }
             }
@@ -651,6 +690,7 @@ function setupPusherListeners() {
     pusherListenersSetup = true;
     console.log('🔌 ===== НАСТРОЙКА PUSHER ЗАВЕРШЕНА =====');
 }
+
 // ============================================
 // ЭМОДЗИ
 // ============================================
@@ -978,7 +1018,7 @@ async function acceptExchangeFromChat(requestId, room, messageTime) {
         } else {
             showNotif(response?.error || 'Ошибка при подтверждении обмена', 'error');
         }
-    } catch (err) {
+    } catch (87) {
         console.error('Ошибка:', err);
         showNotif('Ошибка соединения', 'error');
     }
@@ -1064,5 +1104,6 @@ window.closeChatSettingsModal = closeChatSettingsModal;
 window.acceptExchangeFromChat = acceptExchangeFromChat;
 window.rejectExchangeFromChat = rejectExchangeFromChat;
 window.cleanupChat = cleanupChat;
+window.chatUnread = chatUnread;
 
-console.log('✅ chat.js загружен (исправленная версия)');
+console.log('✅ chat.js загружен (исправленная версия v2.0)');

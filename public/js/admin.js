@@ -1,4 +1,5 @@
-// public/js/admin.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/admin.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
+// Исправлен баг: меню не обновлялось при смене роли
 
 let adminEmployeesList = [];
 let isLoadingAdmin = false;
@@ -88,12 +89,74 @@ function renderAdminEmployees() {
                     <button class="btn-small" onclick="openBonusModal('${escapeHtml(emp)}')">🎁 Бонус</button>
                     ${!isDirector ? `
                         <button class="btn-small" onclick="changeEmployeeRole('${escapeHtml(emp)}', '${profile?.role || 'operator'}')" style="background: rgba(139,92,246,0.2); border-color: #8b5cf6; color: #a78bfa;">👔 Должность</button>
+                        <button class="btn-small" onclick="openResetPasswordModal('${escapeHtml(emp)}')" style="background: rgba(59,130,246,0.2); border-color: #3b82f6; color: #60a5fa;">🔑 Пароль</button>
                         <button class="btn-small btn-danger" onclick="deleteEmployee('${escapeHtml(emp)}')">🗑️ Удалить</button>
                     ` : ''}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+// ============================================
+// СБРОС ПАРОЛЯ (НОВОЕ)
+// ============================================
+
+function openResetPasswordModal(employeeName) {
+    const modalHtml = `
+        <div id="resetPasswordModal" class="modal active">
+            <div class="modal-window" style="max-width: 400px;">
+                <div style="padding: 20px; border-bottom: 1px solid rgba(99,102,241,0.15);">
+                    <h3>🔑 Сбросить пароль</h3>
+                    <p style="margin: 4px 0 0; font-size: 12px; color: #64748b;">Сотрудник: ${escapeHtml(employeeName)}</p>
+                </div>
+                <div style="padding: 20px;">
+                    <div style="margin-bottom: 16px;">
+                        <label>Новый пароль</label>
+                        <input type="password" id="newPasswordInput" class="edit-input" style="width: 100%;" placeholder="Введите новый пароль" minlength="3">
+                    </div>
+                    <div style="margin-bottom: 16px;">
+                        <label>Подтвердите пароль</label>
+                        <input type="password" id="confirmPasswordInput" class="edit-input" style="width: 100%;" placeholder="Повторите пароль">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 12px; justify-content: flex-end; padding: 16px 20px; border-top: 1px solid rgba(99,102,241,0.1);">
+                    <button class="btn-primary" onclick="resetPassword('${escapeHtml(employeeName)}')">💾 Сохранить</button>
+                    <button class="btn-secondary" onclick="closeResetPasswordModal()">Отмена</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function closeResetPasswordModal() {
+    const modal = document.getElementById('resetPasswordModal');
+    if (modal) modal.remove();
+}
+
+async function resetPassword(employeeName) {
+    const newPassword = document.getElementById('newPasswordInput')?.value;
+    const confirmPassword = document.getElementById('confirmPasswordInput')?.value;
+    
+    if (!newPassword || newPassword.length < 3) {
+        showNotif('Пароль должен быть не менее 3 символов', 'error');
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        showNotif('Пароли не совпадают', 'error');
+        return;
+    }
+    
+    const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}/password`, 'PUT', { password: newPassword });
+    
+    if (response && response.success) {
+        showNotif(`✅ Пароль для ${employeeName} изменён`, 'success');
+        closeResetPasswordModal();
+    } else {
+        showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+    }
 }
 
 // ============================================
@@ -159,7 +222,7 @@ async function giveBonus(employeeName) {
 }
 
 // ============================================
-// РОЛЬ
+// РОЛЬ (ИСПРАВЛЕНО)
 // ============================================
 
 async function changeEmployeeRole(employeeName, currentRole) {
@@ -209,6 +272,18 @@ async function saveEmployeeRole(employeeName) {
     if (response && response.success) {
         showNotif(`✅ Роль изменена`, 'success');
         closeRoleModal();
+        
+        // 🔥 ИСПРАВЛЕНО: если меняем роль текущему пользователю - обновляем меню
+        if (employeeName === window.app?.currentUser) {
+            window.app.currentUserRole = newRole;
+            window.app.currentUserPermissions = window.rolesMap?.[newRole] || window.rolesMap?.operator;
+            
+            // 🔥 ИСПРАВЛЕНО: обновляем главное меню
+            if (typeof renderMainMenu === 'function') {
+                renderMainMenu();
+            }
+        }
+        
         await loadEmployees();
         adminEmployeesList = window.app?.employees || [];
         renderAdminEmployees();
@@ -219,18 +294,26 @@ async function saveEmployeeRole(employeeName) {
 }
 
 async function deleteEmployee(employeeName) {
-    if (!confirm(`Удалить сотрудника ${employeeName}? Это необратимо.`)) return;
+    if (!confirm(`⚠️ ВНИМАНИЕ!\n\nВы уверены, что хотите УВОЛИТЬ сотрудника "${employeeName}"?\n\nЭто действие НЕОБРАТИМО! Все данные сотрудника будут удалены.`)) return;
+    if (!confirm('Точно? Данные нельзя будет восстановить.')) return;
     
     const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}`, 'DELETE');
     
     if (response && response.success) {
         showNotif(`Сотрудник ${employeeName} удалён`, 'success');
+        
+        // 🔥 Оптимистичное удаление
+        if (window.app) {
+            window.app.employees = window.app.employees.filter(e => e !== employeeName);
+            delete window.app.profiles[employeeName];
+        }
+        
         await loadEmployees();
         adminEmployeesList = window.app?.employees || [];
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
-        showNotif('Ошибка при удалении', 'error');
+        showNotif('Ошибка при удалении: ' + (response?.error || 'неизвестная'), 'error');
     }
 }
 
@@ -437,6 +520,9 @@ window.initAdmin = initAdmin;
 window.openBonusModal = openBonusModal;
 window.closeBonusModal = closeBonusModal;
 window.giveBonus = giveBonus;
+window.openResetPasswordModal = openResetPasswordModal;
+window.closeResetPasswordModal = closeResetPasswordModal;
+window.resetPassword = resetPassword;
 window.changeEmployeeRole = changeEmployeeRole;
 window.closeRoleModal = closeRoleModal;
 window.saveEmployeeRole = saveEmployeeRole;
@@ -451,4 +537,4 @@ window.resetAllData = resetAllData;
 window.equalStart = equalStart;
 window.initAchievementsAdmin = initAchievementsAdmin;
 
-console.log('✅ admin.js загружен (исправленная версия)');
+console.log('✅ admin.js загружен (исправленная версия v2.0)');

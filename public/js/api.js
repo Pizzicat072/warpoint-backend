@@ -1,4 +1,5 @@
-// public/js/api.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/api.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
+// Исправлены: офлайн-кэш, очистка avatar_url
 
 // ============================================
 // ЗАЩИТА ОТ БЕСКОНЕЧНЫХ ЗАПРОСОВ
@@ -22,6 +23,10 @@ const CACHE_TTL = {
     '/fund': 60000,
     '/weather': 300000
 };
+
+// 🔥 НОВОЕ: офлайн-кэш для всех данных
+const OFFLINE_CACHE_KEY = 'warpoint_offline_data';
+const OFFLINE_CACHE_TTL = 30 * 60 * 1000; // 30 минут
 
 // ============================================
 // ОРИГИНАЛЬНАЯ ФУНКЦИЯ API-ВЫЗОВОВ
@@ -95,6 +100,17 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
             // 🔥 ОБРАБОТКА ДРУГИХ ОШИБОК
             if (!response.ok) {
                 console.error(`❌ API error: ${response.status} ${response.statusText}`);
+                
+                // 🔥 НОВОЕ: пробуем загрузить из офлайн-кэша при ошибке
+                if (method === 'GET') {
+                    const offlineData = loadFromOfflineCache(endpoint);
+                    if (offlineData) {
+                        console.log(`📡 Работаем офлайн: ${endpoint}`);
+                        showNotif('📡 Работаем офлайн. Данные могут быть устаревшими.', 'warning');
+                        return offlineData;
+                    }
+                }
+                
                 return { success: false, error: `Ошибка сервера: ${response.status}` };
             }
             
@@ -108,6 +124,11 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
                         data: data,
                         timestamp: Date.now()
                     });
+                }
+                
+                // 🔥 НОВОЕ: сохраняем в офлайн-кэш важные данные
+                if (endpoint === '/data' || endpoint.startsWith('/employees') || endpoint === '/tasks' || endpoint === '/schedule') {
+                    saveToOfflineCache(endpoint, data);
                 }
             }
             
@@ -124,9 +145,19 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
             
             console.error('❌ API error:', e.message);
             
+            // 🔥 НОВОЕ: пробуем загрузить из офлайн-кэша при ошибке сети
+            if (method === 'GET') {
+                const offlineData = loadFromOfflineCache(endpoint);
+                if (offlineData) {
+                    console.log(`📡 Работаем офлайн (сеть недоступна): ${endpoint}`);
+                    showNotif('📡 Нет соединения. Работаем офлайн.', 'warning');
+                    return offlineData;
+                }
+            }
+            
             // 🔥 ЭКСПОНЕНЦИАЛЬНАЯ ЗАДЕРЖКА ПРИ ОШИБКАХ
             retryCount++;
-            if (retryCount <= MAX_RETRIES) {
+            if (retryCount <= MAX_RETRIES && method === 'GET') {
                 const delay = 1000 * Math.pow(2, retryCount);
                 console.log(`🔄 Повторная попытка через ${delay}ms (${retryCount}/${MAX_RETRIES})`);
                 await new Promise(r => setTimeout(r, delay));
@@ -141,6 +172,56 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
     
     pendingRequests.set(requestKey, requestPromise);
     return requestPromise;
+}
+
+// ============================================
+// ОФЛАЙН-КЭШ (НОВОЕ)
+// ============================================
+
+function saveToOfflineCache(endpoint, data) {
+    try {
+        const cache = JSON.parse(localStorage.getItem(OFFLINE_CACHE_KEY) || '{}');
+        cache[endpoint] = {
+            data: data,
+            timestamp: Date.now()
+        };
+        
+        // Очищаем устаревшие записи
+        for (const key of Object.keys(cache)) {
+            if (Date.now() - cache[key].timestamp > OFFLINE_CACHE_TTL) {
+                delete cache[key];
+            }
+        }
+        
+        localStorage.setItem(OFFLINE_CACHE_KEY, JSON.stringify(cache));
+        console.log(`💾 Офлайн-кэш сохранён: ${endpoint}`);
+    } catch (e) {
+        console.error('Ошибка сохранения офлайн-кэша:', e);
+        // Если кэш переполнен, очищаем его
+        if (e.name === 'QuotaExceededError') {
+            localStorage.removeItem(OFFLINE_CACHE_KEY);
+        }
+    }
+}
+
+function loadFromOfflineCache(endpoint) {
+    try {
+        const cache = JSON.parse(localStorage.getItem(OFFLINE_CACHE_KEY) || '{}');
+        const entry = cache[endpoint];
+        
+        if (entry && Date.now() - entry.timestamp < OFFLINE_CACHE_TTL) {
+            console.log(`📦 Загружено из офлайн-кэша: ${endpoint}`);
+            return entry.data;
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки офлайн-кэша:', e);
+    }
+    return null;
+}
+
+function clearOfflineCache() {
+    localStorage.removeItem(OFFLINE_CACHE_KEY);
+    console.log('🧹 Офлайн-кэш очищен');
 }
 
 // ============================================
@@ -163,6 +244,11 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         
         if (typeof refreshAllBalanceDisplays === 'function') {
             setTimeout(() => refreshAllBalanceDisplays(), 300);
+        }
+        
+        // 🔥 ИСПРАВЛЕНО: обновляем карточки сотрудников
+        if (typeof renderEmployees === 'function') {
+            setTimeout(() => renderEmployees(), 300);
         }
     }
     
@@ -219,6 +305,7 @@ async function loadEmployees() {
             window.app.schedule = data.schedule || {};
             window.app.tasks = data.tasks || [];
             window.app.fines = data.fines || [];
+            window.app.userAchievements = data.userAchievements || {};
             
             for (let emp of window.app.employees) {
                 if (!window.app.profiles[emp]) {
@@ -229,9 +316,36 @@ async function loadEmployees() {
                     };
                 }
             }
+            
+            // 🔥 Сохраняем в офлайн-кэш
+            saveToOfflineCache('/data', data);
+        } else {
+            // 🔥 Пробуем загрузить из офлайн-кэша
+            const offlineData = loadFromOfflineCache('/data');
+            if (offlineData) {
+                window.app = window.app || {};
+                window.app.employees = offlineData.employees || [];
+                window.app.profiles = offlineData.profiles || {};
+                window.app.schedule = offlineData.schedule || {};
+                window.app.tasks = offlineData.tasks || [];
+                window.app.fines = offlineData.fines || [];
+                window.app.userAchievements = offlineData.userAchievements || {};
+                showNotif('📡 Загружены сохранённые данные', 'info');
+            }
         }
     } catch (e) {
         console.error('Ошибка загрузки сотрудников:', e);
+        // 🔥 Пробуем загрузить из офлайн-кэша
+        const offlineData = loadFromOfflineCache('/data');
+        if (offlineData) {
+            window.app = window.app || {};
+            window.app.employees = offlineData.employees || [];
+            window.app.profiles = offlineData.profiles || {};
+            window.app.schedule = offlineData.schedule || {};
+            window.app.tasks = offlineData.tasks || [];
+            window.app.fines = offlineData.fines || [];
+            window.app.userAchievements = offlineData.userAchievements || {};
+        }
     } finally {
         isLoadingEmployees = false;
     }
@@ -245,6 +359,7 @@ async function loadTasks() {
         if (data && !data.error) {
             window.app = window.app || {};
             window.app.tasks = data;
+            saveToOfflineCache('/tasks', data);
         }
     } catch (e) {
         console.error('Ошибка загрузки задач:', e);
@@ -288,6 +403,7 @@ async function loadSchedule() {
             }
             window.app = window.app || {};
             window.app.schedule = scheduleByDate;
+            saveToOfflineCache('/schedule', scheduleByDate);
         }
     } catch (e) {
         console.error('Ошибка загрузки графика:', e);
@@ -297,40 +413,48 @@ async function loadSchedule() {
 }
 
 // ============================================
-// ОБНОВЛЕНИЕ ДАННЫХ
+// ОБНОВЛЕНИЕ ДАННЫХ (ИСПРАВЛЕНО)
 // ============================================
 
 async function updateEmployeeStatus(name, status) {
     const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { status });
     if (response && response.success) {
         if (window.app?.profiles?.[name]) window.app.profiles[name].status = status;
-        return true;
-    }
-    return false;
-}
-
-async function updateEmployeeAvatar(name, avatar) {
-    const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar });
-    if (response && response.success) {
-        if (window.app?.profiles?.[name]) window.app.profiles[name].avatar = avatar;
         invalidateCache(['/employees', '/data']);
         return true;
     }
     return false;
 }
 
+// 🔥 ИСПРАВЛЕНО: при обновлении аватара очищаем avatar_url
+async function updateEmployeeAvatar(name, avatar) {
+    const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar });
+    if (response && response.success) {
+        if (window.app?.profiles?.[name]) {
+            window.app.profiles[name].avatar = avatar;
+            window.app.profiles[name].avatar_url = null; // 🔥 Очищаем URL
+        }
+        invalidateCache(['/employees', '/data']);
+        clearOfflineCache(); // 🔥 Очищаем офлайн-кэш при изменениях
+        return true;
+    }
+    return false;
+}
+
+// 🔥 ИСПРАВЛЕНО: при обновлении фото очищаем avatar
 async function updateEmployeeAvatarBase64(name, base64) {
     if (!base64 || !base64.startsWith('data:image')) return false;
     const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar_url: base64 });
     if (response && response.success) {
         if (window.app?.profiles?.[name]) {
             window.app.profiles[name].avatar_url = base64;
-            window.app.profiles[name].avatar = null;
+            window.app.profiles[name].avatar = null; // 🔥 Очищаем эмодзи
         }
         if (name === window.app?.currentUser && typeof window.updateHeaderAvatar === 'function') {
             window.updateHeaderAvatar(base64, null);
         }
         invalidateCache(['/employees', '/data']);
+        clearOfflineCache(); // 🔥 Очищаем офлайн-кэш при изменениях
         return true;
     }
     return false;
@@ -351,5 +475,8 @@ window.updateEmployeeAvatar = updateEmployeeAvatar;
 window.updateEmployeeAvatarBase64 = updateEmployeeAvatarBase64;
 window.clearApiCache = clearApiCache;
 window.invalidateCache = invalidateCache;
+window.saveToOfflineCache = saveToOfflineCache;
+window.loadFromOfflineCache = loadFromOfflineCache;
+window.clearOfflineCache = clearOfflineCache;
 
-console.log('✅ api.js загружен (с кэшированием и защитой)');
+console.log('✅ api.js загружен (исправленная версия v2.0)');
