@@ -76,21 +76,31 @@ function escapeHtml(str) {
 }
 
 function showNotif(msg, type) {
-    if (typeof window.showNotif === 'function') {
+    if (typeof window.showNotif === 'function' && window.showNotif !== showNotif) {
         window.showNotif(msg, type);
     } else {
         console.log(`[${type}] ${msg}`);
     }
 }
 
+// 🔥 ИСПРАВЛЕНО: защита от бесконечной рекурсии
 async function apiCall(endpoint, method = 'GET', body = null) {
-    if (typeof window.apiCall === 'function') {
+    // Используем оригинальную функцию из api.js
+    if (typeof window.originalApiCall === 'function') {
+        return window.originalApiCall(endpoint, method, body);
+    }
+    
+    // Если originalApiCall недоступен, проверяем window.apiCall
+    if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
         return window.apiCall(endpoint, method, body);
     }
+    
+    // Fallback — прямой fetch
     const token = localStorage.getItem('token');
     const options = { method, headers: { 'Content-Type': 'application/json' } };
     if (token) options.headers['Authorization'] = `Bearer ${token}`;
     if (body) options.body = JSON.stringify(body);
+    
     try {
         const response = await fetch(`/api${endpoint}`, options);
         return await response.json();
