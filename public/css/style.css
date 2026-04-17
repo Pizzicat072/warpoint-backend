@@ -3041,7 +3041,66 @@ textarea:focus-visible {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+/* Стили для тулбара редактора */
+.editor-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 12px;
+    background: #0d1016;
+    border-radius: 16px 16px 0 0;
+    border: 1px solid #1e2430;
+    border-bottom: none;
+}
 
+.toolbar-group {
+    display: flex;
+    gap: 4px;
+}
+
+.toolbar-btn {
+    width: 34px;
+    height: 34px;
+    background: #1a1f2e;
+    border: 1px solid #2a3240;
+    border-radius: 8px;
+    color: #e2e8f0;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.toolbar-btn:hover {
+    background: #2a3240;
+    border-color: #6366f1;
+}
+
+.toolbar-select {
+    background: #1a1f2e;
+    border: 1px solid #2a3240;
+    color: #e2e8f0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+#articleContent:focus {
+    outline: none;
+}
+
+#articleContent a {
+    color: #a78bfa;
+    text-decoration: none;
+}
+
+#articleContent a:hover {
+    text-decoration: underline;
+}
 /* ============================================ */
 /* КОНЕЦ ФАЙЛА                                   */
 /* ============================================ */
