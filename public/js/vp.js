@@ -292,7 +292,6 @@ async function loadVpData() {
         }
     } finally {
         isLoadingVp = false;
-        abortController = null;
     }
 }
 

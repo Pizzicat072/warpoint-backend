@@ -1100,33 +1100,90 @@
 
 <script>
 // ============================================
-// ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ВП
+// ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ВП (ИСПРАВЛЕНО)
 // ============================================
 
-let vpSortState = { field: 'date', order: 'desc' };
-let vpAdminFilter = 'all';
-let vpStatusFilter = 'all';
-let vpMyOnly = false;
-
 // Переход к сегодняшней дате
-function goToToday() {
+window.goToToday = function() {
     const now = new Date();
-    vpCurrentYear = now.getFullYear();
-    vpCurrentMonth = now.getMonth() + 1;
+    if (typeof vpCurrentYear !== 'undefined' && typeof vpCurrentMonth !== 'undefined') {
+        vpCurrentYear = now.getFullYear();
+        vpCurrentMonth = now.getMonth() + 1;
+        
+        if (vpCurrentYear < VP_START_YEAR || (vpCurrentYear === VP_START_YEAR && vpCurrentMonth < VP_START_MONTH)) {
+            vpCurrentYear = VP_START_YEAR;
+            vpCurrentMonth = VP_START_MONTH;
+        }
+        
+        if (typeof updateVpDisplay === 'function') updateVpDisplay();
+        if (typeof updateMonthButtons === 'function') updateMonthButtons();
+        if (typeof updateUrl === 'function') updateUrl();
+        if (typeof loadVpData === 'function') loadVpData();
+    }
+};
+
+// Сброс фильтров
+window.resetVpFilters = function() {
+    const searchInput = document.getElementById('vpSearch');
+    const showArchivedCheckbox = document.getElementById('showArchived');
+    const statusFilter = document.getElementById('vpStatusFilter');
+    const adminFilter = document.getElementById('vpAdminFilter');
+    const myOnlyCheckbox = document.getElementById('filterMyOnly');
     
-    if (vpCurrentYear < VP_START_YEAR || (vpCurrentYear === VP_START_YEAR && vpCurrentMonth < VP_START_MONTH)) {
-        vpCurrentYear = VP_START_YEAR;
-        vpCurrentMonth = VP_START_MONTH;
+    if (searchInput) searchInput.value = '';
+    if (showArchivedCheckbox) showArchivedCheckbox.checked = false;
+    if (statusFilter) statusFilter.value = 'all';
+    if (adminFilter) adminFilter.value = 'all';
+    if (myOnlyCheckbox) myOnlyCheckbox.checked = false;
+    
+    if (typeof vpFilters !== 'undefined') {
+        vpFilters.search = '';
+        vpFilters.showArchived = false;
     }
     
-    updateVpDisplay();
-    updateMonthButtons();
-    updateUrl();
-    loadVpData();
-}
+    if (typeof vpStatusFilter !== 'undefined') vpStatusFilter = 'all';
+    if (typeof vpAdminFilter !== 'undefined') vpAdminFilter = 'all';
+    if (typeof vpMyOnly !== 'undefined') vpMyOnly = false;
+    
+    if (typeof renderVpTable === 'function') renderVpTable();
+    
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+};
+
+// Фильтр "Только мои"
+window.filterMyOnly = function() {
+    const checkbox = document.getElementById('filterMyOnly');
+    if (typeof vpMyOnly !== 'undefined') {
+        vpMyOnly = checkbox?.checked || false;
+    }
+    if (typeof renderVpTable === 'function') renderVpTable();
+};
+
+// Фильтр по админу
+window.filterByAdmin = function() {
+    const select = document.getElementById('vpAdminFilter');
+    if (typeof vpAdminFilter !== 'undefined') {
+        vpAdminFilter = select?.value || 'all';
+    }
+    if (typeof renderVpTable === 'function') renderVpTable();
+};
+
+// Фильтр по статусу
+window.filterByStatus = function() {
+    const select = document.getElementById('vpStatusFilter');
+    if (typeof vpStatusFilter !== 'undefined') {
+        vpStatusFilter = select?.value || 'all';
+    }
+    if (typeof renderVpTable === 'function') renderVpTable();
+};
 
 // Сортировка
-function sortVpBy(field) {
+window.sortVpBy = function(field) {
+    if (typeof vpSortState === 'undefined') {
+        window.vpSortState = { field: 'date', order: 'desc' };
+    }
+    
     if (vpSortState.field === field) {
         vpSortState.order = vpSortState.order === 'asc' ? 'desc' : 'asc';
     } else {
@@ -1144,66 +1201,75 @@ function sortVpBy(field) {
         activeTh.className = vpSortState.order === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down';
     }
     
-    renderVpTable();
+    if (typeof renderVpTable === 'function') renderVpTable();
+};
+
+// Экспорт в Excel (заглушка, если не определена в vp.js)
+if (typeof window.exportVpToExcel !== 'function') {
+    window.exportVpToExcel = function() {
+        if (typeof showNotif === 'function') {
+            showNotif('📊 Экспорт в разработке', 'info');
+        } else {
+            alert('Экспорт в разработке');
+        }
+    };
 }
 
-// Фильтр по админу
-function filterByAdmin() {
-    const select = document.getElementById('vpAdminFilter');
-    vpAdminFilter = select?.value || 'all';
-    renderVpTable();
+// Закрытие модалок по Escape (заглушки)
+if (typeof window.closeVpModal !== 'function') {
+    window.closeVpModal = function() {
+        const modal = document.getElementById('vpModal');
+        if (modal) modal.remove();
+        document.body.style.overflow = '';
+    };
 }
 
-// Фильтр по статусу
-function filterByStatus() {
-    const select = document.getElementById('vpStatusFilter');
-    vpStatusFilter = select?.value || 'all';
-    renderVpTable();
-}
-
-// Фильтр "Только мои"
-function filterMyOnly() {
-    const checkbox = document.getElementById('filterMyOnly');
-    vpMyOnly = checkbox?.checked || false;
-    renderVpTable();
-}
-
-// Заполнение селекта админов
-function populateAdminFilter() {
-    const select = document.getElementById('vpAdminFilter');
-    if (!select) return;
-    
-    const employees = window.app?.employees || [];
-    const profiles = window.app?.profiles || {};
-    const admins = employees.filter(emp => {
-        const role = profiles[emp]?.role;
-        return role === 'admin' || role === 'manager';
-    });
-    
-    let options = '<option value="all">Все админы</option>';
-    admins.forEach(emp => {
-        options += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`;
-    });
-    
-    select.innerHTML = options;
+if (typeof window.closeBookingDetailsModal !== 'function') {
+    window.closeBookingDetailsModal = function() {
+        const modal = document.getElementById('bookingDetailsModal');
+        if (modal) modal.remove();
+        document.body.style.overflow = '';
+    };
 }
 
 // Инициализация при загрузке
 document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(populateAdminFilter, 500);
+    // Заполнение селекта админов
+    setTimeout(function() {
+        const select = document.getElementById('vpAdminFilter');
+        if (select && window.app) {
+            const employees = window.app.employees || [];
+            const profiles = window.app.profiles || {};
+            const admins = employees.filter(emp => {
+                const role = profiles[emp]?.role;
+                return role === 'admin' || role === 'manager';
+            });
+            
+            let options = '<option value="all">Все админы</option>';
+            admins.forEach(emp => {
+                options += `<option value="${emp}">${emp}</option>`;
+            });
+            
+            select.innerHTML = options;
+        }
+    }, 500);
     
     // Обработчик Escape для модалок
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') {
-            closeVpModal();
-            closeBookingDetailsModal();
+            if (typeof closeVpModal === 'function') closeVpModal();
+            if (typeof closeBookingDetailsModal === 'function') closeBookingDetailsModal();
         }
     });
 });
 
-window.goToToday = goToToday;
-window.sortVpBy = sortVpBy;
-window.filterByAdmin = filterByAdmin;
-window.filterByStatus = filterByStatus;
-window.filterMyOnly = filterMyOnly;
+// Экспорт функций в глобальную область
+window.goToToday = window.goToToday || goToToday;
+window.resetVpFilters = window.resetVpFilters || resetVpFilters;
+window.filterMyOnly = window.filterMyOnly || filterMyOnly;
+window.filterByAdmin = window.filterByAdmin || filterByAdmin;
+window.filterByStatus = window.filterByStatus || filterByStatus;
+window.sortVpBy = window.sortVpBy || sortVpBy;
+
+console.log('✅ vp.html загружен (глобальные функции определены)');
 </script>
