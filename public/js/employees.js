@@ -1,4 +1,5 @@
-// public/js/employees.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/employees.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
+// Исправлены все баги вкладки "Команда"
 
 (function() {
     'use strict';
@@ -8,6 +9,10 @@
     // ============================================
     let currentProfileEmployee = null;
     let pendingAvatarBase64 = null;
+    let isOpeningProfile = false;
+    let isRendering = false;
+    let lastRenderTime = 0;
+    const RENDER_DEBOUNCE = 100; // мс
     
     // ============================================
     // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -20,6 +25,15 @@
         return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
     }
     
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = {
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+            '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
+        };
+        return String(str).replace(/[&<>"'`=/]/g, (m) => map[m]);
+    }
+    
     function getEmployees() { return window.app?.employees || []; }
     function getProfiles() { return window.app?.profiles || {}; }
     function getSchedule() { return window.app?.schedule || {}; }
@@ -29,6 +43,7 @@
     function getCurrentUser() { return window.app?.currentUser; }
     function getLastActivity() { return window.app?.lastActivity || {}; }
     function getUserAchievements() { return window.app?.userAchievements || {}; }
+    function getChatUnread() { return window.chatUnread || {}; }
     
     // ============================================
     // СТАТУСЫ "НА СМЕНЕ" И "В СЕТИ"
@@ -39,6 +54,8 @@
         const shift = schedule[today]?.[emp];
         const profile = getProfiles()[emp];
         
+        // Директор и управляющий всегда считаются "на смене" в рабочее время?
+        // Нет, они не привязаны к сменам
         if (profile?.role === 'director' || profile?.role === 'manager') return false;
         if (!shift || !shift.time) return false;
         if (shift.status && shift.status !== 'working') return false;
@@ -46,7 +63,16 @@
         const now = getTobolskNow();
         const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
         const shiftStartMinutes = (parseInt(shift.time.split(':')[0]) || 10) * 60;
-        const shiftEndMinutes = 22 * 60;
+        
+        // 🔥 ИСПРАВЛЕНО: учитываем special_end_time
+        let shiftEndMinutes = 22 * 60;
+        if (shift.is_special && shift.special_end_time) {
+            // special_end_time может быть "exchange_..." - это не время, а маркер обмена
+            if (!shift.special_end_time.startsWith('exchange_')) {
+                const endHour = parseInt(shift.special_end_time.split(':')[0]) || 22;
+                shiftEndMinutes = endHour * 60;
+            }
+        }
         
         return currentTimeMinutes >= shiftStartMinutes && currentTimeMinutes < shiftEndMinutes;
     }
@@ -69,7 +95,12 @@
         const now = getTobolskNow();
         let count = 0;
         for (const [date, shifts] of Object.entries(schedule)) {
-            if (new Date(date) < now && shifts[emp]?.time) count++;
+            const shiftDate = new Date(date);
+            shiftDate.setHours(23, 59, 59); // Конец дня
+            // 🔥 ИСПРАВЛЕНО: проверяем status === 'working'
+            if (shiftDate < now && shifts[emp]?.time && (!shifts[emp]?.status || shifts[emp]?.status === 'working')) {
+                count++;
+            }
         }
         return count;
     }
@@ -105,6 +136,14 @@
         return daysDiff <= 7 && daysDiff >= 0;
     }
     
+    function isBirthdayToday(birthday) {
+        if (!birthday) return false;
+        const birthDate = new Date(birthday);
+        if (isNaN(birthDate.getTime())) return false;
+        const today = getTobolskNow();
+        return birthDate.getDate() === today.getDate() && birthDate.getMonth() === today.getMonth();
+    }
+    
     function getGiftIcon(giftId) {
         const icons = { 
             flower: '🌸', chocolate: '🍫', star: '⭐', trophy: '🏆', honey: '🍯',
@@ -124,13 +163,34 @@
         return names[giftId] || giftId;
     }
     
+    // 🔥 НОВОЕ: безопасный рендер с debounce
+    function safeRenderEmployees() {
+        const now = Date.now();
+        if (isRendering) return;
+        if (now - lastRenderTime < RENDER_DEBOUNCE) {
+            // Планируем рендер чуть позже
+            setTimeout(() => safeRenderEmployees(), RENDER_DEBOUNCE);
+            return;
+        }
+        
+        isRendering = true;
+        lastRenderTime = now;
+        
+        requestAnimationFrame(() => {
+            try {
+                renderEmployees();
+            } finally {
+                isRendering = false;
+            }
+        });
+    }
     // ============================================
     // РЕНДЕР КАРТОЧЕК (ИСПРАВЛЕННЫЙ)
     // ============================================
     function renderEmployees() {
         const grid = document.getElementById('employeesGrid');
         if (!grid) {
-            console.warn('⚠️ employeesGrid не найден, ждём...');
+            console.warn('⚠️ employeesGrid не найден');
             return;
         }
         
@@ -141,6 +201,7 @@
         const fines = getFines();
         const stickers = getStickers();
         const userAchievements = getUserAchievements();
+        const chatUnread = getChatUnread();
         
         if (!employees.length) {
             grid.innerHTML = `
@@ -168,7 +229,8 @@
             const isDirector = p.role === 'director';
             const isManager = p.role === 'manager';
             
-            const empTasks = tasks.filter(t => t.executor === emp);
+            // 🔥 ИСПРАВЛЕНО: фильтруем архивные задачи и утверждённые штрафы
+            const empTasks = tasks.filter(t => t.executor === emp && !t.is_archived);
             const tasksDone = empTasks.filter(t => t.status === 'completed').length;
             const empFines = fines.filter(f => f.employee === emp && f.status === 'approved');
             
@@ -184,15 +246,23 @@
             const online = isOnlineNow(emp);
             const activeStatus = p.active_status || p.status || '💼 Работаю';
             const hasBirthdaySoon = isBirthdaySoon(p.birthday);
+            const hasBirthdayToday = isBirthdayToday(p.birthday);
             const streak = p.bonus_streak || 1;
             const achievementsCount = userAchievements[emp]?.length || 0;
+            const completedShifts = getCompletedShifts(emp);
             
-            // ФИКС: правильное отображение аватара (круглый)
+            // 🔥 Непрочитанные сообщения
+            const unreadCount = chatUnread[emp] || 0;
+            const unreadBadge = unreadCount > 0 
+                ? `<span class="emp-unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` 
+                : '';
+            
+            // 🔥 ИСПРАВЛЕНО: правильное отображение аватара
             let avatarHtml = '';
             if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
-                avatarHtml = `<img src="${p.avatar_url}" alt="${emp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+                avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" alt="${escapeHtml(emp)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">`;
             } else if (p.avatar_url) {
-                avatarHtml = `<img src="${p.avatar_url}" alt="${emp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.parentElement.innerHTML='${escapeHtml(p.avatar || '👤')}'">`;
+                avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" alt="${escapeHtml(emp)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.onerror=null;this.parentElement.innerHTML='<span style=&quot;font-size:32px;&quot;>${escapeHtml(p.avatar || '👤')}</span>'">`;
             } else {
                 avatarHtml = `<span style="font-size:32px;">${escapeHtml(p.avatar || '👤')}</span>`;
             }
@@ -201,9 +271,18 @@
             const ratingClass = rating >= 0 ? 'good' : 'bad';
             const ratingPrefix = rating >= 0 ? '+' : '';
             
+            // 🔥 Бейджи дня рождения
+            let birthdayBadge = '';
+            if (hasBirthdayToday) {
+                birthdayBadge = '<span class="emp-birthday-today" title="День рождения сегодня!">🎂 СЕГОДНЯ</span>';
+            } else if (hasBirthdaySoon) {
+                birthdayBadge = '<span class="emp-birthday-badge" title="День рождения скоро!">🎂</span>';
+            }
+            
             return `
                 <div class="emp-card ${isCurrent ? 'current-user' : ''}" onclick="openProfile('${escapeHtml(emp)}')">
                     <div class="emp-card-glow"></div>
+                    ${unreadBadge}
                     
                     <div class="emp-rating-corner ${ratingClass}">
                         <i class="fas fa-star"></i>
@@ -211,7 +290,7 @@
                     </div>
                     
                     <div class="emp-card-top">
-                        <div class="emp-avatar" style="overflow:hidden; border-radius:50%;">
+                        <div class="emp-avatar">
                             ${avatarHtml}
                             <div class="emp-avatar-ring"></div>
                         </div>
@@ -219,12 +298,12 @@
                             <div class="emp-name">
                                 <h3>${escapeHtml(emp)}</h3>
                                 ${isCurrent ? '<span class="emp-you-badge">ВЫ</span>' : ''}
-                                ${hasBirthdaySoon ? '<span class="emp-birthday-badge">🎂</span>' : ''}
+                                ${birthdayBadge}
                             </div>
                             <div class="emp-role">
                                 <i class="fas fa-briefcase"></i> ${getRoleShortName(p.role)}
                             </div>
-                            <div class="emp-rating ${ratingClass}">
+                            <div class="emp-rating ${ratingClass}" title="Рейтинг сотрудника. Растёт за достижения и подарки">
                                 <i class="fas fa-star"></i> ${ratingPrefix}${rating}
                             </div>
                         </div>
@@ -234,16 +313,19 @@
                         ${!isDirector && !isManager ? `
                             <div class="emp-status">
                                 <span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span>
+                                <i class="fas fa-briefcase"></i>
                                 <span>${onShift ? 'На смене' : 'Не на смене'}</span>
                             </div>
                         ` : ''}
                         <div class="emp-status">
                             <span class="emp-status-dot ${online ? 'online' : 'offline'}"></span>
+                            <i class="fas fa-wifi"></i>
                             <span>${online ? 'В сети' : 'Не в сети'}</span>
                         </div>
                         <div class="emp-status">
                             <span class="emp-status-dot streak"></span>
-                            <span>🔥 ${streak} дн</span>
+                            <i class="fas fa-fire"></i>
+                            <span>${streak} дн</span>
                         </div>
                     </div>
                     
@@ -261,7 +343,7 @@
                             </div>
                             <div class="emp-stat-item">
                                 <div class="emp-stat-icon">⏱️</div>
-                                <div class="emp-stat-value">${getCompletedShifts(emp)}</div>
+                                <div class="emp-stat-value">${completedShifts}</div>
                                 <div class="emp-stat-label">Смен</div>
                             </div>
                         ` : `
@@ -284,11 +366,11 @@
                     </div>
                     
                     <div class="emp-card-footer">
-                        <span class="emp-active-status">
+                        <span class="emp-active-status" title="${escapeHtml(activeStatus)}">
                             <i class="fas fa-circle" style="font-size: 6px; margin-right: 6px; color: #a78bfa;"></i>
                             ${escapeHtml(activeStatus)}
                         </span>
-                        <button class="emp-chat-btn" onclick="event.stopPropagation(); openChatWithEmployee('${escapeHtml(emp)}')" title="Написать">
+                        <button class="emp-chat-btn" onclick="event.stopPropagation(); openChatWithEmployee('${escapeHtml(emp)}')" title="Написать в чат">
                             <i class="fas fa-comment-dots"></i>
                         </button>
                     </div>
@@ -296,14 +378,24 @@
             `;
         }).join('');
     }
-    
     // ============================================
-    // МОДАЛКА ПРОФИЛЯ
+    // МОДАЛКА ПРОФИЛЯ (ИСПРАВЛЕННАЯ)
     // ============================================
     function openProfile(employeeName) {
+        // 🔥 ИСПРАВЛЕНО: debounce
+        if (isOpeningProfile) return;
+        isOpeningProfile = true;
+        setTimeout(() => isOpeningProfile = false, 300);
+        
+        // 🔥 Блокируем скролл страницы
+        document.body.style.overflow = 'hidden';
+        
         currentProfileEmployee = employeeName;
         const p = getProfiles()[employeeName];
-        if (!p) return;
+        if (!p) {
+            document.body.style.overflow = '';
+            return;
+        }
         
         const isDirector = p.role === 'director';
         const isManager = p.role === 'manager';
@@ -317,12 +409,14 @@
         const achievements = getUserAchievements()[employeeName] || [];
         const completedShifts = getCompletedShifts(employeeName);
         
-        const empTasks = tasks.filter(t => t.executor === employeeName);
+        // 🔥 ИСПРАВЛЕНО: фильтруем архивные задачи
+        const empTasks = tasks.filter(t => t.executor === employeeName && !t.is_archived);
         const tasksDone = empTasks.filter(t => t.status === 'completed').length;
         const tasksInProgress = empTasks.filter(t => t.status === 'in_progress').length;
         const tasksOverdue = empTasks.filter(t => t.status === 'overdue').length;
         const tasksTotal = empTasks.length;
         
+        // 🔥 ИСПРАВЛЕНО: только утверждённые штрафы
         const empFines = fines.filter(f => f.employee === employeeName && f.status === 'approved');
         const finesCount = empFines.length;
         const finesTotal = empFines.reduce((sum, f) => sum + (f.amount || 0), 0);
@@ -341,12 +435,12 @@
         const activeStatus = p.active_status || p.status || '💼 Работаю';
         const streak = p.bonus_streak || 1;
         
-        // Аватар для модалки
+        // 🔥 Аватар для модалки
         let avatarHtml = '';
         if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
-            avatarHtml = `<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover;">`;
         } else if (p.avatar_url) {
-            avatarHtml = `<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.parentElement.innerHTML='${escapeHtml(p.avatar || '👤')}'">`;
+            avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover;" onerror="this.onerror=null;this.parentElement.innerHTML='<span style=&quot;font-size:32px;&quot;>${escapeHtml(p.avatar || '👤')}</span>'">`;
         } else {
             avatarHtml = `<span style="font-size:32px;">${escapeHtml(p.avatar || '👤')}</span>`;
         }
@@ -355,20 +449,22 @@
         const ratingPrefix = rating >= 0 ? '+' : '';
         const ratingColor = rating >= 0 ? '#10b981' : '#ef4444';
         
-        // Получаем купленные статусы
         const boughtStatuses = p.bought_statuses || [];
         
         const modalContent = document.getElementById('profileModalContent');
         if (!modalContent) {
-            console.warn('⚠️ profileModalContent не найден');
+            document.body.style.overflow = '';
             return;
         }
         
+        // 🔥 Сохраняем в sessionStorage для восстановления после обновления
+        sessionStorage.setItem('lastProfileEmployee', employeeName);
+        
         modalContent.innerHTML = `
             <div class="emp-modal-header">
-                <div class="emp-modal-avatar" onclick="openAvatarModal()" style="cursor: pointer; border-radius:50%; overflow:hidden; width:70px; height:70px;">
+                <div class="emp-modal-avatar" onclick="${canEdit ? 'openAvatarModal()' : ''}" style="cursor: ${canEdit ? 'pointer' : 'default'};">
                     ${avatarHtml}
-                    <div class="emp-avatar-edit-hint"><i class="fas fa-camera"></i></div>
+                    ${canEdit ? '<div class="emp-avatar-edit-hint"><i class="fas fa-camera"></i></div>' : ''}
                 </div>
                 <div class="emp-modal-title">
                     <h3>${escapeHtml(employeeName)} ${isOwnProfile ? '<span class="emp-you-badge">ВЫ</span>' : ''}</h3>
@@ -425,11 +521,11 @@
                         <div id="profileEditFields" class="emp-edit-fields" style="display: none;">
                             <div class="emp-form-group"><label><i class="fas fa-user"></i> Имя</label><input type="text" id="editName" value="${escapeHtml(employeeName)}"></div>
                             <div class="emp-form-group"><label><i class="fas fa-phone"></i> Телефон</label><input type="tel" id="editPhone" value="${escapeHtml(p.phone || '')}" placeholder="+7 (___) ___-__-__"></div>
-                            <div class="emp-form-group"><label><i class="fas fa-calendar"></i> Дата рождения</label><input type="date" id="editBirthday" value="${p.birthday || ''}"></div>
+                            <div class="emp-form-group"><label><i class="fas fa-calendar"></i> Дата рождения</label><input type="date" id="editBirthday" value="${p.birthday || ''}" max="${new Date().toISOString().split('T')[0]}"></div>
                             <div class="emp-form-group"><label><i class="fas fa-tag"></i> Статус</label>
                                 <select id="editStatus">
                                     ${boughtStatuses.length > 0 ? boughtStatuses.map(s => `<option value="${escapeHtml(s)}" ${p.active_status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('') : ''}
-                                    <option value="💼 Работаю" ${p.status === '💼 Работаю' ? 'selected' : ''}>💼 Работаю</option>
+                                    <option value="💼 Работаю" ${p.status === '💼 Работаю' && !p.active_status ? 'selected' : ''}>💼 Работаю</option>
                                     <option value="☕ Перерыв" ${p.status === '☕ Перерыв' ? 'selected' : ''}>☕ Перерыв</option>
                                     <option value="🎯 В фокусе" ${p.status === '🎯 В фокусе' ? 'selected' : ''}>🎯 В фокусе</option>
                                     <option value="⭐ MVP" ${p.status === '⭐ MVP' ? 'selected' : ''}>⭐ MVP</option>
@@ -437,8 +533,8 @@
                                 </select>
                             </div>
                             <div class="emp-edit-actions">
-                                <button class="emp-btn-primary" onclick="saveProfileChanges()">💾 Сохранить</button>
-                                <button class="emp-btn-secondary" onclick="cancelProfileEdit()">↩️ Отмена</button>
+                                <button class="emp-btn-primary" onclick="saveProfileChanges()"><i class="fas fa-save"></i> Сохранить</button>
+                                <button class="emp-btn-secondary" onclick="cancelProfileEdit()"><i class="fas fa-times"></i> Отмена</button>
                             </div>
                         </div>
                     ` : ''}
@@ -461,7 +557,7 @@
                             <h4><i class="fas fa-exclamation-triangle"></i> Штрафы</h4>
                             <div class="emp-stats-row">
                                 <div class="emp-stat-item-detailed"><span class="label">Количество</span><span class="value">${finesCount}</span></div>
-                                <div class="emp-stat-item-detailed warning"><span class="label">Сумма (₽)</span><span class="value">${finesTotal} ₽</span></div>
+                                <div class="emp-stat-item-detailed warning"><span class="label">Сумма (₽)</span><span class="value">${finesTotal.toLocaleString()} ₽</span></div>
                                 <div class="emp-stat-item-detailed warning"><span class="label">Списано WP</span><span class="value">${finesCoinsTotal} WP</span></div>
                             </div>
                         </div>
@@ -471,6 +567,7 @@
                                 <div class="emp-stat-item-detailed"><span class="label">Отработано смен</span><span class="value">${completedShifts}</span></div>
                                 <div class="emp-stat-item-detailed"><span class="label">Отработано часов</span><span class="value">${p.hours || 0} ч</span></div>
                             </div>
+                            ${completedShifts === 0 ? '<p style="color: #fbbf24; font-size: 12px; margin-top: 8px; text-align: center;">🚀 Первая смена впереди!</p>' : ''}
                         </div>
                     ` : ''}
                 </div>
@@ -481,7 +578,7 @@
                         <div class="emp-achievements-list">
                             ${achievements.map(a => `
                                 <div class="emp-achievement-item" style="border-left-color: ${a.color || '#fbbf24'};">
-                                    <span class="emp-achievement-icon">${a.icon || '🏆'}</span>
+                                    <span class="emp-achievement-icon">${escapeHtml(a.icon || '🏆')}</span>
                                     <div class="emp-achievement-info">
                                         <div class="emp-achievement-name">${escapeHtml(a.name)}</div>
                                         <div class="emp-achievement-desc">${escapeHtml(a.description || '')}</div>
@@ -511,7 +608,7 @@
                     <div id="profileTabActions" class="emp-profile-tab-content">
                         <div class="emp-section">
                             <h4><i class="fas fa-gift"></i> Выдать бонус</h4>
-                            <div class="emp-form-group"><label>Монеты WP</label><input type="number" id="bonusCoins" value="0"></div>
+                            <div class="emp-form-group"><label>Монеты WP</label><input type="number" id="bonusCoins" value="0" min="0"></div>
                             <div class="emp-form-group"><label>Рейтинг</label><input type="number" id="bonusRating" value="0"></div>
                             <button class="emp-btn-primary" onclick="giveBonus('${escapeHtml(employeeName)}')"><i class="fas fa-check"></i> Выдать</button>
                         </div>
@@ -526,6 +623,11 @@
                                 <button class="emp-btn-primary" onclick="changeRole('${escapeHtml(employeeName)}')" style="margin-top: 12px;">Сменить</button>
                             </div>
                             <div class="emp-section danger">
+                                <h4><i class="fas fa-key"></i> Сбросить пароль</h4>
+                                <div class="emp-form-group"><label>Новый пароль</label><input type="password" id="newPassword" placeholder="Введите новый пароль"></div>
+                                <button class="emp-btn-primary" onclick="resetEmployeePassword('${escapeHtml(employeeName)}')"><i class="fas fa-sync-alt"></i> Сбросить пароль</button>
+                            </div>
+                            <div class="emp-section danger">
                                 <h4><i class="fas fa-trash-alt"></i> Уволить</h4>
                                 <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Это действие необратимо</p>
                                 <button class="emp-btn-danger" onclick="deleteEmployee('${escapeHtml(employeeName)}')">Уволить сотрудника</button>
@@ -538,7 +640,9 @@
         
         document.getElementById('profileModal').classList.add('active');
     }
-    
+    // ============================================
+    // ПЕРЕКЛЮЧЕНИЕ ТАБОВ В МОДАЛКЕ
+    // ============================================
     window.switchProfileTab = function(tabName) {
         document.querySelectorAll('.emp-profile-tab').forEach(btn => {
             btn.classList.remove('active');
@@ -548,22 +652,87 @@
             content.classList.remove('active');
         });
         const activeContent = document.getElementById(`profileTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
-        if (activeContent) activeContent.classList.add('active');
+        if (activeContent) {
+            activeContent.scrollTop = 0; // 🔥 ИСПРАВЛЕНО: сбрасываем скролл
+            activeContent.classList.add('active');
+        }
     };
     
     function closeProfileModal() {
         document.getElementById('profileModal').classList.remove('active');
+        document.body.style.overflow = ''; // 🔥 ИСПРАВЛЕНО: возвращаем скролл
         currentProfileEmployee = null;
+        sessionStorage.removeItem('lastProfileEmployee');
     }
+    
+    // ============================================
+    // РЕДАКТИРОВАНИЕ ПРОФИЛЯ
+    // ============================================
+    let originalProfileData = {};
     
     function toggleProfileEdit() {
         const editFields = document.getElementById('profileEditFields');
-        if (editFields) editFields.style.display = editFields.style.display === 'none' ? 'block' : 'none';
+        if (!editFields) return;
+        
+        if (editFields.style.display === 'none' || editFields.style.display === '') {
+            // 🔥 ИСПРАВЛЕНО: сохраняем оригинальные данные и заполняем поля актуальными значениями
+            const p = getProfiles()[currentProfileEmployee];
+            if (p) {
+                originalProfileData = {
+                    name: currentProfileEmployee,
+                    phone: p.phone || '',
+                    birthday: p.birthday || '',
+                    status: p.active_status || p.status || '💼 Работаю'
+                };
+                
+                document.getElementById('editPhone').value = p.phone || '';
+                document.getElementById('editBirthday').value = p.birthday || '';
+                const statusSelect = document.getElementById('editStatus');
+                if (statusSelect) {
+                    const currentStatus = p.active_status || p.status || '💼 Работаю';
+                    for (let i = 0; i < statusSelect.options.length; i++) {
+                        if (statusSelect.options[i].value === currentStatus) {
+                            statusSelect.selectedIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }
+            editFields.style.display = 'block';
+        } else {
+            editFields.style.display = 'none';
+        }
+    }
+    
+    function cancelProfileEdit() {
+        const editFields = document.getElementById('profileEditFields');
+        if (!editFields) return;
+        
+        // 🔥 ИСПРАВЛЕНО: проверяем, были ли изменения
+        const p = getProfiles()[currentProfileEmployee];
+        if (p) {
+            const currentPhone = document.getElementById('editPhone')?.value || '';
+            const currentBirthday = document.getElementById('editBirthday')?.value || '';
+            const currentStatus = document.getElementById('editStatus')?.value || '';
+            
+            const hasChanges = 
+                currentPhone !== (originalProfileData.phone || '') ||
+                currentBirthday !== (originalProfileData.birthday || '') ||
+                currentStatus !== originalProfileData.status;
+            
+            if (hasChanges && !confirm('У вас есть несохранённые изменения. Выйти?')) {
+                return;
+            }
+        }
+        
+        editFields.style.display = 'none';
     }
     
     async function saveProfileChanges() {
-        const name = document.getElementById('editName')?.value;
-        const phone = document.getElementById('editPhone')?.value;
+        if (!currentProfileEmployee) return;
+        
+        const name = document.getElementById('editName')?.value.trim();
+        const phone = document.getElementById('editPhone')?.value.trim();
         const birthday = document.getElementById('editBirthday')?.value;
         const status = document.getElementById('editStatus')?.value;
         
@@ -578,34 +747,77 @@
             return;
         }
         
-        const res = await apiCall(`/profiles/${encodeURIComponent(currentProfileEmployee)}`, 'PUT', updates);
+        const saveBtn = document.querySelector('#profileEditFields .emp-btn-primary');
+        const originalText = saveBtn?.innerHTML;
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Сохранение...';
+            saveBtn.disabled = true;
+        }
         
-        if (res?.success) {
-            if (typeof showNotif === 'function') showNotif('✅ Профиль обновлён', 'success');
-            await loadEmployees();
-            closeProfileModal();
-            renderEmployees();
-        } else {
-            if (typeof showNotif === 'function') showNotif('❌ Ошибка обновления', 'error');
+        try {
+            const res = await apiCall(`/profiles/${encodeURIComponent(currentProfileEmployee)}`, 'PUT', updates);
+            
+            if (res?.success) {
+                showNotif('✅ Профиль обновлён', 'success');
+                
+                // 🔥 Обновляем локальные данные
+                if (window.app?.profiles?.[currentProfileEmployee]) {
+                    Object.assign(window.app.profiles[currentProfileEmployee], updates);
+                }
+                
+                // 🔥 Если изменилось имя, обновляем employees
+                if (updates.name) {
+                    const empIndex = window.app.employees.indexOf(currentProfileEmployee);
+                    if (empIndex !== -1) {
+                        window.app.employees[empIndex] = updates.name;
+                    }
+                    // Обновляем хедер если это текущий пользователь
+                    if (currentProfileEmployee === getCurrentUser()) {
+                        window.app.currentUser = updates.name;
+                        const headerName = document.getElementById('headerName');
+                        if (headerName) headerName.textContent = updates.name;
+                    }
+                }
+                
+                closeProfileModal();
+                safeRenderEmployees();
+            } else {
+                showNotif('❌ Ошибка обновления: ' + (res?.error || 'неизвестная'), 'error');
+            }
+        } catch (err) {
+            showNotif('❌ Ошибка соединения', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
         }
     }
     
-    function cancelProfileEdit() {
-        toggleProfileEdit();
-    }
-    
     // ============================================
-    // АВАТАРЫ
+    // АВАТАРЫ (ИСПРАВЛЕНО)
     // ============================================
     function openAvatarModal() {
+        if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
+            showNotif('Можно менять только свой аватар', 'warning');
+            return;
+        }
+        
         const modal = document.getElementById('avatarModal');
         if (!modal) return;
         
         const grid = document.getElementById('avatarGrid');
         if (!grid) return;
         
-        const avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑', '🐱', '🐶', '🦊', '🐼', '🐨', '🐸', '🐙', '🦄'];
-        grid.innerHTML = avatars.map(a => `<div class="emp-avatar-item" onclick="selectAvatar('${a}')">${a}</div>`).join('');
+        const avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑', '🐱', '🐶', '🦊', '🐼', '🐨', '🐸', '🐙', '🦄', '🤖', '👻'];
+        
+        grid.innerHTML = `
+            <div class="emp-avatar-item upload" onclick="openAvatarUploadModal()">
+                <i class="fas fa-camera"></i>
+                <span>Загрузить</span>
+            </div>
+            ${avatars.map(a => `<div class="emp-avatar-item" onclick="selectAvatar('${a}')">${a}</div>`).join('')}
+        `;
         
         modal.classList.add('active');
     }
@@ -616,28 +828,59 @@
     }
     
     async function selectAvatar(avatar) {
-        if (currentProfileEmployee && currentProfileEmployee === getCurrentUser()) {
-            const success = await updateEmployeeAvatar(currentProfileEmployee, avatar);
-            if (success) {
-                if (typeof showNotif === 'function') showNotif('Аватар изменён', 'success');
-                renderEmployees();
-                closeAvatarModal();
-                if (typeof window.updateHeaderAvatar === 'function') window.updateHeaderAvatar(null, avatar);
+        if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
+            showNotif('Можно менять только свой аватар', 'warning');
+            return;
+        }
+        
+        const success = await updateEmployeeAvatar(currentProfileEmployee, avatar);
+        if (success) {
+            // 🔥 ИСПРАВЛЕНО: очищаем avatar_url в локальном профиле
+            if (window.app.profiles[currentProfileEmployee]) {
+                window.app.profiles[currentProfileEmployee].avatar = avatar;
+                window.app.profiles[currentProfileEmployee].avatar_url = null;
             }
+            
+            showNotif('✅ Аватар изменён', 'success');
+            
+            // 🔥 Обновляем хедер
+            if (typeof window.updateHeaderAvatar === 'function') {
+                window.updateHeaderAvatar(null, avatar);
+            }
+            
+            safeRenderEmployees();
+            closeAvatarModal();
+            
+            // 🔥 Отправляем событие обновления
+            window.dispatchDataUpdate('profile', { employee: currentProfileEmployee, avatar: avatar });
+        } else {
+            showNotif('❌ Ошибка при смене аватара', 'error');
         }
     }
     
     function openAvatarUploadModal() {
+        if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
+            showNotif('Можно менять только свой аватар', 'warning');
+            return;
+        }
+        
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = 'image/jpeg,image/png,image/gif,image/webp';
         input.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
+            
+            if (!file.type.startsWith('image/')) {
+                showNotif('Можно загружать только изображения', 'error');
+                return;
+            }
+            
             if (file.size > 2 * 1024 * 1024) { 
-                if (typeof showNotif === 'function') showNotif('Файл слишком большой (макс. 2MB)', 'error'); 
+                showNotif('Файл слишком большой (макс. 2MB)', 'error'); 
                 return; 
             }
+            
             const reader = new FileReader();
             reader.onload = (event) => {
                 pendingAvatarBase64 = event.target.result;
@@ -645,6 +888,7 @@
                 if (previewImg) previewImg.src = pendingAvatarBase64;
                 const previewModal = document.getElementById('avatarPreviewModal');
                 if (previewModal) previewModal.classList.add('active');
+                closeAvatarModal(); // Закрываем модалку выбора аватара
             };
             reader.readAsDataURL(file);
         };
@@ -658,48 +902,122 @@
     }
     
     async function confirmAvatarUpload() {
-        if (currentProfileEmployee && currentProfileEmployee === getCurrentUser() && pendingAvatarBase64) {
-            const success = await updateEmployeeAvatarBase64(currentProfileEmployee, pendingAvatarBase64);
-            if (success) {
-                if (typeof showNotif === 'function') showNotif('Аватар обновлён', 'success');
-                renderEmployees();
-                closeAvatarPreviewModal();
+        if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
+            showNotif('Можно менять только свой аватар', 'warning');
+            return;
+        }
+        
+        if (!pendingAvatarBase64) return;
+        
+        const success = await updateEmployeeAvatarBase64(currentProfileEmployee, pendingAvatarBase64);
+        if (success) {
+            // 🔥 Обновляем локальный профиль
+            if (window.app.profiles[currentProfileEmployee]) {
+                window.app.profiles[currentProfileEmployee].avatar_url = pendingAvatarBase64;
+                window.app.profiles[currentProfileEmployee].avatar = null;
             }
+            
+            showNotif('✅ Аватар обновлён', 'success');
+            
+            // 🔥 ИСПРАВЛЕНО: обновляем хедер
+            if (typeof window.updateHeaderAvatar === 'function') {
+                window.updateHeaderAvatar(pendingAvatarBase64, null);
+            }
+            
+            safeRenderEmployees();
+            closeAvatarPreviewModal();
+            
+            window.dispatchDataUpdate('profile', { employee: currentProfileEmployee });
+        } else {
+            showNotif('❌ Ошибка при загрузке', 'error');
         }
         pendingAvatarBase64 = null;
     }
     
     // ============================================
-    // ПРОЧИЕ ФУНКЦИИ
+    // ЧАТ С СОТРУДНИКОМ (ИСПРАВЛЕНО)
     // ============================================
     function openChatWithEmployee(employeeName) {
         if (typeof loadPage === 'function') {
+            const currentPage = typeof getCurrentPage === 'function' ? getCurrentPage() : null;
+            
+            // 🔥 ИСПРАВЛЕНО: если чат уже открыт с этим сотрудником - мигаем полем ввода
+            if (currentPage === 'chat' && typeof currentChatRoom !== 'undefined' && currentChatRoom === employeeName) {
+                const input = document.getElementById('chatInput');
+                if (input) {
+                    input.style.transition = 'box-shadow 0.2s';
+                    input.style.boxShadow = '0 0 0 3px #6366f1';
+                    setTimeout(() => input.style.boxShadow = '', 500);
+                    input.focus();
+                }
+                return;
+            }
+            
             loadPage('chat');
-            setTimeout(() => { if (typeof switchChat === 'function') switchChat(employeeName); }, 300);
+            setTimeout(() => { 
+                if (typeof switchChat === 'function') {
+                    switchChat(employeeName);
+                    // 🔥 Фокус на поле ввода
+                    setTimeout(() => {
+                        const input = document.getElementById('chatInput');
+                        if (input) input.focus();
+                    }, 100);
+                }
+            }, 300);
         }
     }
     
     function openMyProfile() {
         if (window.app?.currentUser) openProfile(window.app.currentUser);
     }
-    
+    // ============================================
+    // СОЗДАНИЕ СОТРУДНИКА (ИСПРАВЛЕНО)
+    // ============================================
     function openCreateEmployeeModal() {
         const modal = document.getElementById('createEmployeeModal');
         if (modal) modal.classList.add('active');
         selectRole('operator');
+        
+        // 🔥 Устанавливаем максимальную дату рождения (сегодня)
+        const birthdayInput = document.getElementById('newEmpBirthday');
+        if (birthdayInput) {
+            birthdayInput.max = new Date().toISOString().split('T')[0];
+        }
+        
+        // 🔥 Маска для телефона
+        const phoneInput = document.getElementById('newEmpPhone');
+        if (phoneInput) {
+            phoneInput.addEventListener('input', phoneMaskHandler);
+        }
+    }
+    
+    function phoneMaskHandler(e) {
+        let value = e.target.value.replace(/\D/g, '');
+        if (value.startsWith('8')) value = '7' + value.slice(1);
+        if (!value.startsWith('7')) value = '7' + value;
+        
+        let formatted = '+7';
+        if (value.length > 1) formatted += ' (' + value.slice(1, 4);
+        if (value.length > 4) formatted += ') ' + value.slice(4, 7);
+        if (value.length > 7) formatted += '-' + value.slice(7, 9);
+        if (value.length > 9) formatted += '-' + value.slice(9, 11);
+        
+        e.target.value = formatted.slice(0, 18);
     }
     
     function closeCreateEmployeeModal() {
         const modal = document.getElementById('createEmployeeModal');
         if (modal) modal.classList.remove('active');
-        const nameInput = document.getElementById('newEmpName');
-        const passInput = document.getElementById('newEmpPassword');
-        const birthdayInput = document.getElementById('newEmpBirthday');
+        
         const phoneInput = document.getElementById('newEmpPhone');
-        if (nameInput) nameInput.value = '';
-        if (passInput) passInput.value = '';
-        if (birthdayInput) birthdayInput.value = '';
-        if (phoneInput) phoneInput.value = '';
+        if (phoneInput) {
+            phoneInput.removeEventListener('input', phoneMaskHandler);
+        }
+        
+        ['newEmpName', 'newEmpPassword', 'newEmpBirthday', 'newEmpPhone'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+        });
     }
     
     function selectRole(role) {
@@ -718,45 +1036,85 @@
     async function createEmployee() {
         const name = document.getElementById('newEmpName')?.value.trim();
         const password = document.getElementById('newEmpPassword')?.value;
-        const role = document.getElementById('newEmpRole')?.value;
+        const role = document.getElementById('newEmpRole')?.value || 'operator';
         const birthday = document.getElementById('newEmpBirthday')?.value;
         const phone = document.getElementById('newEmpPhone')?.value;
         
         if (!name || !password) {
-            if (typeof showNotif === 'function') showNotif('Заполните имя и пароль', 'error');
+            showNotif('Заполните имя и пароль', 'error');
             return;
         }
         
-        const response = await apiCall('/employees', 'POST', { name, role, password, birthday, phone });
+        // 🔥 ИСПРАВЛЕНО: проверка уникальности на клиенте
+        if (window.app?.employees?.includes(name)) {
+            showNotif('❌ Сотрудник с таким именем уже существует', 'error');
+            return;
+        }
         
-        if (response && response.success) {
-            if (typeof showNotif === 'function') showNotif(`✅ Сотрудник ${name} создан`, 'success');
-            closeCreateEmployeeModal();
-            await loadEmployees();
-            renderEmployees();
-        } else {
-            if (typeof showNotif === 'function') showNotif('❌ Ошибка при создании', 'error');
+        // 🔥 Валидация даты рождения
+        if (birthday) {
+            const birthDate = new Date(birthday);
+            const today = new Date();
+            if (birthDate > today) {
+                showNotif('❌ Дата рождения не может быть в будущем', 'error');
+                return;
+            }
+        }
+        
+        const saveBtn = document.querySelector('#createEmployeeModal .emp-btn-primary');
+        const originalText = saveBtn?.innerHTML;
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
+            saveBtn.disabled = true;
+        }
+        
+        try {
+            const response = await apiCall('/employees', 'POST', { name, role, password, birthday, phone });
+            
+            if (response && response.success) {
+                showNotif(`✅ Сотрудник ${name} создан`, 'success');
+                closeCreateEmployeeModal();
+                await loadEmployees();
+                safeRenderEmployees();
+            } else {
+                showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+            }
+        } catch (err) {
+            showNotif('❌ Ошибка соединения', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.innerHTML = originalText;
+                saveBtn.disabled = false;
+            }
         }
     }
     
+    // ============================================
+    // БОНУСЫ, РОЛИ, ПАРОЛИ, УДАЛЕНИЕ
+    // ============================================
     async function giveBonus(employeeName) {
         const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
         const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
         
         if (coins === 0 && rating === 0) {
-            if (typeof showNotif === 'function') showNotif('Укажите сумму', 'warning');
+            showNotif('Укажите сумму или рейтинг', 'warning');
+            return;
+        }
+        
+        if (coins < 0) {
+            showNotif('Сумма монет не может быть отрицательной', 'error');
             return;
         }
         
         const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
         if (res?.success) {
-            if (typeof showNotif === 'function') showNotif('✅ Бонус выдан', 'success');
+            showNotif(`✅ Бонус выдан: ${coins > 0 ? '+' + coins + ' WP' : ''} ${rating !== 0 ? (rating > 0 ? '+' : '') + rating + ' рейтинга' : ''}`, 'success');
             closeProfileModal();
             await loadEmployees();
-            renderEmployees();
+            safeRenderEmployees();
             if (typeof refreshAllBalanceDisplays === 'function') refreshAllBalanceDisplays();
         } else {
-            if (typeof showNotif === 'function') showNotif('❌ Ошибка', 'error');
+            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
@@ -766,62 +1124,130 @@
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role });
         if (res?.success) {
-            if (typeof showNotif === 'function') showNotif('✅ Роль изменена', 'success');
+            showNotif(`✅ Роль изменена на ${getRoleShortName(role)}`, 'success');
+            
+            // 🔥 ИСПРАВЛЕНО: если меняем роль текущему пользователю - обновляем меню
+            if (employeeName === getCurrentUser()) {
+                window.app.currentUserRole = role;
+                window.app.currentUserPermissions = window.rolesMap?.[role] || window.rolesMap?.operator;
+                if (typeof renderMainMenu === 'function') renderMainMenu();
+            }
+            
             closeProfileModal();
             await loadEmployees();
-            renderEmployees();
+            safeRenderEmployees();
         } else {
-            if (typeof showNotif === 'function') showNotif('❌ Ошибка', 'error');
+            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
+        }
+    }
+    
+    async function resetEmployeePassword(employeeName) {
+        const newPassword = document.getElementById('newPassword')?.value;
+        if (!newPassword) {
+            showNotif('Введите новый пароль', 'warning');
+            return;
+        }
+        
+        if (!confirm(`Сбросить пароль для ${employeeName}?`)) return;
+        
+        const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/password`, 'PUT', { password: newPassword });
+        if (res?.success) {
+            showNotif(`✅ Пароль для ${employeeName} изменён`, 'success');
+            document.getElementById('newPassword').value = '';
+        } else {
+            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
     async function deleteEmployee(employeeName) {
-        if (!confirm(`Уволить ${employeeName}?`)) return;
+        // 🔥 ИСПРАВЛЕНО: подтверждение
+        if (!confirm(`⚠️ ВНИМАНИЕ!\n\nВы уверены, что хотите УВОЛИТЬ сотрудника "${employeeName}"?\n\nЭто действие НЕОБРАТИМО! Все данные сотрудника будут удалены.`)) return;
+        if (!confirm('Точно? Данные нельзя будет восстановить.')) return;
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}`, 'DELETE');
         if (res?.success) {
-            if (typeof showNotif === 'function') showNotif(`✅ ${employeeName} уволен`, 'success');
+            showNotif(`✅ ${employeeName} уволен`, 'success');
+            
+            // 🔥 Оптимистичное удаление из локальных данных
+            if (window.app) {
+                window.app.employees = window.app.employees.filter(e => e !== employeeName);
+                delete window.app.profiles[employeeName];
+            }
+            
             closeProfileModal();
-            await loadEmployees();
-            renderEmployees();
+            safeRenderEmployees();
         } else {
-            if (typeof showNotif === 'function') showNotif('❌ Ошибка', 'error');
+            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
     // ============================================
-    // ИНИЦИАЛИЗАЦИЯ
+    // ИНИЦИАЛИЗАЦИЯ И ВОССТАНОВЛЕНИЕ
     // ============================================
     function initEmployees() {
         console.log('👥 Инициализация команды');
         
         const grid = document.getElementById('employeesGrid');
         if (!grid) {
-            console.warn('⚠️ employeesGrid не найден, ждём...');
             setTimeout(initEmployees, 100);
             return;
         }
         
-        renderEmployees();
+        safeRenderEmployees();
         
         const createBtn = document.getElementById('createEmployeeBtn');
         if (createBtn) {
             createBtn.style.display = window.app?.currentUserRole === 'director' ? 'inline-flex' : 'none';
         }
+        
+        // 🔥 Восстановление открытой модалки после обновления
+        const lastProfile = sessionStorage.getItem('lastProfileEmployee');
+        if (lastProfile && window.app?.employees?.includes(lastProfile)) {
+            setTimeout(() => openProfile(lastProfile), 200);
+        }
+        
+        // 🔥 Обработчик закрытия модалки по Escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const profileModal = document.getElementById('profileModal');
+                if (profileModal && profileModal.classList.contains('active')) {
+                    closeProfileModal();
+                }
+                const createModal = document.getElementById('createEmployeeModal');
+                if (createModal && createModal.classList.contains('active')) {
+                    closeCreateEmployeeModal();
+                }
+                const avatarModal = document.getElementById('avatarModal');
+                if (avatarModal && avatarModal.classList.contains('active')) {
+                    closeAvatarModal();
+                }
+                const previewModal = document.getElementById('avatarPreviewModal');
+                if (previewModal && previewModal.classList.contains('active')) {
+                    closeAvatarPreviewModal();
+                }
+            }
+        });
     }
     
-    window.addEventListener('dataUpdate', () => renderEmployees());
+    // 🔥 Слушаем события обновления данных
+    window.addEventListener('dataUpdate', (e) => {
+        if (e.detail?.type === 'profile' || e.detail?.type === 'task' || e.detail?.type === 'fine') {
+            safeRenderEmployees();
+        }
+    });
     
     // ============================================
     // ЭКСПОРТ
     // ============================================
     window.initEmployees = initEmployees;
     window.renderEmployees = renderEmployees;
+    window.safeRenderEmployees = safeRenderEmployees;
     window.openProfile = openProfile;
     window.closeProfileModal = closeProfileModal;
+    window.switchProfileTab = switchProfileTab;
     window.toggleProfileEdit = toggleProfileEdit;
-    window.saveProfileChanges = saveProfileChanges;
     window.cancelProfileEdit = cancelProfileEdit;
+    window.saveProfileChanges = saveProfileChanges;
     window.openAvatarModal = openAvatarModal;
     window.closeAvatarModal = closeAvatarModal;
     window.selectAvatar = selectAvatar;
@@ -836,6 +1262,11 @@
     window.createEmployee = createEmployee;
     window.giveBonus = giveBonus;
     window.changeRole = changeRole;
+    window.resetEmployeePassword = resetEmployeePassword;
     window.deleteEmployee = deleteEmployee;
-    
+    window.getCompletedShifts = getCompletedShifts;
+    window.isOnShiftNow = isOnShiftNow;
+    window.isOnlineNow = isOnlineNow;
+
+    console.log('✅ employees.js загружен (исправленная версия v2.0)');
 })();
