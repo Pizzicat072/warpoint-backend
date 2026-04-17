@@ -23,7 +23,7 @@
             position: relative;
         }
         
-        /* 🔥 ФОНОВАЯ КАРТИНКА НА ВЕСЬ САЙТ (ИСПРАВЛЕНО) */
+        /* ФОНОВАЯ КАРТИНКА НА ВЕСЬ САЙТ */
         body::before {
             content: '';
             position: fixed;
@@ -36,7 +36,6 @@
             z-index: -2;
         }
         
-        /* Тёмный оверлей для читаемости */
         body::after {
             content: '';
             position: fixed;
@@ -49,7 +48,7 @@
         }
         
         /* ============================================ */
-        /* ПРЕМИУМ ПРЕЛОАДЕР (ОРИГИНАЛ, ТОЛЬКО БАГИ ПОЧИНЕНЫ) */
+        /* ПРЕМИУМ ПРЕЛОАДЕР */
         /* ============================================ */
         
         #globalLoader {
@@ -61,7 +60,8 @@
             z-index: 99999;
             transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
             overflow: hidden;
-            background: transparent;
+            background: rgba(5, 7, 15, 0.95);
+            backdrop-filter: blur(20px);
         }
         
         #globalLoader.fade-out {
@@ -77,10 +77,8 @@
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            background: transparent;
         }
         
-        /* Анимированные орбы */
         .loader-bg {
             position: absolute;
             top: 0;
@@ -141,7 +139,6 @@
             50% { transform: translate(-40%, -60%) scale(1.1); }
         }
         
-        /* Основной контент прелоадера */
         .loader-content-premium {
             position: relative;
             z-index: 10;
@@ -151,7 +148,6 @@
             width: 100%;
         }
         
-        /* Стадии логотипа */
         .loader-logo-stage {
             position: relative;
             height: 140px;
@@ -161,7 +157,6 @@
             margin-bottom: 20px;
         }
         
-        /* Стадия 1: Картинка */
         .logo-image-stage {
             position: absolute;
             top: 50%;
@@ -215,7 +210,6 @@
             to { transform: rotate(360deg); }
         }
         
-        /* Стадия 2: Текст WARPOINT + HUB */
         .logo-text-stage {
             position: absolute;
             top: 50%;
@@ -266,7 +260,6 @@
             transform: translateX(0);
         }
         
-        /* Секция прогресса (ИСПРАВЛЕН ПРОГРЕСС-БАР) */
         .loader-progress-section {
             transition: opacity 0.5s ease;
             margin-top: 10px;
@@ -338,7 +331,6 @@
             color: #a78bfa;
         }
         
-        /* Подсказки */
         .loader-tips {
             display: flex;
             align-items: center;
@@ -361,7 +353,6 @@
             color: #cbd5e1;
         }
         
-        /* Частицы */
         .loader-particles {
             position: absolute;
             top: 0;
@@ -389,24 +380,26 @@
             100% { transform: translateY(-120px) translateX(60px); opacity: 0; }
         }
         
-        /* ===== СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ - ИСПРАВЛЕНО) ===== */
+        /* ===== СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ) ===== */
         #syncIndicator {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            width: 46px;
-            height: 46px;
-            background: rgba(18, 24, 34, 0.85);
-            backdrop-filter: blur(12px);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 9998;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            position: fixed !important;
+            bottom: 24px !important;
+            left: 24px !important;
+            top: auto !important;
+            right: auto !important;
+            width: 46px !important;
+            height: 46px !important;
+            background: rgba(18, 24, 34, 0.85) !important;
+            backdrop-filter: blur(12px) !important;
+            border-radius: 14px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            z-index: 9998 !important;
+            border: 1px solid rgba(255, 255, 255, 0.08) !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
         }
         
         #syncIndicator:hover {
@@ -454,7 +447,6 @@
             padding: 48px 40px;
             background: rgba(18, 24, 34, 0.7);
             backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
             border-radius: 32px;
             border: 1px solid rgba(255, 255, 255, 0.06);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
@@ -766,7 +758,6 @@
             color: #818cf8;
         }
         
-        /* ===== АДАПТИВ ===== */
         @media (max-width: 768px) {
             .header { padding: 12px 16px; }
             .logo-text { font-size: 18px; }
@@ -775,7 +766,7 @@
             .menu-item .menu-tooltip { display: none; }
             .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
             .login-card { padding: 36px 28px; }
-            #syncIndicator { bottom: 16px; left: 16px; width: 40px; height: 40px; }
+            #syncIndicator { bottom: 16px !important; left: 16px !important; width: 40px !important; height: 40px !important; }
             .logo-text-warpoint { font-size: 28px; letter-spacing: 2px; }
             .logo-text-hub { font-size: 22px; padding: 4px 12px; }
             .logo-image-wrapper { width: 90px; height: 90px; }
@@ -788,8 +779,8 @@
 </head>
 <body>
 
-<!-- ПРЕМИУМ ПРЕЛОАДЕР -->
-<div id="globalLoader" style="display: none;">
+<!-- ПРЕМИУМ ПРЕЛОАДЕР (ПОКАЗЫВАЕТСЯ СРАЗУ) -->
+<div id="globalLoader">
     <div class="premium-loader-container">
         <div class="loader-bg">
             <div class="loader-orb orb-1"></div>
@@ -951,7 +942,7 @@
     let pusherReconnectTimer = null;
     
     // ============================================
-    // ПРЕЛОАДЕР (ИСПРАВЛЕННЫЙ - БЕЗ ДУБЛИРОВАНИЯ)
+    // ПРЕЛОАДЕР
     // ============================================
     
     const requiredModules = [
@@ -975,7 +966,7 @@
     let animationStarted = false;
     let allModulesLoaded = false;
     const MINIMUM_DISPLAY_MS = 3500;
-    let startTime = 0;
+    let startTime = Date.now();
     
     const globalLoader = document.getElementById('globalLoader');
     const logoImageStage = document.getElementById('logoImageStage');
@@ -987,36 +978,6 @@
     const loaderPercent = document.getElementById('loaderPercent');
     const loaderModuleCount = document.getElementById('loaderModuleCount');
     const loaderParticles = document.getElementById('loaderParticles');
-    
-    window.showGlobalLoader = function() {
-        if (globalLoader) {
-            globalLoader.style.display = 'block';
-            startTime = Date.now();
-            loadedModules = 0;
-            allModulesLoaded = false;
-            animationStarted = false;
-            
-            if (logoImageStage) {
-                logoImageStage.style.transform = 'translate(-50%, -50%) scale(1)';
-                logoImageStage.style.opacity = '1';
-            }
-            if (logoTextStage) {
-                logoTextStage.style.display = 'none';
-                logoTextStage.style.opacity = '0';
-                logoTextStage.classList.remove('show-hub');
-            }
-            if (progressSection) progressSection.style.opacity = '0';
-            if (loaderTip) loaderTip.style.opacity = '0';
-            if (loaderProgressBar) loaderProgressBar.style.width = '0%';
-            if (loaderPercent) loaderPercent.textContent = '0%';
-            if (loaderModuleCount) {
-                loaderModuleCount.innerHTML = '<span style="font-weight:700;color:#a78bfa;">0</span><span style="color:#64748b;">/19</span>';
-            }
-            
-            createParticles();
-            setTimeout(startLogoTransformation, 100);
-        }
-    };
     
     function createParticles() {
         if (!loaderParticles) return;
@@ -1114,9 +1075,6 @@
             globalLoader.classList.add('fade-out');
             setTimeout(() => {
                 globalLoader.style.display = 'none';
-                if (typeof showNotif === 'function') {
-                    setTimeout(() => showNotif('🚀 Добро пожаловать в WARPOINT HUB!', 'success'), 300);
-                }
             }, 800);
         }
     }
@@ -1137,6 +1095,9 @@
         }
         tryToHideLoader();
     });
+    
+    createParticles();
+    setTimeout(startLogoTransformation, 100);
     
     // ============================================
     // PUSHER
@@ -1254,6 +1215,14 @@
     // ============================================
     // АВТОРИЗАЦИЯ
     // ============================================
+    
+    // Показываем прелоадер при попытке входа
+    window.showGlobalLoader = function() {
+        if (globalLoader) {
+            globalLoader.style.display = 'block';
+            globalLoader.classList.remove('fade-out');
+        }
+    };
     
     const token = localStorage.getItem('token');
     if (token) {
