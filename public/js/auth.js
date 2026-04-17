@@ -16,6 +16,11 @@ async function login() {
         return;
     }
     
+    // 🔥 ПОКАЗЫВАЕМ ПРЕМИУМ-ПРЕЛОАДЕР
+    if (typeof window.showGlobalLoader === 'function') {
+        window.showGlobalLoader();
+    }
+    
     const loginName = document.getElementById('loginName')?.value.trim();
     const pass = document.getElementById('loginPassword')?.value;
     
@@ -113,16 +118,32 @@ async function login() {
             
         } else {
             showNotif(data.error || 'Неверный логин или пароль', 'error');
+            // 🔥 Скрываем прелоадер при ошибке
+            hideGlobalLoaderOnError();
         }
     } catch (err) {
         console.error('❌ Ошибка входа:', err);
         showNotif('Ошибка соединения с сервером.', 'error');
+        // 🔥 Скрываем прелоадер при ошибке
+        hideGlobalLoaderOnError();
     } finally {
         if (loginBtn) {
             loginBtn.innerHTML = originalBtnText;
             loginBtn.disabled = false;
         }
         isLoggingIn = false;
+    }
+}
+
+// 🔥 Скрытие прелоадера при ошибке входа
+function hideGlobalLoaderOnError() {
+    const loader = document.getElementById('globalLoader');
+    if (loader) {
+        loader.classList.add('fade-out');
+        setTimeout(() => {
+            loader.style.display = 'none';
+            loader.classList.remove('fade-out');
+        }, 400);
     }
 }
 
@@ -175,7 +196,11 @@ function authLogout() {
 function isTokenExpired() {
     const expiry = localStorage.getItem('tokenExpiry');
     if (!expiry) return false;
-    return Date.now() > JSON.parse(expiry);
+    try {
+        return Date.now() > JSON.parse(expiry);
+    } catch(e) {
+        return false;
+    }
 }
 
 function checkTokenAndLogout() {
