@@ -507,103 +507,114 @@ async function getUserStats(userId, username) {
     let exchangesCount = 0, messagesCount = 0, shopCount = 0, knowledgeCount = 0;
     let avatarsCount = 0, statusesCount = 0, stylesCount = 0, achievementsCount = 0;
     
-    const coinsRes = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]);
-    coins = coinsRes.rows[0]?.coins || 0;
-    
-    // СТРИК для всех сотрудников (не только директора)
-    const streakRes = await pool.query('SELECT bonus_streak FROM employees WHERE id = $1', [userId]);
-    streak = streakRes.rows[0]?.bonus_streak || 1;
-    
-    if (isWorker) {
-        const shiftsRes = await pool.query(
-            `SELECT COUNT(*) as count FROM schedule WHERE employee = $1 AND shift_time IS NOT NULL AND (shift_status IS NULL OR shift_status = 'working')`,
-            [username]
+    try {
+        const coinsRes = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]);
+        coins = coinsRes.rows[0]?.coins || 0;
+        
+        // СТРИК для всех сотрудников
+        const streakRes = await pool.query('SELECT bonus_streak FROM employees WHERE id = $1', [userId]);
+        streak = streakRes.rows[0]?.bonus_streak || 1;
+        
+        if (isWorker) {
+            const shiftsRes = await pool.query(
+                `SELECT COUNT(*) as count FROM schedule WHERE employee = $1 AND shift_time IS NOT NULL AND (shift_status IS NULL OR shift_status = 'working')`,
+                [username]
+            );
+            shiftsCount = parseInt(shiftsRes.rows[0]?.count) || 0;
+        }
+        
+        if (isDirector || isManager) {
+            const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'`);
+            tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
+        } else {
+            const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE executor = $1 AND status = 'completed'`, [username]);
+            tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
+        }
+        
+        const ratingRes = await pool.query('SELECT rating FROM employees WHERE id = $1', [userId]);
+        rating = ratingRes.rows[0]?.rating || 0;
+        
+        if (isWorker) {
+            const exchangesRes = await pool.query(
+                `SELECT COUNT(*) as count FROM exchange_requests WHERE (from_employee = $1 OR to_employee = $1) AND status = 'accepted'`,
+                [username]
+            );
+            exchangesCount = parseInt(exchangesRes.rows[0]?.count) || 0;
+        }
+        
+        const messagesRes = await pool.query(`SELECT COUNT(*) as count FROM messages WHERE sender = $1`, [username]);
+        messagesCount = parseInt(messagesRes.rows[0]?.count) || 0;
+        
+        const shopRes = await pool.query(`SELECT COUNT(*) as count FROM transactions WHERE user_id = $1 AND type = 'shop_purchase'`, [userId]);
+        shopCount = parseInt(shopRes.rows[0]?.count) || 0;
+        
+        const knowledgeRes = await pool.query(`SELECT COUNT(DISTINCT article_id) as count FROM knowledge_views WHERE user_id = $1`, [userId]);
+        knowledgeCount = parseInt(knowledgeRes.rows[0]?.count) || 0;
+        
+        const avatarsRes = await pool.query(`SELECT COUNT(DISTINCT avatar) as count FROM employees WHERE id = $1 AND avatar IS NOT NULL AND avatar != '' AND avatar != '👤'`, [userId]);
+        avatarsCount = parseInt(avatarsRes.rows[0]?.count) || 0;
+        
+        const statusesRes = await pool.query(`SELECT COUNT(*) as count FROM user_statuses WHERE employee_id = $1`, [userId]);
+        statusesCount = parseInt(statusesRes.rows[0]?.count) || 0;
+        
+        const stylesRes = await pool.query(`SELECT bought_styles FROM employees WHERE id = $1`, [userId]);
+        if (stylesRes.rows[0]?.bought_styles) {
+            try { const styles = JSON.parse(stylesRes.rows[0].bought_styles); stylesCount = Array.isArray(styles) ? styles.length : 0; } catch(e) {}
+        }
+        
+        const achievementsRes = await pool.query(`SELECT COUNT(*) as count FROM user_achievements WHERE user_id = $1`, [userId]);
+        achievementsCount = parseInt(achievementsRes.rows[0]?.count) || 0;
+        
+        const hasAvatar = avatarsCount > 0;
+        const hasFullProfile = await checkHasFullProfile(userId);
+        
+        // ПОЛУЧАЕМ СПИСОК КУПЛЕННЫХ СТАТУСОВ
+        const boughtStatusesRes = await pool.query(`SELECT status_name FROM user_statuses WHERE employee_id = $1`, [userId]);
+        const boughtStatuses = boughtStatusesRes.rows.map(row => row.status_name);
+        
+        // ПОЛУЧАЕМ СПИСОК ДОСТИЖЕНИЙ ПОЛЬЗОВАТЕЛЯ
+        const userAchievementsRes = await pool.query(
+            `SELECT a.id, a.name, a.description, a.icon, a.coins_reward 
+             FROM user_achievements ua 
+             JOIN achievements a ON a.id = ua.achievement_id 
+             WHERE ua.user_id = $1 
+             ORDER BY ua.claimed_at DESC`,
+            [userId]
         );
-        shiftsCount = parseInt(shiftsRes.rows[0]?.count) || 0;
+        const userAchievements = userAchievementsRes.rows;
+        
+        return { 
+            shifts: shiftsCount, 
+            tasks: tasksCount, 
+            gifts: giftsCount, 
+            rating, 
+            streak, 
+            exchanges: exchangesCount, 
+            messages: messagesCount, 
+            shop: shopCount, 
+            knowledge: knowledgeCount, 
+            avatars: avatarsCount, 
+            statuses: statusesCount, 
+            styles: stylesCount, 
+            achievements: achievementsCount, 
+            coins, 
+            hasAvatar, 
+            hasFullProfile, 
+            role, 
+            isWorker,
+            boughtStatuses,
+            userAchievements
+        };
+        
+    } catch (err) {
+        console.error('Ошибка в getUserStats:', err);
+        return { 
+            shifts: 0, tasks: 0, gifts: 0, rating: 0, streak: 1, exchanges: 0, 
+            messages: 0, shop: 0, knowledge: 0, avatars: 0, statuses: 0, 
+            styles: 0, achievements: 0, coins: 0, hasAvatar: false, 
+            hasFullProfile: false, role, isWorker, boughtStatuses: [], userAchievements: [] 
+        };
     }
-    
-    if (isDirector || isManager) {
-        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE status = 'completed'`);
-        tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
-    } else {
-        const tasksRes = await pool.query(`SELECT COUNT(*) as count FROM tasks WHERE executor = $1 AND status = 'completed'`, [username]);
-        tasksCount = parseInt(tasksRes.rows[0]?.count) || 0;
-    }
-    
-    const ratingRes = await pool.query('SELECT rating FROM employees WHERE id = $1', [userId]);
-    rating = ratingRes.rows[0]?.rating || 0;
-    
-    if (isWorker) {
-        const exchangesRes = await pool.query(
-            `SELECT COUNT(*) as count FROM exchange_requests WHERE (from_employee = $1 OR to_employee = $1) AND status = 'accepted'`,
-            [username]
-        );
-        exchangesCount = parseInt(exchangesRes.rows[0]?.count) || 0;
-    }
-    
-    const messagesRes = await pool.query(`SELECT COUNT(*) as count FROM messages WHERE sender = $1`, [username]);
-    messagesCount = parseInt(messagesRes.rows[0]?.count) || 0;
-    
-    const shopRes = await pool.query(`SELECT COUNT(*) as count FROM transactions WHERE user_id = $1 AND type = 'shop_purchase'`, [userId]);
-    shopCount = parseInt(shopRes.rows[0]?.count) || 0;
-    
-    const knowledgeRes = await pool.query(`SELECT COUNT(DISTINCT article_id) as count FROM knowledge_views WHERE user_id = $1`, [userId]);
-    knowledgeCount = parseInt(knowledgeRes.rows[0]?.count) || 0;
-    
-    const avatarsRes = await pool.query(`SELECT COUNT(DISTINCT avatar) as count FROM employees WHERE id = $1 AND avatar IS NOT NULL AND avatar != '' AND avatar != '👤'`, [userId]);
-    avatarsCount = parseInt(avatarsRes.rows[0]?.count) || 0;
-    
-    const statusesRes = await pool.query(`SELECT COUNT(*) as count FROM user_statuses WHERE employee_id = $1`, [userId]);
-    statusesCount = parseInt(statusesRes.rows[0]?.count) || 0;
-    
-    const stylesRes = await pool.query(`SELECT bought_styles FROM employees WHERE id = $1`, [userId]);
-    if (stylesRes.rows[0]?.bought_styles) {
-        try { const styles = JSON.parse(stylesRes.rows[0].bought_styles); stylesCount = Array.isArray(styles) ? styles.length : 0; } catch(e) {}
-    }
-    
-    const achievementsRes = await pool.query(`SELECT COUNT(*) as count FROM user_achievements WHERE user_id = $1`, [userId]);
-    achievementsCount = parseInt(achievementsRes.rows[0]?.count) || 0;
-    
-    const hasAvatar = avatarsCount > 0;
-    const hasFullProfile = await checkHasFullProfile(userId);
-    
-    // ПОЛУЧАЕМ СПИСОК КУПЛЕННЫХ СТАТУСОВ
-    const boughtStatusesRes = await pool.query(`SELECT status_name FROM user_statuses WHERE employee_id = $1`, [userId]);
-    const boughtStatuses = boughtStatusesRes.rows.map(row => row.status_name);
-    
-    // ПОЛУЧАЕМ СПИСОК ДОСТИЖЕНИЙ ПОЛЬЗОВАТЕЛЯ
-    const userAchievementsRes = await pool.query(
-        `SELECT a.id, a.name, a.description, a.icon, a.coins_reward 
-         FROM user_achievements ua 
-         JOIN achievements a ON a.id = ua.achievement_id 
-         WHERE ua.user_id = $1 
-         ORDER BY ua.claimed_at DESC`,
-        [userId]
-    );
-    const userAchievements = userAchievementsRes.rows;
-    
-    return { 
-        shifts: shiftsCount, 
-        tasks: tasksCount, 
-        gifts: giftsCount, 
-        rating, 
-        streak, 
-        exchanges: exchangesCount, 
-        messages: messagesCount, 
-        shop: shopCount, 
-        knowledge: knowledgeCount, 
-        avatars: avatarsCount, 
-        statuses: statusesCount, 
-        styles: stylesCount, 
-        achievements: achievementsCount, 
-        coins, 
-        hasAvatar, 
-        hasFullProfile, 
-        role, 
-        isWorker,
-        boughtStatuses,
-        userAchievements
-    };
 }
 
 // ============================================
