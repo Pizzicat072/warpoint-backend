@@ -1,5 +1,5 @@
-// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.2
-// Исправлены дубликаты abortController и roleNames, исправлен экспорт sortVpBy
+// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.3
+// Исправлены: дубликаты, рекурсия apiCall, двойные /api в эндпоинтах
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
@@ -83,7 +83,6 @@ function showNotif(msg, type) {
     }
 }
 
-// 🔥 ИСПРАВЛЕНО: защита от бесконечной рекурсии
 async function apiCall(endpoint, method = 'GET', body = null) {
     // Используем оригинальную функцию из api.js
     if (typeof window.originalApiCall === 'function') {
@@ -351,13 +350,18 @@ function updateVpStats() {
         return daysAfterBooking >= 2;
     }).length;
     
-    document.getElementById('vpTotalCount').textContent = total;
-    document.getElementById('vpTotalAmount').textContent = totalAmount.toLocaleString() + ' ₽';
-    document.getElementById('vpPhotoPending').textContent = photoPending;
-    document.getElementById('vpScriptPending').textContent = scriptNotSent;
-    document.getElementById('vpArchivedCount').textContent = archivedBookings.length;
-    
+    const totalEl = document.getElementById('vpTotalCount');
+    const amountEl = document.getElementById('vpTotalAmount');
+    const photoEl = document.getElementById('vpPhotoPending');
+    const scriptEl = document.getElementById('vpScriptPending');
+    const archivedEl = document.getElementById('vpArchivedCount');
     const unpaidEl = document.getElementById('vpUnpaidOverdue');
+    
+    if (totalEl) totalEl.textContent = total;
+    if (amountEl) amountEl.textContent = totalAmount.toLocaleString() + ' ₽';
+    if (photoEl) photoEl.textContent = photoPending;
+    if (scriptEl) scriptEl.textContent = scriptNotSent;
+    if (archivedEl) archivedEl.textContent = archivedBookings.length;
     if (unpaidEl) {
         unpaidEl.textContent = unpaidOverdue;
         unpaidEl.style.color = unpaidOverdue > 0 ? '#ef4444' : '#10b981';
@@ -382,7 +386,7 @@ function isPhotoActionAvailable(vp) {
         parseInt(dateStr.split('-')[0]),
         parseInt(dateStr.split('-')[1]) - 1,
         parseInt(dateStr.split('-')[2]),
-        hours - 5, // Тобольск UTC+5
+        hours - 5,
         minutes
     ));
     
@@ -495,7 +499,7 @@ async function updatePhotoStatus(id) {
     isUpdatingPhoto = true;
     
     try {
-        const response = await apiCall(`/api/vp/${id}`, 'PUT', { photoStatus: 'sent' });
+        const response = await apiCall(`/vp/${id}`, 'PUT', { photoStatus: 'sent' });
         if (response && response.success) {
             vp.photo_status = 'sent';
             renderVpTable();
@@ -521,7 +525,7 @@ async function updateScriptStatus(id) {
     isUpdatingScript = true;
     
     try {
-        const response = await apiCall(`/api/vp/${id}`, 'PUT', { scriptStatus: 'sent' });
+        const response = await apiCall(`/vp/${id}`, 'PUT', { scriptStatus: 'sent' });
         if (response && response.success) {
             vp.script_status = 'sent';
             renderVpTable();
@@ -740,7 +744,7 @@ async function restoreVp(vpId) {
     if (!canEditVp) return;
     if (!confirm('Восстановить мероприятие из архива?')) return;
     
-    const response = await apiCall(`/api/vp/${vpId}`, 'PUT', { is_archived: false });
+    const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: false });
     if (response?.success) {
         showNotif('📦 Восстановлено', 'success');
         await loadVpData();
@@ -756,7 +760,7 @@ async function deleteVpPermanently(vpId) {
     if (!confirm('⚠️ Навсегда удалить мероприятие?')) return;
     if (!confirm('Точно?')) return;
     
-    const response = await apiCall(`/api/vp/${vpId}`, 'DELETE');
+    const response = await apiCall(`/vp/${vpId}`, 'DELETE');
     if (response?.success) {
         showNotif('🗑️ Удалено', 'success');
         vpData = vpData.filter(v => v.id !== vpId);
@@ -769,7 +773,7 @@ async function cancelVp(vpId) {
     if (!canEditVp) return;
     if (!confirm('Переместить мероприятие в архив?')) return;
     
-    const response = await apiCall(`/api/vp/${vpId}`, 'PUT', { is_archived: true });
+    const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: true });
     if (response?.success) {
         showNotif('📦 В архиве', 'success');
         await loadVpData();
@@ -950,12 +954,12 @@ async function saveVp() {
         let response;
         
         if (vpId) {
-            response = await apiCall(`/api/vp/${vpId}`, 'PUT', vpDataToSend);
+            response = await apiCall(`/vp/${vpId}`, 'PUT', vpDataToSend);
         } else {
             vpDataToSend.bookingDate = today;
             vpDataToSend.photoStatus = 'pending';
             vpDataToSend.scriptStatus = 'not_sent';
-            response = await apiCall('/api/vp', 'POST', { vp: vpDataToSend });
+            response = await apiCall('/vp', 'POST', { vp: vpDataToSend });
         }
         
         if (response?.success) {
@@ -1009,7 +1013,6 @@ function filterMyOnly() {
     renderVpTable();
 }
 
-// 🔥 ИСПРАВЛЕНО: функция сортировки
 function sortVpBy(field) {
     if (vpSortState.field === field) {
         vpSortState.order = vpSortState.order === 'asc' ? 'desc' : 'asc';
@@ -1018,7 +1021,6 @@ function sortVpBy(field) {
         vpSortState.order = 'asc';
     }
     
-    // Обновляем иконки в заголовках
     document.querySelectorAll('.vp-table th i').forEach(i => i.className = 'fas fa-sort');
     const activeTh = document.querySelector(`.vp-table th[onclick*="${field}"] i`);
     if (activeTh) {
@@ -1116,4 +1118,4 @@ window.showBookingDetails = showBookingDetails;
 window.closeBookingDetailsModal = closeBookingDetailsModal;
 window.goToToday = goToToday;
 
-console.log('✅ vp.js загружен (v4.2 — исправлены дубликаты и экспорт)');
+console.log('✅ vp.js загружен (v4.3 — все баги исправлены)');
