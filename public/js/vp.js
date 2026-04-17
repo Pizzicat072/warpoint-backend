@@ -312,7 +312,7 @@ async function loadVpData() {
     }
     
     try {
-        const url = `/api/vp?month=${vpCurrentMonth}&year=${vpCurrentYear}&archived=${vpFilters.showArchived}`;
+        const url = `/vp?month=${vpCurrentMonth}&year=${vpCurrentYear}&archived=${vpFilters.showArchived}`;
         const data = await apiCall(url);
         
         if (data && Array.isArray(data)) {
