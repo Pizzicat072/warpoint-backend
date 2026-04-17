@@ -1986,7 +1986,7 @@ app.post('/api/salary/day/save', authMiddleware, async (req, res) => {
             [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]
         );
         res.json({ success: true });
-    } catch (87) {
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });
