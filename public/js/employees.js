@@ -1,4 +1,4 @@
-// public/js/employees.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/employees.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
 
 (function() {
     'use strict';
@@ -28,7 +28,6 @@
     function getStickers() { return window.app?.stickers || {}; }
     function getCurrentUser() { return window.app?.currentUser; }
     function getLastActivity() { return window.app?.lastActivity || {}; }
-    function getAchievements() { return window.app?.achievements || {}; }
     function getUserAchievements() { return window.app?.userAchievements || {}; }
     
     // ============================================
@@ -126,7 +125,7 @@
     }
     
     // ============================================
-    // РЕНДЕР КАРТОЧЕК
+    // РЕНДЕР КАРТОЧЕК (ИСПРАВЛЕННЫЙ)
     // ============================================
     function renderEmployees() {
         const grid = document.getElementById('employeesGrid');
@@ -168,12 +167,9 @@
             const isCurrent = emp === currentUser;
             const isDirector = p.role === 'director';
             const isManager = p.role === 'manager';
-            const isAdmin = p.role === 'admin';
-            const isOperator = p.role === 'operator';
             
             const empTasks = tasks.filter(t => t.executor === emp);
             const tasksDone = empTasks.filter(t => t.status === 'completed').length;
-            
             const empFines = fines.filter(f => f.employee === emp && f.status === 'approved');
             
             const giftCounts = {};
@@ -188,23 +184,25 @@
             const online = isOnlineNow(emp);
             const activeStatus = p.active_status || p.status || '💼 Работаю';
             const hasBirthdaySoon = isBirthdaySoon(p.birthday);
-            
-            // СТРИК для всех сотрудников
             const streak = p.bonus_streak || 1;
-            
-            // Количество достижений
             const achievementsCount = userAchievements[emp]?.length || 0;
             
-            const avatarHtml = p.avatar_url 
-                ? `<img src="${p.avatar_url}" alt="${emp}">` 
-                : (p.avatar || '👤');
+            // ФИКС: правильное отображение аватара (круглый)
+            let avatarHtml = '';
+            if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
+                avatarHtml = `<img src="${p.avatar_url}" alt="${emp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            } else if (p.avatar_url) {
+                avatarHtml = `<img src="${p.avatar_url}" alt="${emp}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.parentElement.innerHTML='${escapeHtml(p.avatar || '👤')}'">`;
+            } else {
+                avatarHtml = `<span style="font-size:32px;">${escapeHtml(p.avatar || '👤')}</span>`;
+            }
             
             const rating = p.rating || 0;
             const ratingClass = rating >= 0 ? 'good' : 'bad';
             const ratingPrefix = rating >= 0 ? '+' : '';
             
             return `
-                <div class="emp-card ${isCurrent ? 'current-user' : ''}" onclick="openProfile('${emp}')">
+                <div class="emp-card ${isCurrent ? 'current-user' : ''}" onclick="openProfile('${escapeHtml(emp)}')">
                     <div class="emp-card-glow"></div>
                     
                     <div class="emp-rating-corner ${ratingClass}">
@@ -213,18 +211,21 @@
                     </div>
                     
                     <div class="emp-card-top">
-                        <div class="emp-avatar">
+                        <div class="emp-avatar" style="overflow:hidden; border-radius:50%;">
                             ${avatarHtml}
                             <div class="emp-avatar-ring"></div>
                         </div>
                         <div class="emp-info">
                             <div class="emp-name">
-                                <h3>${emp}</h3>
+                                <h3>${escapeHtml(emp)}</h3>
                                 ${isCurrent ? '<span class="emp-you-badge">ВЫ</span>' : ''}
                                 ${hasBirthdaySoon ? '<span class="emp-birthday-badge">🎂</span>' : ''}
                             </div>
                             <div class="emp-role">
                                 <i class="fas fa-briefcase"></i> ${getRoleShortName(p.role)}
+                            </div>
+                            <div class="emp-rating ${ratingClass}">
+                                <i class="fas fa-star"></i> ${ratingPrefix}${rating}
                             </div>
                         </div>
                     </div>
@@ -285,9 +286,9 @@
                     <div class="emp-card-footer">
                         <span class="emp-active-status">
                             <i class="fas fa-circle" style="font-size: 6px; margin-right: 6px; color: #a78bfa;"></i>
-                            ${activeStatus}
+                            ${escapeHtml(activeStatus)}
                         </span>
-                        <button class="emp-chat-btn" onclick="event.stopPropagation(); openChatWithEmployee('${emp}')" title="Написать">
+                        <button class="emp-chat-btn" onclick="event.stopPropagation(); openChatWithEmployee('${escapeHtml(emp)}')" title="Написать">
                             <i class="fas fa-comment-dots"></i>
                         </button>
                     </div>
@@ -297,7 +298,7 @@
     }
     
     // ============================================
-    // МОДАЛКА ПРОФИЛЯ (НОВЫЙ ДИЗАЙН)
+    // МОДАЛКА ПРОФИЛЯ
     // ============================================
     function openProfile(employeeName) {
         currentProfileEmployee = employeeName;
@@ -340,15 +341,21 @@
         const activeStatus = p.active_status || p.status || '💼 Работаю';
         const streak = p.bonus_streak || 1;
         
-        const avatarHtml = p.avatar_url 
-            ? `<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;">` 
-            : (p.avatar || '👤');
+        // Аватар для модалки
+        let avatarHtml = '';
+        if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
+            avatarHtml = `<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+        } else if (p.avatar_url) {
+            avatarHtml = `<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" onerror="this.onerror=null;this.parentElement.innerHTML='${escapeHtml(p.avatar || '👤')}'">`;
+        } else {
+            avatarHtml = `<span style="font-size:32px;">${escapeHtml(p.avatar || '👤')}</span>`;
+        }
         
         const rating = p.rating || 0;
         const ratingPrefix = rating >= 0 ? '+' : '';
         const ratingColor = rating >= 0 ? '#10b981' : '#ef4444';
         
-        // Получаем купленные статусы для выпадающего списка
+        // Получаем купленные статусы
         const boughtStatuses = p.bought_statuses || [];
         
         const modalContent = document.getElementById('profileModalContent');
@@ -359,15 +366,14 @@
         
         modalContent.innerHTML = `
             <div class="emp-modal-header">
-                <div class="emp-modal-avatar" onclick="openAvatarModal()" style="cursor: pointer;">
+                <div class="emp-modal-avatar" onclick="openAvatarModal()" style="cursor: pointer; border-radius:50%; overflow:hidden; width:70px; height:70px;">
                     ${avatarHtml}
-                    <div class="emp-modal-avatar-ring"></div>
-                    ${canEdit ? '<div class="emp-avatar-edit-hint"><i class="fas fa-camera"></i></div>' : ''}
+                    <div class="emp-avatar-edit-hint"><i class="fas fa-camera"></i></div>
                 </div>
                 <div class="emp-modal-title">
-                    <h3>${employeeName} ${isOwnProfile ? '<span class="emp-you-badge">ВЫ</span>' : ''}</h3>
+                    <h3>${escapeHtml(employeeName)} ${isOwnProfile ? '<span class="emp-you-badge">ВЫ</span>' : ''}</h3>
                     <p>${getRoleName(p.role)}</p>
-                    ${p.phone ? `<p class="emp-modal-phone"><i class="fas fa-phone"></i> ${p.phone}</p>` : ''}
+                    ${p.phone ? `<p class="emp-modal-phone"><i class="fas fa-phone"></i> ${escapeHtml(p.phone)}</p>` : ''}
                 </div>
                 <button class="emp-modal-close" onclick="closeProfileModal()">&times;</button>
             </div>
@@ -395,7 +401,7 @@
             <div class="emp-modal-body">
                 <div id="profileTabMain" class="emp-profile-tab-content active">
                     <div class="emp-info-grid">
-                        ${p.phone ? `<div class="emp-info-card"><i class="fas fa-phone"></i><span>${p.phone}</span></div>` : ''}
+                        ${p.phone ? `<div class="emp-info-card"><i class="fas fa-phone"></i><span>${escapeHtml(p.phone)}</span></div>` : ''}
                         ${p.birthday ? `<div class="emp-info-card"><i class="fas fa-calendar"></i><span>${new Date(p.birthday).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>` : ''}
                     </div>
                     
@@ -409,7 +415,7 @@
                     <div class="emp-status-cards">
                         ${!isDirector && !isManager ? `<div class="emp-status-card ${onShift ? 'active' : ''}"><span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span><span>${onShift ? 'На смене' : 'Не на смене'}</span></div>` : ''}
                         <div class="emp-status-card ${online ? 'active' : ''}"><span class="emp-status-dot ${online ? 'online' : 'offline'}"></span><span>${online ? 'В сети' : 'Не в сети'}</span></div>
-                        <div class="emp-status-card active"><i class="fas fa-tag"></i><span>${activeStatus}</span></div>
+                        <div class="emp-status-card active"><i class="fas fa-tag"></i><span>${escapeHtml(activeStatus)}</span></div>
                     </div>
                     
                     ${canEdit ? `
@@ -417,12 +423,12 @@
                             <button class="emp-btn-secondary" onclick="toggleProfileEdit()"><i class="fas fa-edit"></i> Редактировать</button>
                         </div>
                         <div id="profileEditFields" class="emp-edit-fields" style="display: none;">
-                            <div class="emp-form-group"><label><i class="fas fa-user"></i> Имя</label><input type="text" id="editName" value="${employeeName}"></div>
-                            <div class="emp-form-group"><label><i class="fas fa-phone"></i> Телефон</label><input type="tel" id="editPhone" value="${p.phone || ''}" placeholder="+7 (___) ___-__-__"></div>
+                            <div class="emp-form-group"><label><i class="fas fa-user"></i> Имя</label><input type="text" id="editName" value="${escapeHtml(employeeName)}"></div>
+                            <div class="emp-form-group"><label><i class="fas fa-phone"></i> Телефон</label><input type="tel" id="editPhone" value="${escapeHtml(p.phone || '')}" placeholder="+7 (___) ___-__-__"></div>
                             <div class="emp-form-group"><label><i class="fas fa-calendar"></i> Дата рождения</label><input type="date" id="editBirthday" value="${p.birthday || ''}"></div>
                             <div class="emp-form-group"><label><i class="fas fa-tag"></i> Статус</label>
                                 <select id="editStatus">
-                                    ${boughtStatuses.length > 0 ? boughtStatuses.map(s => `<option value="${s}" ${p.active_status === s ? 'selected' : ''}>${s}</option>`).join('') : ''}
+                                    ${boughtStatuses.length > 0 ? boughtStatuses.map(s => `<option value="${escapeHtml(s)}" ${p.active_status === s ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('') : ''}
                                     <option value="💼 Работаю" ${p.status === '💼 Работаю' ? 'selected' : ''}>💼 Работаю</option>
                                     <option value="☕ Перерыв" ${p.status === '☕ Перерыв' ? 'selected' : ''}>☕ Перерыв</option>
                                     <option value="🎯 В фокусе" ${p.status === '🎯 В фокусе' ? 'selected' : ''}>🎯 В фокусе</option>
@@ -477,8 +483,8 @@
                                 <div class="emp-achievement-item" style="border-left-color: ${a.color || '#fbbf24'};">
                                     <span class="emp-achievement-icon">${a.icon || '🏆'}</span>
                                     <div class="emp-achievement-info">
-                                        <div class="emp-achievement-name">${a.name}</div>
-                                        <div class="emp-achievement-desc">${a.description || ''}</div>
+                                        <div class="emp-achievement-name">${escapeHtml(a.name)}</div>
+                                        <div class="emp-achievement-desc">${escapeHtml(a.description || '')}</div>
                                     </div>
                                 </div>
                             `).join('')}
@@ -507,7 +513,7 @@
                             <h4><i class="fas fa-gift"></i> Выдать бонус</h4>
                             <div class="emp-form-group"><label>Монеты WP</label><input type="number" id="bonusCoins" value="0"></div>
                             <div class="emp-form-group"><label>Рейтинг</label><input type="number" id="bonusRating" value="0"></div>
-                            <button class="emp-btn-primary" onclick="giveBonus('${employeeName}')"><i class="fas fa-check"></i> Выдать</button>
+                            <button class="emp-btn-primary" onclick="giveBonus('${escapeHtml(employeeName)}')"><i class="fas fa-check"></i> Выдать</button>
                         </div>
                         ${!isDirector ? `
                             <div class="emp-section">
@@ -517,12 +523,12 @@
                                     <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>⚙️ Администратор</option>
                                     <option value="manager" ${p.role === 'manager' ? 'selected' : ''}>📋 Управляющий</option>
                                 </select>
-                                <button class="emp-btn-primary" onclick="changeRole('${employeeName}')" style="margin-top: 12px;">Сменить</button>
+                                <button class="emp-btn-primary" onclick="changeRole('${escapeHtml(employeeName)}')" style="margin-top: 12px;">Сменить</button>
                             </div>
                             <div class="emp-section danger">
                                 <h4><i class="fas fa-trash-alt"></i> Уволить</h4>
                                 <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Это действие необратимо</p>
-                                <button class="emp-btn-danger" onclick="deleteEmployee('${employeeName}')">Уволить сотрудника</button>
+                                <button class="emp-btn-danger" onclick="deleteEmployee('${escapeHtml(employeeName)}')">Уволить сотрудника</button>
                             </div>
                         ` : ''}
                     </div>
@@ -575,12 +581,12 @@
         const res = await apiCall(`/profiles/${encodeURIComponent(currentProfileEmployee)}`, 'PUT', updates);
         
         if (res?.success) {
-            showNotif('✅ Профиль обновлён', 'success');
+            if (typeof showNotif === 'function') showNotif('✅ Профиль обновлён', 'success');
             await loadEmployees();
             closeProfileModal();
             renderEmployees();
         } else {
-            showNotif('❌ Ошибка обновления', 'error');
+            if (typeof showNotif === 'function') showNotif('❌ Ошибка обновления', 'error');
         }
     }
     
@@ -589,7 +595,7 @@
     }
     
     // ============================================
-    // АВАТАРЫ (ИСПРАВЛЕНО)
+    // АВАТАРЫ
     // ============================================
     function openAvatarModal() {
         const modal = document.getElementById('avatarModal');
@@ -613,7 +619,7 @@
         if (currentProfileEmployee && currentProfileEmployee === getCurrentUser()) {
             const success = await updateEmployeeAvatar(currentProfileEmployee, avatar);
             if (success) {
-                showNotif('Аватар изменён', 'success');
+                if (typeof showNotif === 'function') showNotif('Аватар изменён', 'success');
                 renderEmployees();
                 closeAvatarModal();
                 if (typeof window.updateHeaderAvatar === 'function') window.updateHeaderAvatar(null, avatar);
@@ -629,7 +635,7 @@
             const file = e.target.files[0];
             if (!file) return;
             if (file.size > 2 * 1024 * 1024) { 
-                showNotif('Файл слишком большой (макс. 2MB)', 'error'); 
+                if (typeof showNotif === 'function') showNotif('Файл слишком большой (макс. 2MB)', 'error'); 
                 return; 
             }
             const reader = new FileReader();
@@ -655,7 +661,7 @@
         if (currentProfileEmployee && currentProfileEmployee === getCurrentUser() && pendingAvatarBase64) {
             const success = await updateEmployeeAvatarBase64(currentProfileEmployee, pendingAvatarBase64);
             if (success) {
-                showNotif('Аватар обновлён', 'success');
+                if (typeof showNotif === 'function') showNotif('Аватар обновлён', 'success');
                 renderEmployees();
                 closeAvatarPreviewModal();
             }
@@ -717,19 +723,19 @@
         const phone = document.getElementById('newEmpPhone')?.value;
         
         if (!name || !password) {
-            showNotif('Заполните имя и пароль', 'error');
+            if (typeof showNotif === 'function') showNotif('Заполните имя и пароль', 'error');
             return;
         }
         
         const response = await apiCall('/employees', 'POST', { name, role, password, birthday, phone });
         
         if (response && response.success) {
-            showNotif(`✅ Сотрудник ${name} создан`, 'success');
+            if (typeof showNotif === 'function') showNotif(`✅ Сотрудник ${name} создан`, 'success');
             closeCreateEmployeeModal();
             await loadEmployees();
             renderEmployees();
         } else {
-            showNotif('❌ Ошибка при создании', 'error');
+            if (typeof showNotif === 'function') showNotif('❌ Ошибка при создании', 'error');
         }
     }
     
@@ -738,19 +744,19 @@
         const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
         
         if (coins === 0 && rating === 0) {
-            showNotif('Укажите сумму', 'warning');
+            if (typeof showNotif === 'function') showNotif('Укажите сумму', 'warning');
             return;
         }
         
         const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
         if (res?.success) {
-            showNotif('✅ Бонус выдан', 'success');
+            if (typeof showNotif === 'function') showNotif('✅ Бонус выдан', 'success');
             closeProfileModal();
             await loadEmployees();
             renderEmployees();
             if (typeof refreshAllBalanceDisplays === 'function') refreshAllBalanceDisplays();
         } else {
-            showNotif('❌ Ошибка', 'error');
+            if (typeof showNotif === 'function') showNotif('❌ Ошибка', 'error');
         }
     }
     
@@ -760,12 +766,12 @@
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role });
         if (res?.success) {
-            showNotif('✅ Роль изменена', 'success');
+            if (typeof showNotif === 'function') showNotif('✅ Роль изменена', 'success');
             closeProfileModal();
             await loadEmployees();
             renderEmployees();
         } else {
-            showNotif('❌ Ошибка', 'error');
+            if (typeof showNotif === 'function') showNotif('❌ Ошибка', 'error');
         }
     }
     
@@ -774,12 +780,12 @@
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}`, 'DELETE');
         if (res?.success) {
-            showNotif(`✅ ${employeeName} уволен`, 'success');
+            if (typeof showNotif === 'function') showNotif(`✅ ${employeeName} уволен`, 'success');
             closeProfileModal();
             await loadEmployees();
             renderEmployees();
         } else {
-            showNotif('❌ Ошибка', 'error');
+            if (typeof showNotif === 'function') showNotif('❌ Ошибка', 'error');
         }
     }
     
