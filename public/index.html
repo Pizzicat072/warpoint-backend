@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* ===== СБРОС ===== */
         * {
             margin: 0;
             padding: 0;
@@ -23,7 +22,7 @@
             position: relative;
         }
         
-        /* ФОНОВАЯ КАРТИНКА НА ВЕСЬ САЙТ */
+        /* ФОН ПО УМОЛЧАНИЮ (градиент) */
         body::before {
             content: '';
             position: fixed;
@@ -31,9 +30,15 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: url('/2026-04-02_03-45-56.png') center/cover no-repeat;
-            filter: brightness(0.4) saturate(0.8);
+            background: radial-gradient(ellipse at 20% 30%, #0a0f1e, #05070f);
             z-index: -2;
+            transition: opacity 0.5s ease;
+        }
+        
+        /* Если картинка загружена — заменяем фон */
+        body.bg-image-loaded::before {
+            background: url('/2026-04-02_03-45-56.png') center/cover no-repeat !important;
+            filter: brightness(0.4) saturate(0.8) !important;
         }
         
         body::after {
@@ -47,10 +52,7 @@
             z-index: -1;
         }
         
-        /* ============================================ */
-        /* ПРЕМИУМ ПРЕЛОАДЕР */
-        /* ============================================ */
-        
+        /* ===== ПРЕМИУМ ПРЕЛОАДЕР ===== */
         #globalLoader {
             position: fixed;
             top: 0;
@@ -96,48 +98,13 @@
             opacity: 0.15;
         }
         
-        .orb-1 {
-            width: 500px;
-            height: 500px;
-            background: #6366f1;
-            top: -150px;
-            left: -150px;
-            animation: orbFloat1 10s ease-in-out infinite;
-        }
+        .orb-1 { width: 500px; height: 500px; background: #6366f1; top: -150px; left: -150px; animation: orbFloat1 10s ease-in-out infinite; }
+        .orb-2 { width: 600px; height: 600px; background: #ec4899; bottom: -200px; right: -150px; animation: orbFloat2 12s ease-in-out infinite; }
+        .orb-3 { width: 400px; height: 400px; background: #8b5cf6; top: 50%; left: 50%; transform: translate(-50%, -50%); animation: orbFloat3 14s ease-in-out infinite; }
         
-        .orb-2 {
-            width: 600px;
-            height: 600px;
-            background: #ec4899;
-            bottom: -200px;
-            right: -150px;
-            animation: orbFloat2 12s ease-in-out infinite;
-        }
-        
-        .orb-3 {
-            width: 400px;
-            height: 400px;
-            background: #8b5cf6;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            animation: orbFloat3 14s ease-in-out infinite;
-        }
-        
-        @keyframes orbFloat1 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(60px, 40px) scale(1.15); }
-        }
-        
-        @keyframes orbFloat2 {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(-50px, -60px) scale(1.2); }
-        }
-        
-        @keyframes orbFloat3 {
-            0%, 100% { transform: translate(-50%, -50%) scale(1); }
-            50% { transform: translate(-40%, -60%) scale(1.1); }
-        }
+        @keyframes orbFloat1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(60px,40px) scale(1.15); } }
+        @keyframes orbFloat2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-50px,-60px) scale(1.2); } }
+        @keyframes orbFloat3 { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-40%,-60%) scale(1.1); } }
         
         .loader-content-premium {
             position: relative;
@@ -205,10 +172,7 @@
             animation: ringRotate 5s linear infinite reverse;
         }
         
-        @keyframes ringRotate {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
+        @keyframes ringRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         
         .logo-text-stage {
             position: absolute;
@@ -273,20 +237,8 @@
             padding: 0 6px;
         }
         
-        .status-text {
-            font-size: 14px;
-            color: #94a3b8;
-            letter-spacing: 0.5px;
-        }
-        
-        .status-count {
-            font-size: 14px;
-            font-weight: 500;
-            color: #64748b;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
+        .status-text { font-size: 14px; color: #94a3b8; letter-spacing: 0.5px; }
+        .status-count { font-size: 14px; font-weight: 500; color: #64748b; display: flex; align-items: center; gap: 4px; }
         
         .loader-progress-wrapper {
             position: relative;
@@ -331,7 +283,6 @@
             color: #a78bfa;
         }
         
-        /* ИСПРАВЛЕНО: убрана дублирующаяся иконка */
         .loader-tips {
             display: flex;
             align-items: center;
@@ -345,10 +296,7 @@
             backdrop-filter: blur(10px);
         }
         
-        .loader-tips .tip-text {
-            font-size: 13px;
-            color: #cbd5e1;
-        }
+        .loader-tips .tip-text { font-size: 13px; color: #cbd5e1; }
         
         .loader-particles {
             position: absolute;
@@ -371,7 +319,7 @@
         }
         
         @keyframes particleFloat {
-            0%, 100% { transform: translateY(0) translateX(0); opacity: 0; }
+            0%,100% { transform: translateY(0) translateX(0); opacity: 0; }
             10% { opacity: 0.8; }
             90% { opacity: 0.8; }
             100% { transform: translateY(-120px) translateX(60px); opacity: 0; }
@@ -399,30 +347,12 @@
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
         }
         
-        #syncIndicator:hover {
-            transform: scale(1.05);
-            background: rgba(18, 24, 34, 0.95);
-            border-color: rgba(99, 102, 241, 0.4);
-        }
+        #syncIndicator:hover { transform: scale(1.05); background: rgba(18,24,34,0.95); border-color: rgba(99,102,241,0.4); }
+        #syncIndicator i { font-size: 20px; color: #ef4444; transition: color 0.2s ease; }
+        #syncIndicator.online i { color: #10b981; }
+        #syncIndicator.connecting i { color: #f59e0b; animation: syncSpin 1.5s linear infinite; }
         
-        #syncIndicator i {
-            font-size: 20px;
-            color: #ef4444;
-            transition: color 0.2s ease;
-        }
-        
-        #syncIndicator.online i {
-            color: #10b981;
-        }
-        
-        #syncIndicator.connecting i {
-            color: #f59e0b;
-            animation: syncSpin 1.5s linear infinite;
-        }
-        
-        @keyframes syncSpin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes syncSpin { to { transform: rotate(360deg); } }
         
         /* ===== МОДАЛКА АВТОРИЗАЦИИ ===== */
         #loginModal {
@@ -451,64 +381,17 @@
             animation: cardAppear 0.5s ease-out;
         }
         
-        @keyframes cardAppear {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes cardAppear { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
-        .login-logo-clean {
-            width: 100px;
-            height: 100px;
-            margin: 0 auto 32px;
-        }
+        .login-logo-clean { width: 100px; height: 100px; margin: 0 auto 32px; }
+        .login-logo-clean img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3)); }
+        .login-brand-name { font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+        .login-brand-sub { font-size: 13px; color: #9ca3af; margin-bottom: 40px; }
         
-        .login-logo-clean img {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
-        }
-        
-        .login-brand-name {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 8px;
-        }
-        
-        .login-brand-sub {
-            font-size: 13px;
-            color: #9ca3af;
-            margin-bottom: 40px;
-        }
-        
-        .login-field {
-            position: relative;
-            margin-bottom: 16px;
-        }
-        
-        .login-field i {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #9ca3af;
-        }
-        
-        .login-field input {
-            width: 100%;
-            padding: 14px 16px 14px 48px;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            color: #fff;
-            font-size: 15px;
-            outline: none;
-        }
-        
-        .login-field input:focus {
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
-        }
+        .login-field { position: relative; margin-bottom: 16px; }
+        .login-field i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; }
+        .login-field input { width: 100%; padding: 14px 16px 14px 48px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; color: #fff; font-size: 15px; outline: none; }
+        .login-field input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
         
         .login-submit-btn {
             width: 100%;
@@ -527,27 +410,11 @@
             transition: all 0.2s;
         }
         
-        .login-submit-btn:hover {
-            background: #7c3aed;
-            transform: translateY(-1px);
-        }
-        
-        .login-footer-note {
-            margin-top: 24px;
-            font-size: 12px;
-            color: #9ca3af;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-        }
+        .login-submit-btn:hover { background: #7c3aed; transform: translateY(-1px); }
+        .login-footer-note { margin-top: 24px; font-size: 12px; color: #9ca3af; display: flex; align-items: center; justify-content: center; gap: 6px; }
         
         /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
-        #mainContainer {
-            position: relative;
-            z-index: 10;
-            min-height: 100vh;
-        }
+        #mainContainer { position: relative; z-index: 10; min-height: 100vh; }
         
         /* ===== ХЕДЕР ===== */
         .header {
@@ -563,37 +430,11 @@
             z-index: 1000;
         }
         
-        .logo-area {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        
-        .logo-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            overflow: hidden;
-        }
-        
-        .logo-icon img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-        
-        .logo-text {
-            font-size: 22px;
-            font-weight: 700;
-        }
-        
-        .logo-badge {
-            background: #6366f1;
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 10px;
-            margin-left: 8px;
-        }
+        .logo-area { display: flex; align-items: center; gap: 12px; }
+        .logo-icon { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; }
+        .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .logo-text { font-size: 22px; font-weight: 700; }
+        .logo-badge { background: #6366f1; padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 8px; }
         
         .user-card {
             display: flex;
@@ -604,81 +445,17 @@
             padding: 4px 16px 4px 8px;
         }
         
-        .user-avatar {
-            width: 36px;
-            height: 36px;
-            background: #2d3748;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            cursor: pointer;
-            overflow: hidden;
-        }
+        .user-avatar { width: 36px; height: 36px; background: #2d3748; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; overflow: hidden; }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .user-info { text-align: right; }
+        .user-name { font-weight: 600; font-size: 13px; }
+        .user-status { font-size: 10px; color: #9ca3af; }
         
-        .user-avatar img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
+        .logout-btn { background: transparent; border: 1px solid rgba(239,68,68,0.3); border-radius: 20px; padding: 4px 12px; color: #f87171; cursor: pointer; font-size: 11px; }
+        .logout-btn:hover { background: rgba(239,68,68,0.1); }
         
-        .user-info {
-            text-align: right;
-        }
-        
-        .user-name {
-            font-weight: 600;
-            font-size: 13px;
-        }
-        
-        .user-status {
-            font-size: 10px;
-            color: #9ca3af;
-        }
-        
-        .logout-btn {
-            background: transparent;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-            border-radius: 20px;
-            padding: 4px 12px;
-            color: #f87171;
-            cursor: pointer;
-            font-size: 11px;
-        }
-        
-        .logout-btn:hover {
-            background: rgba(239, 68, 68, 0.1);
-        }
-        
-        .notifications-icon {
-            position: relative;
-            cursor: pointer;
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.04);
-        }
-        
-        .notifications-icon .badge {
-            position: absolute;
-            top: -4px;
-            right: -4px;
-            background: #ef4444;
-            color: white;
-            font-size: 10px;
-            font-weight: 600;
-            min-width: 16px;
-            height: 16px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0 4px;
-        }
+        .notifications-icon { position: relative; cursor: pointer; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 10px; background: rgba(255,255,255,0.04); }
+        .notifications-icon .badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; font-size: 10px; font-weight: 600; min-width: 16px; height: 16px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
         
         .notifications-dropdown {
             position: absolute;
@@ -688,16 +465,14 @@
             max-height: 400px;
             background: #131720;
             border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
-            box-shadow: 0 20px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255,255,255,0.06);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.5);
             z-index: 9999;
             overflow: hidden;
             display: none;
         }
         
-        .notifications-dropdown.show {
-            display: block;
-        }
+        .notifications-dropdown.show { display: block; }
         
         .main-menu {
             background: rgba(11, 14, 20, 0.8);
@@ -732,28 +507,11 @@
             white-space: nowrap;
         }
         
-        .menu-item i {
-            font-size: 18px;
-            color: #9ca3af;
-        }
-        
-        .menu-item .menu-tooltip {
-            font-size: 10px;
-            color: #9ca3af;
-        }
-        
-        .menu-item:hover {
-            background: rgba(255, 255, 255, 0.04);
-        }
-        
-        .menu-item.active {
-            background: rgba(99, 102, 241, 0.1);
-        }
-        
-        .menu-item.active i,
-        .menu-item.active .menu-tooltip {
-            color: #818cf8;
-        }
+        .menu-item i { font-size: 18px; color: #9ca3af; }
+        .menu-item .menu-tooltip { font-size: 10px; color: #9ca3af; }
+        .menu-item:hover { background: rgba(255,255,255,0.04); }
+        .menu-item.active { background: rgba(99,102,241,0.1); }
+        .menu-item.active i, .menu-item.active .menu-tooltip { color: #818cf8; }
         
         @media (max-width: 768px) {
             .header { padding: 12px 16px; }
@@ -819,7 +577,6 @@
                 </div>
             </div>
             
-            <!-- ИСПРАВЛЕНО: убрана дублирующаяся иконка, теперь только текст -->
             <div class="loader-tips" id="loaderTip" style="opacity: 0;">
                 <span class="tip-text">WARPOINT — корпоративный портал</span>
             </div>
@@ -829,7 +586,7 @@
     </div>
 </div>
 
-<!-- СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ) -->
+<!-- СИНХРОНИЗАЦИЯ -->
 <div id="syncIndicator" onclick="if(typeof window.initPusher==='function')window.initPusher()">
     <i class="fas fa-broadcast-tower"></i>
 </div>
@@ -929,6 +686,19 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
+    // ПРОВЕРКА ФОНОВОЙ КАРТИНКИ
+    (function() {
+        const img = new Image();
+        img.onload = function() {
+            document.body.classList.add('bg-image-loaded');
+            console.log('✅ Фоновая картинка загружена');
+        };
+        img.onerror = function() {
+            console.log('⚠️ Фоновая картинка не найдена, используется градиент');
+        };
+        img.src = '/2026-04-02_03-45-56.png';
+    })();
+
     const PUSHER_KEY = '91e6eb7093c4b16a3275';
     const PUSHER_CLUSTER = 'ap1';
     const CHANNEL_NAME = 'private-warpoint-sync';
@@ -938,10 +708,7 @@
     let isPusherInitializing = false;
     let pusherReconnectTimer = null;
     
-    // ============================================
-    // ПРЕЛОАДЕР (ИСПРАВЛЕННЫЙ)
-    // ============================================
-    
+    // ===== ПРЕЛОАДЕР =====
     const requiredModules = [
         'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
         'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
@@ -1035,7 +802,6 @@
     
     function updateLoaderProgress() {
         loadedModules++;
-        // Прогресс считаем от 0 до 100, но начинаем не с 0 а с 10 для плавности
         let percent = Math.min(95, Math.round((loadedModules / requiredModules.length) * 95) + 5);
         
         if (loaderModuleCount) {
@@ -1062,8 +828,6 @@
     
     function tryToHideLoader() {
         if (!allModulesLoaded) return;
-        
-        // Если уже скрываем, не повторяем
         if (globalLoader && globalLoader.classList.contains('fade-out')) return;
         
         const elapsed = Date.now() - startTime;
@@ -1074,7 +838,6 @@
         
         if (tipInterval) clearInterval(tipInterval);
         
-        // Принудительно ставим 100% перед скрытием
         if (loaderProgressBar) loaderProgressBar.style.width = '100%';
         if (loaderPercent) loaderPercent.textContent = '100%';
         
@@ -1086,16 +849,13 @@
         }
     }
     
-    // Принудительное скрытие прелоадера через 8 секунд (защита от зависания)
     loaderForceHideTimer = setTimeout(() => {
         if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
             console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
             if (loaderProgressBar) loaderProgressBar.style.width = '100%';
             if (loaderPercent) loaderPercent.textContent = '100%';
             globalLoader.classList.add('fade-out');
-            setTimeout(() => {
-                if (globalLoader) globalLoader.style.display = 'none';
-            }, 800);
+            setTimeout(() => { if (globalLoader) globalLoader.style.display = 'none'; }, 800);
             allModulesLoaded = true;
             if (tipInterval) clearInterval(tipInterval);
         }
@@ -1121,10 +881,7 @@
     createParticles();
     setTimeout(startLogoTransformation, 100);
     
-    // ============================================
-    // PUSHER
-    // ============================================
-    
+    // ===== PUSHER =====
     function transliterateForChannel(name) {
         const ru = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
         let result = '';
@@ -1141,7 +898,6 @@
     
     function initPusher() {
         if (isPusherInitializing) return;
-        
         const token = localStorage.getItem('token');
         if (!token) return;
         
@@ -1152,10 +908,7 @@
         }
         
         if (window.pusher && window.pusher.connection?.state === 'connected') {
-            if (syncIndicator) {
-                syncIndicator.classList.add('online');
-                syncIndicator.classList.remove('connecting');
-            }
+            if (syncIndicator) { syncIndicator.classList.add('online'); syncIndicator.classList.remove('connecting'); }
             return;
         }
         
@@ -1163,49 +916,31 @@
         
         try {
             if (window.pusher) window.pusher.disconnect();
-            
             window.pusher = new Pusher(PUSHER_KEY, {
-                cluster: PUSHER_CLUSTER,
-                forceTLS: true,
+                cluster: PUSHER_CLUSTER, forceTLS: true,
                 authEndpoint: '/api/pusher/auth',
                 auth: { headers: { 'Authorization': 'Bearer ' + token } }
             });
-            
             window.channel = window.pusher.subscribe(CHANNEL_NAME);
-            
             const currentUser = window.app?.currentUser;
-            if (currentUser) {
-                window.privateChannel = window.pusher.subscribe('private-user-' + transliterateForChannel(currentUser));
-            }
+            if (currentUser) window.privateChannel = window.pusher.subscribe('private-user-' + transliterateForChannel(currentUser));
             
             window.pusher.connection.bind('connected', () => {
                 console.log('🟢 Pusher подключён');
-                if (syncIndicator) {
-                    syncIndicator.classList.add('online');
-                    syncIndicator.classList.remove('connecting');
-                }
-                pusherInitAttempts = 0;
-                isPusherInitializing = false;
-                if (pusherReconnectTimer) {
-                    clearTimeout(pusherReconnectTimer);
-                    pusherReconnectTimer = null;
-                }
+                if (syncIndicator) { syncIndicator.classList.add('online'); syncIndicator.classList.remove('connecting'); }
+                pusherInitAttempts = 0; isPusherInitializing = false;
+                if (pusherReconnectTimer) { clearTimeout(pusherReconnectTimer); pusherReconnectTimer = null; }
             });
-            
             window.pusher.connection.bind('disconnected', () => {
                 console.log('🔴 Pusher отключён');
                 if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
-                isPusherInitializing = false;
-                schedulePusherReconnect();
+                isPusherInitializing = false; schedulePusherReconnect();
             });
-            
             window.pusher.connection.bind('error', (err) => {
                 console.error('❌ Pusher error:', err);
                 if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
-                isPusherInitializing = false;
-                schedulePusherReconnect();
+                isPusherInitializing = false; schedulePusherReconnect();
             });
-            
             window.channel.bind('schedule-updated', (data) => {
                 if (typeof loadScheduleData === 'function') loadScheduleData();
                 if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
@@ -1213,12 +948,10 @@
                 if (typeof renderEmployees === 'function') renderEmployees();
                 showNotif(`📅 Смена для ${escapeHtml(data.employee)} обновлена`, 'info');
             });
-            
         } catch (err) {
             console.error('Pusher error:', err);
             if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
-            isPusherInitializing = false;
-            schedulePusherReconnect();
+            isPusherInitializing = false; schedulePusherReconnect();
         }
     }
     
@@ -1234,10 +967,7 @@
     
     window.initPusher = initPusher;
     
-    // ============================================
-    // АВТОРИЗАЦИЯ
-    // ============================================
-    
+    // ===== АВТОРИЗАЦИЯ =====
     window.showGlobalLoader = function() {
         if (globalLoader) {
             globalLoader.style.display = 'flex';
@@ -1254,11 +984,9 @@
                 window.app = window.app || {};
                 window.app.currentUser = user.name;
                 window.app.currentUserRole = user.role;
-                
                 document.getElementById('loginModal').style.display = 'none';
                 document.getElementById('mainContainer').style.display = 'block';
                 document.getElementById('headerName').textContent = user.name;
-                
                 loadEmployees().then(() => { loadTasks(); loadFines(); loadSchedule(); renderMainMenu(); });
                 setTimeout(() => initPusher(), 1000);
             } catch(e) {
