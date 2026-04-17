@@ -1378,7 +1378,7 @@ app.post('/api/achievements/check', authMiddleware, async (req, res) => {
     }
 });
 // ============================================
-// PARSING API
+// PARSING API (ИСПРАВЛЕННЫЙ)
 // ============================================
 
 const { BookingParser } = require('./parsing-booking.js');
@@ -1387,12 +1387,15 @@ app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
     const dataPath = path.join(__dirname, 'data', 'booking-availability.json');
     try { 
         if (fs.existsSync(dataPath)) { 
-            res.json(JSON.parse(fs.readFileSync(dataPath, 'utf8'))); 
+            const data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
+            // 🔥 Добавляем success: true для совместимости
+            res.json({ success: true, ...data }); 
         } else { 
-            res.json({ success: false, error: 'Нет данных' }); 
+            res.json({ success: false, error: 'Нет данных', dates: {} }); 
         } 
     } catch (err) { 
-        res.status(500).json({ error: err.message }); 
+        console.error('❌ Ошибка чтения данных парсинга:', err);
+        res.status(500).json({ success: false, error: err.message }); 
     }
 });
 
@@ -1400,12 +1403,13 @@ app.get('/api/parsing/progress', authMiddleware, async (req, res) => {
     const progressPath = path.join(__dirname, 'data', 'parsing-progress.json');
     try { 
         if (fs.existsSync(progressPath)) { 
-            res.json(JSON.parse(fs.readFileSync(progressPath, 'utf8'))); 
+            const data = JSON.parse(fs.readFileSync(progressPath, 'utf8'));
+            res.json(data); 
         } else { 
-            res.json({ step: 0, percent: 0, message: 'Ожидание запуска' }); 
+            res.json({ step: 0, percent: 0, message: 'Ожидание запуска', isParsing: false }); 
         } 
     } catch (err) { 
-        res.json({ step: 0, percent: 0, message: 'Ошибка' }); 
+        res.json({ step: 0, percent: 0, message: 'Ошибка', isParsing: false }); 
     }
 });
 
@@ -1413,12 +1417,23 @@ app.post('/api/parsing/run', authMiddleware, async (req, res) => {
     if (req.user.role !== 'director' && req.user.role !== 'manager') {
         return res.status(403).json({ error: 'Доступ запрещён' });
     }
+    
+    console.log('🚀 Запуск парсинга бронирований...');
+    
     try { 
         const parser = new BookingParser(); 
-        const result = await parser.parseAvailability(); 
-        res.json(result); 
+        // Запускаем парсинг асинхронно, чтобы не блокировать ответ
+        parser.parseAvailability().then(result => {
+            console.log('✅ Парсинг завершён:', result.success ? 'успешно' : 'с ошибкой');
+        }).catch(err => {
+            console.error('❌ Ошибка парсинга:', err);
+        });
+        
+        // Сразу отвечаем, что парсинг запущен
+        res.json({ success: true, message: 'Парсинг запущен' }); 
     } catch (err) { 
-        res.status(500).json({ error: err.message }); 
+        console.error('❌ Ошибка запуска парсинга:', err);
+        res.status(500).json({ success: false, error: err.message }); 
     }
 });
 
@@ -1427,50 +1442,15 @@ app.post('/api/parsing/reset', authMiddleware, async (req, res) => {
         return res.status(403).json({ error: 'Доступ запрещён' });
     }
     const progressPath = path.join(__dirname, 'data', 'parsing-progress.json');
+    const dataPath = path.join(__dirname, 'data', 'booking-availability.json');
     try { 
-        if (fs.existsSync(progressPath)) fs.unlinkSync(progressPath); 
-        res.json({ success: true }); 
+        if (fs.existsSync(progressPath)) fs.unlinkSync(progressPath);
+        if (fs.existsSync(dataPath)) fs.unlinkSync(dataPath);
+        res.json({ success: true, message: 'Данные парсинга сброшены' }); 
     } catch (err) { 
         res.status(500).json({ error: err.message }); 
     }
 });
-
-// ============================================
-// PUSHER AUTH
-// ============================================
-
-app.post('/api/pusher/auth', (req, res) => {
-    const socketId = req.body.socket_id; 
-    const channel = req.body.channel_name;
-    const token = req.headers['authorization']?.split(' ')[1]; 
-    let user = null;
-    if (token) { 
-        try { 
-            user = jwt.verify(token, JWT_SECRET); 
-        } catch(err) {} 
-    }
-    if (!user) user = { username: 'guest', role: 'guest', id: 0 };
-    
-    try {
-        if (!channel.startsWith('private-')) return res.send(pusher.authorizeChannel(socketId, channel));
-        if (channel === 'private-warpoint-sync') { 
-            return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); 
-        }
-        if (channel.startsWith('private-user-')) { 
-            const targetUser = channel.replace('private-user-', ''); 
-            const currentUserTranslit = transliterate(user.username); 
-            if (currentUserTranslit === targetUser || user.role === 'director') { 
-                return res.send(pusher.authorizeChannel(socketId, channel, { user_id: user.username, user_info: { name: user.username, role: user.role } })); 
-            } else { 
-                return res.status(403).json({ error: 'Forbidden' }); 
-            } 
-        }
-        res.send(pusher.authorizeChannel(socketId, channel));
-    } catch (err) { 
-        res.status(500).json({ error: err.message }); 
-    }
-});
-
 // ============================================
 // USER API
 // ============================================
