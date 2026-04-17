@@ -2072,16 +2072,16 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 }
 
 function openProfile(employeeName) {
-    if (typeof window.openProfile === 'function') {
+    if (typeof window.openProfile === 'function' && window.openProfile !== openProfile) {
         window.openProfile(employeeName);
     }
 }
 
 function formatTimeAgo(timestamp) {
-    if (typeof window.formatTimeAgo === 'function') {
+    if (typeof window.formatTimeAgo === 'function' && window.formatTimeAgo !== formatTimeAgo) {
         return window.formatTimeAgo(timestamp);
     }
-    const diff = Date.now() - timestamp;
+    var diff = Date.now() - timestamp;
     if (diff < 60000) return 'только что';
     if (diff < 3600000) return Math.floor(diff / 60000) + ' мин назад';
     if (diff < 86400000) return Math.floor(diff / 3600000) + ' ч назад';

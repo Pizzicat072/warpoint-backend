@@ -844,56 +844,39 @@
 </style>
 
 <script>
-// ============================================
 // ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ ГРАФИКА
-// ============================================
-
-let myShiftsOnly = false;
-let operatorsOnly = false;
-
-function toggleMyShiftsFilter() {
-    myShiftsOnly = document.getElementById('filterMyShifts')?.checked || false;
+window.toggleMyShiftsFilter = function() {
+    var checkbox = document.getElementById('filterMyShifts');
+    if (typeof myShiftsOnly !== 'undefined') {
+        myShiftsOnly = checkbox ? checkbox.checked : false;
+    }
     if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
-}
+};
 
-function toggleOperatorsFilter() {
-    operatorsOnly = document.getElementById('filterOperatorsOnly')?.checked || false;
+window.toggleOperatorsFilter = function() {
+    var checkbox = document.getElementById('filterOperatorsOnly');
+    if (typeof operatorsOnly !== 'undefined') {
+        operatorsOnly = checkbox ? checkbox.checked : false;
+    }
     if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
-}
+};
 
-function resetScheduleFilters() {
-    const myShiftsCheckbox = document.getElementById('filterMyShifts');
-    const operatorsCheckbox = document.getElementById('filterOperatorsOnly');
-    
-    if (myShiftsCheckbox) myShiftsCheckbox.checked = false;
-    if (operatorsCheckbox) operatorsCheckbox.checked = false;
-    
-    myShiftsOnly = false;
-    operatorsOnly = false;
-    
+window.resetScheduleFilters = function() {
+    var myCheckbox = document.getElementById('filterMyShifts');
+    var opCheckbox = document.getElementById('filterOperatorsOnly');
+    if (myCheckbox) myCheckbox.checked = false;
+    if (opCheckbox) opCheckbox.checked = false;
+    if (typeof myShiftsOnly !== 'undefined') myShiftsOnly = false;
+    if (typeof operatorsOnly !== 'undefined') operatorsOnly = false;
     if (typeof renderMonthSchedule === 'function') renderMonthSchedule();
-    showNotif('Фильтры сброшены', 'info');
-}
+    if (typeof showNotif === 'function') showNotif('Фильтры сброшены', 'info');
+};
 
-function exportSchedule() {
+window.exportSchedule = function() {
     if (typeof showNotif === 'function') {
         showNotif('📊 Экспорт в разработке', 'info');
     } else {
         alert('Экспорт в разработке');
     }
-}
-
-function showNotif(msg, type) {
-    if (typeof window.showNotif === 'function') {
-        window.showNotif(msg, type);
-    } else {
-        console.log(`[${type}] ${msg}`);
-    }
-}
-
-// Экспорт функций
-window.toggleMyShiftsFilter = toggleMyShiftsFilter;
-window.toggleOperatorsFilter = toggleOperatorsFilter;
-window.resetScheduleFilters = resetScheduleFilters;
-window.exportSchedule = exportSchedule;
+};
 </script>
