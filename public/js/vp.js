@@ -798,10 +798,23 @@ function openVpModal(vpId = null) {
     const currentUser = window.app?.currentUser;
     
     const today = getTobolskNow().toISOString().split('T')[0];
-    const defaultDate = vp?.event_date || today;
+    
+    // 🔥 ИСПРАВЛЕНО: корректное извлечение даты из ISO-строки
+    let defaultDate = today;
+    if (vp?.event_date) {
+        if (typeof vp.event_date === 'string' && vp.event_date.includes('T')) {
+            defaultDate = vp.event_date.split('T')[0];
+        } else {
+            defaultDate = vp.event_date;
+        }
+    }
+    
     const defaultTime = vp?.event_time || '10:00';
     const defaultDuration = vp?.duration || 1;
-    const defaultAdmin = vp?.admin || (admins.includes(currentUser) ? currentUser : '');
+    
+    // 🔥 ИСПРАВЛЕНО: автовыбор текущего админа, если он в списке
+    const isCurrentUserAdmin = admins.includes(currentUser);
+    const defaultAdmin = vp?.admin || (isCurrentUserAdmin ? currentUser : '');
     
     const modalHtml = `
         <div id="vpModal" class="modal active" onclick="closeVpModal()">
@@ -1068,7 +1081,25 @@ function exportVpToExcel() {
 }
 
 function getCurrentPage() {
-    return typeof window.getCurrentPage === 'function' ? window.getCurrentPage() : null;
+    // 🔥 ИСПРАВЛЕНО: защита от бесконечной рекурсии
+    if (typeof window.getCurrentPage === 'function' && window.getCurrentPage !== getCurrentPage) {
+        return window.getCurrentPage();
+    }
+    // Fallback: получаем текущую страницу из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('page') || 'dashboard';
+}
+
+function setupVisibilityChange() {
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+            // 🔥 ИСПРАВЛЕНО: не проверяем getCurrentPage(), просто обновляем если контейнер существует
+            const container = document.getElementById('vpTableBody');
+            if (container) {
+                loadVpData();
+            }
+        }
+    });
 }
 
 // ============================================
