@@ -317,7 +317,7 @@
             right: 0;
             width: 25px;
             height: 100%;
-            background: linear-gradient(90deg, transparent, #ffffff);
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
             opacity: 0.3;
             filter: blur(5px);
         }
@@ -331,11 +331,12 @@
             color: #a78bfa;
         }
         
+        /* ИСПРАВЛЕНО: убрана дублирующаяся иконка */
         .loader-tips {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 8px;
             padding: 14px 24px;
             background: rgba(99, 102, 241, 0.06);
             border-radius: 50px;
@@ -344,11 +345,7 @@
             backdrop-filter: blur(10px);
         }
         
-        .tip-icon {
-            font-size: 18px;
-        }
-        
-        .tip-text {
+        .loader-tips .tip-text {
             font-size: 13px;
             color: #cbd5e1;
         }
@@ -779,7 +776,7 @@
 </head>
 <body>
 
-<!-- ПРЕМИУМ ПРЕЛОАДЕР (ПОКАЗЫВАЕТСЯ СРАЗУ) -->
+<!-- ПРЕМИУМ ПРЕЛОАДЕР -->
 <div id="globalLoader">
     <div class="premium-loader-container">
         <div class="loader-bg">
@@ -822,8 +819,8 @@
                 </div>
             </div>
             
+            <!-- ИСПРАВЛЕНО: убрана дублирующаяся иконка, теперь только текст -->
             <div class="loader-tips" id="loaderTip" style="opacity: 0;">
-                <span class="tip-icon">💡</span>
                 <span class="tip-text">WARPOINT — корпоративный портал</span>
             </div>
         </div>
@@ -942,7 +939,7 @@
     let pusherReconnectTimer = null;
     
     // ============================================
-    // ПРЕЛОАДЕР
+    // ПРЕЛОАДЕР (ИСПРАВЛЕННЫЙ)
     // ============================================
     
     const requiredModules = [
@@ -953,19 +950,21 @@
     ];
     
     const loaderTips = [
-        '💡 WARPOINT — корпоративный портал',
-        '💡 Управляйте задачами и графиком',
-        '💡 Следите за рейтингом команды',
-        '💡 Получайте достижения и бонусы',
-        '💡 Общайтесь в чате с коллегами',
-        '💡 Добро пожаловать в команду!'
+        'WARPOINT — корпоративный портал',
+        'Управляйте задачами и графиком',
+        'Следите за рейтингом команды',
+        'Получайте достижения и бонусы',
+        'Общайтесь в чате с коллегами',
+        'Добро пожаловать в команду!'
     ];
     
     let loadedModules = 0;
     let tipIndex = 0;
     let animationStarted = false;
     let allModulesLoaded = false;
-    const MINIMUM_DISPLAY_MS = 3500;
+    let loaderForceHideTimer = null;
+    const MINIMUM_DISPLAY_MS = 2500;
+    const MAXIMUM_DISPLAY_MS = 8000;
     let startTime = Date.now();
     
     const globalLoader = document.getElementById('globalLoader');
@@ -1036,7 +1035,8 @@
     
     function updateLoaderProgress() {
         loadedModules++;
-        const percent = Math.round((loadedModules / requiredModules.length) * 100);
+        // Прогресс считаем от 0 до 100, но начинаем не с 0 а с 10 для плавности
+        let percent = Math.min(95, Math.round((loadedModules / requiredModules.length) * 95) + 5);
         
         if (loaderModuleCount) {
             loaderModuleCount.innerHTML = `<span style="font-weight:700;color:#a78bfa;">${loadedModules}</span><span style="color:#64748b;">/${requiredModules.length}</span>`;
@@ -1063,6 +1063,9 @@
     function tryToHideLoader() {
         if (!allModulesLoaded) return;
         
+        // Если уже скрываем, не повторяем
+        if (globalLoader && globalLoader.classList.contains('fade-out')) return;
+        
         const elapsed = Date.now() - startTime;
         if (elapsed < MINIMUM_DISPLAY_MS) {
             setTimeout(tryToHideLoader, MINIMUM_DISPLAY_MS - elapsed);
@@ -1071,13 +1074,32 @@
         
         if (tipInterval) clearInterval(tipInterval);
         
-        if (globalLoader && !globalLoader.classList.contains('fade-out')) {
+        // Принудительно ставим 100% перед скрытием
+        if (loaderProgressBar) loaderProgressBar.style.width = '100%';
+        if (loaderPercent) loaderPercent.textContent = '100%';
+        
+        if (globalLoader) {
             globalLoader.classList.add('fade-out');
             setTimeout(() => {
-                globalLoader.style.display = 'none';
+                if (globalLoader) globalLoader.style.display = 'none';
             }, 800);
         }
     }
+    
+    // Принудительное скрытие прелоадера через 8 секунд (защита от зависания)
+    loaderForceHideTimer = setTimeout(() => {
+        if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
+            console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
+            if (loaderProgressBar) loaderProgressBar.style.width = '100%';
+            if (loaderPercent) loaderPercent.textContent = '100%';
+            globalLoader.classList.add('fade-out');
+            setTimeout(() => {
+                if (globalLoader) globalLoader.style.display = 'none';
+            }, 800);
+            allModulesLoaded = true;
+            if (tipInterval) clearInterval(tipInterval);
+        }
+    }, MAXIMUM_DISPLAY_MS);
     
     document.querySelectorAll('script[src*="/js/"]').forEach(script => {
         script.addEventListener('load', updateLoaderProgress);
@@ -1216,10 +1238,9 @@
     // АВТОРИЗАЦИЯ
     // ============================================
     
-    // Показываем прелоадер при попытке входа
     window.showGlobalLoader = function() {
         if (globalLoader) {
-            globalLoader.style.display = 'block';
+            globalLoader.style.display = 'flex';
             globalLoader.classList.remove('fade-out');
         }
     };
