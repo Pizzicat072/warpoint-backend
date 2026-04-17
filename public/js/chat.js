@@ -1271,8 +1271,10 @@ function playSound(type) {
 }
 
 function setSyncStatus(status) {
-    if (typeof window.setSyncStatus === 'function') {
+    if (typeof window.setSyncStatus === 'function' && window.setSyncStatus !== setSyncStatus) {
         window.setSyncStatus(status);
+    } else {
+        console.log('[Sync]', status);
     }
 }
 // ============================================
@@ -2049,7 +2051,7 @@ function escapeHtml(str) {
 }
 
 function showNotif(msg, type = 'info') {
-    if (typeof window.showNotif === 'function') {
+    if (typeof window.showNotif === 'function' && window.showNotif !== showNotif) {
         window.showNotif(msg, type);
     } else {
         console.log(`[${type}] ${msg}`);
@@ -2057,11 +2059,16 @@ function showNotif(msg, type = 'info') {
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
-    if (typeof window.apiCall === 'function') {
+    if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
         return window.apiCall(endpoint, method, body);
     }
-    console.warn('apiCall не найден');
-    return { success: false, error: 'API недоступен' };
+    console.warn('apiCall не найден, используем fetch напрямую');
+    const token = localStorage.getItem('token');
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    if (body) options.body = JSON.stringify(body);
+    const response = await fetch(`/api${endpoint}`, options);
+    return response.json();
 }
 
 function openProfile(employeeName) {
