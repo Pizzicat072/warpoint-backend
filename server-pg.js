@@ -247,6 +247,11 @@ async function initDatabase() {
         await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS comment TEXT DEFAULT NULL`);
         await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS active_status VARCHAR(100) DEFAULT NULL`);
         await pool.query(`ALTER TABLE salary_daily_new ADD COLUMN IF NOT EXISTS extra_motivation INTEGER DEFAULT 0`);
+ await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`);
+    console.log('✅ Добавлена колонка icon в achievements');
+} catch (err) {
+    console.log('⚠️ Ошибка добавления icon:', err.message);
+}
         console.log('✅ Миграции: добавлены все недостающие колонки');
     } catch (err) {
         console.log('⚠️ Ошибка миграций:', err.message);
@@ -505,6 +510,10 @@ async function getUserStats(userId, username) {
     const coinsRes = await pool.query('SELECT coins FROM employees WHERE id = $1', [userId]);
     coins = coinsRes.rows[0]?.coins || 0;
     
+    // СТРИК для всех сотрудников (не только директора)
+    const streakRes = await pool.query('SELECT bonus_streak FROM employees WHERE id = $1', [userId]);
+    streak = streakRes.rows[0]?.bonus_streak || 1;
+    
     if (isWorker) {
         const shiftsRes = await pool.query(
             `SELECT COUNT(*) as count FROM schedule WHERE employee = $1 AND shift_time IS NOT NULL AND (shift_status IS NULL OR shift_status = 'working')`,
@@ -523,9 +532,6 @@ async function getUserStats(userId, username) {
     
     const ratingRes = await pool.query('SELECT rating FROM employees WHERE id = $1', [userId]);
     rating = ratingRes.rows[0]?.rating || 0;
-    
-    const streakRes = await pool.query('SELECT bonus_streak FROM employees WHERE id = $1', [userId]);
-    streak = streakRes.rows[0]?.bonus_streak || 1;
     
     if (isWorker) {
         const exchangesRes = await pool.query(
@@ -561,14 +567,43 @@ async function getUserStats(userId, username) {
     const hasAvatar = avatarsCount > 0;
     const hasFullProfile = await checkHasFullProfile(userId);
     
-    return { shifts: shiftsCount, tasks: tasksCount, gifts: giftsCount, rating, streak, exchanges: exchangesCount, messages: messagesCount, shop: shopCount, knowledge: knowledgeCount, avatars: avatarsCount, statuses: statusesCount, styles: stylesCount, achievements: achievementsCount, coins, hasAvatar, hasFullProfile, role, isWorker };
-}
-
-async function checkHasFullProfile(userId) {
-    const res = await pool.query(`SELECT birthday, phone FROM employees WHERE id = $1`, [userId]);
-    if (res.rows.length === 0) return false;
-    const emp = res.rows[0];
-    return emp.birthday && emp.phone && emp.birthday !== '' && emp.phone !== '';
+    // ПОЛУЧАЕМ СПИСОК КУПЛЕННЫХ СТАТУСОВ
+    const boughtStatusesRes = await pool.query(`SELECT status_name FROM user_statuses WHERE employee_id = $1`, [userId]);
+    const boughtStatuses = boughtStatusesRes.rows.map(row => row.status_name);
+    
+    // ПОЛУЧАЕМ СПИСОК ДОСТИЖЕНИЙ ПОЛЬЗОВАТЕЛЯ
+    const userAchievementsRes = await pool.query(
+        `SELECT a.id, a.name, a.description, a.icon, a.coins_reward 
+         FROM user_achievements ua 
+         JOIN achievements a ON a.id = ua.achievement_id 
+         WHERE ua.user_id = $1 
+         ORDER BY ua.claimed_at DESC`,
+        [userId]
+    );
+    const userAchievements = userAchievementsRes.rows;
+    
+    return { 
+        shifts: shiftsCount, 
+        tasks: tasksCount, 
+        gifts: giftsCount, 
+        rating, 
+        streak, 
+        exchanges: exchangesCount, 
+        messages: messagesCount, 
+        shop: shopCount, 
+        knowledge: knowledgeCount, 
+        avatars: avatarsCount, 
+        statuses: statusesCount, 
+        styles: stylesCount, 
+        achievements: achievementsCount, 
+        coins, 
+        hasAvatar, 
+        hasFullProfile, 
+        role, 
+        isWorker,
+        boughtStatuses,
+        userAchievements
+    };
 }
 
 // ============================================
@@ -636,21 +671,45 @@ async function checkAndGrantAchievements(userId, username) {
             if (checkAchievementCondition(ach, stats)) {
                 await pool.query(`INSERT INTO pending_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [userId, ach.id]);
                 grantedCount++;
-                newAchievements.push({ id: ach.id, name: ach.name, description: ach.description, coins: ach.coins_reward, category: ach.category });
+                newAchievements.push({ 
+                    id: ach.id, 
+                    name: ach.name, 
+                    description: ach.description, 
+                    coins: ach.coins_reward, 
+                    category: ach.category,
+                    icon: ach.icon || '🏆'
+                });
             }
         }
         
+        // ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ О НОВЫХ ДОСТИЖЕНИЯХ
         if (newAchievements.length > 0) {
             const pusherInstance = app.get('pusher');
-            if (newAchievements.length === 1) {
-                const ach = newAchievements[0];
-                await sendGlobalNotification('achievement_unlocked', { username, achievementName: ach.name, coins: ach.coins });
-            } else if (newAchievements.length > 1) {
-                await sendGlobalNotification('achievement_unlocked', { username, achievementName: `${newAchievements.length} достижений`, coins: newAchievements.reduce((sum, a) => sum + a.coins, 0) });
+            
+            // Сохраняем достижения в таблицу для отображения в карточке
+            for (const ach of newAchievements) {
+                // Добавляем в кэш пользователя
+                await pool.query(
+                    `INSERT INTO user_achievements (user_id, achievement_id, claimed_at) 
+                     VALUES ($1, $2, CURRENT_TIMESTAMP) 
+                     ON CONFLICT DO NOTHING`,
+                    [userId, ach.id]
+                );
             }
+            
             if (pusherInstance) {
-                pusherInstance.trigger(`private-user-${transliterate(username)}`, 'personal-notification', { type: 'achievement', icon: '🏆', title: 'Новые достижения!', text: `Вы получили ${newAchievements.length} достижений (+${newAchievements.reduce((sum, a) => sum + a.coins, 0)} WP)`, time: Date.now() });
+                pusherInstance.trigger(`private-user-${transliterate(username)}`, 'personal-notification', { 
+                    type: 'achievement', 
+                    icon: '🏆', 
+                    title: 'Новые достижения!', 
+                    text: `Вы получили ${newAchievements.length} достижений (+${newAchievements.reduce((sum, a) => sum + a.coins, 0)} WP)`, 
+                    time: Date.now(),
+                    achievements: newAchievements 
+                });
             }
+            
+            // Обновляем данные пользователя для отображения в карточке
+            await pool.query(`UPDATE employees SET rating = rating + $1 WHERE id = $2`, [newAchievements.reduce((sum, a) => sum + (a.coins || 0), 0), userId]);
         }
         return { granted: grantedCount, achievements: newAchievements };
     } catch (err) {
@@ -658,7 +717,12 @@ async function checkAndGrantAchievements(userId, username) {
         return { granted: 0, achievements: [] };
     }
 }
-
+async function checkHasFullProfile(userId) {
+    const res = await pool.query(`SELECT birthday, phone FROM employees WHERE id = $1`, [userId]);
+    if (res.rows.length === 0) return false;
+    const emp = res.rows[0];
+    return emp.birthday && emp.phone && emp.birthday !== '' && emp.phone !== '';
+}
 // ============================================
 // АВТО-ОТМЕНА ПРОСРОЧЕННЫХ ЗАПРОСОВ НА ОБМЕН
 // ============================================
@@ -727,7 +791,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ============================================
-// DATA API
+// GET /api/data - ПОЛУЧЕНИЕ ВСЕХ ДАННЫХ
 // ============================================
 
 app.get('/api/data', authMiddleware, async (req, res) => {
@@ -738,22 +802,79 @@ app.get('/api/data', authMiddleware, async (req, res) => {
         const messages = await pool.query('SELECT * FROM messages ORDER BY time DESC LIMIT 500');
         const schedule = await pool.query('SELECT * FROM schedule');
         
+        // ПОЛУЧАЕМ ДОСТИЖЕНИЯ ДЛЯ КАЖДОГО СОТРУДНИКА
+        const userAchievements = {};
+        for (const emp of employees.rows) {
+            const achievementsRes = await pool.query(
+                `SELECT a.id, a.name, a.description, a.icon, a.coins_reward 
+                 FROM user_achievements ua 
+                 JOIN achievements a ON a.id = ua.achievement_id 
+                 WHERE ua.user_id = $1 
+                 ORDER BY ua.claimed_at DESC`,
+                [emp.id]
+            );
+            userAchievements[emp.name] = achievementsRes.rows;
+        }
+        
+        // ПОЛУЧАЕМ КУПЛЕННЫЕ СТАТУСЫ ДЛЯ КАЖДОГО СОТРУДНИКА
+        const userStatuses = {};
+        for (const emp of employees.rows) {
+            const statusesRes = await pool.query(
+                `SELECT status_name FROM user_statuses WHERE employee_id = $1`,
+                [emp.id]
+            );
+            userStatuses[emp.name] = statusesRes.rows.map(row => row.status_name);
+        }
+        
         const messagesByRoom = {};
-        messages.rows.forEach(msg => { if (!messagesByRoom[msg.room]) messagesByRoom[msg.room] = []; messagesByRoom[msg.room].push(msg); });
+        messages.rows.forEach(msg => { 
+            if (!messagesByRoom[msg.room]) messagesByRoom[msg.room] = []; 
+            messagesByRoom[msg.room].push(msg); 
+        });
         
         const scheduleByDate = {};
-        schedule.rows.forEach(s => { const dateStr = s.date instanceof Date ? s.date.toISOString().split('T')[0] : s.date; if (!scheduleByDate[dateStr]) scheduleByDate[dateStr] = {}; scheduleByDate[dateStr][s.employee] = { time: s.shift_time, status: s.shift_status, is_special: s.is_special, special_end_time: s.special_end_time }; });
+        schedule.rows.forEach(s => { 
+            const dateStr = s.date instanceof Date ? s.date.toISOString().split('T')[0] : s.date; 
+            if (!scheduleByDate[dateStr]) scheduleByDate[dateStr] = {}; 
+            scheduleByDate[dateStr][s.employee] = { 
+                time: s.shift_time, 
+                status: s.shift_status, 
+                is_special: s.is_special, 
+                special_end_time: s.special_end_time 
+            }; 
+        });
         
         res.json({ 
             employees: employees.rows.map(e => e.name), 
             profiles: employees.rows.reduce((acc, e) => { 
-                acc[e.name] = { id: e.id, name: e.name, avatar: e.avatar, avatar_url: e.avatar_url, status: e.status, coins: e.coins, rating: e.rating, role: e.role, hours: e.hours, birthday: e.birthday, phone: e.phone, last_active: e.last_active, dashboard_style: e.dashboard_style, bought_styles: e.bought_styles, can_edit_vp: e.can_edit_vp || false, active_status: e.active_status, bonus_streak: e.bonus_streak || 1, last_bonus_claimed_at: e.last_bonus_claimed_at }; 
+                acc[e.name] = { 
+                    id: e.id, 
+                    name: e.name, 
+                    avatar: e.avatar, 
+                    avatar_url: e.avatar_url, 
+                    status: e.status, 
+                    coins: e.coins, 
+                    rating: e.rating, 
+                    role: e.role, 
+                    hours: e.hours, 
+                    birthday: e.birthday, 
+                    phone: e.phone, 
+                    last_active: e.last_active, 
+                    dashboard_style: e.dashboard_style, 
+                    bought_styles: e.bought_styles, 
+                    can_edit_vp: e.can_edit_vp || false, 
+                    active_status: e.active_status, 
+                    bonus_streak: e.bonus_streak || 1,
+                    last_bonus_claimed_at: e.last_bonus_claimed_at,
+                    bought_statuses: userStatuses[e.name] || []
+                }; 
                 return acc; 
             }, {}), 
             tasks: tasks.rows, 
             fines: fines.rows, 
             schedule: scheduleByDate, 
-            messages: messagesByRoom 
+            messages: messagesByRoom,
+            userAchievements: userAchievements
         });
     } catch (err) {
         console.error('Data error:', err);

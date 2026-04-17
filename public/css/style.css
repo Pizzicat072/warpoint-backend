@@ -3102,5 +3102,56 @@ textarea:focus-visible {
     text-decoration: underline;
 }
 /* ============================================ */
+/* НОВЫЕ СТИЛИ ДЛЯ МОДАЛОК И АВАТАРОВ            */
+/* ============================================ */
+
+.emp-avatar-edit-hint {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: white;
+    border: 2px solid #1a1f2e;
+    cursor: pointer;
+}
+
+.emp-status-dot.streak {
+    background: #f97316;
+    box-shadow: 0 0 8px #f97316;
+}
+
+.emp-modal-avatar {
+    position: relative;
+    cursor: pointer;
+}
+
+.emp-modal-avatar:hover .emp-avatar-edit-hint {
+    transform: scale(1.1);
+}
+
+/* Стили для выпадающего списка статусов */
+.emp-form-group select {
+    background: #0d1016;
+    border: 1px solid #1e2430;
+    border-radius: 12px;
+    padding: 10px 14px;
+    color: #e2e8f0;
+    font-size: 13px;
+    width: 100%;
+    cursor: pointer;
+}
+
+.emp-form-group select option {
+    background: #1a1f2e;
+    color: #e2e8f0;
+}
+/* ============================================ */
 /* КОНЕЦ ФАЙЛА                                   */
 /* ============================================ */

@@ -10,7 +10,7 @@
     let pendingAvatarBase64 = null;
     
     // ============================================
-    // 🔥 ИСПРАВЛЕНО: getTobolskNow без рекурсии
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ============================================
     function getTobolskNow() {
         if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
@@ -20,9 +20,6 @@
         return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
     }
     
-    // ============================================
-    // ПОЛУЧЕНИЕ ДАННЫХ ИЗ window.app
-    // ============================================
     function getEmployees() { return window.app?.employees || []; }
     function getProfiles() { return window.app?.profiles || {}; }
     function getSchedule() { return window.app?.schedule || {}; }
@@ -32,6 +29,7 @@
     function getCurrentUser() { return window.app?.currentUser; }
     function getLastActivity() { return window.app?.lastActivity || {}; }
     function getAchievements() { return window.app?.achievements || {}; }
+    function getUserAchievements() { return window.app?.userAchievements || {}; }
     
     // ============================================
     // СТАТУСЫ "НА СМЕНЕ" И "В СЕТИ"
@@ -42,7 +40,7 @@
         const shift = schedule[today]?.[emp];
         const profile = getProfiles()[emp];
         
-        if (profile?.role === 'director') return false;
+        if (profile?.role === 'director' || profile?.role === 'manager') return false;
         if (!shift || !shift.time) return false;
         if (shift.status && shift.status !== 'working') return false;
         
@@ -77,9 +75,6 @@
         return count;
     }
     
-    // ============================================
-    // ВСПОМОГАТЕЛЬНЫЕ
-    // ============================================
     function getRoleName(role) {
         const names = { 
             director: '👑 Директор', 
@@ -131,7 +126,7 @@
     }
     
     // ============================================
-    // РЕНДЕР КАРТОЧЕК (С ПРОВЕРКОЙ DOM)
+    // РЕНДЕР КАРТОЧЕК
     // ============================================
     function renderEmployees() {
         const grid = document.getElementById('employeesGrid');
@@ -146,6 +141,7 @@
         const tasks = getTasks();
         const fines = getFines();
         const stickers = getStickers();
+        const userAchievements = getUserAchievements();
         
         if (!employees.length) {
             grid.innerHTML = `
@@ -171,6 +167,9 @@
             const p = profiles[emp] || {};
             const isCurrent = emp === currentUser;
             const isDirector = p.role === 'director';
+            const isManager = p.role === 'manager';
+            const isAdmin = p.role === 'admin';
+            const isOperator = p.role === 'operator';
             
             const empTasks = tasks.filter(t => t.executor === emp);
             const tasksDone = empTasks.filter(t => t.status === 'completed').length;
@@ -189,6 +188,12 @@
             const online = isOnlineNow(emp);
             const activeStatus = p.active_status || p.status || '💼 Работаю';
             const hasBirthdaySoon = isBirthdaySoon(p.birthday);
+            
+            // СТРИК для всех сотрудников
+            const streak = p.bonus_streak || 1;
+            
+            // Количество достижений
+            const achievementsCount = userAchievements[emp]?.length || 0;
             
             const avatarHtml = p.avatar_url 
                 ? `<img src="${p.avatar_url}" alt="${emp}">` 
@@ -225,7 +230,7 @@
                     </div>
                     
                     <div class="emp-status-row">
-                        ${!isDirector ? `
+                        ${!isDirector && !isManager ? `
                             <div class="emp-status">
                                 <span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span>
                                 <span>${onShift ? 'На смене' : 'Не на смене'}</span>
@@ -235,6 +240,10 @@
                             <span class="emp-status-dot ${online ? 'online' : 'offline'}"></span>
                             <span>${online ? 'В сети' : 'Не в сети'}</span>
                         </div>
+                        <div class="emp-status">
+                            <span class="emp-status-dot streak"></span>
+                            <span>🔥 ${streak} дн</span>
+                        </div>
                     </div>
                     
                     <div class="emp-stats">
@@ -243,17 +252,22 @@
                             <div class="emp-stat-value">${tasksDone}</div>
                             <div class="emp-stat-label">Задач</div>
                         </div>
-                        ${!isDirector ? `
+                        ${!isDirector && !isManager ? `
                             <div class="emp-stat-item">
                                 <div class="emp-stat-icon">⚠️</div>
                                 <div class="emp-stat-value">${empFines.length}</div>
                                 <div class="emp-stat-label">Штрафов</div>
                             </div>
-                        ` : `
                             <div class="emp-stat-item">
                                 <div class="emp-stat-icon">⏱️</div>
                                 <div class="emp-stat-value">${getCompletedShifts(emp)}</div>
                                 <div class="emp-stat-label">Смен</div>
+                            </div>
+                        ` : `
+                            <div class="emp-stat-item">
+                                <div class="emp-stat-icon">🏆</div>
+                                <div class="emp-stat-value">${achievementsCount}</div>
+                                <div class="emp-stat-label">Достиж.</div>
                             </div>
                         `}
                         <div class="emp-stat-item">
@@ -283,7 +297,7 @@
     }
     
     // ============================================
-    // МОДАЛКА ПРОФИЛЯ (С ПРОВЕРКОЙ DOM)
+    // МОДАЛКА ПРОФИЛЯ (НОВЫЙ ДИЗАЙН)
     // ============================================
     function openProfile(employeeName) {
         currentProfileEmployee = employeeName;
@@ -291,6 +305,7 @@
         if (!p) return;
         
         const isDirector = p.role === 'director';
+        const isManager = p.role === 'manager';
         const isOwnProfile = employeeName === getCurrentUser();
         const currentUserRole = window.app?.currentUserRole;
         const canEdit = isOwnProfile || currentUserRole === 'director';
@@ -298,7 +313,7 @@
         const tasks = getTasks();
         const fines = getFines();
         const stickers = getStickers();
-        const achievements = getAchievements()[employeeName] || [];
+        const achievements = getUserAchievements()[employeeName] || [];
         const completedShifts = getCompletedShifts(employeeName);
         
         const empTasks = tasks.filter(t => t.executor === employeeName);
@@ -323,6 +338,7 @@
         const onShift = isOnShiftNow(employeeName);
         const online = isOnlineNow(employeeName);
         const activeStatus = p.active_status || p.status || '💼 Работаю';
+        const streak = p.bonus_streak || 1;
         
         const avatarHtml = p.avatar_url 
             ? `<img src="${p.avatar_url}" style="width:100%;height:100%;object-fit:cover;">` 
@@ -332,6 +348,9 @@
         const ratingPrefix = rating >= 0 ? '+' : '';
         const ratingColor = rating >= 0 ? '#10b981' : '#ef4444';
         
+        // Получаем купленные статусы для выпадающего списка
+        const boughtStatuses = p.bought_statuses || [];
+        
         const modalContent = document.getElementById('profileModalContent');
         if (!modalContent) {
             console.warn('⚠️ profileModalContent не найден');
@@ -340,9 +359,10 @@
         
         modalContent.innerHTML = `
             <div class="emp-modal-header">
-                <div class="emp-modal-avatar">
+                <div class="emp-modal-avatar" onclick="openAvatarModal()" style="cursor: pointer;">
                     ${avatarHtml}
                     <div class="emp-modal-avatar-ring"></div>
+                    ${canEdit ? '<div class="emp-avatar-edit-hint"><i class="fas fa-camera"></i></div>' : ''}
                 </div>
                 <div class="emp-modal-title">
                     <h3>${employeeName} ${isOwnProfile ? '<span class="emp-you-badge">ВЫ</span>' : ''}</h3>
@@ -382,24 +402,18 @@
                     <div class="emp-stats-grid">
                         <div class="emp-stat-card"><div class="emp-stat-icon">💰</div><div class="emp-stat-value">${p.coins || 0}</div><div class="emp-stat-label">WP</div></div>
                         <div class="emp-stat-card"><div class="emp-stat-icon">⭐</div><div class="emp-stat-value" style="color: ${ratingColor};">${ratingPrefix}${rating}</div><div class="emp-stat-label">Рейтинг</div></div>
-                        ${!isDirector ? `
-                            <div class="emp-stat-card"><div class="emp-stat-icon">📅</div><div class="emp-stat-value">${completedShifts}</div><div class="emp-stat-label">Смен</div></div>
-                            <div class="emp-stat-card"><div class="emp-stat-icon">⏱️</div><div class="emp-stat-value">${p.hours || 0}ч</div><div class="emp-stat-label">Часов</div></div>
-                        ` : `
-                            <div class="emp-stat-card"><div class="emp-stat-icon">🔥</div><div class="emp-stat-value">${p.bonus_streak || 1}</div><div class="emp-stat-label">Стрик</div></div>
-                            <div class="emp-stat-card"><div class="emp-stat-icon">🏆</div><div class="emp-stat-value">${achievements.length}</div><div class="emp-stat-label">Достижений</div></div>
-                        `}
+                        <div class="emp-stat-card"><div class="emp-stat-icon">🔥</div><div class="emp-stat-value">${streak}</div><div class="emp-stat-label">Стрик</div></div>
+                        <div class="emp-stat-card"><div class="emp-stat-icon">🏆</div><div class="emp-stat-value">${achievements.length}</div><div class="emp-stat-label">Достиж.</div></div>
                     </div>
                     
                     <div class="emp-status-cards">
-                        ${!isDirector ? `<div class="emp-status-card ${onShift ? 'active' : ''}"><span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span><span>${onShift ? 'На смене' : 'Не на смене'}</span></div>` : ''}
+                        ${!isDirector && !isManager ? `<div class="emp-status-card ${onShift ? 'active' : ''}"><span class="emp-status-dot ${onShift ? 'onshift' : 'offshift'}"></span><span>${onShift ? 'На смене' : 'Не на смене'}</span></div>` : ''}
                         <div class="emp-status-card ${online ? 'active' : ''}"><span class="emp-status-dot ${online ? 'online' : 'offline'}"></span><span>${online ? 'В сети' : 'Не в сети'}</span></div>
                         <div class="emp-status-card active"><i class="fas fa-tag"></i><span>${activeStatus}</span></div>
                     </div>
                     
                     ${canEdit ? `
                         <div class="emp-action-buttons">
-                            ${isOwnProfile ? `<button class="emp-btn-secondary" onclick="closeProfileModal(); openAvatarModal()"><i class="fas fa-camera"></i> Сменить аватар</button>` : ''}
                             <button class="emp-btn-secondary" onclick="toggleProfileEdit()"><i class="fas fa-edit"></i> Редактировать</button>
                         </div>
                         <div id="profileEditFields" class="emp-edit-fields" style="display: none;">
@@ -408,6 +422,7 @@
                             <div class="emp-form-group"><label><i class="fas fa-calendar"></i> Дата рождения</label><input type="date" id="editBirthday" value="${p.birthday || ''}"></div>
                             <div class="emp-form-group"><label><i class="fas fa-tag"></i> Статус</label>
                                 <select id="editStatus">
+                                    ${boughtStatuses.length > 0 ? boughtStatuses.map(s => `<option value="${s}" ${p.active_status === s ? 'selected' : ''}>${s}</option>`).join('') : ''}
                                     <option value="💼 Работаю" ${p.status === '💼 Работаю' ? 'selected' : ''}>💼 Работаю</option>
                                     <option value="☕ Перерыв" ${p.status === '☕ Перерыв' ? 'selected' : ''}>☕ Перерыв</option>
                                     <option value="🎯 В фокусе" ${p.status === '🎯 В фокусе' ? 'selected' : ''}>🎯 В фокусе</option>
@@ -435,7 +450,7 @@
                         ${tasksTotal > 0 ? `<div class="emp-progress-bar"><div class="emp-progress-fill" style="width: ${(tasksDone / tasksTotal) * 100}%;"></div></div>` : ''}
                     </div>
                     
-                    ${!isDirector ? `
+                    ${!isDirector && !isManager ? `
                         <div class="emp-section">
                             <h4><i class="fas fa-exclamation-triangle"></i> Штрафы</h4>
                             <div class="emp-stats-row">
@@ -460,7 +475,7 @@
                         <div class="emp-achievements-list">
                             ${achievements.map(a => `
                                 <div class="emp-achievement-item" style="border-left-color: ${a.color || '#fbbf24'};">
-                                    <span class="emp-achievement-icon">${a.icon}</span>
+                                    <span class="emp-achievement-icon">${a.icon || '🏆'}</span>
                                     <div class="emp-achievement-info">
                                         <div class="emp-achievement-name">${a.name}</div>
                                         <div class="emp-achievement-desc">${a.description || ''}</div>
@@ -573,18 +588,25 @@
         toggleProfileEdit();
     }
     
+    // ============================================
+    // АВАТАРЫ (ИСПРАВЛЕНО)
+    // ============================================
     function openAvatarModal() {
+        const modal = document.getElementById('avatarModal');
+        if (!modal) return;
+        
         const grid = document.getElementById('avatarGrid');
         if (!grid) return;
         
-        const avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑'];
+        const avatars = ['👤', '😎', '🔥', '⚡', '🎯', '🏆', '🦸', '👑', '🐱', '🐶', '🦊', '🐼', '🐨', '🐸', '🐙', '🦄'];
         grid.innerHTML = avatars.map(a => `<div class="emp-avatar-item" onclick="selectAvatar('${a}')">${a}</div>`).join('');
         
-        document.getElementById('avatarModal').classList.add('active');
+        modal.classList.add('active');
     }
     
     function closeAvatarModal() { 
-        document.getElementById('avatarModal').classList.remove('active'); 
+        const modal = document.getElementById('avatarModal');
+        if (modal) modal.classList.remove('active'); 
     }
     
     async function selectAvatar(avatar) {
@@ -613,8 +635,10 @@
             const reader = new FileReader();
             reader.onload = (event) => {
                 pendingAvatarBase64 = event.target.result;
-                document.getElementById('avatarPreviewImg').src = pendingAvatarBase64;
-                document.getElementById('avatarPreviewModal').classList.add('active');
+                const previewImg = document.getElementById('avatarPreviewImg');
+                if (previewImg) previewImg.src = pendingAvatarBase64;
+                const previewModal = document.getElementById('avatarPreviewModal');
+                if (previewModal) previewModal.classList.add('active');
             };
             reader.readAsDataURL(file);
         };
@@ -622,7 +646,8 @@
     }
     
     function closeAvatarPreviewModal() { 
-        document.getElementById('avatarPreviewModal').classList.remove('active'); 
+        const modal = document.getElementById('avatarPreviewModal');
+        if (modal) modal.classList.remove('active'); 
         pendingAvatarBase64 = null; 
     }
     
@@ -638,6 +663,9 @@
         pendingAvatarBase64 = null;
     }
     
+    // ============================================
+    // ПРОЧИЕ ФУНКЦИИ
+    // ============================================
     function openChatWithEmployee(employeeName) {
         if (typeof loadPage === 'function') {
             loadPage('chat');
@@ -650,20 +678,27 @@
     }
     
     function openCreateEmployeeModal() {
-        document.getElementById('createEmployeeModal').classList.add('active');
+        const modal = document.getElementById('createEmployeeModal');
+        if (modal) modal.classList.add('active');
         selectRole('operator');
     }
     
     function closeCreateEmployeeModal() {
-        document.getElementById('createEmployeeModal').classList.remove('active');
-        document.getElementById('newEmpName').value = '';
-        document.getElementById('newEmpPassword').value = '';
-        document.getElementById('newEmpBirthday').value = '';
-        document.getElementById('newEmpPhone').value = '';
+        const modal = document.getElementById('createEmployeeModal');
+        if (modal) modal.classList.remove('active');
+        const nameInput = document.getElementById('newEmpName');
+        const passInput = document.getElementById('newEmpPassword');
+        const birthdayInput = document.getElementById('newEmpBirthday');
+        const phoneInput = document.getElementById('newEmpPhone');
+        if (nameInput) nameInput.value = '';
+        if (passInput) passInput.value = '';
+        if (birthdayInput) birthdayInput.value = '';
+        if (phoneInput) phoneInput.value = '';
     }
     
     function selectRole(role) {
-        document.getElementById('newEmpRole').value = role;
+        const roleInput = document.getElementById('newEmpRole');
+        if (roleInput) roleInput.value = role;
         document.querySelectorAll('.emp-role-option').forEach(opt => {
             opt.classList.remove('active');
             const radio = opt.querySelector('input[type="radio"]');
@@ -749,7 +784,7 @@
     }
     
     // ============================================
-    // ИНИЦИАЛИЗАЦИЯ (С ОЖИДАНИЕМ DOM)
+    // ИНИЦИАЛИЗАЦИЯ
     // ============================================
     function initEmployees() {
         console.log('👥 Инициализация команды');
