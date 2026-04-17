@@ -53,7 +53,7 @@
         }
         
         /* ============================================ */
-        /* ПРЕМИУМ ПРЕЛОАДЕР (ИСПРАВЛЕННЫЙ)              */
+        /* КРУТОЙ ПРЕМИУМ ПРЕЛОАДЕР                     */
         /* ============================================ */
         
         #globalLoader {
@@ -62,70 +62,203 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(5, 7, 15, 0.95);
-            backdrop-filter: blur(20px);
+            background: radial-gradient(circle at 50% 50%, #0a0f1e, #05070f);
             z-index: 99999;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.6s ease, visibility 0.6s ease;
+            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
+            overflow: hidden;
         }
         
         #globalLoader.fade-out {
             opacity: 0;
             visibility: hidden;
+        }
+        
+        /* Анимированные орбы */
+        .loader-orb-bg {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        
+        .loader-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.2;
+            animation: orbFloat 12s ease-in-out infinite;
+        }
+        
+        .orb-1 {
+            width: 500px;
+            height: 500px;
+            background: #6366f1;
+            top: -150px;
+            left: -150px;
+            animation-delay: 0s;
+        }
+        
+        .orb-2 {
+            width: 600px;
+            height: 600px;
+            background: #ec4899;
+            bottom: -200px;
+            right: -150px;
+            animation-delay: 4s;
+        }
+        
+        .orb-3 {
+            width: 400px;
+            height: 400px;
+            background: #8b5cf6;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation-delay: 2s;
+        }
+        
+        @keyframes orbFloat {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(40px, -30px) scale(1.2); }
+        }
+        
+        /* Частицы */
+        .loader-particles {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             pointer-events: none;
         }
         
-        .loader-container {
+        .loader-particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(167, 139, 250, 0.6);
+            border-radius: 50%;
+            animation: particleFloat 8s ease-in-out infinite;
+        }
+        
+        @keyframes particleFloat {
+            0% { transform: translateY(100vh) translateX(0); opacity: 0; }
+            10% { opacity: 0.8; }
+            90% { opacity: 0.8; }
+            100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
+        }
+        
+        /* Основной контент */
+        .loader-content {
+            position: relative;
+            z-index: 10;
             text-align: center;
-            max-width: 400px;
+            max-width: 450px;
             width: 90%;
-            padding: 40px 32px;
-            background: linear-gradient(135deg, rgba(20, 25, 50, 0.8), rgba(15, 18, 35, 0.6));
-            border-radius: 32px;
+            padding: 50px 40px;
+            background: rgba(15, 20, 35, 0.4);
+            backdrop-filter: blur(20px);
+            border-radius: 48px;
             border: 1px solid rgba(99, 102, 241, 0.3);
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
-            animation: loaderFadeIn 0.5s ease;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+            animation: contentGlow 3s ease-in-out infinite;
         }
         
-        @keyframes loaderFadeIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
+        @keyframes contentGlow {
+            0%, 100% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.2) inset; }
+            50% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.5) inset; }
         }
         
+        /* Анимированное лого */
         .loader-logo {
-            margin-bottom: 24px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        
+        .loader-logo-wrapper {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            margin: 0 auto;
+        }
+        
+        .loader-logo-ring {
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, #6366f1, #ec4899, #8b5cf6, #6366f1) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            animation: ringRotate 3s linear infinite;
+        }
+        
+        .loader-logo-ring-2 {
+            position: absolute;
+            top: -20px;
+            left: -20px;
+            right: -20px;
+            bottom: -20px;
+            border-radius: 50%;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            animation: ringRotateReverse 5s linear infinite;
+        }
+        
+        @keyframes ringRotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes ringRotateReverse {
+            from { transform: rotate(360deg); }
+            to { transform: rotate(0deg); }
         }
         
         .loader-logo img {
-            width: 80px;
-            height: 80px;
-            border-radius: 20px;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 24px;
             box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
-            animation: loaderPulse 1.5s ease-in-out infinite;
+            animation: logoPulse 2s ease-in-out infinite;
         }
         
-        @keyframes loaderPulse {
+        @keyframes logoPulse {
             0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
             50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
         }
         
+        /* Текст WARPOINT HUB */
         .loader-title {
-            font-size: 28px;
+            font-size: 36px;
             font-weight: 800;
+            letter-spacing: 4px;
             margin-bottom: 8px;
-            background: linear-gradient(135deg, #fff, #a78bfa);
+            background: linear-gradient(135deg, #ffffff, #a78bfa, #ec4899);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+            text-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
         }
         
         .loader-subtitle {
-            font-size: 12px;
+            font-size: 11px;
             color: #94a3b8;
-            margin-bottom: 28px;
-            letter-spacing: 2px;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            margin-bottom: 35px;
+        }
+        
+        /* Прогресс-бар */
+        .loader-progress-section {
+            margin-bottom: 25px;
         }
         
         .loader-progress-bar {
@@ -134,36 +267,51 @@
             background: rgba(99, 102, 241, 0.2);
             border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
         }
         
         .loader-progress-fill {
             width: 0%;
             height: 100%;
-            background: linear-gradient(90deg, #6366f1, #ec4899);
+            background: linear-gradient(90deg, #6366f1, #ec4899, #8b5cf6);
             border-radius: 4px;
-            transition: width 0.3s ease;
+            transition: width 0.3s ease-out;
+            position: relative;
+        }
+        
+        .loader-progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 20px;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
+            filter: blur(3px);
         }
         
         .loader-percent {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: #a78bfa;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
         }
         
-        .loader-status {
+        .loader-status-text {
             font-size: 12px;
             color: #64748b;
         }
         
+        /* Смена подсказок */
         .loader-tip {
-            margin-top: 24px;
-            padding: 12px 16px;
-            background: rgba(99, 102, 241, 0.1);
-            border-radius: 40px;
-            font-size: 12px;
+            margin-top: 30px;
+            padding: 12px 20px;
+            background: rgba(99, 102, 241, 0.08);
+            border-radius: 50px;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            font-size: 13px;
             color: #cbd5e1;
+            transition: opacity 0.3s ease;
         }
         
         .loader-tip i {
@@ -562,25 +710,41 @@
             .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
             .login-card { padding: 36px 28px; }
             #syncIndicator { bottom: 16px !important; left: 16px !important; width: 40px !important; height: 40px !important; }
+            .loader-title { font-size: 28px; letter-spacing: 2px; }
+            .loader-content { padding: 35px 25px; }
         }
     </style>
 </head>
 <body>
 
-<!-- ПРЕМИУМ ПРЕЛОАДЕР -->
+<!-- КРУТОЙ ПРЕМИУМ ПРЕЛОАДЕР -->
 <div id="globalLoader" style="display: none;">
-    <div class="loader-container">
+    <div class="loader-orb-bg">
+        <div class="loader-orb orb-1"></div>
+        <div class="loader-orb orb-2"></div>
+        <div class="loader-orb orb-3"></div>
+    </div>
+    
+    <div class="loader-particles" id="loaderParticles"></div>
+    
+    <div class="loader-content">
         <div class="loader-logo">
-            <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+            <div class="loader-logo-wrapper">
+                <div class="loader-logo-ring"></div>
+                <div class="loader-logo-ring-2"></div>
+                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+            </div>
         </div>
         <div class="loader-title">WARPOINT HUB</div>
         <div class="loader-subtitle">КОРПОРАТИВНЫЙ ПОРТАЛ</div>
         
-        <div class="loader-progress-bar">
-            <div class="loader-progress-fill" id="loaderProgressFill"></div>
+        <div class="loader-progress-section">
+            <div class="loader-progress-bar">
+                <div class="loader-progress-fill" id="loaderProgressFill"></div>
+            </div>
+            <div class="loader-percent" id="loaderPercent">0%</div>
+            <div class="loader-status-text" id="loaderStatusText">Инициализация системы...</div>
         </div>
-        <div class="loader-percent" id="loaderPercent">0%</div>
-        <div class="loader-status" id="loaderStatusText">Загрузка модулей...</div>
         
         <div class="loader-tip" id="loaderTip">
             <i class="fas fa-lightbulb"></i>
@@ -712,7 +876,7 @@
     let pusherReconnectTimer = null;
     
     // ============================================
-    // ПРЕЛОАДЕР (ИСПРАВЛЕННЫЙ)
+    // ПРЕЛОАДЕР (КРУТАЯ ВЕРСИЯ)
     // ============================================
     
     const requiredModules = [
@@ -723,12 +887,12 @@
     ];
     
     const loaderTips = [
-        'WARPOINT — корпоративный портал',
+        'Добро пожаловать в WARPOINT HUB',
         'Управляйте задачами и графиком',
         'Следите за рейтингом команды',
         'Получайте достижения и бонусы',
         'Общайтесь в чате с коллегами',
-        'Добро пожаловать в команду!'
+        'Ваша команда — ваша сила'
     ];
     
     let loadedModules = 0;
@@ -744,6 +908,24 @@
     const loaderPercent = document.getElementById('loaderPercent');
     const loaderStatusText = document.getElementById('loaderStatusText');
     const loaderTipSpan = document.querySelector('#loaderTip span');
+    const loaderParticles = document.getElementById('loaderParticles');
+    
+    // Создаём частицы
+    function createParticles() {
+        if (!loaderParticles) return;
+        loaderParticles.innerHTML = '';
+        for (let i = 0; i < 50; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'loader-particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = (Math.random() * 8) + 's';
+            particle.style.animationDuration = (6 + Math.random() * 6) + 's';
+            particle.style.opacity = Math.random() * 0.5 + 0.2;
+            particle.style.width = (1 + Math.random() * 3) + 'px';
+            particle.style.height = particle.style.width;
+            loaderParticles.appendChild(particle);
+        }
+    }
     
     // Показать прелоадер
     window.showGlobalLoader = function() {
@@ -756,8 +938,9 @@
             
             if (loaderProgressFill) loaderProgressFill.style.width = '0%';
             if (loaderPercent) loaderPercent.textContent = '0%';
-            if (loaderStatusText) loaderStatusText.textContent = 'Загрузка модулей...';
+            if (loaderStatusText) loaderStatusText.textContent = 'Инициализация системы...';
             
+            createParticles();
             startTipRotation();
         }
     };
@@ -770,7 +953,7 @@
                 if (globalLoader.classList.contains('fade-out')) {
                     globalLoader.style.display = 'none';
                 }
-            }, 600);
+            }, 800);
         }
         if (tipInterval) clearInterval(tipInterval);
         if (loaderForceHideTimer) clearTimeout(loaderForceHideTimer);
@@ -781,7 +964,7 @@
         tipInterval = setInterval(() => {
             tipIndex = (tipIndex + 1) % loaderTips.length;
             if (loaderTipSpan) loaderTipSpan.textContent = loaderTips[tipIndex];
-        }, 3000);
+        }, 3500);
     }
     
     function updateLoaderProgress() {
@@ -792,15 +975,16 @@
         if (loaderPercent) loaderPercent.textContent = percent + '%';
         
         if (loaderStatusText) {
-            if (percent < 30) loaderStatusText.textContent = '⚡ Загрузка ядра...';
-            else if (percent < 60) loaderStatusText.textContent = '📦 Загрузка модулей...';
-            else if (percent < 90) loaderStatusText.textContent = '🔧 Инициализация...';
+            if (percent < 20) loaderStatusText.textContent = '⚡ Инициализация ядра...';
+            else if (percent < 40) loaderStatusText.textContent = '📦 Загрузка модулей...';
+            else if (percent < 60) loaderStatusText.textContent = '🔧 Настройка компонентов...';
+            else if (percent < 80) loaderStatusText.textContent = '🎨 Применение стилей...';
             else loaderStatusText.textContent = '🚀 Запуск системы...';
         }
         
         if (loadedModules >= requiredModules.length) {
             allModulesLoaded = true;
-            setTimeout(() => window.hideGlobalLoader(), 500);
+            setTimeout(() => window.hideGlobalLoader(), 800);
         }
     }
     
@@ -820,7 +1004,7 @@
         }
     });
     
-    // Принудительное скрытие через 8 секунд
+    // Принудительное скрытие через 8 секунд (защита от зависания)
     loaderForceHideTimer = setTimeout(() => {
         if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
             console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
@@ -987,7 +1171,7 @@
         }
     };
     
-    // Функции для уведомлений (глобальные)
+    // Функции для уведомлений
     window.toggleNotificationsDropdown = function() {
         const dropdown = document.getElementById('notificationsDropdown');
         if (dropdown) {
