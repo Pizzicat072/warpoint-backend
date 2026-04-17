@@ -1,4 +1,4 @@
-// public/js/dashboard.js — С АВТООБНОВЛЕНИЕМ ПОГОДЫ
+// public/js/dashboard.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
 (function() {
     'use strict';
     
@@ -203,37 +203,72 @@
     }
 
     // ============================================
-    // ПОГОДА (С АВТООБНОВЛЕНИЕМ)
+    // ПОГОДА (С АВТООБНОВЛЕНИЕМ И ЗАЩИТОЙ ОТ СПАМА)
     // ============================================
     async function fetchWeather(force = false) {
         const now = Date.now();
-        if (!force && now - lastWeatherFetch < WEATHER_FETCH_INTERVAL) { console.log('⏳ Погода из кэша'); return; }
-        if (isFetchingWeather) { console.log('⚠️ Погода уже загружается'); return; }
+        
+        // 🔥 ЗАЩИТА ОТ СПАМА
+        if (!force && now - lastWeatherFetch < WEATHER_FETCH_INTERVAL) {
+            console.log('⏳ Погода из кэша, пропускаем запрос');
+            return;
+        }
+        
+        if (isFetchingWeather) {
+            console.log('⚠️ Погода уже загружается');
+            return;
+        }
+        
         const iconEl = document.getElementById('weatherIcon');
+        const tempEl = document.getElementById('weatherTemp');
+        const feelsLikeEl = document.getElementById('weatherFeelsLike');
+        const descEl = document.getElementById('weatherDesc');
+        const weatherTipEl = document.getElementById('weatherTip');
+        const cityEl = document.getElementById('weatherCity');
+        
         if (!iconEl) return;
+        
         lastWeatherFetch = now;
         isFetchingWeather = true;
+        
         try {
             console.log('🌤️ Запрос погоды...');
             const response = await fetch('/api/weather?force=' + Date.now());
+            
             if (!response.ok) throw new Error('HTTP error: ' + response.status);
+            
             const data = await response.json();
             console.log('🌤️ Погода получена:', data);
+            
             if (data && data.success) {
                 const temp = data.temp;
                 const nowTime = getTobolskNow();
                 const hour = nowTime.getHours();
+                
                 let mainIcon = data.icon || '🌡️';
                 const isNight = hour < 6 || hour >= 20;
-                if (isNight) { if (mainIcon === '☀️') mainIcon = '🌙'; else if (mainIcon === '🌧️') mainIcon = '🌙🌧️'; else if (mainIcon === '⛈️') mainIcon = '🌙⛈️'; else if (mainIcon === '☁️') mainIcon = '☁️🌙'; else mainIcon = '🌙'; }
+                
+                if (isNight) {
+                    if (mainIcon === '☀️') mainIcon = '🌙';
+                    else if (mainIcon === '🌧️') mainIcon = '🌙🌧️';
+                    else if (mainIcon === '⛈️') mainIcon = '🌙⛈️';
+                    else if (mainIcon === '☁️') mainIcon = '☁️🌙';
+                    else mainIcon = '🌙';
+                }
+                
                 if (iconEl) iconEl.textContent = mainIcon;
-                const tempEl = document.getElementById('weatherTemp');
-                if (tempEl) tempEl.textContent = data.tempDisplay ? data.tempDisplay + '°C' : (temp > 0 ? '+' : '') + temp + '°C';
-                const feelsLikeEl = document.getElementById('weatherFeelsLike');
-                if (feelsLikeEl) feelsLikeEl.innerHTML = data.feelsLikeDisplay ? 'ощущается как ' + data.feelsLikeDisplay + '°C' : '';
-                const cityEl = document.getElementById('weatherCity'); if (cityEl) cityEl.innerHTML = 'Тобольск';
-                const descEl = document.getElementById('weatherDesc'); if (descEl) descEl.textContent = data.desc || '';
-                const weatherTipEl = document.getElementById('weatherTip');
+                
+                if (tempEl) {
+                    tempEl.textContent = data.tempDisplay ? data.tempDisplay + '°C' : (temp > 0 ? '+' : '') + temp + '°C';
+                }
+                
+                if (feelsLikeEl) {
+                    feelsLikeEl.innerHTML = data.feelsLikeDisplay ? 'ощущается как ' + data.feelsLikeDisplay + '°C' : '';
+                }
+                
+                if (cityEl) cityEl.innerHTML = 'Тобольск';
+                if (descEl) descEl.textContent = data.desc || '';
+                
                 if (weatherTipEl) {
                     let tip = '';
                     if (temp <= -20) tip = '🥶 Экстрим! Оставайся в тепле!';
@@ -243,37 +278,70 @@
                     else if (temp <= 20) tip = '😎 Отличная погода для работы!';
                     else if (temp <= 30) tip = '🕶️ Жарко! Не забывай пить воду';
                     else tip = '🥵 Адская жара! Береги себя!';
+                    
                     if (isNight && temp < 0) tip = '🌙❄️ Холодная ночь! Укутайся потеплее';
                     else if (isNight) tip = '🌙 Спокойной ночи! Завтра будет продуктивный день';
                     else if (hour >= 6 && hour < 9) tip = '🌅 Доброе утро! Хорошего дня!';
                     else if (hour >= 17 && hour < 20) tip = '🌇 Вечер близко! Ты отлично поработал!';
+                    
+                    if (data.desc) {
+                        if (data.desc.includes('дожд') || data.desc.includes('ливн')) tip = '☔ ' + tip;
+                        else if (data.desc.includes('снег')) tip = '❄️ ' + tip;
+                        else if (data.desc.includes('ветер')) tip = '💨 ' + tip;
+                    }
+                    
                     weatherTipEl.innerHTML = tip || '😊 Хорошего дня!';
                 }
+                
                 window.lastWeatherData = data;
             }
-        } catch (err) { console.error('❌ Ошибка погоды:', err); if (iconEl) iconEl.textContent = '🌡️'; const tempEl = document.getElementById('weatherTemp'); if (tempEl) tempEl.textContent = '--°C'; }
-        finally { isFetchingWeather = false; }
+        } catch (err) {
+            console.error('❌ Ошибка погоды:', err);
+            if (iconEl) iconEl.textContent = '🌡️';
+            if (tempEl) tempEl.textContent = '--°C';
+            if (feelsLikeEl) feelsLikeEl.innerHTML = '';
+            if (descEl) descEl.textContent = 'Нет данных';
+            if (cityEl) cityEl.innerHTML = 'Тобольск';
+            if (weatherTipEl) weatherTipEl.innerHTML = '😊 Хорошего дня!';
+        } finally {
+            isFetchingWeather = false;
+        }
     }
 
     function startWeatherAutoUpdate() {
         if (weatherInterval) clearInterval(weatherInterval);
-        fetchWeather(true);
+        setTimeout(() => fetchWeather(true), 1000);
         weatherInterval = setInterval(() => fetchWeather(false), WEATHER_FETCH_INTERVAL);
+        console.log('🌤️ Автообновление погоды запущено (интервал: 15 минут)');
     }
-    function stopWeatherAutoUpdate() { if (weatherInterval) { clearInterval(weatherInterval); weatherInterval = null; } }
+
+    function stopWeatherAutoUpdate() {
+        if (weatherInterval) {
+            clearInterval(weatherInterval);
+            weatherInterval = null;
+            console.log('🌤️ Автообновление погоды остановлено');
+        }
+    }
 
     function updateDateTime() {
         const timeElement = document.getElementById('currentTime');
         const dateElement = document.getElementById('currentDate');
         if (!timeElement) return;
-        try { const now = getTobolskNow(); timeElement.textContent = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`; dateElement.textContent = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }); } catch (err) {}
+        try {
+            const now = getTobolskNow();
+            timeElement.textContent = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+            dateElement.textContent = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+        } catch (err) {}
     }
+
     function startDateTimeUpdater() { updateDateTime(); setInterval(updateDateTime, 1000); }
 
     function updateGreetingByTime() {
-        const now = getTobolskNow(); const hour = now.getHours();
+        const now = getTobolskNow();
+        const hour = now.getHours();
         const userName = window.app?.currentUser || 'Гость';
-        const greetingText = document.getElementById('greetingText'); if (!greetingText) return;
+        const greetingText = document.getElementById('greetingText');
+        if (!greetingText) return;
         let icon = '🌄', greeting = '';
         if (hour >= 5 && hour < 12) { icon = '🌄'; greeting = `Доброе утро, ${userName}!`; }
         else if (hour >= 12 && hour < 17) { icon = '🔆'; greeting = `Добрый день, ${userName}!`; }
@@ -285,7 +353,10 @@
     function updateUserAvatarAndStatus() {
         const userProfile = window.app?.profiles?.[window.app?.currentUser];
         const welcomeAvatar = document.getElementById('welcomeAvatar');
-        if (welcomeAvatar && userProfile) { if (userProfile.avatar_url) welcomeAvatar.innerHTML = `<img src="${userProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`; else welcomeAvatar.innerHTML = userProfile.avatar || '👤'; }
+        if (welcomeAvatar && userProfile) {
+            if (userProfile.avatar_url) welcomeAvatar.innerHTML = `<img src="${userProfile.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+            else welcomeAvatar.innerHTML = userProfile.avatar || '👤';
+        }
         const ratingSpan = document.getElementById('userRating'); if (ratingSpan && userProfile) ratingSpan.textContent = userProfile.rating || 0;
         const statusSelect = document.getElementById('quickStatusSelect'); if (statusSelect && userProfile) statusSelect.value = userProfile.status || '💼 Работаю';
         const userCoinsHeader = document.getElementById('userCoinsAmountHeader'); if (userCoinsHeader && userProfile) userCoinsHeader.textContent = userProfile.coins || 0;
@@ -294,11 +365,24 @@
     // ============================================
     // СТАТИСТИКА ДАШБОРДА
     // ============================================
-    async function loadFundAmount() { try { const response = await apiCall('/fund'); if (response && response.amount !== undefined) { cachedFundAmount = response.amount; window.fundAmount = response.amount; return response.amount; } } catch (err) {} return cachedFundAmount; }
+    async function loadFundAmount() {
+        try {
+            const response = await apiCall('/fund');
+            if (response && response.amount !== undefined) {
+                cachedFundAmount = response.amount;
+                window.fundAmount = response.amount;
+                return response.amount;
+            }
+        } catch (err) {}
+        return cachedFundAmount;
+    }
 
     async function updateDashboardStats() {
-        const now = Date.now(); if (now - lastDashboardUpdate < MIN_UPDATE_INTERVAL) return; if (isUpdatingDashboard) return;
-        lastDashboardUpdate = now; isUpdatingDashboard = true;
+        const now = Date.now();
+        if (now - lastDashboardUpdate < MIN_UPDATE_INTERVAL) return;
+        if (isUpdatingDashboard) return;
+        lastDashboardUpdate = now;
+        isUpdatingDashboard = true;
         try {
             const totalEmployees = window.app?.employees?.length || 0;
             const totalHint = document.getElementById('statTotalEmployeesHint'); if (totalHint) totalHint.innerHTML = `из ${totalEmployees} сотрудников`;
@@ -326,26 +410,26 @@
     // ОБМЕН СМЕНАМИ
     // ============================================
     let pendingExchanges = [];
-    async function loadPendingExchanges() { try { const response = await apiCall('/exchange/pending'); if (response && response.success) { pendingExchanges = response.requests || []; renderExchangeNotifications(); } } catch (err) {} }
+    async function loadPendingExchanges() { try { const response = await apiCall('/exchange/pending'); if (response?.success) { pendingExchanges = response.requests || []; renderExchangeNotifications(); } } catch (err) {} }
     function renderExchangeNotifications() {
         const container = document.getElementById('exchangeNotificationsContainer'); if (!container) return;
         if (pendingExchanges.length === 0) { container.innerHTML = '<div class="exchange-empty">Нет новых предложений</div>'; return; }
         let html = '';
         for (const req of pendingExchanges) {
-            const fromDate = formatDateSimple(req.from_date); const toDate = formatDateSimple(req.to_date);
+            const fromDate = formatDateSimple(req.from_date), toDate = formatDateSimple(req.to_date);
             html += `<div class="exchange-notification"><div class="exchange-header"><span class="exchange-icon">🔄</span><span class="exchange-title">Предложение обмена</span></div><div class="exchange-body"><div class="exchange-employee">👤 ${escapeHtml(req.from_employee)} хочет обменяться</div><div class="exchange-details"><div>📌 Его смена: ${fromDate} — ${req.from_shift_time}</div><div>📌 Ваша смена: ${toDate} — ${req.to_shift_time}</div>${req.comment ? `<div class="exchange-comment">💬 ${escapeHtml(req.comment)}</div>` : ''}</div><div class="exchange-actions"><button class="exchange-accept" onclick="acceptExchange(${req.id})">✅ Принять</button><button class="exchange-reject" onclick="rejectExchange(${req.id})">❌ Отклонить</button></div></div></div>`;
         }
         container.innerHTML = html;
     }
     async function acceptExchange(requestId) { try { const response = await apiCall(`/exchange/accept/${requestId}`, 'POST'); if (response?.success) { showNotif('✅ Обмен смен подтверждён!', 'success'); await loadScheduleData(); if (typeof renderMonthSchedule === 'function') renderMonthSchedule(); updateDashboardStats(); updateNextShiftInfo(); await loadPendingExchanges(); await loadMyActiveExchanges(); } else { showNotif(response?.error || 'Ошибка', 'error'); } } catch (err) { showNotif('Ошибка соединения', 'error'); } }
     async function rejectExchange(requestId) { try { const response = await apiCall(`/exchange/reject/${requestId}`, 'POST'); if (response?.success) { showNotif('❌ Запрос отклонён', 'success'); await loadPendingExchanges(); } else { showNotif(response?.error || 'Ошибка', 'error'); } } catch (err) { showNotif('Ошибка соединения', 'error'); } }
-    async function loadMyActiveExchanges() { try { const response = await apiCall('/exchange/my?status=pending'); if (response?.success) { renderMyExchangesWidget(response.requests || []); } } catch (err) {} }
+    async function loadMyActiveExchanges() { try { const response = await apiCall('/exchange/my?status=pending'); if (response?.success) renderMyExchangesWidget(response.requests || []); } catch (err) {} }
     function renderMyExchangesWidget(requests) {
         const container = document.getElementById('myExchangesContainer'); if (!container) return;
         if (requests.length === 0) { container.innerHTML = '<div class="exchange-empty">Нет активных запросов</div>'; return; }
         let html = '';
         for (const req of requests) {
-            const toDate = formatDateSimple(req.to_date); const fromDate = formatDateSimple(req.from_date);
+            const toDate = formatDateSimple(req.to_date), fromDate = formatDateSimple(req.from_date);
             html += `<div class="my-exchange-request"><div class="my-exchange-header"><span>📤 Запрос отправлен</span><span class="my-exchange-status">⏳ ожидает</span></div><div class="my-exchange-body"><div>Кому: ${escapeHtml(req.to_employee)}</div><div>Моя смена: ${fromDate} — ${req.from_shift_time}</div><div>Его смена: ${toDate} — ${req.to_shift_time}</div>${req.comment ? `<div class="my-exchange-comment">💬 ${escapeHtml(req.comment)}</div>` : ''}</div><div class="my-exchange-actions"><button class="my-exchange-cancel" onclick="cancelExchangeRequest(${req.id})">❌ Отменить</button></div></div>`;
         }
         container.innerHTML = html;
@@ -358,17 +442,17 @@
     async function openTransactionsModal() {
         try {
             const response = await apiCall('/transactions?limit=50&offset=0&type=all');
-            if (!response || !response.success) { showNotif('Ошибка загрузки истории', 'error'); return; }
+            if (!response?.success) { showNotif('Ошибка загрузки истории', 'error'); return; }
             const transactions = response.transactions || [];
             const grouped = {};
             transactions.forEach(tx => { const date = tx.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]; if (!grouped[date]) grouped[date] = []; grouped[date].push(tx); });
             const sortedDates = Object.keys(grouped).sort().reverse();
             let transactionsHtml = '';
             for (const date of sortedDates) {
-                const txList = grouped[date]; const formattedDate = formatTransactionDateSimple(date);
+                const txList = grouped[date], formattedDate = formatTransactionDateSimple(date);
                 transactionsHtml += `<div class="modal-transaction-group"><div class="modal-transaction-date">${formattedDate}</div>`;
                 for (const tx of txList) {
-                    const isPositive = tx.amount > 0; const amountAbs = Math.abs(tx.amount);
+                    const isPositive = tx.amount > 0, amountAbs = Math.abs(tx.amount);
                     const typeNames = { 'login_streak': '🎁 Бонус', 'task_reward': '✅ Задача', 'shift_earn': '⏱️ Смена', 'gift_send': '🎁 Подарок', 'gift_receive': '🎁 Подарок', 'shop_purchase': '🛒 Покупка', 'fine': '⚠️ Штраф', 'admin_bonus': '👑 Бонус', 'achievement': '🏆 Достижение' };
                     const typeName = typeNames[tx.type] || tx.type;
                     transactionsHtml += `<div class="modal-transaction-item"><div class="modal-transaction-icon ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : '-'}</div><div class="modal-transaction-info"><div class="modal-transaction-title">${typeName}</div>${tx.comment ? `<div class="modal-transaction-comment">${escapeHtml(tx.comment.substring(0, 50))}${tx.comment.length > 50 ? '...' : ''}</div>` : ''}</div><div class="modal-transaction-amount ${isPositive ? 'positive' : 'negative'}">${isPositive ? '+' : '-'}${amountAbs} WP</div></div>`;
@@ -438,13 +522,34 @@
     // ============================================
     // ПРАЗДНИКИ И СОБЫТИЯ
     // ============================================
-    function loadHolidaysAndBirthdays() { /* ... без изменений ... */ }
+    function loadHolidaysAndBirthdays() {
+        const container = document.getElementById('holidaysAndBirthdaysList'); if (!container) return;
+        const today = getTobolskNow(); const currentYear = today.getFullYear(); const currentMonth = today.getMonth(); const currentDate = today.getDate();
+        const holidays = [{ date: '01-01', name: 'Новый год' }, { date: '01-07', name: 'Рождество' }, { date: '02-23', name: 'День защитника' }, { date: '03-08', name: '8 Марта' }, { date: '05-01', name: 'Праздник Весны' }, { date: '05-09', name: 'День Победы' }, { date: '06-12', name: 'День России' }, { date: '11-04', name: 'День единства' }, { date: '12-31', name: 'Новый год' }];
+        const employees = window.app?.employees || []; const birthdays = [];
+        for (const emp of employees) { const profile = window.app?.profiles?.[emp]; if (profile?.birthday) { let birthDate = new Date(profile.birthday); if (birthDate && !isNaN(birthDate.getTime())) { let nextBirthday = new Date(currentYear, birthDate.getMonth(), birthDate.getDate()); if (nextBirthday < today) nextBirthday = new Date(currentYear + 1, birthDate.getMonth(), birthDate.getDate()); const daysUntil = Math.ceil((nextBirthday - today) / (1000 * 60 * 60 * 24)); birthdays.push({ name: emp, daysUntil, isToday: nextBirthday.getDate() === currentDate && nextBirthday.getMonth() === currentMonth }); } } }
+        birthdays.sort((a, b) => a.daysUntil - b.daysUntil); const upcomingBirthdays = birthdays.filter(b => b.daysUntil <= 30).slice(0, 10);
+        const events = [];
+        for (const holiday of holidays) { const [month, day] = holiday.date.split('-'); const holidayDate = new Date(currentYear, parseInt(month) - 1, parseInt(day)); let daysUntil, eventDate; if (holidayDate < today) { eventDate = new Date(currentYear + 1, parseInt(month) - 1, parseInt(day)); daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24)); } else { eventDate = holidayDate; daysUntil = Math.ceil((eventDate - today) / (1000 * 60 * 60 * 24)); } if (daysUntil <= 30) events.push({ type: 'holiday', name: holiday.name, date: eventDate, daysUntil, isToday: eventDate.getDate() === currentDate && eventDate.getMonth() === currentMonth }); }
+        for (const birthday of upcomingBirthdays) events.push({ type: 'birthday', name: `🎂 ${birthday.name}`, daysUntil: birthday.daysUntil, isToday: birthday.isToday });
+        events.sort((a, b) => a.daysUntil - b.daysUntil); const upcomingEvents = events.slice(0, 10);
+        if (upcomingEvents.length === 0) { container.innerHTML = `<div style="text-align:center;padding:16px;color:#64748b;">Нет ближайших событий</div>`; return; }
+        let html = '';
+        for (const event of upcomingEvents) { let dateStr = ''; if (event.daysUntil === 0) dateStr = '<span style="color:#fbbf24;">СЕГОДНЯ!</span>'; else if (event.daysUntil === 1) dateStr = 'ЗАВТРА'; else if (event.date) dateStr = event.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' }); else dateStr = `через ${event.daysUntil} дн.`; const eventColor = event.type === 'birthday' ? '#ec4899' : '#6366f1'; html += `<div style="display:flex;align-items:center;gap:14px;padding:10px 14px;background:rgba(0,0,0,0.2);border-radius:12px;border-left:2px solid ${event.isToday ? '#fbbf24' : eventColor};margin-bottom:8px;"><div style="flex:1;"><div style="font-weight:500;">${event.name}</div><div style="font-size:11px;color:#64748b;margin-top:2px;">${dateStr}</div></div>${event.isToday ? '<div style="font-size:18px;">🎉</div>' : ''}</div>`; }
+        container.innerHTML = html;
+    }
 
     // ============================================
     // АКТИВНОСТЬ
     // ============================================
     let lastActivityUpdate = 0; const ACTIVITY_UPDATE_INTERVAL = 15000;
-    function loadActivity() { /* ... без изменений ... */ }
+    function loadActivity() {
+        const now = Date.now(); if (now - lastActivityUpdate < ACTIVITY_UPDATE_INTERVAL) return; lastActivityUpdate = now;
+        const onlineList = document.getElementById('onlineList'), lastList = document.getElementById('lastActivityList'); if (!onlineList) return;
+        const onlineEmployees = []; for (const emp of window.app?.employees || []) { const lastActive = window.app?.lastActivity?.[emp]; if (lastActive && Date.now() - lastActive < 60000) onlineEmployees.push(emp); }
+        onlineList.innerHTML = onlineEmployees.length ? onlineEmployees.map(e => `<div><span style="color:#10b981;">🟢</span> ${escapeHtml(e)}</div>`).join('') : '<div style="opacity:0.5;">— никого в сети —</div>';
+        if (lastList) { const lastActivityList = []; for (const emp of window.app?.employees || []) { const lastActive = window.app?.lastActivity?.[emp]; if (lastActive) { const date = new Date(lastActive); const timeStr = date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }); lastActivityList.push({ name: emp, time: timeStr, timestamp: lastActive }); } } lastActivityList.sort((a, b) => b.timestamp - a.timestamp); if (lastActivityList.length > 0) lastList.innerHTML = lastActivityList.slice(0, 5).map(item => `<div>${escapeHtml(item.name)} — ${item.time}</div>`).join(''); else lastList.innerHTML = '<div style="opacity:0.5;">— нет активности —</div>'; }
+    }
 
     // ============================================
     // ИНИЦИАЛИЗАЦИЯ ДАШБОРДА
@@ -462,7 +567,7 @@
         const userRole = window.app?.currentUserRole || 'operator'; const roleBadge = document.getElementById('userRoleBadge'); if (roleBadge) { if (userRole === 'director') roleBadge.innerHTML = '👑 Директор'; else if (userRole === 'manager') roleBadge.innerHTML = '📋 Управляющий'; else if (userRole === 'admin') roleBadge.innerHTML = '⚙️ Админ'; else roleBadge.innerHTML = '👤 Оператор'; }
         loadFundAmount().then(() => updateDashboardStats());
         loadActivity(); loadHolidaysAndBirthdays(); refreshPhilosophyQuote(); startDateTimeUpdater();
-        startWeatherAutoUpdate(); // 🔥 АВТООБНОВЛЕНИЕ ПОГОДЫ
+        startWeatherAutoUpdate();
         updateNextShiftInfo();
         loadDailyBonusInfo(); loadPendingExchanges();
         setTimeout(() => initStylesShop(), 100); setTimeout(() => initSettingsTabs(), 200);
@@ -483,7 +588,7 @@
         if (bonusCheckInterval) { clearInterval(bonusCheckInterval); bonusCheckInterval = null; }
         if (shiftTimerInterval) { clearInterval(shiftTimerInterval); shiftTimerInterval = null; }
         if (particlesInterval) { clearInterval(particlesInterval); particlesInterval = null; }
-        stopWeatherAutoUpdate(); // 🔥 ОСТАНОВКА ПОГОДЫ
+        stopWeatherAutoUpdate();
     }
     window.addEventListener('beforeunload', cleanupDashboard);
 
@@ -537,5 +642,5 @@
     particleBlockStyle.textContent = `@keyframes particleFloatBlock { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { transform: translateY(-30px) scale(1); opacity: 0; } } @keyframes floatUp { 0% { transform: translateY(0) scale(0.8); opacity: 1; } 100% { transform: translateY(-60px) scale(1.2); opacity: 0; } }`;
     if (!document.querySelector('#particleBlockStyles')) { particleBlockStyle.id = 'particleBlockStyles'; document.head.appendChild(particleBlockStyle); }
 
-    console.log('✅ dashboard.js загружен (с автообновлением погоды)');
+    console.log('✅ dashboard.js загружен (полная версия с автообновлением погоды)');
 })();
