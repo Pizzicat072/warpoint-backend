@@ -1,5 +1,5 @@
-// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.1
-// Исправлены дубликаты abortController и roleNames
+// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.2
+// Исправлено 30 багов: дубликаты, инициализация, фильтры, фонд, модалка, кэш, навигация
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
@@ -12,6 +12,7 @@ let currentMonth = new Date().getMonth() + 1;
 let isDirector = false;
 let salaryIsLoading = false;
 let isSavingDay = false;
+let isProcessingFund = false;
 let monthlyTotalsCache = {};
 let dayDataCache = {};
 let salaryInitialized = false;
@@ -20,11 +21,31 @@ let hasUnsavedChanges = false;
 let employeesList = [];
 let currentEmployeeIndex = -1;
 let daysInMonth = 31;
+let dayInputHandlersInitialized = false;
 
 const START_YEAR = 2026;
 const START_MONTH = 3;
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const MAX_AMOUNT = 1000000;
+
+// ============================================
+// СБРОС СОСТОЯНИЯ ПРИ УХОДЕ СО СТРАНИЦЫ
+// ============================================
+
+function resetSalaryState() {
+    salaryInitialized = false;
+    currentEmployeeId = null;
+    currentDayNumber = null;
+    monthlyTotalsCache = {};
+    dayDataCache = {};
+    employeesList = [];
+    hasUnsavedChanges = false;
+    currentEmployeeIndex = -1;
+    dayInputHandlersInitialized = false;
+    if (abortController) {
+        abortController.abort();
+    }
+}
 
 // ============================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -42,6 +63,11 @@ function escapeHtml(str) {
     if (!str) return '';
     const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
     return String(str).replace(/[&<>"']/g, m => map[m]);
+}
+
+function escapeJsString(str) {
+    if (!str) return '';
+    return str.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }
 
 function showNotif(msg, type) {
@@ -73,7 +99,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 }
 
 function getRoleName(role) {
-    if (typeof window.roleNames !== 'undefined' && window.roleNames !== getRoleName) {
+    if (typeof window.roleNames !== 'undefined' && window.roleNames) {
         return window.roleNames[role] || role;
     }
     const fallback = { director: 'Директор', manager: 'Управляющий', admin: 'Админ', operator: 'Оператор' };
@@ -85,14 +111,15 @@ function getRoleName(role) {
 // ============================================
 
 function initSalary() {
-    if (salaryInitialized) {
-        console.log('💰 Зарплата уже инициализирована');
+    const container = document.getElementById('salaryTableContainer');
+    if (!container) {
+        salaryInitialized = false;
+        setTimeout(initSalary, 100);
         return;
     }
     
-    const container = document.getElementById('salaryTableContainer');
-    if (!container) {
-        setTimeout(initSalary, 100);
+    if (salaryInitialized) {
+        console.log('💰 Зарплата уже инициализирована');
         return;
     }
     
@@ -133,6 +160,7 @@ function initSalary() {
     
     setupEventListeners();
     restoreFromUrl();
+    setupDataUpdateListener();
     
     salaryInitialized = true;
 }
@@ -143,11 +171,19 @@ function setupEventListeners() {
     const todayBtn = document.getElementById('todayBtn');
     const searchInput = document.getElementById('salarySearch');
     const hideEmptyCheckbox = document.getElementById('hideEmptyDays');
-    const groupByRoleCheckbox = document.getElementById('groupByRole');
     
-    if (prevBtn) prevBtn.addEventListener('click', prevMonth);
-    if (nextBtn) nextBtn.addEventListener('click', nextMonth);
-    if (todayBtn) todayBtn.addEventListener('click', goToToday);
+    if (prevBtn) {
+        prevBtn.replaceWith(prevBtn.cloneNode(true));
+        document.getElementById('prevMonthBtn')?.addEventListener('click', prevMonth);
+    }
+    if (nextBtn) {
+        nextBtn.replaceWith(nextBtn.cloneNode(true));
+        document.getElementById('nextMonthBtn')?.addEventListener('click', nextMonth);
+    }
+    if (todayBtn) {
+        todayBtn.replaceWith(todayBtn.cloneNode(true));
+        document.getElementById('todayBtn')?.addEventListener('click', goToToday);
+    }
     
     if (searchInput) {
         searchInput.addEventListener('input', function() {
@@ -157,10 +193,20 @@ function setupEventListeners() {
         });
     }
     
-    if (hideEmptyCheckbox) hideEmptyCheckbox.addEventListener('change', filterSalaryTable);
-    if (groupByRoleCheckbox) groupByRoleCheckbox.addEventListener('change', filterSalaryTable);
+    if (hideEmptyCheckbox) {
+        hideEmptyCheckbox.addEventListener('change', () => filterSalaryTable());
+    }
     
     document.addEventListener('keydown', handleGlobalKeydown);
+}
+
+function setupDataUpdateListener() {
+    window.addEventListener('dataUpdate', (e) => {
+        if (e.detail?.type === 'salary' || e.detail?.type === 'fund') {
+            loadSalaryData();
+            loadFundForSalary();
+        }
+    });
 }
 
 function handleGlobalKeydown(e) {
@@ -188,6 +234,7 @@ function restoreFromUrl() {
     if (month && year) {
         currentMonth = parseInt(month);
         currentYear = parseInt(year);
+        daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
         updateDisplay();
     }
 }
@@ -225,15 +272,12 @@ async function loadFundForSalary() {
         }
     } catch (err) {
         console.error('Ошибка загрузки фонда:', err);
-        showNotif('⚠️ Не удалось загрузить фонд', 'warning');
     }
 }
 
 function updateFundDisplay(amount) {
     const fundEl = document.getElementById('salaryFundAmount');
     if (fundEl) fundEl.textContent = amount.toLocaleString() + ' ₽';
-    const modalFundEl = document.getElementById('modalFundAmount');
-    if (modalFundEl) modalFundEl.textContent = amount.toLocaleString() + ' ₽';
 }
 
 function openFundManagementModal() {
@@ -241,6 +285,9 @@ function openFundManagementModal() {
         showNotif('Только директор может управлять фондом', 'error');
         return;
     }
+    
+    const existingModal = document.getElementById('fundManagementModal');
+    if (existingModal) existingModal.remove();
     
     const currentFund = window.fundAmount || 0;
     
@@ -258,7 +305,7 @@ function openFundManagementModal() {
                 <div class="modal-body">
                     <div class="fund-current-balance">
                         <span>Текущий баланс:</span>
-                        <strong id="modalFundAmount">${currentFund.toLocaleString()} ₽</strong>
+                        <strong>${currentFund.toLocaleString()} ₽</strong>
                     </div>
                     
                     <div class="fund-action-section">
@@ -302,6 +349,8 @@ function closeFundManagementModal() {
 }
 
 async function setFundAmount() {
+    if (isProcessingFund) return;
+    
     const amount = parseInt(document.getElementById('fundSetAmount')?.value) || 0;
     if (amount < 0) {
         showNotif('Сумма не может быть отрицательной', 'error');
@@ -309,36 +358,54 @@ async function setFundAmount() {
     }
     if (!confirm(`Установить фонд в ${amount.toLocaleString()} ₽?`)) return;
     
-    const response = await apiCall('/fund/update', 'POST', { amount });
-    if (response?.success) {
-        showNotif(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
-        updateFundDisplay(amount);
-        window.fundAmount = amount;
-        closeFundManagementModal();
-        if (typeof updateDashboardStats === 'function') updateDashboardStats();
-    } else {
-        showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+    isProcessingFund = true;
+    
+    try {
+        const response = await apiCall('/fund/update', 'POST', { amount, reset: false });
+        if (response?.success) {
+            showNotif(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
+            updateFundDisplay(amount);
+            window.fundAmount = amount;
+            closeFundManagementModal();
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
+        } else {
+            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    } finally {
+        isProcessingFund = false;
     }
 }
 
 async function addToFund() {
+    if (isProcessingFund) return;
+    
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
     if (amount <= 0) { showNotif('Введите сумму больше 0', 'warning'); return; }
     
-    const response = await apiCall('/fund/add', 'POST', { sum: amount });
-    if (response?.success) {
-        const newAmount = (window.fundAmount || 0) + amount;
-        showNotif(`💰 Добавлено ${amount.toLocaleString()} ₽`, 'success');
-        updateFundDisplay(newAmount);
-        window.fundAmount = newAmount;
-        document.getElementById('fundAddAmount').value = 0;
-        if (typeof updateDashboardStats === 'function') updateDashboardStats();
-    } else {
-        showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+    isProcessingFund = true;
+    
+    try {
+        const response = await apiCall('/fund/add', 'POST', { sum: amount });
+        if (response?.success) {
+            const newAmount = (window.fundAmount || 0) + amount;
+            showNotif(`💰 Добавлено ${amount.toLocaleString()} ₽`, 'success');
+            updateFundDisplay(newAmount);
+            window.fundAmount = newAmount;
+            document.getElementById('fundAddAmount').value = 0;
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
+        } else {
+            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    } finally {
+        isProcessingFund = false;
     }
 }
 
 async function subtractFromFund() {
+    if (isProcessingFund) return;
+    
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
     if (amount <= 0) { showNotif('Введите сумму больше 0', 'warning'); return; }
     
@@ -348,31 +415,45 @@ async function subtractFromFund() {
         return;
     }
     
-    const response = await apiCall('/fund/add', 'POST', { sum: -amount });
-    if (response?.success) {
-        const newAmount = currentFund - amount;
-        showNotif(`💰 Убавлено ${amount.toLocaleString()} ₽`, 'success');
-        updateFundDisplay(newAmount);
-        window.fundAmount = newAmount;
-        document.getElementById('fundAddAmount').value = 0;
-        if (typeof updateDashboardStats === 'function') updateDashboardStats();
-    } else {
-        showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+    isProcessingFund = true;
+    
+    try {
+        const response = await apiCall('/fund/add', 'POST', { sum: -amount });
+        if (response?.success) {
+            const newAmount = currentFund - amount;
+            showNotif(`💰 Убавлено ${amount.toLocaleString()} ₽`, 'success');
+            updateFundDisplay(newAmount);
+            window.fundAmount = newAmount;
+            document.getElementById('fundAddAmount').value = 0;
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
+        } else {
+            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    } finally {
+        isProcessingFund = false;
     }
 }
 
 async function resetFund() {
     if (!confirm('Сбросить фонд в 0 ₽?')) return;
     
-    const response = await apiCall('/fund/update', 'POST', { amount: 0 });
-    if (response?.success) {
-        showNotif('💰 Фонд обнулён', 'success');
-        updateFundDisplay(0);
-        window.fundAmount = 0;
-        closeFundManagementModal();
-        if (typeof updateDashboardStats === 'function') updateDashboardStats();
-    } else {
-        showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+    isProcessingFund = true;
+    
+    try {
+        const response = await apiCall('/fund/update', 'POST', { amount: 0, reset: true });
+        if (response?.success) {
+            showNotif('💰 Фонд обнулён', 'success');
+            updateFundDisplay(0);
+            window.fundAmount = 0;
+            closeFundManagementModal();
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
+        } else {
+            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    } finally {
+        isProcessingFund = false;
     }
 }
 
@@ -402,6 +483,8 @@ function prevMonth() {
     monthlyTotalsCache = {};
     dayDataCache = {};
     
+    resetFilters();
+    
     updateDisplay();
     updateUrl();
     loadSalaryData().finally(() => btn?.classList.remove('loading'));
@@ -423,6 +506,8 @@ function nextMonth() {
     monthlyTotalsCache = {};
     dayDataCache = {};
     
+    resetFilters();
+    
     updateDisplay();
     updateUrl();
     loadSalaryData().finally(() => btn?.classList.remove('loading'));
@@ -442,9 +527,21 @@ function goToToday() {
     monthlyTotalsCache = {};
     dayDataCache = {};
     
+    resetFilters();
+    
     updateDisplay();
     updateUrl();
     loadSalaryData();
+}
+
+function resetFilters() {
+    const searchInput = document.getElementById('salarySearch');
+    const hideEmptyCheckbox = document.getElementById('hideEmptyDays');
+    const clearBtn = document.getElementById('clearSearchBtn');
+    
+    if (searchInput) searchInput.value = '';
+    if (hideEmptyCheckbox) hideEmptyCheckbox.checked = false;
+    if (clearBtn) clearBtn.style.display = 'none';
 }
 
 function updateDisplay() {
@@ -484,10 +581,12 @@ async function loadSalaryData() {
 }
 
 function filterSalaryTable(searchTerm = null) {
-    const searchValue = searchTerm !== null ? searchTerm : document.getElementById('salarySearch')?.value.toLowerCase() || '';
-    const hideEmpty = document.getElementById('hideEmptyDays')?.checked || false;
+    const tbody = document.querySelector('.salary-table tbody');
+    if (!tbody) return;
     
-    const rows = document.querySelectorAll('.salary-table tbody tr.salary-employee-row');
+    const searchValue = searchTerm !== null ? searchTerm : document.getElementById('salarySearch')?.value.toLowerCase() || '';
+    
+    const rows = tbody.querySelectorAll('tr.salary-employee-row');
     let visibleCount = 0;
     let grandTotal = 0;
     
@@ -513,7 +612,7 @@ function filterSalaryTable(searchTerm = null) {
     const totalRow = document.getElementById('salaryTotalRow');
     const grandTotalEl = document.getElementById('monthlyGrandTotal');
     if (totalRow && grandTotalEl) {
-        totalRow.style.display = visibleCount > 0 ? 'flex' : 'none';
+        totalRow.style.display = 'flex';
         grandTotalEl.textContent = grandTotal.toLocaleString() + ' ₽';
     }
     
@@ -534,7 +633,7 @@ function renderTable(data) {
         return;
     }
     
-    const dailyData = data.dailyData || [];
+    const dailyData = Array.isArray(data.dailyData) ? data.dailyData : [];
     const dataMap = {};
     dailyData.forEach(item => {
         dataMap[`${item.employee_id}_${item.day_number}`] = {
@@ -593,18 +692,22 @@ function renderTable(data) {
             : (emp.avatar || '👤');
         
         html += `<tr class="salary-employee-row">`;
-        html += `<td class="salary-employee-cell"><div class="salary-employee-content"><div class="salary-employee-avatar" onclick="openProfile('${escapeHtml(emp.name)}')">${avatarHtml}</div><div><div class="salary-employee-name">${escapeHtml(emp.name)}</div><div class="salary-employee-role">${getRoleName(emp.role)}</div></div></div></td>`;
+        html += `<td class="salary-employee-cell"><div class="salary-employee-content"><div class="salary-employee-avatar" onclick="openProfile('${escapeJsString(emp.name)}')">${avatarHtml}</div><div><div class="salary-employee-name">${escapeHtml(emp.name)}</div><div class="salary-employee-role">${getRoleName(emp.role)}</div></div></div></td>`;
         
         for (let d = 1; d <= daysInMonth; d++) {
             const day = dataMap[`${emp.id}_${d}`];
             const total = day ? (day.oklad + day.event + day.turnover + day.bonus35 + day.video + (day.extra_motivation || 0)) : 0;
             const isToday = isCurrentMonth && d === todayDate;
-            const tooltip = day ? `Оклад: ${day.oklad} ₽\nМероприятие: ${day.event} ₽\nПремия с оборота: ${day.turnover} ₽\nПремия 35к: ${day.bonus35} ₽\nВидео: ${day.video} ₽\nДоп. мотивация: ${day.extra_motivation || 0} ₽` : 'Нет начислений';
             
-            html += `<td class="day-cell ${total > 0 ? 'filled' : 'empty'} ${isToday ? 'today' : ''}" onclick="openDayModal(${emp.id}, ${d}, '${escapeHtml(emp.name)}')" title="${tooltip}">${total > 0 ? total.toLocaleString() + ' ₽' : '—'}</td>`;
+            let tooltip = 'Нет начислений';
+            if (day) {
+                tooltip = `Оклад: ${day.oklad.toLocaleString()} ₽\nМероприятие: ${day.event.toLocaleString()} ₽\nПремия с оборота: ${day.turnover.toLocaleString()} ₽\nПремия 35к: ${day.bonus35.toLocaleString()} ₽\nВидео: ${day.video.toLocaleString()} ₽\nДоп. мотивация: ${(day.extra_motivation || 0).toLocaleString()} ₽`;
+            }
+            
+            html += `<td class="day-cell ${total > 0 ? 'filled' : 'empty'} ${isToday ? 'today' : ''}" onclick="openDayModal(${emp.id}, ${d}, '${escapeJsString(emp.name)}')" title="${tooltip}">${total > 0 ? total.toLocaleString() + ' ₽' : '—'}</td>`;
         }
         
-        html += `<td class="salary-total-cell" onclick="showMonthlyBreakdown(${emp.id}, '${escapeHtml(emp.name)}')">${(totals[emp.id] || 0).toLocaleString()} ₽</td></tr>`;
+        html += `<td class="salary-total-cell" onclick="showMonthlyBreakdown(${emp.id}, '${escapeJsString(emp.name)}')">${(totals[emp.id] || 0).toLocaleString()} ₽</td></tr>`;
         html += `<tr class="salary-separator"><td colspan="${daysInMonth + 2}"><div class="separator-line"></div></td></tr>`;
     }
     
@@ -615,6 +718,9 @@ function renderTable(data) {
 }
 
 function showMonthlyBreakdown(employeeId, employeeName) {
+    const existingModal = document.getElementById('monthlyBreakdownModal');
+    if (existingModal) existingModal.remove();
+    
     const breakdown = monthlyTotalsCache[employeeId];
     if (!breakdown) {
         showNotif('Нет данных для отображения', 'warning');
@@ -668,11 +774,31 @@ function copyBreakdownToClipboard() {
     const total = document.querySelector('.breakdown-total strong')?.textContent || '';
     text += `\nИТОГО: ${total}`;
     
-    navigator.clipboard?.writeText(text).then(() => {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => {
+            showNotif('📋 Скопировано в буфер обмена', 'success');
+        }).catch(() => {
+            fallbackCopy(text);
+        });
+    } else {
+        fallbackCopy(text);
+    }
+}
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        document.execCommand('copy');
         showNotif('📋 Скопировано в буфер обмена', 'success');
-    }).catch(() => {
+    } catch (e) {
         showNotif('Не удалось скопировать', 'error');
-    });
+    }
+    document.body.removeChild(textarea);
 }
 
 // ============================================
@@ -680,6 +806,14 @@ function copyBreakdownToClipboard() {
 // ============================================
 
 function openDayModal(employeeId, dayNumber, employeeName) {
+    const existingModal = document.getElementById('dayModal');
+    if (existingModal) existingModal.remove();
+    
+    if (!employeesList.length) {
+        showNotif('Данные ещё загружаются...', 'warning');
+        return;
+    }
+    
     if (dayNumber < 1 || dayNumber > daysInMonth) {
         showNotif('Некорректный день', 'error');
         return;
@@ -695,44 +829,116 @@ function openDayModal(employeeId, dayNumber, employeeName) {
     currentDayNumber = dayNumber;
     currentEmployeeIndex = employeesList.findIndex(e => e.id === employeeId);
     hasUnsavedChanges = false;
+    dayInputHandlersInitialized = false;
     
     const date = new Date(currentYear, currentMonth - 1, dayNumber);
-    const modalDate = document.getElementById('modalDate');
-    const modalEmployee = document.getElementById('modalEmployee');
-    const employeePosition = document.getElementById('employeePosition');
     
-    if (modalDate) modalDate.textContent = date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    if (modalEmployee) modalEmployee.innerHTML = `<i class="fas fa-user"></i> ${escapeHtml(employeeName)}`;
-    if (employeePosition) employeePosition.textContent = `${currentEmployeeIndex + 1} / ${employeesList.length}`;
+    const modalHtml = `
+        <div id="dayModal" class="modal active" onclick="closeDayModal()">
+            <div class="modal-window day-modal" onclick="event.stopPropagation()">
+                <div class="day-modal-header">
+                    <div class="day-modal-header-left">
+                        <div class="day-modal-icon">
+                            <i class="fas fa-calendar-day"></i>
+                        </div>
+                        <div>
+                            <div class="day-modal-date">${date.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                            <div class="day-modal-employee"><i class="fas fa-user"></i> ${escapeHtml(employeeName)}</div>
+                        </div>
+                    </div>
+                    <button class="day-modal-close" onclick="closeDayModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="day-modal-body">
+                    <div class="salary-field primary-field">
+                        <div class="salary-field-label">
+                            <i class="fas fa-money-bill-wave"></i>
+                            <span>ОКЛАД</span>
+                            <span class="field-badge">основная ставка</span>
+                        </div>
+                        <div class="salary-field-input">
+                            <span class="currency-symbol">₽</span>
+                            <input type="number" id="salaryOklad" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}>
+                        </div>
+                    </div>
+                    <div class="salary-fields-grid">
+                        <div class="salary-field">
+                            <div class="salary-field-label"><i class="fas fa-calendar-star"></i><span>МЕРОПРИЯТИЕ</span></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryEvent" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                        </div>
+                        <div class="salary-field">
+                            <div class="salary-field-label"><i class="fas fa-chart-line"></i><span>ПРЕМИЯ С ОБОРОТА</span></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryTurnover" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                        </div>
+                        <div class="salary-field">
+                            <div class="salary-field-label" title="Премия при достижении оборота 35 000 ₽ за смену"><i class="fas fa-trophy"></i><span>ПРЕМИЯ ЗА 35 ТЫС.</span><i class="fas fa-question-circle" style="opacity:0.5;font-size:12px;"></i></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryBonus35" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                        </div>
+                        <div class="salary-field">
+                            <div class="salary-field-label"><i class="fas fa-video"></i><span>РОЛИК / ОТЗЫВ</span></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                        </div>
+                        <div class="salary-field extra-field">
+                            <div class="salary-field-label"><i class="fas fa-gift"></i><span>ДОП. МОТИВАЦИЯ</span></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryExtraMotivation" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                        </div>
+                    </div>
+                    <div class="salary-total-day">
+                        <div class="total-day-label"><i class="fas fa-calculator"></i><span>ИТОГО ЗА ДЕНЬ</span></div>
+                        <div class="total-day-value" id="totalDayValue">0 ₽</div>
+                    </div>
+                    <div class="day-modal-nav">
+                        <button class="nav-btn" id="prevEmployeeBtn" onclick="navigateEmployee(-1)" ${currentEmployeeIndex <= 0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
+                        <span id="employeePosition">${currentEmployeeIndex + 1} / ${employeesList.length}</span>
+                        <button class="nav-btn" id="nextEmployeeBtn" onclick="navigateEmployee(1)" ${currentEmployeeIndex >= employeesList.length - 1 ? 'disabled' : ''}><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </div>
+                <div class="day-modal-footer" id="modalFooter" style="display: ${isDirector ? 'flex' : 'none'};">
+                    <button class="btn-clear" onclick="clearCurrentDay()"><i class="fas fa-eraser"></i><span>Очистить</span></button>
+                    <button class="btn-apply-all" onclick="applyToAllOperators()"><i class="fas fa-users"></i><span>Всем операторам</span></button>
+                    <button class="btn-save" onclick="saveCurrentDay()"><i class="fas fa-save"></i><span>Сохранить</span></button>
+                    <button class="btn-close" onclick="closeDayModal()"><i class="fas fa-times"></i><span>Закрыть</span></button>
+                </div>
+                <div class="day-modal-footer" style="display: ${!isDirector ? 'flex' : 'none'};">
+                    <button class="btn-close" onclick="closeDayModal()" style="width:100%;"><i class="fas fa-times"></i><span>Закрыть</span></button>
+                </div>
+                <div class="day-modal-hotkeys">
+                    <span><kbd>Enter</kbd> — сохранить</span>
+                    <span><kbd>Esc</kbd> — закрыть</span>
+                    <span><kbd>←</kbd> <kbd>→</kbd> — сотрудники</span>
+                </div>
+            </div>
+        </div>
+    `;
     
-    const footer = document.getElementById('modalFooter');
-    if (footer) footer.style.display = 'flex';
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    document.body.style.overflow = 'hidden';
     
-    const applyAllBtn = document.getElementById('applyAllBtn');
-    if (applyAllBtn) applyAllBtn.style.display = isDirector ? 'flex' : 'none';
+    setupDayInputHandlers();
+    loadDayData(employeeId, dayNumber);
     
-    const prevBtn = document.getElementById('prevEmployeeBtn');
-    const nextBtn = document.getElementById('nextEmployeeBtn');
-    if (prevBtn) prevBtn.disabled = currentEmployeeIndex <= 0;
-    if (nextBtn) nextBtn.disabled = currentEmployeeIndex >= employeesList.length - 1;
+    setTimeout(() => document.getElementById('salaryOklad')?.focus(), 100);
+}
+
+function setupDayInputHandlers() {
+    if (dayInputHandlersInitialized) return;
     
     const inputs = ['salaryOklad', 'salaryEvent', 'salaryTurnover', 'salaryBonus35', 'salaryVideo', 'salaryExtraMotivation'];
     inputs.forEach(id => {
         const input = document.getElementById(id);
-        if (input) {
-            input.disabled = !isDirector;
-            if (isDirector) {
-                input.addEventListener('input', () => { hasUnsavedChanges = true; updateDayTotal(); });
-                input.addEventListener('change', () => { hasUnsavedChanges = true; updateDayTotal(); });
-            }
+        if (input && isDirector) {
+            input.addEventListener('input', onDayInputChange);
+            input.addEventListener('change', onDayInputChange);
         }
     });
     
-    loadDayData(employeeId, dayNumber);
-    document.getElementById('dayModal').classList.add('active');
-    document.body.style.overflow = 'hidden';
-    
-    setTimeout(() => document.getElementById('salaryOklad')?.focus(), 100);
+    dayInputHandlersInitialized = true;
+}
+
+function onDayInputChange() {
+    hasUnsavedChanges = true;
+    updateDayTotal();
 }
 
 function closeDayModal() {
@@ -740,15 +946,18 @@ function closeDayModal() {
         if (!confirm('У вас есть несохранённые изменения. Выйти?')) return;
     }
     
-    document.getElementById('dayModal').classList.remove('active');
+    const modal = document.getElementById('dayModal');
+    if (modal) modal.remove();
     document.body.style.overflow = '';
     currentEmployeeId = null;
     currentDayNumber = null;
     originalDayData = null;
     hasUnsavedChanges = false;
+    currentEmployeeIndex = -1;
+    dayInputHandlersInitialized = false;
 }
 
-function navigateEmployee(delta) {
+async function navigateEmployee(delta) {
     if (!employeesList.length) return;
     
     const newIndex = currentEmployeeIndex + delta;
@@ -758,7 +967,7 @@ function navigateEmployee(delta) {
     if (emp) {
         if (hasUnsavedChanges && isDirector) {
             if (!confirm('Сохранить изменения перед переходом?')) return;
-            saveCurrentDay();
+            await saveCurrentDay();
         }
         openDayModal(emp.id, currentDayNumber, emp.name);
     }
@@ -776,9 +985,17 @@ async function loadDayData(employeeId, dayNumber) {
     
     try {
         const data = await apiCall(`/salary/day?employee_id=${employeeId}&day=${dayNumber}&month=${currentMonth}&year=${currentYear}`);
-        dayDataCache[cacheKey] = data;
-        fillDayDataFields(data);
-        originalDayData = { ...data };
+        const normalizedData = {
+            oklad: data?.oklad || 0,
+            event: data?.event || 0,
+            turnover: data?.turnover || 0,
+            bonus35: data?.bonus35 || 0,
+            video: data?.video || 0,
+            extra_motivation: data?.extra_motivation || 0
+        };
+        dayDataCache[cacheKey] = normalizedData;
+        fillDayDataFields(normalizedData);
+        originalDayData = { ...normalizedData };
     } catch (err) {
         console.error(err);
         const emptyData = { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 };
@@ -823,6 +1040,8 @@ function clearCurrentDay() {
 async function applyToAllOperators() {
     if (!isDirector) return;
     if (!confirm('Применить текущие значения ко ВСЕМ операторам за этот день?')) return;
+    
+    showNotif('⏳ Применение...', 'info');
     
     const oklad = parseFloat(document.getElementById('salaryOklad')?.value) || 0;
     const event = parseFloat(document.getElementById('salaryEvent')?.value) || 0;
@@ -911,6 +1130,7 @@ async function saveCurrentDay() {
             closeDayModal();
             loadSalaryData();
             loadFundForSalary();
+            window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'salary' } }));
         } else {
             showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
@@ -930,6 +1150,7 @@ async function saveCurrentDay() {
 // ============================================
 
 window.initSalary = initSalary;
+window.resetSalaryState = resetSalaryState;
 window.prevMonth = prevMonth;
 window.nextMonth = nextMonth;
 window.goToToday = goToToday;
@@ -956,4 +1177,4 @@ window.clearSalarySearch = function() {
     filterSalaryTable('');
 };
 
-console.log('✅ salary.js загружен (v5.1 — исправлены дубликаты)');
+console.log('✅ salary.js загружен (v5.2 — исправлено 30 багов)');
