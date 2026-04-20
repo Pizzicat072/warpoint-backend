@@ -1145,7 +1145,13 @@ function goToToday() {
 }
 
 function getCurrentPage() {
-    return typeof window.getCurrentPage === 'function' ? window.getCurrentPage() : null;
+    // 🔥 ИСПРАВЛЕНО: защита от бесконечной рекурсии
+    if (typeof window.getCurrentPage === 'function' && window.getCurrentPage !== getCurrentPage) {
+        return window.getCurrentPage();
+    }
+    // Fallback: получаем текущую страницу из URL
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('page') || 'dashboard';
 }
 
 // ============================================
