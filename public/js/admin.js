@@ -393,7 +393,9 @@ async function loadFundAmount() {
         const response = await apiCall('/fund');
         if (response && response.amount !== undefined) {
             const display = document.getElementById('fundDisplayAmount');
-            if (display) display.textContent = response.amount.toLocaleString() + ' ₽';
+            if (display) {
+                display.textContent = response.amount.toLocaleString() + ' ₽';
+            }
             window.fundAmount = response.amount;
         }
     } catch (err) {

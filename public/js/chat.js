@@ -113,9 +113,11 @@ function formatTimeAgo(timestamp) {
 }
 
 function openProfile(employeeName) {
-    if (typeof window.openProfile === 'function') {
+    if (typeof window.openProfile === 'function' && window.openProfile !== openProfile) {
         window.openProfile(employeeName);
+        return;
     }
+    console.log('openProfile не найден');
 }
 
 // ============================================
@@ -2053,5 +2055,12 @@ window.sendTypingIndicator = sendTypingIndicator;
 window.showTypingIndicator = showTypingIndicator;
 window.hideTypingIndicator = hideTypingIndicator;
 window.chatUnread = chatUnread;
+window.selectAnnouncementStyle = function(style) {
+    currentAnnouncementStyle = style;
+    document.querySelectorAll('.style-option').forEach(opt => {
+        opt.classList.remove('active');
+        if (opt.dataset.style === style) opt.classList.add('active');
+    });
+};
 
 console.log('✅ chat.js загружен (v3.2 — с уведомлениями)');

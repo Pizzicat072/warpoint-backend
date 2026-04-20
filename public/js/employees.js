@@ -986,13 +986,20 @@
     // СОЗДАНИЕ СОТРУДНИКА
     // ============================================
     function openCreateEmployeeModal() {
-        document.getElementById('createEmployeeModal').classList.add('active');
-        selectRole('operator');
-        
-        document.getElementById('newEmpBirthday').max = new Date().toISOString().split('T')[0];
-        
-        document.getElementById('newEmpPhone').addEventListener('input', phoneMaskHandler);
+    const modal = document.getElementById('createEmployeeModal');
+    if (!modal) {
+        console.warn('⚠️ createEmployeeModal не найден');
+        return;
     }
+    modal.classList.add('active');
+    selectRole('operator');
+    
+    const birthdayInput = document.getElementById('newEmpBirthday');
+    if (birthdayInput) birthdayInput.max = new Date().toISOString().split('T')[0];
+    
+    const phoneInput = document.getElementById('newEmpPhone');
+    if (phoneInput) phoneInput.addEventListener('input', phoneMaskHandler);
+}
     
     function phoneMaskHandler(e) {
         let value = e.target.value.replace(/\D/g, '');
