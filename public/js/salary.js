@@ -15,7 +15,6 @@ let isSavingDay = false;
 let monthlyTotalsCache = {};
 let dayDataCache = {};
 let salaryInitialized = false;
-let abortController = null;
 let originalDayData = null;
 let hasUnsavedChanges = false;
 let employeesList = [];
@@ -470,9 +469,6 @@ function updateDisplay() {
 async function loadSalaryData() {
     if (salaryIsLoading) return;
     
-    if (abortController) abortController.abort();
-    abortController = new AbortController();
-    
     salaryIsLoading = true;
     
     const container = document.getElementById('salaryTableContainer');
@@ -489,9 +485,7 @@ async function loadSalaryData() {
             container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>Нет данных</h3><p>${data?.error || 'Попробуйте позже'}</p></div>`;
         }
     } catch (err) {
-        if (err.name !== 'AbortError') {
-            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Ошибка</h3><p>${err.message}</p><button class="btn-primary" onclick="loadSalaryData()">🔄 Повторить</button></div>`;
-        }
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Ошибка</h3><p>${err.message}</p><button class="btn-primary" onclick="loadSalaryData()">🔄 Повторить</button></div>`;
     } finally {
         salaryIsLoading = false;
     }
