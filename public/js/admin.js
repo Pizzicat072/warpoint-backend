@@ -25,13 +25,15 @@ function escapeHtml(str) {
 }
 
 function showSystemNotification(message, type) {
-    if (typeof window.showSystemNotification === 'function') {
+    if (typeof window.showSystemNotification === 'function' && window.showSystemNotification !== showSystemNotification) {
         window.showSystemNotification(message, type);
-    } else if (typeof window.showNotif === 'function') {
-        window.showNotif(message, type);
-    } else {
-        console.log(`[${type}] ${message}`);
+        return;
     }
+    if (typeof window.showNotif === 'function' && window.showNotif !== showSystemNotification) {
+        window.showNotif(message, type);
+        return;
+    }
+    console.log(`[${type}] ${message}`);
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
@@ -391,7 +393,7 @@ async function loadFundAmount() {
         const response = await apiCall('/fund');
         if (response && response.amount !== undefined) {
             const display = document.getElementById('fundDisplayAmount');
-            if (16) display.textContent = response.amount.toLocaleString() + ' ₽';
+            if (display) display.textContent = response.amount.toLocaleString() + ' ₽';
             window.fundAmount = response.amount;
         }
     } catch (err) {
