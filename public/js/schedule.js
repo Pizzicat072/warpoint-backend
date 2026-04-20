@@ -1,5 +1,5 @@
-// public/js/schedule.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v3.0
-// Исправлены все 77 багов вкладки "График"
+// public/js/schedule.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v3.1
+// Добавлены все уведомления
 
 (function() {
     'use strict';
@@ -16,10 +16,32 @@
     let abortController = null;
     let massEditorUnsavedChanges = false;
     let shiftDraft = null;
+    let scheduleInitialized = false;
+
+    const myShiftsOnly = false;
+    const operatorsOnly = false;
+
+    // ============================================
+    // СБРОС СОСТОЯНИЯ
+    // ============================================
+
+    function resetScheduleState() {
+        console.log('🧹 Сброс состояния графика');
+        scheduleInitialized = false;
+        if (scheduleLoadTimeout) {
+            clearTimeout(scheduleLoadTimeout);
+            scheduleLoadTimeout = null;
+        }
+        if (abortController) {
+            abortController.abort();
+            abortController = null;
+        }
+    }
 
     // ============================================
     // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ============================================
+
     function getTobolskNow() {
         if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
             return window.getTobolskNow();
@@ -43,9 +65,40 @@
         return String(str).replace(/[&<>"']/g, m => map[m]);
     }
 
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
+    }
+
     // ============================================
-    // ЗАГРУЗКА ДАННЫХ (ИСПРАВЛЕНО)
+    // ЗАГРУЗКА ДАННЫХ
     // ============================================
+
     async function loadScheduleData() {
         if (isLoadingSchedule) {
             console.log('⏳ График уже загружается');
@@ -67,7 +120,7 @@
             console.error('❌ Таймаут загрузки графика');
             isLoadingSchedule = false;
             hideScheduleSkeleton();
-            showNotif('Превышено время загрузки', 'error');
+            showSystemNotification('❌ Превышено время загрузки', 'error');
         }, 15000);
         
         try {
@@ -92,17 +145,18 @@
                 }
                 window.app.schedule = currentScheduleData;
                 console.log(`✅ Загружено ${response.length} записей графика`);
+                showSystemNotification(`📊 Загружено ${response.length} записей графика`, 'info');
                 renderMonthSchedule();
             } else if (response && response.length === 0) {
                 currentScheduleData = {};
                 window.app.schedule = {};
                 renderMonthSchedule();
-                showNotif('📅 Нет данных за этот месяц', 'info');
+                showSystemNotification('📅 Нет данных за этот месяц', 'info');
             }
         } catch (err) {
             if (err.name !== 'AbortError') {
                 console.error('❌ Ошибка загрузки графика:', err);
-                showNotif('Ошибка загрузки графика', 'error');
+                showSystemNotification('❌ Ошибка загрузки графика', 'error');
             }
         } finally {
             clearTimeout(scheduleLoadTimeout);
@@ -169,7 +223,13 @@
     // ============================================
     // ИНИЦИАЛИЗАЦИЯ
     // ============================================
+
     function initSchedule() {
+        if (scheduleInitialized) {
+            console.log('📅 График уже инициализирован');
+            return;
+        }
+        
         console.log('📅 Инициализация графика');
         
         const container = document.getElementById('scheduleWeeksContainer');
@@ -190,6 +250,8 @@
         updateUrl();
         
         document.title = 'WARPOINT — График смен';
+        
+        scheduleInitialized = true;
     }
 
     function setupVisibilityChange() {
@@ -225,6 +287,7 @@
     // ============================================
     // ОТРИСОВКА КАЛЕНДАРЯ
     // ============================================
+
     function getWeeksInMonth() {
         const firstDay = new Date(currentScheduleYear, currentScheduleMonth, 1);
         const lastDay = new Date(currentScheduleYear, currentScheduleMonth + 1, 0);
@@ -291,19 +354,11 @@
         currentScheduleYear = newYear;
         
         updateUrl();
+        showSystemNotification(`📅 ${formatMonthYear()}`, 'info');
         renderMonthSchedule();
         loadScheduleData();
         
         isChangingMonth = false;
-    }
-
-    function resetMonthSchedule() {
-        const now = getTobolskNow();
-        currentScheduleMonth = now.getMonth();
-        currentScheduleYear = now.getFullYear();
-        updateUrl();
-        renderMonthSchedule();
-        loadScheduleData();
     }
 
     function goToToday() {
@@ -311,6 +366,7 @@
         currentScheduleMonth = now.getMonth();
         currentScheduleYear = now.getFullYear();
         updateUrl();
+        showSystemNotification('📅 Переход к текущей дате', 'info');
         renderMonthSchedule();
         loadScheduleData();
     }
@@ -503,8 +559,9 @@
     }
 
     // ============================================
-    // МОДАЛКА СМЕНЫ (ИСПРАВЛЕНО)
+    // МОДАЛКА СМЕНЫ
     // ============================================
+
     function openShiftModalForEmployee(dateStr, employee) {
         const shiftData = currentScheduleData[dateStr]?.[employee] || { time: '10:00', status: 'working', is_special: false, special_end_time: '22:00' };
         
@@ -596,20 +653,20 @@
         const specialEndTime = document.getElementById('specialEndTime')?.value || null;
         
         if (!shiftTime) {
-            showNotif('Выберите время начала смены', 'error');
+            showSystemNotification('❌ Выберите время начала смены', 'error');
             return;
         }
         
         if (isSpecial && specialEndTime) {
             const [endHour] = specialEndTime.split(':').map(Number);
             if (endHour > 22) {
-                showNotif('Время окончания не может быть позже 22:00', 'error');
+                showSystemNotification('❌ Время окончания не может быть позже 22:00', 'error');
                 return;
             }
             
             const [startHour] = shiftTime.split(':').map(Number);
             if (endHour <= startHour) {
-                showNotif('Время окончания должно быть позже времени начала', 'error');
+                showSystemNotification('❌ Время окончания должно быть позже времени начала', 'error');
                 return;
             }
         }
@@ -647,17 +704,17 @@
             });
             
             if (response && response.success) {
-                showNotif('✅ Смена сохранена', 'success');
+                showSystemNotification('✅ Смена сохранена', 'success');
                 closeShiftModal();
                 await loadScheduleData();
                 if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
                 if (typeof updateDashboardStats === 'function') updateDashboardStats();
             } else {
-                showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+                showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
             }
         } catch (err) {
             console.error(err);
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             isSavingShift = false;
             if (saveBtn) {
@@ -674,23 +731,24 @@
             const response = await apiCall('/schedule/shift', 'DELETE', { date: dateStr, employee });
             
             if (response && response.success) {
-                showNotif('🗑️ Смена удалена', 'success');
+                showSystemNotification('🗑️ Смена удалена', 'warning');
                 closeShiftModal();
                 await loadScheduleData();
                 if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
                 if (typeof updateDashboardStats === 'function') updateDashboardStats();
             } else {
-                showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+                showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
             }
         } catch (err) {
             console.error(err);
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         }
     }
 
     // ============================================
-    // МАССОВЫЙ РЕДАКТОР (ИСПРАВЛЕНО)
+    // МАССОВЫЙ РЕДАКТОР
     // ============================================
+
     function openMassEditor(dateStr) {
         const cases = specialCases[dateStr] || { allowThreeOperators: false, earlyLeave: [], replacements: [] };
         
@@ -850,16 +908,6 @@
         markMassEditorChanged();
     }
 
-    function removeEarlyLeave(idx) {
-        // Для совместимости со старым кодом
-        markMassEditorChanged();
-    }
-
-    function removeReplacement(idx) {
-        // Для совместимости со старым кодом
-        markMassEditorChanged();
-    }
-
     function clearAllSpecialCases(dateStr) {
         if (!confirm('Очистить все особые случаи для этого дня?')) return;
         
@@ -867,6 +915,7 @@
         document.getElementById('earlyLeaveContainer').innerHTML = '<div class="empty-hint">Нет сотрудников с ранним уходом</div>';
         document.getElementById('replacementsContainer').innerHTML = '<div class="empty-hint">Нет замен</div>';
         markMassEditorChanged();
+        showSystemNotification('🧹 Особые случаи очищены', 'info');
     }
 
     async function saveMassEditor(dateStr) {
@@ -903,17 +952,17 @@
             const response = await apiCall('/schedule/special-cases', 'POST', { date: dateStr, cases });
             
             if (response && response.success) {
-                showNotif('✅ Особые случаи сохранены', 'success');
+                showSystemNotification('✅ Особые случаи сохранены', 'success');
                 specialCases[dateStr] = cases;
                 massEditorUnsavedChanges = false;
                 closeMassEditor();
                 await loadScheduleData();
             } else {
-                showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+                showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
             }
         } catch (err) {
             console.error(err);
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             if (saveBtn) {
                 saveBtn.innerHTML = originalText;
@@ -923,14 +972,15 @@
     }
 
     // ============================================
-    // ОБМЕН СМЕНАМИ (ИСПРАВЛЕНО)
+    // ОБМЕН СМЕНАМИ
     // ============================================
+
     function openExchangeModal(dateStr, toEmployee, toShiftTime) {
         const currentUser = window.app?.currentUser;
         const myShift = currentScheduleData[dateStr]?.[currentUser];
         
         if (!myShift || !myShift.time) {
-            showNotif('У вас нет смены в этот день', 'error');
+            showSystemNotification('❌ У вас нет смены в этот день', 'error');
             return;
         }
         
@@ -996,7 +1046,7 @@
             .sort(([a], [b]) => a.localeCompare(b));
         
         if (myShifts.length === 0) {
-            showNotif('У вас нет будущих смен для обмена', 'error');
+            showSystemNotification('❌ У вас нет будущих смен для обмена', 'error');
             return;
         }
         
@@ -1021,38 +1071,55 @@
             });
             
             if (response && response.success) {
-                showNotif('✅ Запрос на обмен отправлен', 'success');
+                showSystemNotification('🔄 Запрос на обмен отправлен', 'success');
                 closeExchangeModal();
             } else {
-                showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+                showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
             }
         } catch (err) {
             console.error(err);
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         }
     }
 
     // ============================================
-    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ФИЛЬТРЫ
     // ============================================
+
+    function toggleMyShiftsFilter() {
+        const checkbox = document.getElementById('filterMyShifts');
+        window.myShiftsOnly = checkbox?.checked || false;
+        showSystemNotification(`👤 ${window.myShiftsOnly ? 'Только мои смены' : 'Все смены'}`, 'info');
+        renderMonthSchedule();
+    }
+
+    function toggleOperatorsFilter() {
+        const checkbox = document.getElementById('filterOperatorsOnly');
+        window.operatorsOnly = checkbox?.checked || false;
+        showSystemNotification(`👥 ${window.operatorsOnly ? 'Только операторы' : 'Все сотрудники'}`, 'info');
+        renderMonthSchedule();
+    }
+
+    function resetScheduleFilters() {
+        document.getElementById('filterMyShifts').checked = false;
+        document.getElementById('filterOperatorsOnly').checked = false;
+        window.myShiftsOnly = false;
+        window.operatorsOnly = false;
+        showSystemNotification('🔄 Фильтры сброшены', 'info');
+        renderMonthSchedule();
+    }
+
+    // ============================================
+    // ЭКСПОРТ
+    // ============================================
+
+    function exportSchedule() {
+        showSystemNotification('📊 Экспорт графика...', 'info');
+        // Заглушка
+    }
+
     function getCurrentPage() {
         return typeof window.getCurrentPage === 'function' ? window.getCurrentPage() : null;
-    }
-
-    function showNotif(msg, type) {
-        if (typeof window.showNotif === 'function') {
-            window.showNotif(msg, type);
-        } else {
-            console.log(`[${type}] ${msg}`);
-        }
-    }
-
-    async function apiCall(endpoint, method = 'GET', body = null) {
-        if (typeof window.apiCall === 'function') {
-            return window.apiCall(endpoint, method, body);
-        }
-        console.warn('apiCall не найден');
-        return { success: false, error: 'API недоступен' };
     }
 
     function openProfile(employeeName) {
@@ -1064,9 +1131,10 @@
     // ============================================
     // ЭКСПОРТ
     // ============================================
+
     window.initSchedule = initSchedule;
+    window.resetScheduleState = resetScheduleState;
     window.changeMonth = changeMonth;
-    window.resetMonthSchedule = resetMonthSchedule;
     window.goToToday = goToToday;
     window.loadScheduleData = loadScheduleData;
     window.openShiftModalForEmployee = openShiftModalForEmployee;
@@ -1078,14 +1146,16 @@
     window.saveMassEditor = saveMassEditor;
     window.addEarlyLeave = addEarlyLeave;
     window.addReplacement = addReplacement;
-    window.removeEarlyLeave = removeEarlyLeave;
-    window.removeReplacement = removeReplacement;
     window.clearAllSpecialCases = clearAllSpecialCases;
     window.markMassEditorChanged = markMassEditorChanged;
     window.openExchangeModal = openExchangeModal;
     window.closeExchangeModal = closeExchangeModal;
     window.sendExchangeRequest = sendExchangeRequest;
     window.renderMonthSchedule = renderMonthSchedule;
+    window.toggleMyShiftsFilter = toggleMyShiftsFilter;
+    window.toggleOperatorsFilter = toggleOperatorsFilter;
+    window.resetScheduleFilters = resetScheduleFilters;
+    window.exportSchedule = exportSchedule;
 
-    console.log('✅ schedule.js загружен (исправленная версия v3.0)');
+    console.log('✅ schedule.js загружен (v3.1 — с уведомлениями)');
 })();

@@ -1,4 +1,5 @@
-// public/js/shop.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/shop.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v1.1
+// Добавлены все уведомления
 
 const giftList = [
     { id: 'flower', name: '🌸 Букет цветов', icon: '🌸', price: 25, rating: 8, desc: 'Красивый букет для настроения' },
@@ -47,14 +48,64 @@ let selectedQuantity = 1;
 let isAnonymous = false;
 let myStatuses = [];
 let isLoadingShop = false;
+let shopInitialized = false;
 
 // ============================================
-// ОБРАБОТКА НОВЫХ ДОСТИЖЕНИЙ
+// СБРОС СОСТОЯНИЯ
 // ============================================
+
+function resetShopState() {
+    console.log('🧹 Сброс состояния магазина');
+    shopInitialized = false;
+    selectedGift = null;
+    selectedQuantity = 1;
+    isAnonymous = false;
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(str).replace(/[&<>"']/g, m => map[m]);
+}
+
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
+    } else {
+        console.log(`[${type}] ${message}`);
+    }
+}
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+    if (typeof window.originalApiCall === 'function') {
+        return window.originalApiCall(endpoint, method, body);
+    }
+    if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+        return window.apiCall(endpoint, method, body);
+    }
+    const token = localStorage.getItem('token');
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    if (body) options.body = JSON.stringify(body);
+    try {
+        const response = await fetch(`/api${endpoint}`, options);
+        return await response.json();
+    } catch (e) {
+        console.error('Fetch error:', e);
+        return { success: false, error: 'Ошибка соединения' };
+    }
+}
+
 function handleNewAchievements(achievements) {
     if (achievements && achievements.length > 0) {
         for (const ach of achievements) {
-            showNotif(`🏆 Новое достижение: ${ach.name} (+${ach.coins} WP)`, 'success');
+            showSystemNotification(`🏆 Новое достижение: ${ach.name} (+${ach.coins} WP)`, 'success');
         }
         if (typeof loadAchievements === 'function') {
             setTimeout(() => loadAchievements(), 500);
@@ -66,10 +117,15 @@ function handleNewAchievements(achievements) {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// ИНИЦИАЛИЗАЦИЯ
 // ============================================
 
 function initShop() {
+    if (shopInitialized) {
+        console.log('🛒 Магазин уже инициализирован');
+        return;
+    }
+    
     console.log('🛒 Инициализация магазина');
     
     const container = document.getElementById('giftsContainer');
@@ -85,6 +141,8 @@ function initShop() {
     loadMyStatuses();
     updateBalance();
     initTabs();
+    
+    shopInitialized = true;
 }
 
 function initTabs() {
@@ -95,8 +153,7 @@ function initTabs() {
         tab.onclick = () => {
             const tabId = tab.dataset.tab;
             document.querySelectorAll('.shop-tab-content').forEach(c => c.style.display = 'none');
-            const targetTab = document.getElementById(tabId + 'Tab');
-            if (targetTab) targetTab.style.display = 'block';
+            document.getElementById(tabId + 'Tab').style.display = 'block';
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             
@@ -208,7 +265,7 @@ function renderAvatars() {
 async function buyStatus(id, name, price, rating) {
     const userCoins = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
     if (userCoins < price) {
-        showNotif(`Не хватает! Нужно ${price} WP`, 'error');
+        showSystemNotification(`❌ Не хватает! Нужно ${price} WP`, 'error');
         return;
     }
     if (!confirm(`Купить "${name}" за ${price} WP?`)) return;
@@ -218,7 +275,7 @@ async function buyStatus(id, name, price, rating) {
     });
     
     if (res?.success) {
-        showNotif(`✅ "${name}" куплен!`, 'success');
+        showSystemNotification(`✅ Статус "${name}" куплен`, 'success');
         if (res.newAchievements) handleNewAchievements(res.newAchievements);
         await loadMyStatuses();
         await loadEmployees();
@@ -226,19 +283,19 @@ async function buyStatus(id, name, price, rating) {
         renderInventory();
         updateBalance();
     } else {
-        showNotif(res?.error || 'Ошибка при покупке', 'error');
+        showSystemNotification('❌ ' + (res?.error || 'Ошибка при покупке'), 'error');
     }
 }
 
 async function activateStatus(id, name) {
     const res = await apiCall('/statuses/activate', 'POST', { statusId: id });
     if (res?.success) {
-        showNotif(`✅ Статус "${name}" активирован!`, 'success');
+        showSystemNotification(`✅ Статус "${name}" активирован`, 'success');
         await loadEmployees();
         renderInventory();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
-        showNotif(res?.error || 'Ошибка активации', 'error');
+        showSystemNotification('❌ ' + (res?.error || 'Ошибка активации'), 'error');
     }
 }
 
@@ -250,16 +307,19 @@ async function loadMyStatuses() {
 
 async function buyAvatar(icon) {
     const currentAvatar = window.app?.profiles?.[window.app?.currentUser]?.avatar;
-    if (currentAvatar === icon) return showNotif('Уже используется', 'info');
+    if (currentAvatar === icon) {
+        showSystemNotification('ℹ️ Уже используется', 'info');
+        return;
+    }
     const success = await updateEmployeeAvatar(window.app?.currentUser, icon);
     if (success) {
-        showNotif('✅ Аватар изменён!', 'success');
+        showSystemNotification('✅ Аватар изменён', 'success');
         await loadEmployees();
         renderAvatars();
         if (typeof renderEmployees === 'function') renderEmployees();
         if (typeof window.updateHeaderAvatar === 'function') window.updateHeaderAvatar(null, icon);
     } else {
-        showNotif('Ошибка при смене аватара', 'error');
+        showSystemNotification('❌ Ошибка при смене аватара', 'error');
     }
 }
 
@@ -291,8 +351,7 @@ function openGiftModal(giftId) {
 }
 
 function closeGiftModal() { 
-    const modal = document.getElementById('giftModal');
-    if (modal) modal.style.display = 'none'; 
+    document.getElementById('giftModal').style.display = 'none'; 
 }
 
 function changeQuantity(delta) {
@@ -315,11 +374,17 @@ function updateTotalPrice() {
 
 async function sendGift() {
     const recipient = document.getElementById('giftRecipient')?.value;
-    if (!recipient) return showNotif('Выберите получателя', 'error');
+    if (!recipient) {
+        showSystemNotification('❌ Выберите получателя', 'error');
+        return;
+    }
     
     const total = selectedGift.price * selectedQuantity;
     const userCoins = window.app?.profiles?.[window.app?.currentUser]?.coins || 0;
-    if (userCoins < total) return showNotif('Недостаточно монет', 'error');
+    if (userCoins < total) {
+        showSystemNotification('❌ Недостаточно монет', 'error');
+        return;
+    }
     
     const sender = isAnonymous ? '🕵️ Аноним' : window.app?.currentUser;
     
@@ -346,13 +411,23 @@ async function sendGift() {
     
     if (res?.success) {
         closeGiftModal();
-        showNotif(`🎁 Вы подарили ${selectedGift.name} сотруднику ${recipient}!`, 'success');
+        showSystemNotification(`🎁 Вы подарили ${selectedGift.name} сотруднику ${recipient}!`, 'success');
         if (res.newAchievements) handleNewAchievements(res.newAchievements);
         await loadEmployees();
         updateBalance();
         if (typeof renderEmployees === 'function') renderEmployees();
+        
+        // Отправить событие получателю
+        if (typeof window.sendEvent === 'function') {
+            window.sendEvent('gift_received', {
+                sender: sender,
+                giftName: selectedGift.name,
+                giftId: selectedGift.id,
+                anonymous: isAnonymous
+            }, recipient);
+        }
     } else {
-        showNotif(res?.error || 'Ошибка при отправке', 'error');
+        showSystemNotification('❌ ' + (res?.error || 'Ошибка при отправке'), 'error');
     }
 }
 
@@ -361,6 +436,7 @@ async function sendGift() {
 // ============================================
 
 window.initShop = initShop;
+window.resetShopState = resetShopState;
 window.openGiftModal = openGiftModal;
 window.closeGiftModal = closeGiftModal;
 window.sendGift = sendGift;
@@ -374,4 +450,4 @@ window.renderAvatars = renderAvatars;
 window.updateBalance = updateBalance;
 window.handleNewAchievements = handleNewAchievements;
 
-console.log('✅ shop.js загружен (исправленная версия)');
+console.log('✅ shop.js загружен (v1.1 — с уведомлениями)');

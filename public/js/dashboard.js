@@ -1,4 +1,6 @@
-// public/js/dashboard.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/dashboard.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ v1.2
+// Добавлены все уведомления
+
 (function() {
     'use strict';
     
@@ -15,9 +17,91 @@
     const MIN_UPDATE_INTERVAL = 5000;
     let isFetchingWeather = false;
     let lastWeatherFetch = 0;
-    const WEATHER_FETCH_INTERVAL = 15 * 60 * 1000; // 15 минут
+    const WEATHER_FETCH_INTERVAL = 15 * 60 * 1000;
     let isClaimingBonus = false;
     let cachedFundAmount = 0;
+    let dashboardInitialized = false;
+
+    // ============================================
+    // СБРОС СОСТОЯНИЯ
+    // ============================================
+    function resetDashboardState() {
+        console.log('🧹 Сброс состояния дашборда');
+        dashboardInitialized = false;
+        if (dashboardInterval) {
+            clearInterval(dashboardInterval);
+            dashboardInterval = null;
+        }
+        if (bonusCheckInterval) {
+            clearInterval(bonusCheckInterval);
+            bonusCheckInterval = null;
+        }
+        if (shiftTimerInterval) {
+            clearInterval(shiftTimerInterval);
+            shiftTimerInterval = null;
+        }
+        if (particlesInterval) {
+            clearInterval(particlesInterval);
+            particlesInterval = null;
+        }
+        stopWeatherAutoUpdate();
+    }
+
+    // ============================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================
+    function getTobolskNow() {
+        if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
+            return window.getTobolskNow();
+        }
+        const now = new Date();
+        return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(str).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatDateSimple(dateStr) {
+        if (!dateStr) return '—';
+        const parts = dateStr.split('-');
+        const day = parseInt(parts[2]);
+        const month = parseInt(parts[1]);
+        const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+        return `${day} ${monthNames[month - 1]}`;
+    }
+
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
+    }
 
     // ============================================
     // МАГАЗИН СТИЛЕЙ
@@ -41,29 +125,6 @@
     ];
     window.availableStyles = availableStyles;
 
-    // ============================================
-    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-    // ============================================
-    function getTobolskNow() {
-        if (typeof window.getTobolskNow === 'function' && window.getTobolskNow !== getTobolskNow) {
-            return window.getTobolskNow();
-        }
-        const now = new Date();
-        return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' }));
-    }
-
-    function formatDateSimple(dateStr) {
-        if (!dateStr) return '—';
-        const parts = dateStr.split('-');
-        const day = parseInt(parts[2]);
-        const month = parseInt(parts[1]);
-        const monthNames = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-        return `${day} ${monthNames[month - 1]}`;
-    }
-
-    // ============================================
-    // СТИЛИ
-    // ============================================
     function renderStylesShop() {
         const container = document.getElementById('stylesShopGrid');
         if (!container) return;
@@ -94,13 +155,13 @@
     function initStylesShop() { renderStylesShop(); }
 
     async function buyStyle(styleId, price) {
-        if (!window.app) { showNotif('Ошибка: данные пользователя не загружены', 'error'); return false; }
-        if (window.app.currentUserRole === 'director') { showNotif('Директору все стили доступны бесплатно!', 'warning'); return false; }
+        if (!window.app) { showSystemNotification('❌ Ошибка: данные пользователя не загружены', 'error'); return false; }
+        if (window.app.currentUserRole === 'director') { showSystemNotification('👑 Директору все стили доступны бесплатно!', 'warning'); return false; }
         const currentUser = window.app.currentUser;
         const userCoins = window.app.profiles?.[currentUser]?.coins || 0;
-        if (userCoins < price) { showNotif(`❌ Недостаточно монет! Нужно ${price} 🪙`, 'error'); return false; }
+        if (userCoins < price) { showSystemNotification(`❌ Недостаточно монет! Нужно ${price} 🪙`, 'error'); return false; }
         const boughtStyles = window.app.userBoughtStyles || ['standart'];
-        if (boughtStyles.includes(styleId)) { showNotif('Стиль уже куплен!', 'warning'); return false; }
+        if (boughtStyles.includes(styleId)) { showSystemNotification('ℹ️ Стиль уже куплен!', 'warning'); return false; }
         try {
             const response = await apiCall('/user/buy-style', 'POST', { style: styleId, price: price });
             if (response && response.success) {
@@ -108,19 +169,19 @@
                 if (window.app.profiles[currentUser]) window.app.profiles[currentUser].coins = response.remainingCoins;
                 renderStylesShop();
                 refreshAllBalanceDisplays();
-                showNotif(`✨ Стиль "${getStyleName(styleId)}" куплен!`, 'success');
+                showSystemNotification(`✨ Стиль "${getStyleName(styleId)}" куплен!`, 'success');
                 return true;
-            } else { showNotif(response?.error || 'Ошибка при покупке', 'error'); return false; }
-        } catch (err) { console.error('Ошибка покупки:', err); showNotif('Ошибка соединения с сервером', 'error'); return false; }
+            } else { showSystemNotification('❌ ' + (response?.error || 'Ошибка при покупке'), 'error'); return false; }
+        } catch (err) { console.error('Ошибка покупки:', err); showSystemNotification('❌ Ошибка соединения с сервером', 'error'); return false; }
     }
 
     async function applyBoughtStyle(styleId) {
-        if (!window.app) { showNotif('Ошибка: данные пользователя не загружены', 'error'); return false; }
+        if (!window.app) { showSystemNotification('❌ Ошибка: данные пользователя не загружены', 'error'); return false; }
         const isDirector = window.app.currentUserRole === 'director';
         let boughtStyles = window.app.userBoughtStyles || ['standart'];
         if (isDirector) boughtStyles = availableStyles.map(s => s.id);
-        if (!boughtStyles.includes(styleId)) { showNotif('Стиль не куплен!', 'error'); return false; }
-        if (window.app.userStyle === styleId) { showNotif('Этот стиль уже активен!', 'info'); return false; }
+        if (!boughtStyles.includes(styleId)) { showSystemNotification('❌ Стиль не куплен!', 'error'); return false; }
+        if (window.app.userStyle === styleId) { showSystemNotification('ℹ️ Этот стиль уже активен!', 'info'); return false; }
         try {
             const response = await apiCall('/user/apply-style', 'POST', { style: styleId });
             if (response && response.success) {
@@ -132,10 +193,10 @@
                 stopBlockParticles();
                 setTimeout(() => initBlockParticles(), 100);
                 renderStylesShop();
-                showNotif(`🎨 Стиль "${getStyleName(styleId)}" применён!`, 'success');
+                showSystemNotification(`🎨 Стиль "${getStyleName(styleId)}" применён!`, 'success');
                 return true;
             }
-        } catch (err) { console.error('Ошибка применения:', err); showNotif('Ошибка при применении стиля', 'error'); return false; }
+        } catch (err) { console.error('Ошибка применения:', err); showSystemNotification('❌ Ошибка при применении стиля', 'error'); return false; }
     }
 
     function getStyleName(styleId) { const style = availableStyles.find(s => s.id === styleId); return style ? style.name : styleId; }
@@ -183,8 +244,8 @@
         blockIds.forEach(blockId => { const checkbox = document.getElementById(`toggle-${blockId}`); if (checkbox) checkbox.checked = !hiddenBlocks.has(blockId); });
     }
     function toggleBlockVisibility(blockId, isVisible) { if (isVisible) hiddenBlocks.delete(blockId); else hiddenBlocks.add(blockId); saveHiddenBlocks(); applyHiddenBlocks(); }
-    function showAllHiddenBlocks() { hiddenBlocks.clear(); saveHiddenBlocks(); applyHiddenBlocks(); showNotif('Все скрытые блоки восстановлены', 'success'); }
-    function resetAllDashboardSettings() { hiddenBlocks.clear(); saveHiddenBlocks(); applyHiddenBlocks(); localStorage.removeItem('dashboardPreset'); showNotif('Все настройки дашборда сброшены', 'success'); }
+    function showAllHiddenBlocks() { hiddenBlocks.clear(); saveHiddenBlocks(); applyHiddenBlocks(); showSystemNotification('📦 Все скрытые блоки восстановлены', 'success'); }
+    function resetAllDashboardSettings() { hiddenBlocks.clear(); saveHiddenBlocks(); applyHiddenBlocks(); localStorage.removeItem('dashboardPreset'); showSystemNotification('🔄 Все настройки дашборда сброшены', 'success'); }
     function applyDashboardPreset(presetName) {
         const presets = { default: ['welcome-panel', 'info-grid', 'quick-start', 'key-stats', 'events-section', 'activity-grid', 'quote-card'], compact: ['welcome-panel', 'key-stats', 'activity-grid'], focus: ['welcome-panel', 'quick-start', 'key-stats', 'events-section'], minimal: ['welcome-panel', 'key-stats'] };
         const visibleBlocks = presets[presetName] || presets.default;
@@ -194,7 +255,7 @@
         saveHiddenBlocks(); applyHiddenBlocks();
         localStorage.setItem('dashboardPreset', presetName);
         const presetNames = { default: 'Стандартный', compact: 'Компактный', focus: 'Фокус', minimal: 'Минимальный' };
-        showNotif(`Пресет "${presetNames[presetName]}" применён`, 'success');
+        showSystemNotification(`✅ Пресет "${presetNames[presetName]}" применён`, 'success');
     }
     function initDashboardSettings() {
         document.querySelectorAll('.preset-card').forEach(card => { card.addEventListener('click', () => { const preset = card.dataset.preset; if (preset) applyDashboardPreset(preset); }); });
@@ -203,12 +264,11 @@
     }
 
     // ============================================
-    // ПОГОДА (С АВТООБНОВЛЕНИЕМ И ЗАЩИТОЙ ОТ СПАМА)
+    // ПОГОДА
     // ============================================
     async function fetchWeather(force = false) {
         const now = Date.now();
         
-        // 🔥 ЗАЩИТА ОТ СПАМА
         if (!force && now - lastWeatherFetch < WEATHER_FETCH_INTERVAL) {
             console.log('⏳ Погода из кэша, пропускаем запрос');
             return;
@@ -421,8 +481,8 @@
         }
         container.innerHTML = html;
     }
-    async function acceptExchange(requestId) { try { const response = await apiCall(`/exchange/accept/${requestId}`, 'POST'); if (response?.success) { showNotif('✅ Обмен смен подтверждён!', 'success'); await loadScheduleData(); if (typeof renderMonthSchedule === 'function') renderMonthSchedule(); updateDashboardStats(); updateNextShiftInfo(); await loadPendingExchanges(); await loadMyActiveExchanges(); } else { showNotif(response?.error || 'Ошибка', 'error'); } } catch (err) { showNotif('Ошибка соединения', 'error'); } }
-    async function rejectExchange(requestId) { try { const response = await apiCall(`/exchange/reject/${requestId}`, 'POST'); if (response?.success) { showNotif('❌ Запрос отклонён', 'success'); await loadPendingExchanges(); } else { showNotif(response?.error || 'Ошибка', 'error'); } } catch (err) { showNotif('Ошибка соединения', 'error'); } }
+    async function acceptExchange(requestId) { try { const response = await apiCall(`/exchange/accept/${requestId}`, 'POST'); if (response?.success) { showSystemNotification('✅ Обмен смен подтверждён!', 'success'); await loadScheduleData(); if (typeof renderMonthSchedule === 'function') renderMonthSchedule(); updateDashboardStats(); updateNextShiftInfo(); await loadPendingExchanges(); await loadMyActiveExchanges(); } else { showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error'); } } catch (err) { showSystemNotification('❌ Ошибка соединения', 'error'); } }
+    async function rejectExchange(requestId) { try { const response = await apiCall(`/exchange/reject/${requestId}`, 'POST'); if (response?.success) { showSystemNotification('❌ Запрос отклонён', 'info'); await loadPendingExchanges(); } else { showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error'); } } catch (err) { showSystemNotification('❌ Ошибка соединения', 'error'); } }
     async function loadMyActiveExchanges() { try { const response = await apiCall('/exchange/my?status=pending'); if (response?.success) renderMyExchangesWidget(response.requests || []); } catch (err) {} }
     function renderMyExchangesWidget(requests) {
         const container = document.getElementById('myExchangesContainer'); if (!container) return;
@@ -434,7 +494,7 @@
         }
         container.innerHTML = html;
     }
-    async function cancelExchangeRequest(requestId) { if (!confirm('Отменить запрос на обмен?')) return; try { const response = await apiCall(`/exchange/cancel/${requestId}`, 'POST'); if (response?.success) { showNotif('✅ Запрос отменён', 'success'); await loadMyActiveExchanges(); if (typeof loadScheduleData === 'function') loadScheduleData(); } else { showNotif(response?.error || 'Ошибка', 'error'); } } catch (err) { showNotif('Ошибка соединения', 'error'); } }
+    async function cancelExchangeRequest(requestId) { if (!confirm('Отменить запрос на обмен?')) return; try { const response = await apiCall(`/exchange/cancel/${requestId}`, 'POST'); if (response?.success) { showSystemNotification('✅ Запрос отменён', 'success'); await loadMyActiveExchanges(); if (typeof loadScheduleData === 'function') loadScheduleData(); } else { showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error'); } } catch (err) { showSystemNotification('❌ Ошибка соединения', 'error'); } }
 
     // ============================================
     // ТРАНЗАКЦИИ
@@ -442,7 +502,7 @@
     async function openTransactionsModal() {
         try {
             const response = await apiCall('/transactions?limit=50&offset=0&type=all');
-            if (!response?.success) { showNotif('Ошибка загрузки истории', 'error'); return; }
+            if (!response?.success) { showSystemNotification('❌ Ошибка загрузки истории', 'error'); return; }
             const transactions = response.transactions || [];
             const grouped = {};
             transactions.forEach(tx => { const date = tx.created_at?.split('T')[0] || new Date().toISOString().split('T')[0]; if (!grouped[date]) grouped[date] = []; grouped[date].push(tx); });
@@ -462,7 +522,7 @@
             if (transactions.length === 0) transactionsHtml = `<div class="modal-empty-state"><div class="modal-empty-icon">💰</div><div>Нет операций</div></div>`;
             const modalHtml = `<div id="transactionsModal" class="modal active"><div class="modal-window" style="max-width:500px;max-height:70vh;overflow-y:auto;padding:0;"><div class="modal-header" style="padding:14px 18px;border-bottom:1px solid rgba(99,102,241,0.15);display:flex;justify-content:space-between;align-items:center;background:#1a1f2e;"><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;background:linear-gradient(135deg,#fbbf24,#f59e0b);border-radius:8px;display:flex;align-items:center;justify-content:center;"><i class="fas fa-history" style="font-size:12px;"></i></div><h3 style="margin:0;font-size:16px;">История операций</h3></div><button onclick="closeTransactionsModal()" style="background:none;border:none;color:#94a3b8;font-size:20px;cursor:pointer;">&times;</button></div><div style="padding:14px;"><div class="modal-balance-row" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:rgba(251,191,36,0.08);border-radius:10px;margin-bottom:14px;"><span style="font-size:12px;font-weight:500;">💰 Текущий баланс</span><span style="font-size:18px;font-weight:700;color:#fbbf24;">${getCurrentBalance()} WP</span></div><div class="modal-transactions-list" style="max-height:400px;overflow-y:auto;">${transactionsHtml}</div></div><div class="modal-footer" style="padding:10px 14px;border-top:1px solid rgba(99,102,241,0.1);display:flex;justify-content:flex-end;"><button class="btn-secondary" onclick="closeTransactionsModal()" style="padding:5px 14px;font-size:11px;">Закрыть</button></div></div></div>`;
             document.body.insertAdjacentHTML('beforeend', modalHtml);
-        } catch (err) { showNotif('Ошибка загрузки истории', 'error'); }
+        } catch (err) { showSystemNotification('❌ Ошибка загрузки истории', 'error'); }
     }
     function closeTransactionsModal() { const modal = document.getElementById('transactionsModal'); if (modal) modal.remove(); }
     function formatTransactionDateSimple(dateStr) { const date = new Date(dateStr); const today = new Date(); const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); if (date.toDateString() === today.toDateString()) return 'Сегодня'; else if (date.toDateString() === yesterday.toDateString()) return 'Вчера'; const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек']; return `${date.getDate()} ${months[date.getMonth()]}`; }
@@ -472,7 +532,7 @@
     // ЕЖЕДНЕВНЫЙ БОНУС
     // ============================================
     async function loadDailyBonusInfo() { try { const response = await apiCall('/user/login-streak'); if (response?.success) { const streakDays = document.getElementById('streakDays'); const bonusAmount = document.getElementById('bonusAmount'); const claimBtn = document.getElementById('claimBonusBtn'); if (streakDays) streakDays.textContent = response.streak || 1; if (bonusAmount) bonusAmount.textContent = `+${response.nextBonusAmount || 1} WP`; if (claimBtn) { if (response.hasClaimedToday) { claimBtn.disabled = true; claimBtn.innerHTML = '✅ Получено'; } else { claimBtn.disabled = false; claimBtn.innerHTML = '🎁 Забрать'; } } } } catch (err) {} }
-    async function claimDailyBonus() { if (isClaimingBonus) return; const claimBtn = document.getElementById('claimBonusBtn'); if (!claimBtn) return; isClaimingBonus = true; const originalText = claimBtn.innerHTML; claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...'; claimBtn.disabled = true; try { const response = await apiCall('/user/claim-daily-bonus', 'POST'); if (response?.success) { if (response.claimed) { showBonusAnimation(response.bonus); showNotif(`🎉 Получен ежедневный бонус +${response.bonus} WP!`, 'success'); if (response.newAchievements) { for (const ach of response.newAchievements) showNotif(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success'); } await loadEmployees(); updateUserBalance(); loadDailyBonusInfo(); refreshAllBalanceDisplays(); } else { showNotif('Бонус уже получен сегодня', 'info'); } } else { showNotif(response?.error || 'Ошибка', 'error'); } } catch (err) { showNotif('Ошибка соединения', 'error'); } finally { isClaimingBonus = false; claimBtn.innerHTML = originalText; loadDailyBonusInfo(); } }
+    async function claimDailyBonus() { if (isClaimingBonus) return; const claimBtn = document.getElementById('claimBonusBtn'); if (!claimBtn) return; isClaimingBonus = true; const originalText = claimBtn.innerHTML; claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...'; claimBtn.disabled = true; try { const response = await apiCall('/user/claim-daily-bonus', 'POST'); if (response?.success) { if (response.claimed) { showBonusAnimation(response.bonus); showSystemNotification(`🎉 Получен ежедневный бонус +${response.bonus} WP!`, 'success'); if (response.newAchievements) { for (const ach of response.newAchievements) showSystemNotification(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success'); } await loadEmployees(); updateUserBalance(); loadDailyBonusInfo(); refreshAllBalanceDisplays(); } else { showSystemNotification('ℹ️ Бонус уже получен сегодня', 'info'); } } else { showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error'); } } catch (err) { showSystemNotification('❌ Ошибка соединения', 'error'); } finally { isClaimingBonus = false; claimBtn.innerHTML = originalText; loadDailyBonusInfo(); } }
     function showBonusAnimation(amount) { const container = document.querySelector('.daily-bonus-card'); if (!container) return; for (let i = 0; i < 10; i++) { setTimeout(() => { const particle = document.createElement('div'); particle.className = 'bonus-floating-text'; particle.textContent = `+${amount}`; particle.style.cssText = `position:absolute;left:${50 + (Math.random() - 0.5) * 80}%;top:${50 + (Math.random() - 0.5) * 60}%;color:#fbbf24;font-weight:700;font-size:20px;pointer-events:none;z-index:100;animation:floatUp 1.5s ease-out forwards;`; container.style.position = 'relative'; container.appendChild(particle); setTimeout(() => particle.remove(), 1500); }, i * 80); } }
     function updateUserBalance() { const currentUser = window.app?.currentUser; if (currentUser && window.app?.profiles?.[currentUser]) { const balance = window.app.profiles[currentUser].coins || 0; const userCoinsHeader = document.getElementById('userCoinsAmountHeader'); if (userCoinsHeader) userCoinsHeader.textContent = balance; } }
 
@@ -511,7 +571,7 @@
     // БЫСТРЫЕ ДЕЙСТВИЯ
     // ============================================
     function quickAction(action) { if (typeof window.loadPage === 'function') window.loadPage(action); }
-    async function quickChangeStatus(status) { const currentUser = window.app?.currentUser; if (!currentUser) { showNotif('Ошибка: пользователь не определён', 'error'); return; } const success = await updateEmployeeStatus(currentUser, status); if (success) { showNotif(`Статус изменён на ${status}`, 'success'); if (window.app?.profiles?.[currentUser]) window.app.profiles[currentUser].status = status; const statusSelect = document.getElementById('quickStatusSelect'); if (statusSelect) statusSelect.value = status; if (typeof renderEmployees === 'function') renderEmployees(); } else { showNotif('Ошибка при смене статуса', 'error'); } }
+    async function quickChangeStatus(status) { const currentUser = window.app?.currentUser; if (!currentUser) { showSystemNotification('❌ Ошибка: пользователь не определён', 'error'); return; } const success = await updateEmployeeStatus(currentUser, status); if (success) { showSystemNotification(`✅ Статус изменён на ${status}`, 'success'); if (window.app?.profiles?.[currentUser]) window.app.profiles[currentUser].status = status; const statusSelect = document.getElementById('quickStatusSelect'); if (statusSelect) statusSelect.value = status; if (typeof renderEmployees === 'function') renderEmployees(); } else { showSystemNotification('❌ Ошибка при смене статуса', 'error'); } }
     function switchToTab(tabId) { if (typeof window.loadPage === 'function') window.loadPage(tabId); }
 
     // ============================================
@@ -555,6 +615,11 @@
     // ИНИЦИАЛИЗАЦИЯ ДАШБОРДА
     // ============================================
     function initDashboard() {
+        if (dashboardInitialized) {
+            console.log('📊 Дашборд уже инициализирован');
+            return;
+        }
+        
         console.log('📊 Инициализация дашборда');
         const currentUser = window.app?.currentUser;
         if (currentUser && window.app?.profiles?.[currentUser]) { const savedStyle = window.app.profiles[currentUser].dashboard_style || 'standart'; window.app.userStyle = savedStyle; }
@@ -581,6 +646,8 @@
         allDashboardStyles.forEach(style => document.body.classList.remove(`dashboard-style-${style}`));
         if (savedStyle !== 'standart') document.body.classList.add(`dashboard-style-${savedStyle}`); else document.body.classList.add('dashboard-style-standart');
         setTimeout(() => initBlockParticles(), 500);
+        
+        dashboardInitialized = true;
     }
 
     function cleanupDashboard() {
@@ -590,12 +657,14 @@
         if (particlesInterval) { clearInterval(particlesInterval); particlesInterval = null; }
         stopWeatherAutoUpdate();
     }
+    
     window.addEventListener('beforeunload', cleanupDashboard);
 
     // ============================================
     // ЭКСПОРТ
     // ============================================
     window.initDashboard = initDashboard;
+    window.resetDashboardState = resetDashboardState;
     window.cleanupDashboard = cleanupDashboard;
     window.refreshPhilosophyQuote = refreshPhilosophyQuote;
     window.quickAction = quickAction;
@@ -642,5 +711,5 @@
     particleBlockStyle.textContent = `@keyframes particleFloatBlock { 0% { transform: translateY(0) scale(0.5); opacity: 0; } 20% { opacity: 0.7; } 80% { opacity: 0.4; } 100% { transform: translateY(-30px) scale(1); opacity: 0; } } @keyframes floatUp { 0% { transform: translateY(0) scale(0.8); opacity: 1; } 100% { transform: translateY(-60px) scale(1.2); opacity: 0; } }`;
     if (!document.querySelector('#particleBlockStyles')) { particleBlockStyle.id = 'particleBlockStyles'; document.head.appendChild(particleBlockStyle); }
 
-    console.log('✅ dashboard.js загружен (полная версия с автообновлением погоды)');
+    console.log('✅ dashboard.js загружен (v1.2 — с уведомлениями)');
 })();

@@ -1,4 +1,6 @@
-// public/js/tasks.js — ОБЁРНУТ В IIFE
+// public/js/tasks.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Добавлены все уведомления
+
 (function() {
     'use strict';
     
@@ -9,21 +11,76 @@
     let showArchived = false;
     let isLoadingTasks = false;
     let isSavingTask = false;
-
-    const fineTypes = {
-        late: { name: 'Опоздание', defaultAmount: 0 },
-        task: { name: 'Невыполнение задачи', defaultAmount: 0 },
-        rudeness: { name: 'Грубость', defaultAmount: 0 },
-        damage: { name: 'Повреждение инвентаря', defaultAmount: 0 },
-        phone: { name: 'Телефон на смене', defaultAmount: 0 },
-        task_overdue: { name: 'Просрочка задачи', defaultAmount: 0 },
-        other: { name: 'Другое', defaultAmount: 0 }
-    };
+    let tasksInitialized = false;
 
     // ============================================
-    // ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+    // СБРОС СОСТОЯНИЯ
     // ============================================
+
+    function resetTasksState() {
+        console.log('🧹 Сброс состояния задач');
+        tasksInitialized = false;
+        subtasksTemp = [];
+        attachmentsTemp = [];
+        selectedExecutors = [];
+    }
+
+    // ============================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(str).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('ru-RU');
+    }
+
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
+    }
+
+    // ============================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================
+
     function initTasks() {
+        if (tasksInitialized) {
+            console.log('📋 Задачи уже инициализированы');
+            return;
+        }
+        
         console.log('📋 Инициализация задач');
         
         const container = document.getElementById('tasksList');
@@ -59,6 +116,8 @@
         
         setInterval(() => { checkOverdueTasksAndCreateFines(); }, 5 * 60 * 1000);
         setInterval(() => autoArchiveCompletedTasks(), 6 * 60 * 60 * 1000);
+        
+        tasksInitialized = true;
     }
 
     function setTaskPriority(priority) {
@@ -130,6 +189,7 @@
     // ============================================
     // ЗАГРУЗКА ДАННЫХ
     // ============================================
+
     async function loadTasksData() {
         if (isLoadingTasks) return;
         isLoadingTasks = true;
@@ -138,14 +198,17 @@
             const data = await apiCall('/tasks');
             if (data && Array.isArray(data)) {
                 tasksData = data;
+                showSystemNotification(`📊 Загружено ${tasksData.length} задач`, 'info');
                 checkOverdueTasksAndCreateFines();
                 autoArchiveCompletedTasks();
                 updateTasksStats();
                 renderTasksTable();
+            } else {
+                showSystemNotification('❌ Не удалось загрузить задачи', 'error');
             }
         } catch (err) {
             console.error('Ошибка загрузки задач:', err);
-            showNotif('Ошибка загрузки задач', 'error');
+            showSystemNotification('❌ Ошибка загрузки задач', 'error');
         } finally {
             isLoadingTasks = false;
         }
@@ -203,7 +266,7 @@
         }
         
         if (finesCreated > 0) {
-            showNotif(`⚠️ Создано ${finesCreated} нарушений за просроченные задачи`, 'warning');
+            showSystemNotification(`⚠️ Создано ${finesCreated} нарушений за просроченные задачи`, 'warning');
             if (typeof loadFinesData === 'function') loadFinesData();
         }
         
@@ -245,17 +308,11 @@
         const overdue = activeTasks.filter(t => t.status === 'overdue').length;
         const highPriority = activeTasks.filter(t => t.priority === 'high' && t.status !== 'completed' && !t.is_archived).length;
         
-        const statTotal = document.getElementById('statTotal');
-        const statProgress = document.getElementById('statProgress');
-        const statCompleted = document.getElementById('statCompleted');
-        const statOverdue = document.getElementById('statOverdue');
-        const statHigh = document.getElementById('statHigh');
-        
-        if (statTotal) statTotal.textContent = total;
-        if (statProgress) statProgress.textContent = inProgress;
-        if (statCompleted) statCompleted.textContent = completed;
-        if (statOverdue) statOverdue.textContent = overdue;
-        if (statHigh) statHigh.textContent = highPriority;
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('statProgress').textContent = inProgress;
+        document.getElementById('statCompleted').textContent = completed;
+        document.getElementById('statOverdue').textContent = overdue;
+        document.getElementById('statHigh').textContent = highPriority;
     }
 
     function populateTaskSelects() {
@@ -275,8 +332,6 @@
         
         const operators = employees.filter(emp => employeesWithRoles[emp]?.role === 'operator');
         const admins = employees.filter(emp => employeesWithRoles[emp]?.role === 'admin');
-        const manager = employees.find(emp => employeesWithRoles[emp]?.role === 'manager');
-        const director = employees.find(emp => employeesWithRoles[emp]?.role === 'director');
         
         let executorOptions = '<optgroup label="👥 ГРУППОВЫЕ ЗАДАЧИ">';
         if (operators.length > 0) executorOptions += '<option value="__GROUP_OPERATORS__">📢 Задача для операторов</option>';
@@ -294,14 +349,6 @@
             executorOptions += '<optgroup label="⚙️ АДМИНИСТРАТОРЫ">';
             admins.forEach(emp => { executorOptions += `<option value="${escapeHtml(emp)}">${escapeHtml(emp)}</option>`; });
             executorOptions += '</optgroup>';
-        }
-        
-        if (manager) {
-            executorOptions += '<optgroup label="📋 УПРАВЛЯЮЩИЙ"><option value="' + escapeHtml(manager) + '">' + escapeHtml(manager) + '</option></optgroup>';
-        }
-        
-        if (director) {
-            executorOptions += '<optgroup label="👑 ДИРЕКТОР"><option value="' + escapeHtml(director) + '">' + escapeHtml(director) + '</option></optgroup>';
         }
         
         if (authorSelect) {
@@ -355,6 +402,7 @@
     // ============================================
     // РЕНДЕР ТАБЛИЦЫ
     // ============================================
+
     function renderTasksTable() {
         const container = document.getElementById('tasksList');
         if (!container) return;
@@ -475,12 +523,6 @@
         container.innerHTML = html;
     }
 
-    function formatDate(dateStr) {
-        if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('ru-RU');
-    }
-
     function toggleTaskExpand(taskId) {
         const card = document.querySelector(`.task-card[data-task-id="${taskId}"]`);
         if (card) card.classList.toggle('expanded');
@@ -489,6 +531,7 @@
     // ============================================
     // ДЕЙСТВИЯ С ЗАДАЧАМИ
     // ============================================
+
     async function markTaskComplete(taskId) {
         const task = tasksData.find(t => t.id === taskId);
         if (!task) return;
@@ -498,10 +541,10 @@
         });
         
         if (response && response.success) {
-            showNotif('✅ Задача отмечена как выполненная', 'success');
+            showSystemNotification('✅ Задача отмечена как выполненная', 'success');
             await loadTasksData();
         } else {
-            showNotif('Ошибка при отметке выполнения', 'error');
+            showSystemNotification('❌ Ошибка при отметке выполнения', 'error');
         }
     }
 
@@ -514,10 +557,10 @@
         });
         
         if (response && response.success) {
-            showNotif('📦 Задача отправлена в архив', 'success');
+            showSystemNotification('📦 Задача отправлена в архив', 'info');
             await loadTasksData();
         } else {
-            showNotif('Ошибка при архивации', 'error');
+            showSystemNotification('❌ Ошибка при архивации', 'error');
         }
     }
 
@@ -530,10 +573,10 @@
         });
         
         if (response && response.success) {
-            showNotif('📋 Задача восстановлена из архива', 'success');
+            showSystemNotification('📋 Задача восстановлена из архива', 'success');
             await loadTasksData();
         } else {
-            showNotif('Ошибка при восстановлении', 'error');
+            showSystemNotification('❌ Ошибка при восстановлении', 'error');
         }
     }
 
@@ -545,16 +588,17 @@
         
         const response = await apiCall(`/tasks/${taskId}`, 'DELETE');
         if (response && response.success) {
-            showNotif('🗑️ Задача удалена', 'success');
+            showSystemNotification('🗑️ Задача удалена', 'warning');
             await loadTasksData();
         } else {
-            showNotif('Ошибка при удалении', 'error');
+            showSystemNotification('❌ Ошибка при удалении', 'error');
         }
     }
 
     // ============================================
     // МОДАЛКА ЗАДАЧИ
     // ============================================
+
     function openTaskModal(taskId = null) {
         subtasksTemp = [];
         attachmentsTemp = [];
@@ -617,10 +661,10 @@
                 }
                 renderSubtasksList();
             } else if (task && task.status === 'completed') {
-                showNotif('Нельзя редактировать выполненную задачу', 'error');
+                showSystemNotification('❌ Нельзя редактировать выполненную задачу', 'error');
                 return;
             } else if (task && task.is_archived) {
-                showNotif('Нельзя редактировать архивную задачу', 'error');
+                showSystemNotification('❌ Нельзя редактировать архивную задачу', 'error');
                 return;
             }
         } else {
@@ -653,12 +697,14 @@
         if (name && name.trim()) {
             subtasksTemp.push({ id: null, name: name.trim(), completed: false });
             renderSubtasksList();
+            showSystemNotification('➕ Подзадача добавлена', 'info');
         }
     }
 
     function removeSubtask(index) {
         subtasksTemp.splice(index, 1);
         renderSubtasksList();
+        showSystemNotification('➖ Подзадача удалена', 'info');
     }
 
     function toggleSubtaskComplete(index) {
@@ -696,10 +742,11 @@
                 reader.onload = (event) => {
                     attachmentsTemp.push({ name: file.name, size: file.size, data: event.target.result, type: file.type });
                     renderAttachmentsList();
+                    showSystemNotification(`📎 Файл "${file.name}" добавлен`, 'info');
                 };
                 reader.readAsDataURL(file);
             } else if (file) {
-                showNotif('Файл слишком большой (макс. 5MB)', 'error');
+                showSystemNotification('❌ Файл слишком большой (макс. 5MB)', 'error');
             }
         };
         input.click();
@@ -731,6 +778,7 @@
     // ============================================
     // СОХРАНЕНИЕ ЗАДАЧИ
     // ============================================
+
     async function saveTask() {
         if (isSavingTask) return;
         
@@ -743,16 +791,23 @@
         const comment = document.getElementById('taskComment')?.value;
         const recurring = document.getElementById('taskRecurring')?.value;
         
-        if (!name) { showNotif('Введите название задачи', 'error'); return; }
-        if (!executor) { showNotif('Выберите исполнителя', 'error'); return; }
+        if (!name) {
+            showSystemNotification('❌ Введите название задачи', 'error');
+            return;
+        }
+        if (!executor) {
+            showSystemNotification('❌ Выберите исполнителя', 'error');
+            return;
+        }
         if (executor === '__MULTI_SELECT__' && selectedExecutors.length === 0) { 
-            showNotif('Выберите хотя бы одного сотрудника', 'error'); return; 
+            showSystemNotification('❌ Выберите хотя бы одного сотрудника', 'error');
+            return;
         }
         
         if (deadline) {
             const today = new Date().toISOString().split('T')[0];
             if (deadline < today) {
-                showNotif('❌ Дедлайн не может быть в прошлом', 'error');
+                showSystemNotification('❌ Дедлайн не может быть в прошлом', 'error');
                 return;
             }
         }
@@ -804,15 +859,15 @@
             const response = await apiCall('/tasks', 'POST', { task: taskData });
             
             if (response && response.success) {
-                showNotif('✅ Задача создана', 'success');
+                showSystemNotification(taskId ? '✅ Задача обновлена' : '✅ Задача создана', 'success');
                 closeTaskModal();
                 await loadTasksData();
             } else {
-                showNotif('Ошибка при сохранении: ' + (response?.error || 'неизвестная ошибка'), 'error');
+                showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная ошибка'), 'error');
             }
         } catch (err) {
             console.error(err);
-            showNotif('Ошибка соединения с сервером', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             isSavingTask = false;
             if (saveBtn) {
@@ -825,6 +880,7 @@
     // ============================================
     // ГРУППОВЫЕ ЗАДАЧИ
     // ============================================
+
     function openGroupTaskModal(taskId) {
         const task = tasksData.find(t => t.id === taskId);
         if (!task) return;
@@ -888,39 +944,35 @@
         const response = await apiCall(`/tasks/${taskId}/group-progress`, 'PUT', { completed_members: completedMembers });
         
         if (response && response.success) {
-            showNotif('✅ Прогресс обновлён', 'success');
+            showSystemNotification('✅ Прогресс группы обновлён', 'success');
             closeGroupTaskModal();
             await loadTasksData();
             if (typeof updateDashboardStats === 'function') updateDashboardStats();
         } else {
-            showNotif('❌ Ошибка при обновлении', 'error');
+            showSystemNotification('❌ Ошибка при обновлении', 'error');
         }
     }
 
     // ============================================
     // ФИЛЬТРЫ И ЭКСПОРТ
     // ============================================
+
     function resetFilters() {
-        const searchInput = document.getElementById('taskSearch');
-        const statusFilter = document.getElementById('filterStatus');
-        const executorFilter = document.getElementById('filterExecutor');
-        const priorityFilter = document.getElementById('filterPriority');
-        const typeFilter = document.getElementById('filterType');
-        const showArchivedCheckbox = document.getElementById('showArchived');
-        
-        if (searchInput) searchInput.value = '';
-        if (statusFilter) statusFilter.value = 'all';
-        if (executorFilter) executorFilter.value = 'all';
-        if (priorityFilter) priorityFilter.value = 'all';
-        if (typeFilter) typeFilter.value = 'all';
-        if (showArchivedCheckbox) { showArchivedCheckbox.checked = false; showArchived = false; }
+        document.getElementById('taskSearch').value = '';
+        document.getElementById('filterStatus').value = 'all';
+        document.getElementById('filterExecutor').value = 'all';
+        document.getElementById('filterPriority').value = 'all';
+        document.getElementById('filterType').value = 'all';
+        document.getElementById('showArchived').checked = false;
+        showArchived = false;
+        showSystemNotification('🔄 Фильтры сброшены', 'info');
         renderTasksTable();
     }
 
     function exportTasksToExcel() {
         const tasksToExport = showArchived ? tasksData : tasksData.filter(t => !t.is_archived);
         if (tasksToExport.length === 0) {
-            showNotif('Нет задач для экспорта', 'warning');
+            showSystemNotification('⚠️ Нет задач для экспорта', 'warning');
             return;
         }
         
@@ -956,12 +1008,13 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        showNotif(`📊 Экспортировано ${tasksToExport.length} задач`, 'success');
+        showSystemNotification(`📊 Экспортировано ${tasksToExport.length} задач`, 'success');
     }
 
     // ============================================
     // ШАБЛОНЫ
     // ============================================
+
     const taskTemplates = [
         { name: '🧹 Уборка', comment: 'Провести влажную уборку помещения', priority: 'medium' },
         { name: '🧴 Дезинфекция', comment: 'Обработать все шлемы и контроллеры', priority: 'high' },
@@ -1013,18 +1066,19 @@
         closeTemplateModal();
         openTaskModal();
         setTimeout(() => {
-            const nameField = document.getElementById('taskName');
-            const commentField = document.getElementById('taskComment');
-            if (nameField) nameField.value = name;
-            if (commentField) commentField.value = comment;
+            document.getElementById('taskName').value = name;
+            document.getElementById('taskComment').value = comment;
             setTaskPriority(priority);
+            showSystemNotification(`📋 Шаблон "${name}" применён`, 'info');
         }, 100);
     }
 
     // ============================================
     // ЭКСПОРТ
     // ============================================
+
     window.initTasks = initTasks;
+    window.resetTasksState = resetTasksState;
     window.openTaskModal = openTaskModal;
     window.closeTaskModal = closeTaskModal;
     window.saveTask = saveTask;
@@ -1053,5 +1107,5 @@
 
     window.addEventListener('dataUpdate', (e) => { if (e.detail.type === 'task') loadTasksData(); });
 
-    console.log('✅ tasks.js загружен');
+    console.log('✅ tasks.js загружен (v2.1 — с уведомлениями)');
 })();

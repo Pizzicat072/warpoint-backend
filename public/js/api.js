@@ -1,5 +1,5 @@
-// public/js/api.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
-// Исправлены: офлайн-кэш, очистка avatar_url
+// public/js/api.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Добавлены все уведомления
 
 // ============================================
 // ЗАЩИТА ОТ БЕСКОНЕЧНЫХ ЗАПРОСОВ
@@ -10,7 +10,6 @@ let retryCount = 0;
 const MAX_RETRIES = 3;
 const API_TIMEOUT = 15000;
 
-// Кэш для GET-запросов
 const apiCache = new Map();
 const CACHE_TTL = {
     '/employees': 60000,
@@ -24,9 +23,35 @@ const CACHE_TTL = {
     '/weather': 300000
 };
 
-// 🔥 НОВОЕ: офлайн-кэш для всех данных
 const OFFLINE_CACHE_KEY = 'warpoint_offline_data';
-const OFFLINE_CACHE_TTL = 30 * 60 * 1000; // 30 минут
+const OFFLINE_CACHE_TTL = 30 * 60 * 1000;
+
+let apiInitialized = false;
+
+// ============================================
+// СБРОС СОСТОЯНИЯ
+// ============================================
+
+function resetApiState() {
+    console.log('🧹 Сброс состояния API');
+    apiInitialized = false;
+    pendingRequests.clear();
+    retryCount = 0;
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
+    } else {
+        console.log(`[${type}] ${message}`);
+    }
+}
 
 // ============================================
 // ОРИГИНАЛЬНАЯ ФУНКЦИЯ API-ВЫЗОВОВ
@@ -35,7 +60,6 @@ const OFFLINE_CACHE_TTL = 30 * 60 * 1000; // 30 минут
 async function originalApiCall(endpoint, method = 'GET', body = null) {
     const token = localStorage.getItem('token');
     
-    // 🔥 Проверка токена
     if (!token && !endpoint.includes('/auth/')) {
         console.log('🔐 Нет токена, требуется авторизация');
         if (typeof window.authLogout === 'function') {
@@ -44,14 +68,12 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
         return { success: false, error: 'Требуется авторизация' };
     }
     
-    // 🔥 ПРОВЕРКА НА ПОВТОРЯЮЩИЕСЯ ЗАПРОСЫ
     const requestKey = `${method}:${endpoint}:${JSON.stringify(body)}`;
     if (pendingRequests.has(requestKey)) {
         console.log(`⏳ Запрос уже выполняется: ${requestKey}`);
         return pendingRequests.get(requestKey);
     }
     
-    // 🔥 ПРОВЕРКА КЭША ДЛЯ GET-ЗАПРОСОВ
     if (method === 'GET') {
         const cacheKey = endpoint.split('?')[0];
         const ttl = CACHE_TTL[cacheKey];
@@ -88,7 +110,6 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
             const response = await fetch(`/api${endpoint}`, options);
             clearTimeout(timeoutId);
             
-            // 🔥 ОБРАБОТКА 401
             if (response.status === 401) {
                 console.log('🔐 Токен истёк');
                 if (typeof window.authLogout === 'function') {
@@ -97,16 +118,14 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
                 return { success: false, error: 'Сессия истекла' };
             }
             
-            // 🔥 ОБРАБОТКА ДРУГИХ ОШИБОК
             if (!response.ok) {
                 console.error(`❌ API error: ${response.status} ${response.statusText}`);
                 
-                // 🔥 НОВОЕ: пробуем загрузить из офлайн-кэша при ошибке
                 if (method === 'GET') {
                     const offlineData = loadFromOfflineCache(endpoint);
                     if (offlineData) {
                         console.log(`📡 Работаем офлайн: ${endpoint}`);
-                        showNotif('📡 Работаем офлайн. Данные могут быть устаревшими.', 'warning');
+                        showSystemNotification('📡 Работаем офлайн. Данные могут быть устаревшими.', 'warning');
                         return offlineData;
                     }
                 }
@@ -116,7 +135,6 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
             
             const data = await response.json();
             
-            // 🔥 СОХРАНЯЕМ В КЭШ
             if (method === 'GET') {
                 const cacheKey = endpoint.split('?')[0];
                 if (CACHE_TTL[cacheKey]) {
@@ -126,7 +144,6 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
                     });
                 }
                 
-                // 🔥 НОВОЕ: сохраняем в офлайн-кэш важные данные
                 if (endpoint === '/data' || endpoint.startsWith('/employees') || endpoint === '/tasks' || endpoint === '/schedule') {
                     saveToOfflineCache(endpoint, data);
                 }
@@ -145,17 +162,15 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
             
             console.error('❌ API error:', e.message);
             
-            // 🔥 НОВОЕ: пробуем загрузить из офлайн-кэша при ошибке сети
             if (method === 'GET') {
                 const offlineData = loadFromOfflineCache(endpoint);
                 if (offlineData) {
                     console.log(`📡 Работаем офлайн (сеть недоступна): ${endpoint}`);
-                    showNotif('📡 Нет соединения. Работаем офлайн.', 'warning');
+                    showSystemNotification('📡 Нет соединения. Работаем офлайн.', 'warning');
                     return offlineData;
                 }
             }
             
-            // 🔥 ЭКСПОНЕНЦИАЛЬНАЯ ЗАДЕРЖКА ПРИ ОШИБКАХ
             retryCount++;
             if (retryCount <= MAX_RETRIES && method === 'GET') {
                 const delay = 1000 * Math.pow(2, retryCount);
@@ -175,7 +190,7 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
 }
 
 // ============================================
-// ОФЛАЙН-КЭШ (НОВОЕ)
+// ОФЛАЙН-КЭШ
 // ============================================
 
 function saveToOfflineCache(endpoint, data) {
@@ -186,7 +201,6 @@ function saveToOfflineCache(endpoint, data) {
             timestamp: Date.now()
         };
         
-        // Очищаем устаревшие записи
         for (const key of Object.keys(cache)) {
             if (Date.now() - cache[key].timestamp > OFFLINE_CACHE_TTL) {
                 delete cache[key];
@@ -197,7 +211,6 @@ function saveToOfflineCache(endpoint, data) {
         console.log(`💾 Офлайн-кэш сохранён: ${endpoint}`);
     } catch (e) {
         console.error('Ошибка сохранения офлайн-кэша:', e);
-        // Если кэш переполнен, очищаем его
         if (e.name === 'QuotaExceededError') {
             localStorage.removeItem(OFFLINE_CACHE_KEY);
         }
@@ -235,7 +248,7 @@ async function apiCall(endpoint, method = 'GET', body = null) {
         console.log('🎁 Получены новые достижения:', response.newAchievements);
         
         for (const ach of response.newAchievements) {
-            showNotif(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
+            showSystemNotification(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
         }
         
         if (typeof loadAchievements === 'function') {
@@ -246,13 +259,18 @@ async function apiCall(endpoint, method = 'GET', body = null) {
             setTimeout(() => refreshAllBalanceDisplays(), 300);
         }
         
-        // 🔥 ИСПРАВЛЕНО: обновляем карточки сотрудников
         if (typeof renderEmployees === 'function') {
             setTimeout(() => renderEmployees(), 300);
         }
     }
     
     return response;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(str).replace(/[&<>"']/g, m => map[m]);
 }
 
 // ============================================
@@ -317,10 +335,9 @@ async function loadEmployees() {
                 }
             }
             
-            // 🔥 Сохраняем в офлайн-кэш
             saveToOfflineCache('/data', data);
+            showSystemNotification(`👥 Загружено ${window.app.employees.length} сотрудников`, 'info');
         } else {
-            // 🔥 Пробуем загрузить из офлайн-кэша
             const offlineData = loadFromOfflineCache('/data');
             if (offlineData) {
                 window.app = window.app || {};
@@ -330,12 +347,11 @@ async function loadEmployees() {
                 window.app.tasks = offlineData.tasks || [];
                 window.app.fines = offlineData.fines || [];
                 window.app.userAchievements = offlineData.userAchievements || {};
-                showNotif('📡 Загружены сохранённые данные', 'info');
+                showSystemNotification('📡 Загружены сохранённые данные', 'info');
             }
         }
     } catch (e) {
         console.error('Ошибка загрузки сотрудников:', e);
-        // 🔥 Пробуем загрузить из офлайн-кэша
         const offlineData = loadFromOfflineCache('/data');
         if (offlineData) {
             window.app = window.app || {};
@@ -413,7 +429,7 @@ async function loadSchedule() {
 }
 
 // ============================================
-// ОБНОВЛЕНИЕ ДАННЫХ (ИСПРАВЛЕНО)
+// ОБНОВЛЕНИЕ ДАННЫХ
 // ============================================
 
 async function updateEmployeeStatus(name, status) {
@@ -426,35 +442,33 @@ async function updateEmployeeStatus(name, status) {
     return false;
 }
 
-// 🔥 ИСПРАВЛЕНО: при обновлении аватара очищаем avatar_url
 async function updateEmployeeAvatar(name, avatar) {
     const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar });
     if (response && response.success) {
         if (window.app?.profiles?.[name]) {
             window.app.profiles[name].avatar = avatar;
-            window.app.profiles[name].avatar_url = null; // 🔥 Очищаем URL
+            window.app.profiles[name].avatar_url = null;
         }
         invalidateCache(['/employees', '/data']);
-        clearOfflineCache(); // 🔥 Очищаем офлайн-кэш при изменениях
+        clearOfflineCache();
         return true;
     }
     return false;
 }
 
-// 🔥 ИСПРАВЛЕНО: при обновлении фото очищаем avatar
 async function updateEmployeeAvatarBase64(name, base64) {
     if (!base64 || !base64.startsWith('data:image')) return false;
     const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar_url: base64 });
     if (response && response.success) {
         if (window.app?.profiles?.[name]) {
             window.app.profiles[name].avatar_url = base64;
-            window.app.profiles[name].avatar = null; // 🔥 Очищаем эмодзи
+            window.app.profiles[name].avatar = null;
         }
         if (name === window.app?.currentUser && typeof window.updateHeaderAvatar === 'function') {
             window.updateHeaderAvatar(base64, null);
         }
         invalidateCache(['/employees', '/data']);
-        clearOfflineCache(); // 🔥 Очищаем офлайн-кэш при изменениях
+        clearOfflineCache();
         return true;
     }
     return false;
@@ -478,5 +492,6 @@ window.invalidateCache = invalidateCache;
 window.saveToOfflineCache = saveToOfflineCache;
 window.loadFromOfflineCache = loadFromOfflineCache;
 window.clearOfflineCache = clearOfflineCache;
+window.resetApiState = resetApiState;
 
-console.log('✅ api.js загружен (исправленная версия v2.0)');
+console.log('✅ api.js загружен (v2.1 — с уведомлениями)');

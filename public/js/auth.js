@@ -1,11 +1,42 @@
-// public/js/auth.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
-// Исправлен баг: "В сети" не обновлялся при heartbeat
+// public/js/auth.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Добавлены все уведомления
 
 let isLoggingIn = false;
 let heartbeatInterval = null;
 let lastHeartbeat = 0;
-const HEARTBEAT_INTERVAL = 60000; // 1 минута
-const TOKEN_EXPIRY_CHECK_INTERVAL = 300000; // 5 минут
+const HEARTBEAT_INTERVAL = 60000;
+const TOKEN_EXPIRY_CHECK_INTERVAL = 300000;
+let authInitialized = false;
+
+// ============================================
+// СБРОС СОСТОЯНИЯ
+// ============================================
+
+function resetAuthState() {
+    console.log('🧹 Сброс состояния авторизации');
+    authInitialized = false;
+    isLoggingIn = false;
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(str).replace(/[&<>"']/g, m => map[m]);
+}
+
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
+    } else {
+        console.log(`[${type}] ${message}`);
+    }
+}
 
 // ============================================
 // ВХОД
@@ -17,7 +48,6 @@ async function login() {
         return;
     }
     
-    // 🔥 ПОКАЗЫВАЕМ ПРЕМИУМ-ПРЕЛОАДЕР
     if (typeof window.showGlobalLoader === 'function') {
         window.showGlobalLoader();
     }
@@ -26,7 +56,7 @@ async function login() {
     const pass = document.getElementById('loginPassword')?.value;
     
     if (!loginName || !pass) {
-        showNotif('Введите логин и пароль', 'error');
+        showSystemNotification('❌ Введите логин и пароль', 'error');
         return;
     }
     
@@ -96,7 +126,7 @@ async function login() {
             
             if (data.newAchievements && data.newAchievements.length > 0) {
                 for (const ach of data.newAchievements) {
-                    showNotif(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
+                    showSystemNotification(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
                 }
             }
             
@@ -115,15 +145,15 @@ async function login() {
             
             renderMainMenu();
             
-            showNotif(`Добро пожаловать, ${escapeHtml(window.app.currentUser)}!`, 'success');
+            showSystemNotification(`👋 Добро пожаловать, ${escapeHtml(window.app.currentUser)}!`, 'success');
             
         } else {
-            showNotif(data.error || 'Неверный логин или пароль', 'error');
+            showSystemNotification('❌ ' + (data.error || 'Неверный логин или пароль'), 'error');
             hideGlobalLoaderOnError();
         }
     } catch (err) {
         console.error('❌ Ошибка входа:', err);
-        showNotif('Ошибка соединения с сервером.', 'error');
+        showSystemNotification('❌ Ошибка соединения с сервером', 'error');
         hideGlobalLoaderOnError();
     } finally {
         if (loginBtn) {
@@ -134,7 +164,6 @@ async function login() {
     }
 }
 
-// 🔥 Скрытие прелоадера при ошибке входа
 function hideGlobalLoaderOnError() {
     const loader = document.getElementById('globalLoader');
     if (loader) {
@@ -185,7 +214,7 @@ function authLogout() {
     if (typeof renderEmployees === 'function') renderEmployees();
     if (typeof loadActivity === 'function') loadActivity();
     
-    showNotif('Вы вышли из системы', 'info');
+    showSystemNotification('👋 Вы вышли из системы', 'info');
 }
 
 // ============================================
@@ -206,7 +235,7 @@ function checkTokenAndLogout() {
     if (isTokenExpired()) {
         console.log('🔐 Токен истёк, выполняем выход');
         authLogout();
-        showNotif('Сессия истекла. Пожалуйста, войдите снова.', 'warning');
+        showSystemNotification('⏳ Сессия истекла. Пожалуйста, войдите снова.', 'warning');
         return true;
     }
     return false;
@@ -246,18 +275,16 @@ async function loadLastActivity() {
         window.app.lastActivity[window.app.currentUser] = Date.now();
     }
     
-    // 🔥 ИСПРАВЛЕНО: вызываем renderEmployees для обновления "В сети"
     if (typeof renderEmployees === 'function') renderEmployees();
     if (typeof loadActivity === 'function') loadActivity();
 }
 
 // ============================================
-// HEARTBEAT (ИСПРАВЛЕНО)
+// HEARTBEAT
 // ============================================
 
-// 🔥 Флаг для отслеживания последнего рендера
 let lastActivityRenderTime = 0;
-const ACTIVITY_RENDER_DEBOUNCE = 5000; // 5 секунд
+const ACTIVITY_RENDER_DEBOUNCE = 5000;
 
 async function sendHeartbeat() {
     if (checkTokenAndLogout()) return;
@@ -279,12 +306,10 @@ async function sendHeartbeat() {
         });
         
         if (response.ok && window.app && window.app.currentUser) {
-            // 🔥 Обновляем lastActivity для текущего пользователя
             window.app.lastActivity = window.app.lastActivity || {};
             window.app.lastActivity[window.app.currentUser] = Date.now();
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
             
-            // 🔥 ИСПРАВЛЕНО: вызываем renderEmployees с debounce
             if (now - lastActivityRenderTime > ACTIVITY_RENDER_DEBOUNCE) {
                 lastActivityRenderTime = now;
                 
@@ -295,13 +320,11 @@ async function sendHeartbeat() {
                     loadActivity();
                 }
                 
-                // 🔥 Отправляем событие обновления данных
                 if (typeof window.dispatchDataUpdate === 'function') {
                     window.dispatchDataUpdate('heartbeat', { user: window.app.currentUser });
                 }
             }
             
-            // 🔥 Обновляем индикатор синхронизации если есть
             if (typeof setSyncStatus === 'function') {
                 setSyncStatus('online');
             }
@@ -320,17 +343,15 @@ async function sendHeartbeat() {
 function startHeartbeat(intervalMs = HEARTBEAT_INTERVAL) {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     
-    // 🔥 Отправляем первый heartbeat сразу
     sendHeartbeat();
     
-    // 🔥 Запускаем интервал
     heartbeatInterval = setInterval(() => sendHeartbeat(), intervalMs);
     
     console.log('💓 Heartbeat запущен (интервал: ' + intervalMs/1000 + 'с)');
 }
 
 // ============================================
-// ТРЕКЕР АКТИВНОСТИ (ИСПРАВЛЕНО)
+// ТРЕКЕР АКТИВНОСТИ
 // ============================================
 
 function initActivityTracker() {
@@ -340,7 +361,6 @@ function initActivityTracker() {
             window.app.lastActivity[window.app.currentUser] = Date.now();
             localStorage.setItem('lastActivity', JSON.stringify(window.app.lastActivity));
             
-            // 🔥 Обновляем с debounce
             const now = Date.now();
             if (now - lastActivityRenderTime > ACTIVITY_RENDER_DEBOUNCE) {
                 lastActivityRenderTime = now;
@@ -355,7 +375,6 @@ function initActivityTracker() {
         }
     };
     
-    // События, которые считаются активностью
     ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
         document.addEventListener(event, updateActivity, { passive: true });
     });
@@ -363,7 +382,6 @@ function initActivityTracker() {
     document.addEventListener('visibilitychange', () => { 
         if (!document.hidden) {
             updateActivity();
-            // 🔥 При возвращении на вкладку отправляем heartbeat
             sendHeartbeat();
         }
     });
@@ -399,5 +417,6 @@ window.sendHeartbeat = sendHeartbeat;
 window.initActivityTracker = initActivityTracker;
 window.loadLastActivity = loadLastActivity;
 window.checkTokenAndLogout = checkTokenAndLogout;
+window.resetAuthState = resetAuthState;
 
-console.log('✅ auth.js загружен (исправленная версия v2.0)');
+console.log('✅ auth.js загружен (v2.1 — с уведомлениями)');

@@ -1,4 +1,6 @@
-// public/js/knowledge.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/knowledge.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ v1.1
+// Добавлены все уведомления
+
 (function() {
     'use strict';
     
@@ -9,6 +11,18 @@
     let editingCategoryId = null;
     let isLoadingKnowledge = false;
     let activeEditor = null;
+    let knowledgeInitialized = false;
+
+    // ============================================
+    // СБРОС СОСТОЯНИЯ
+    // ============================================
+    function resetKnowledgeState() {
+        console.log('🧹 Сброс состояния базы знаний');
+        knowledgeInitialized = false;
+        editingArticleId = null;
+        editingCategoryId = null;
+        activeEditor = null;
+    }
 
     // ============================================
     // ПРОВЕРКА ПРАВ ДОСТУПА
@@ -21,6 +35,51 @@
     function canManageArticles() {
         const role = window.app?.currentUserRole;
         return role === 'director' || role === 'manager' || role === 'admin' || role === 'operator';
+    }
+
+    // ============================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(str).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('ru-RU');
+    }
+
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
     }
 
     // ============================================
@@ -74,30 +133,44 @@
         const url = prompt('Введите URL ссылки:', 'https://');
         if (!url) return;
         const lowerUrl = url.toLowerCase().trim();
-        if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) { showNotif('❌ Недопустимый тип ссылки', 'error'); return; }
+        if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+            showSystemNotification('❌ Недопустимый тип ссылки', 'error');
+            return;
+        }
         const text = prompt('Введите текст ссылки:', 'Ссылка');
         if (text) {
             execCommand('insertHTML', `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="color: #a78bfa; text-decoration: none;">${escapeHtml(text)}</a>`);
         } else {
             execCommand('createLink', escapeHtml(url));
         }
+        showSystemNotification('🔗 Ссылка добавлена', 'info');
     }
 
     function insertImage() {
         const url = prompt('Введите URL изображения:', 'https://');
         if (!url) return;
         const lowerUrl = url.toLowerCase().trim();
-        if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) { showNotif('❌ Недопустимый тип URL', 'error'); return; }
+        if (lowerUrl.startsWith('javascript:') || lowerUrl.startsWith('data:')) {
+            showSystemNotification('❌ Недопустимый тип URL', 'error');
+            return;
+        }
         execCommand('insertImage', escapeHtml(url));
+        showSystemNotification('🖼️ Изображение добавлено', 'info');
     }
 
     function insertVideo() {
         const url = prompt('Введите URL видео (YouTube):', 'https://www.youtube.com/watch?v=');
         if (!url) return;
         let embedUrl = url;
-        if (url.includes('youtube.com/watch?v=')) { const videoId = url.split('v=')[1]?.split('&')[0]; if (videoId) embedUrl = `https://www.youtube.com/embed/${escapeHtml(videoId)}`; }
-        else if (url.includes('youtu.be/')) { const videoId = url.split('youtu.be/')[1]?.split('?')[0]; if (videoId) embedUrl = `https://www.youtube.com/embed/${escapeHtml(videoId)}`; }
+        if (url.includes('youtube.com/watch?v=')) {
+            const videoId = url.split('v=')[1]?.split('&')[0];
+            if (videoId) embedUrl = `https://www.youtube.com/embed/${escapeHtml(videoId)}`;
+        } else if (url.includes('youtu.be/')) {
+            const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+            if (videoId) embedUrl = `https://www.youtube.com/embed/${escapeHtml(videoId)}`;
+        }
         execCommand('insertHTML', `<div style="margin:20px 0;"><iframe width="100%" height="400" src="${escapeHtml(embedUrl)}" frameborder="0" allowfullscreen style="border-radius:16px;"></iframe></div>`);
+        showSystemNotification('🎬 Видео добавлено', 'info');
     }
 
     function insertUnorderedList() { execCommand('insertUnorderedList'); }
@@ -121,12 +194,14 @@
         }
         table += '</table></div>';
         execCommand('insertHTML', table);
+        showSystemNotification('📊 Таблица добавлена', 'info');
     }
 
     function insertCode() {
         const code = prompt('Введите код:');
         if (!code) return;
         execCommand('insertHTML', `<pre style="background:#1e1e1e;color:#d4d4d4;padding:20px;border-radius:16px;overflow-x:auto;font-family:'Courier New',monospace;font-size:13px;line-height:1.5;margin:20px 0;"><code>${escapeHtml(code)}</code></pre>`);
+        showSystemNotification('💻 Код добавлен', 'info');
     }
 
     function insertQuote() {
@@ -199,22 +274,14 @@
     ];
 
     // ============================================
-    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
-    // ============================================
-    function isCategoryExists(name, excludeId = null) {
-        return knowledgeCategories.some(cat => cat.name.toLowerCase() === name.toLowerCase() && cat.id !== excludeId);
-    }
-
-    function formatDate(dateStr) {
-        if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('ru-RU');
-    }
-
-    // ============================================
     // ИНИЦИАЛИЗАЦИЯ
     // ============================================
     function initKnowledge() {
+        if (knowledgeInitialized) {
+            console.log('📚 База знаний уже инициализирована');
+            return;
+        }
+        
         console.log('📚 Инициализация базы знаний');
         const container = document.getElementById('knowledgeContainer');
         if (!container) { setTimeout(initKnowledge, 100); return; }
@@ -222,6 +289,8 @@
         const searchInput = document.getElementById('knowledgeSearch');
         if (searchInput) searchInput.addEventListener('input', (e) => { knowledgeSearchQuery = e.target.value.toLowerCase(); renderKnowledge(); });
         setupActionButtons();
+        
+        knowledgeInitialized = true;
     }
 
     function setupActionButtons() {
@@ -247,9 +316,11 @@
             const articlesRes = await apiCall('/knowledge/articles');
             knowledgeCategories = (categoriesRes && categoriesRes.success) ? categoriesRes.data : (Array.isArray(categoriesRes) ? categoriesRes : []);
             knowledgeArticles = (articlesRes && articlesRes.success) ? articlesRes.data : (Array.isArray(articlesRes) ? articlesRes : []);
+            showSystemNotification(`📚 Загружено ${knowledgeCategories.length} категорий, ${knowledgeArticles.length} статей`, 'info');
             renderKnowledge();
         } catch (err) {
             if (container) container.innerHTML = `<div class="empty-knowledge"><i class="fas fa-exclamation-triangle"></i><h3>Ошибка загрузки</h3><button class="btn-primary" onclick="loadKnowledgeData()">🔄 Повторить</button></div>`;
+            showSystemNotification('❌ Ошибка загрузки базы знаний', 'error');
         } finally { isLoadingKnowledge = false; }
     }
 
@@ -327,42 +398,149 @@
     }
 
     function closePresetModal() { const modal = document.getElementById('presetModal'); if (modal) modal.remove(); }
-    async function createCategoryFromPreset(name, icon) { if (isCategoryExists(name)) { showNotif(`❌ Категория "${name}" уже существует!`, 'error'); return; } const response = await apiCall('/knowledge/categories', 'POST', { name, icon }); if (response?.success) { showNotif(`✅ Категория "${name}" создана`, 'success'); await loadKnowledgeData(); } else { showNotif(`❌ Ошибка при создании`, 'error'); } }
+    
+    async function createCategoryFromPreset(name, icon) {
+        if (isCategoryExists(name)) { showSystemNotification(`❌ Категория "${name}" уже существует!`, 'error'); return; }
+        const response = await apiCall('/knowledge/categories', 'POST', { name, icon });
+        if (response?.success) { showSystemNotification(`✅ Категория "${name}" создана`, 'success'); await loadKnowledgeData(); } 
+        else { showSystemNotification(`❌ Ошибка при создании`, 'error'); }
+    }
+    
     async function createCategoryFromPresetAndClose(name, icon) { await createCategoryFromPreset(name, icon); closePresetModal(); }
-    async function createAllCategoriesWithProgress() { let created = 0, skipped = 0; showNotif(`⏳ Создание категорий...`, 'info'); for (const cat of presetCategories) { if (isCategoryExists(cat.name)) { skipped++; continue; } const response = await apiCall('/knowledge/categories', 'POST', { name: cat.name, icon: cat.icon }); if (response?.success) created++; await new Promise(r => setTimeout(r, 20)); } showNotif(`✅ Создано: ${created}, Пропущено: ${skipped}`, created > 0 ? 'success' : 'info'); await loadKnowledgeData(); }
+    
+    async function createAllCategoriesWithProgress() {
+        let created = 0, skipped = 0;
+        showSystemNotification(`⏳ Создание категорий...`, 'info');
+        for (const cat of presetCategories) {
+            if (isCategoryExists(cat.name)) { skipped++; continue; }
+            const response = await apiCall('/knowledge/categories', 'POST', { name: cat.name, icon: cat.icon });
+            if (response?.success) created++;
+            await new Promise(r => setTimeout(r, 20));
+        }
+        showSystemNotification(`✅ Создано: ${created}, Пропущено: ${skipped}`, created > 0 ? 'success' : 'info');
+        await loadKnowledgeData();
+    }
+
+    function isCategoryExists(name) {
+        return knowledgeCategories.some(cat => cat.name.toLowerCase() === name.toLowerCase());
+    }
 
     // ============================================
     // КАТЕГОРИИ
     // ============================================
-    function openCreateCategoryModal() { /* ... код без изменений ... */ }
-    function openEditCategoryModal(id, name, icon) { /* ... код без изменений ... */ }
+    function openCreateCategoryModal() {
+        const modalHtml = `<div id="categoryModal" class="modal active"><div class="modal-window" style="max-width:450px;"><div style="padding:20px;border-bottom:1px solid rgba(99,102,241,0.15);"><h3>➕ Новая категория</h3></div><div style="padding:20px;"><div class="form-group"><label><i class="fas fa-tag"></i> Название</label><input type="text" id="categoryName" class="form-input" placeholder="Введите название"></div><div class="form-group"><label><i class="fas fa-icons"></i> Иконка</label><div class="icon-selector" style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-height:200px;overflow-y:auto;padding:8px;background:#0d1016;border-radius:12px;">${iconList.map(i => `<div class="icon-option" onclick="selectIcon('${i.icon}')" style="font-size:24px;cursor:pointer;padding:8px;text-align:center;border-radius:8px;">${i.icon}</div>`).join('')}</div><input type="hidden" id="categoryIcon" value="📁"></div></div><div style="display:flex;gap:12px;justify-content:flex-end;padding:16px 20px;border-top:1px solid rgba(99,102,241,0.1);"><button class="btn-primary" onclick="saveCategory()">Создать</button><button class="btn-secondary" onclick="closeCategoryModal()">Отмена</button></div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        window.selectIcon = function(icon) { document.getElementById('categoryIcon').value = icon; document.querySelectorAll('.icon-option').forEach(el => el.style.background = ''); event.target.style.background = 'rgba(99,102,241,0.3)'; };
+    }
+
+    function openEditCategoryModal(id, name, icon) {
+        editingCategoryId = id;
+        const modalHtml = `<div id="categoryModal" class="modal active"><div class="modal-window" style="max-width:450px;"><div style="padding:20px;border-bottom:1px solid rgba(99,102,241,0.15);"><h3>✏️ Редактировать категорию</h3></div><div style="padding:20px;"><div class="form-group"><label><i class="fas fa-tag"></i> Название</label><input type="text" id="categoryName" class="form-input" value="${escapeHtml(name)}"></div><div class="form-group"><label><i class="fas fa-icons"></i> Иконка</label><div class="icon-selector" style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px;max-height:200px;overflow-y:auto;padding:8px;background:#0d1016;border-radius:12px;">${iconList.map(i => `<div class="icon-option" onclick="selectIcon('${i.icon}')" style="font-size:24px;cursor:pointer;padding:8px;text-align:center;border-radius:8px;${i.icon === icon ? 'background:rgba(99,102,241,0.3);' : ''}">${i.icon}</div>`).join('')}</div><input type="hidden" id="categoryIcon" value="${escapeHtml(icon)}"></div></div><div style="display:flex;gap:12px;justify-content:flex-end;padding:16px 20px;border-top:1px solid rgba(99,102,241,0.1);"><button class="btn-primary" onclick="saveCategory()">Сохранить</button><button class="btn-secondary" onclick="closeCategoryModal()">Отмена</button></div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        window.selectIcon = function(ic) { document.getElementById('categoryIcon').value = ic; document.querySelectorAll('.icon-option').forEach(el => el.style.background = ''); event.target.style.background = 'rgba(99,102,241,0.3)'; };
+    }
+
     function closeCategoryModal() { const modal = document.getElementById('categoryModal'); if (modal) modal.remove(); editingCategoryId = null; }
-    async function saveCategory() { /* ... код без изменений ... */ }
-    async function deleteCategoryWithClose(categoryId) { /* ... код без изменений ... */ }
-    async function deleteCategory(categoryId) { /* ... код без изменений ... */ }
+    
+    async function saveCategory() {
+        const name = document.getElementById('categoryName')?.value.trim();
+        const icon = document.getElementById('categoryIcon')?.value || '📁';
+        if (!name) { showSystemNotification('❌ Введите название', 'error'); return; }
+        if (!editingCategoryId && isCategoryExists(name)) { showSystemNotification(`❌ Категория "${name}" уже существует`, 'error'); return; }
+        
+        const response = editingCategoryId 
+            ? await apiCall(`/knowledge/categories/${editingCategoryId}`, 'PUT', { name, icon })
+            : await apiCall('/knowledge/categories', 'POST', { name, icon });
+            
+        if (response?.success) {
+            showSystemNotification(editingCategoryId ? '✅ Категория обновлена' : '✅ Категория создана', 'success');
+            closeCategoryModal();
+            await loadKnowledgeData();
+        } else {
+            showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    }
+    
+    async function deleteCategory(categoryId) {
+        if (!canManageCategories()) { showSystemNotification('❌ Нет прав', 'error'); return; }
+        if (!confirm('Удалить категорию и все статьи в ней?')) return;
+        const response = await apiCall(`/knowledge/categories/${categoryId}`, 'DELETE');
+        if (response?.success) { showSystemNotification('🗑️ Категория удалена', 'warning'); await loadKnowledgeData(); }
+        else { showSystemNotification('❌ Ошибка', 'error'); }
+    }
 
     // ============================================
     // СТАТЬИ
     // ============================================
-    async function openArticle(articleId) { /* ... код без изменений ... */ }
+    function openCreateArticleModal(categoryId) { editingArticleId = null; openArticleModalInternal(categoryId, null); }
+    function openEditArticleModal(articleId) { editingArticleId = articleId; const article = knowledgeArticles.find(a => a.id === articleId); if (article) openArticleModalInternal(article.category_id, article); }
+    
+    function openArticleModalInternal(categoryId, article) {
+        const modalHtml = `<div id="articleEditModal" class="modal active"><div class="modal-window" style="max-width:900px;width:95%;"><div style="padding:20px;border-bottom:1px solid rgba(99,102,241,0.15);"><h3>${article ? '✏️ Редактировать статью' : '➕ Новая статья'}</h3></div><div style="padding:20px;"><div class="form-group"><label><i class="fas fa-heading"></i> Заголовок</label><input type="text" id="articleTitle" class="form-input" value="${escapeHtml(article?.title || '')}" placeholder="Введите заголовок"></div><div class="form-group"><label><i class="fas fa-edit"></i> Содержание</label><div class="editor-toolbar">${renderEditorToolbar()}</div><div id="articleContent" class="editor-content" contenteditable="true" onfocus="initEditor(this)">${article?.content || ''}</div></div></div><div style="display:flex;gap:12px;justify-content:flex-end;padding:16px 20px;border-top:1px solid rgba(99,102,241,0.1);"><button class="btn-primary" onclick="saveArticle(${categoryId})">${article ? 'Сохранить' : 'Создать'}</button><button class="btn-secondary" onclick="closeArticleEditModal()">Отмена</button>${article ? `<button class="btn-danger" onclick="deleteArticleConfirm(${article.id})">🗑️ Удалить</button>` : ''}</div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+    }
+
+    function renderEditorToolbar() {
+        return `<button onclick="applyFormat('bold')" title="Жирный"><i class="fas fa-bold"></i></button><button onclick="applyFormat('italic')" title="Курсив"><i class="fas fa-italic"></i></button><button onclick="applyFormat('underline')" title="Подчёркнутый"><i class="fas fa-underline"></i></button><select onchange="setFontSize(this.value)"><option value="3">Размер</option><option value="1">12px</option><option value="2">14px</option><option value="3">16px</option><option value="4">18px</option><option value="5">20px</option><option value="6">24px</option><option value="7">28px</option></select><select onchange="setFontFamily(this.value)"><option value="Arial">Arial</option><option value="Georgia">Georgia</option><option value="'Courier New'">Courier</option><option value="'Times New Roman'">Times</option></select><input type="color" onchange="setTextColor(this.value)" title="Цвет текста"><input type="color" onchange="setBackgroundColor(this.value)" title="Цвет фона"><button onclick="setTextAlign('left')" title="По левому краю"><i class="fas fa-align-left"></i></button><button onclick="setTextAlign('center')" title="По центру"><i class="fas fa-align-center"></i></button><button onclick="setTextAlign('right')" title="По правому краю"><i class="fas fa-align-right"></i></button><button onclick="insertLink()" title="Ссылка"><i class="fas fa-link"></i></button><button onclick="insertImage()" title="Изображение"><i class="fas fa-image"></i></button><button onclick="insertVideo()" title="Видео"><i class="fas fa-video"></i></button><button onclick="insertUnorderedList()" title="Маркированный список"><i class="fas fa-list-ul"></i></button><button onclick="insertOrderedList()" title="Нумерованный список"><i class="fas fa-list-ol"></i></button><button onclick="insertTable()" title="Таблица"><i class="fas fa-table"></i></button><button onclick="insertCode()" title="Код"><i class="fas fa-code"></i></button><button onclick="insertQuote()" title="Цитата"><i class="fas fa-quote-right"></i></button><button onclick="insertHeading(2)" title="Заголовок"><i class="fas fa-heading"></i></button><button onclick="insertDivider()" title="Разделитель"><i class="fas fa-minus"></i></button><button onclick="insertAlert('info')" title="Инфо"><i class="fas fa-info-circle"></i></button><button onclick="insertAlert('success')" title="Успех"><i class="fas fa-check-circle"></i></button><button onclick="insertAlert('warning')" title="Предупреждение"><i class="fas fa-exclamation-triangle"></i></button><button onclick="insertAlert('error')" title="Ошибка"><i class="fas fa-times-circle"></i></button><button onclick="insertCard()" title="Карточка"><i class="fas fa-square"></i></button><button onclick="clearFormatting()" title="Очистить форматирование"><i class="fas fa-remove-format"></i></button>`;
+    }
+
+    async function openArticle(articleId) {
+        await apiCall(`/knowledge/articles/${articleId}/view`, 'POST');
+        const article = knowledgeArticles.find(a => a.id === articleId);
+        if (!article) return;
+        const modalHtml = `<div id="articleModal" class="modal active"><div class="modal-window" style="max-width:800px;max-height:85vh;overflow-y:auto;"><div style="padding:20px;border-bottom:1px solid rgba(99,102,241,0.15);"><h2>${escapeHtml(article.title)}</h2><p style="font-size:12px;color:#64748b;margin-top:8px;"><i class="fas fa-eye"></i> ${(article.views || 0) + 1} просмотров · <i class="fas fa-calendar"></i> ${formatDate(article.created_at)} · <i class="fas fa-user"></i> ${escapeHtml(article.created_by || '—')}</p></div><div style="padding:20px;"><div class="article-content">${article.content || '<p style="color:#64748b;">Нет содержания</p>'}</div></div><div style="display:flex;justify-content:flex-end;padding:16px 20px;border-top:1px solid rgba(99,102,241,0.1);"><button class="btn-secondary" onclick="closeArticleModal()">Закрыть</button>${canManageArticles() ? `<button class="btn-primary" onclick="closeArticleModal();openEditArticleModal(${article.id})"><i class="fas fa-edit"></i> Редактировать</button>` : ''}</div></div></div>`;
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+        await loadKnowledgeData();
+    }
+
     function closeArticleModal() { const modal = document.getElementById('articleModal'); if (modal) modal.remove(); }
     function closeArticleEditModal() { const modal = document.getElementById('articleEditModal'); if (modal) modal.remove(); editingArticleId = null; }
-    async function saveArticle() { /* ... код без изменений ... */ }
-    function deleteArticleConfirm(articleId) { if (confirm('Удалить эту статью?')) deleteArticleWithClose(articleId); }
-    async function deleteArticleWithClose(articleId) { const response = await apiCall(`/knowledge/articles/${articleId}`, 'DELETE'); if (response?.success) { showNotif('✅ Статья удалена', 'success'); closeArticleEditModal(); closeArticleModal(); await loadKnowledgeData(); } else { showNotif('❌ Ошибка при удалении', 'error'); } }
-    async function deleteArticle(articleId) { if (!canManageArticles()) { showNotif('Нет прав', 'error'); return; } if (!confirm('Удалить статью?')) return; const response = await apiCall(`/knowledge/articles/${articleId}`, 'DELETE'); if (response?.success) { showNotif('✅ Статья удалена', 'success'); await loadKnowledgeData(); } else { showNotif('❌ Ошибка', 'error'); } }
+    
+    async function saveArticle(categoryId) {
+        const title = document.getElementById('articleTitle')?.value.trim();
+        const content = document.getElementById('articleContent')?.innerHTML || '';
+        if (!title) { showSystemNotification('❌ Введите заголовок', 'error'); return; }
+        
+        const response = editingArticleId
+            ? await apiCall(`/knowledge/articles/${editingArticleId}`, 'PUT', { title, content })
+            : await apiCall('/knowledge/articles', 'POST', { category_id: categoryId, title, content });
+            
+        if (response?.success) {
+            showSystemNotification(editingArticleId ? '✅ Статья обновлена' : '✅ Статья создана', 'success');
+            closeArticleEditModal();
+            await loadKnowledgeData();
+        } else {
+            showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    }
+    
+    function deleteArticleConfirm(articleId) { if (confirm('Удалить эту статью?')) deleteArticle(articleId); }
+    
+    async function deleteArticle(articleId) {
+        if (!canManageArticles()) { showSystemNotification('❌ Нет прав', 'error'); return; }
+        const response = await apiCall(`/knowledge/articles/${articleId}`, 'DELETE');
+        if (response?.success) {
+            showSystemNotification('🗑️ Статья удалена', 'warning');
+            closeArticleEditModal();
+            closeArticleModal();
+            await loadKnowledgeData();
+        } else {
+            showSystemNotification('❌ Ошибка', 'error');
+        }
+    }
 
     // ============================================
     // ЭКСПОРТ
     // ============================================
     window.initKnowledge = initKnowledge;
+    window.resetKnowledgeState = resetKnowledgeState;
     window.toggleCategory = toggleCategory;
     window.openArticle = openArticle;
     window.closeArticleModal = closeArticleModal;
     window.closeArticleEditModal = closeArticleEditModal;
     window.saveArticle = saveArticle;
     window.deleteArticle = deleteArticle;
-    window.deleteArticleWithClose = deleteArticleWithClose;
     window.deleteArticleConfirm = deleteArticleConfirm;
     window.loadKnowledgeData = loadKnowledgeData;
     window.createCategoryFromPreset = createCategoryFromPreset;
@@ -370,6 +548,12 @@
     window.createAllCategoriesWithProgress = createAllCategoriesWithProgress;
     window.showAddPresetModal = showAddPresetModal;
     window.closePresetModal = closePresetModal;
+    window.openCreateCategoryModal = openCreateCategoryModal;
+    window.openEditCategoryModal = openEditCategoryModal;
+    window.closeCategoryModal = closeCategoryModal;
+    window.saveCategory = saveCategory;
+    window.deleteCategory = deleteCategory;
+    window.selectIcon = function(icon) { document.getElementById('categoryIcon').value = icon; };
     window.applyFormat = applyFormat;
     window.setFontSize = setFontSize;
     window.setFontFamily = setFontFamily;
@@ -391,6 +575,7 @@
     window.insertDivider = insertDivider;
     window.insertEmoji = insertEmoji;
     window.clearFormatting = clearFormatting;
+    window.initEditor = initEditor;
 
-    console.log('✅ knowledge.js загружен');
+    console.log('✅ knowledge.js загружен (v1.1 — с уведомлениями)');
 })();

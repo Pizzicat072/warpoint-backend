@@ -1,5 +1,5 @@
-// public/js/achievements.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
-// Исправлен баг: рейтинг не обновлялся в карточках при получении достижения
+// public/js/achievements.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Добавлены все уведомления
 
 (function() {
     'use strict';
@@ -12,6 +12,38 @@
     let achievementsCache = null;
     let cacheTimestamp = 0;
     const CACHE_TTL = 60000;
+    let achievementsInitialized = false;
+
+    // ============================================
+    // СБРОС СОСТОЯНИЯ
+    // ============================================
+
+    function resetAchievementsState() {
+        console.log('🧹 Сброс состояния достижений');
+        achievementsInitialized = false;
+        achievementsCache = null;
+        cacheTimestamp = 0;
+    }
+
+    // ============================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(str).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
 
     // ============================================
     // ОБЛЕГЧЁННЫЕ ФАНФАРЫ (БЕЗ ЛАГОВ)
@@ -143,7 +175,7 @@
     }
 
     // ============================================
-    // РЕНДЕР ДОСТИЖЕНИЙ (С ПРОВЕРКОЙ DOM)
+    // РЕНДЕР ДОСТИЖЕНИЙ
     // ============================================
 
     function renderAchievements() {
@@ -304,7 +336,7 @@
     }
 
     // ============================================
-    // ПОЛУЧЕНИЕ НАГРАДЫ (ИСПРАВЛЕНО)
+    // ПОЛУЧЕНИЕ НАГРАДЫ
     // ============================================
 
     async function claimAchievement(achievementId) {
@@ -335,6 +367,7 @@
             
             if (data.success) {
                 showFanfare(achievement.name, data.coins);
+                showSystemNotification(`🏆 ${achievement.name} (+${data.coins} WP)`, 'success');
                 
                 userPending.delete(achievementId);
                 userUnlocked.add(achievementId);
@@ -348,45 +381,43 @@
                 invalidateAchievementsCache();
                 renderAchievements();
                 
-                // 🔥 ИСПРАВЛЕНО: обновляем данные сотрудников
                 if (typeof loadEmployees === 'function') {
                     await loadEmployees();
                 }
                 
-                // 🔥 ИСПРАВЛЕНО: обновляем карточки сотрудников (рейтинг и монеты)
                 if (typeof renderEmployees === 'function') {
                     renderEmployees();
                 }
                 
-                // 🔥 ИСПРАВЛЕНО: обновляем рейтинг в таблице рейтинга
                 if (typeof renderRatingTable === 'function') {
                     renderRatingTable();
                 }
                 
-                // 🔥 ИСПРАВЛЕНО: обновляем баланс в хедере
                 if (typeof refreshAllBalanceDisplays === 'function') {
                     refreshAllBalanceDisplays();
                 }
                 
-                // 🔥 ИСПРАВЛЕНО: обновляем статистику дашборда
                 if (typeof updateDashboardStats === 'function') {
                     updateDashboardStats();
                 }
                 
-                // 🔥 Отправляем событие обновления данных
                 if (typeof window.dispatchDataUpdate === 'function') {
                     window.dispatchDataUpdate('achievement', { id: achievementId, coins: data.coins });
                 }
                 
-                if (typeof showNotif === 'function') {
-                    showNotif(`+${data.coins} WP!`, 'success');
+                if (typeof window.sendEvent === 'function') {
+                    window.sendEvent('achievement_unlocked', {
+                        name: achievement.name,
+                        coins: data.coins,
+                        description: achievement.description
+                    });
                 }
             } else {
-                if (typeof showNotif === 'function') showNotif(data.error || 'Ошибка', 'error');
+                showSystemNotification('❌ ' + (data.error || 'Ошибка'), 'error');
             }
         } catch (err) {
             console.error('❌ Ошибка:', err);
-            if (typeof showNotif === 'function') showNotif('Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             if (claimBtn) {
                 claimBtn.innerHTML = originalText;
@@ -400,10 +431,17 @@
     // ============================================
 
     function initAchievements() {
+        if (achievementsInitialized) {
+            console.log('🏆 Достижения уже инициализированы');
+            return;
+        }
+        
         const container = document.getElementById('achievementsContainer');
         if (container) {
             loadAchievements().then(() => renderAchievements());
         }
+        
+        achievementsInitialized = true;
     }
 
     // ============================================
@@ -414,8 +452,9 @@
     window.renderAchievements = renderAchievements;
     window.claimAchievement = claimAchievement;
     window.initAchievements = initAchievements;
+    window.resetAchievementsState = resetAchievementsState;
     window.toggleCategory = toggleCategory;
     window.invalidateAchievementsCache = invalidateAchievementsCache;
 
-    console.log('✅ achievements.js загружен (исправленная версия v2.0)');
+    console.log('✅ achievements.js загружен (v2.1 — с уведомлениями)');
 })();

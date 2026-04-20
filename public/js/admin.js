@@ -1,14 +1,69 @@
-// public/js/admin.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
-// Исправлен баг: меню не обновлялось при смене роли
+// public/js/admin.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Добавлены все уведомления
 
 let adminEmployeesList = [];
 let isLoadingAdmin = false;
+let adminInitialized = false;
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// СБРОС СОСТОЯНИЯ
+// ============================================
+
+function resetAdminState() {
+    console.log('🧹 Сброс состояния админки');
+    adminInitialized = false;
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(str).replace(/[&<>"']/g, m => map[m]);
+}
+
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
+    } else {
+        console.log(`[${type}] ${message}`);
+    }
+}
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+    if (typeof window.originalApiCall === 'function') {
+        return window.originalApiCall(endpoint, method, body);
+    }
+    if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+        return window.apiCall(endpoint, method, body);
+    }
+    const token = localStorage.getItem('token');
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    if (body) options.body = JSON.stringify(body);
+    try {
+        const response = await fetch(`/api${endpoint}`, options);
+        return await response.json();
+    } catch (e) {
+        console.error('Fetch error:', e);
+        return { success: false, error: 'Ошибка соединения' };
+    }
+}
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ
 // ============================================
 
 function initAdmin() {
+    if (adminInitialized) {
+        console.log('⚙️ Админка уже инициализирована');
+        return;
+    }
+    
     console.log('⚙️ Инициализация админки');
     
     if (window.app?.currentUserRole !== 'director') {
@@ -28,7 +83,6 @@ function initAdmin() {
     loadAdminData();
     loadCurrentTheme();
     
-    // Настройка табов
     document.querySelectorAll('.admin-tab').forEach(tab => {
         tab.addEventListener('click', () => {
             const tabId = tab.dataset.tab;
@@ -38,6 +92,8 @@ function initAdmin() {
             document.getElementById(`adminTab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`)?.classList.add('active');
         });
     });
+    
+    adminInitialized = true;
 }
 
 async function loadAdminData() {
@@ -99,7 +155,7 @@ function renderAdminEmployees() {
 }
 
 // ============================================
-// СБРОС ПАРОЛЯ (НОВОЕ)
+// СБРОС ПАРОЛЯ
 // ============================================
 
 function openResetPasswordModal(employeeName) {
@@ -140,22 +196,22 @@ async function resetPassword(employeeName) {
     const confirmPassword = document.getElementById('confirmPasswordInput')?.value;
     
     if (!newPassword || newPassword.length < 3) {
-        showNotif('Пароль должен быть не менее 3 символов', 'error');
+        showSystemNotification('❌ Пароль должен быть не менее 3 символов', 'error');
         return;
     }
     
     if (newPassword !== confirmPassword) {
-        showNotif('Пароли не совпадают', 'error');
+        showSystemNotification('❌ Пароли не совпадают', 'error');
         return;
     }
     
     const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}/password`, 'PUT', { password: newPassword });
     
     if (response && response.success) {
-        showNotif(`✅ Пароль для ${employeeName} изменён`, 'success');
+        showSystemNotification(`✅ Пароль для ${employeeName} изменён`, 'success');
         closeResetPasswordModal();
     } else {
-        showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+        showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
     }
 }
 
@@ -201,14 +257,22 @@ async function giveBonus(employeeName) {
     const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
     
     if (coins < 0) {
-        showNotif('Сумма монет не может быть отрицательной', 'error');
+        showSystemNotification('❌ Сумма монет не может быть отрицательной', 'error');
+        return;
+    }
+    
+    if (coins === 0 && rating === 0) {
+        showSystemNotification('⚠️ Укажите сумму или рейтинг', 'warning');
         return;
     }
     
     const response = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
     
     if (response && response.success) {
-        showNotif(`Бонус выдан ${employeeName}`, 'success');
+        let msg = '✅ Бонус выдан: ';
+        if (coins > 0) msg += `+${coins} WP `;
+        if (rating !== 0) msg += `${rating > 0 ? '+' : ''}${rating} рейтинга`;
+        showSystemNotification(msg, 'success');
         closeBonusModal();
         await loadEmployees();
         adminEmployeesList = window.app?.employees || [];
@@ -216,13 +280,17 @@ async function giveBonus(employeeName) {
         if (typeof renderEmployees === 'function') renderEmployees();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
         if (typeof refreshAllBalanceDisplays === 'function') refreshAllBalanceDisplays();
+        
+        if (typeof window.sendEvent === 'function' && coins > 0) {
+            window.sendEvent('bonus_received', { coins, reason: 'Бонус от директора' }, employeeName);
+        }
     } else {
-        showNotif('Ошибка при выдаче бонуса', 'error');
+        showSystemNotification('❌ Ошибка при выдаче бонуса', 'error');
     }
 }
 
 // ============================================
-// РОЛЬ (ИСПРАВЛЕНО)
+// РОЛЬ
 // ============================================
 
 async function changeEmployeeRole(employeeName, currentRole) {
@@ -270,15 +338,13 @@ async function saveEmployeeRole(employeeName) {
     const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role: newRole });
     
     if (response && response.success) {
-        showNotif(`✅ Роль изменена`, 'success');
+        showSystemNotification(`✅ Роль изменена`, 'success');
         closeRoleModal();
         
-        // 🔥 ИСПРАВЛЕНО: если меняем роль текущему пользователю - обновляем меню
         if (employeeName === window.app?.currentUser) {
             window.app.currentUserRole = newRole;
             window.app.currentUserPermissions = window.rolesMap?.[newRole] || window.rolesMap?.operator;
             
-            // 🔥 ИСПРАВЛЕНО: обновляем главное меню
             if (typeof renderMainMenu === 'function') {
                 renderMainMenu();
             }
@@ -289,7 +355,7 @@ async function saveEmployeeRole(employeeName) {
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
-        showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+        showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
     }
 }
 
@@ -300,9 +366,8 @@ async function deleteEmployee(employeeName) {
     const response = await apiCall(`/employees/${encodeURIComponent(employeeName)}`, 'DELETE');
     
     if (response && response.success) {
-        showNotif(`Сотрудник ${employeeName} удалён`, 'success');
+        showSystemNotification(`✅ Сотрудник ${employeeName} уволен`, 'warning');
         
-        // 🔥 Оптимистичное удаление
         if (window.app) {
             window.app.employees = window.app.employees.filter(e => e !== employeeName);
             delete window.app.profiles[employeeName];
@@ -313,7 +378,7 @@ async function deleteEmployee(employeeName) {
         renderAdminEmployees();
         if (typeof renderEmployees === 'function') renderEmployees();
     } else {
-        showNotif('Ошибка при удалении: ' + (response?.error || 'неизвестная'), 'error');
+        showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
     }
 }
 
@@ -326,7 +391,7 @@ async function loadFundAmount() {
         const response = await apiCall('/fund');
         if (response && response.amount !== undefined) {
             const display = document.getElementById('fundDisplayAmount');
-            if (display) display.textContent = response.amount.toLocaleString() + ' ₽';
+            if (16) display.textContent = response.amount.toLocaleString() + ' ₽';
             window.fundAmount = response.amount;
         }
     } catch (err) {
@@ -337,48 +402,51 @@ async function loadFundAmount() {
 async function updateFund() {
     const amount = parseInt(document.getElementById('fundChangeAmount')?.value) || 0;
     if (amount < 0) {
-        showNotif('Сумма не может быть отрицательной', 'error');
+        showSystemNotification('❌ Сумма не может быть отрицательной', 'error');
         return;
     }
     if (!confirm(`Установить фонд в ${amount.toLocaleString()} ₽?`)) return;
     
     const response = await apiCall('/fund/update', 'POST', { amount: amount });
     if (response && response.success) {
-        showNotif(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
+        showSystemNotification(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
         loadFundAmount();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
+        window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
     } else {
-        showNotif('Ошибка при обновлении фонда', 'error');
+        showSystemNotification('❌ Ошибка при обновлении фонда', 'error');
     }
 }
 
 async function addToFund() {
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
-    if (amount === 0) { showNotif('Введите сумму', 'warning'); return; }
+    if (amount === 0) { showSystemNotification('⚠️ Введите сумму', 'warning'); return; }
     
     const response = await apiCall('/fund/add', 'POST', { sum: amount });
     if (response && response.success) {
-        showNotif(`💰 Добавлено ${amount.toLocaleString()} ₽`, 'success');
+        showSystemNotification(`💰 Добавлено ${amount.toLocaleString()} ₽`, 'success');
         document.getElementById('fundAddAmount').value = 0;
         loadFundAmount();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
+        window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
     } else {
-        showNotif('Ошибка при добавлении', 'error');
+        showSystemNotification('❌ Ошибка при добавлении', 'error');
     }
 }
 
 async function subtractFromFund() {
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
-    if (amount === 0) { showNotif('Введите сумму', 'warning'); return; }
+    if (amount === 0) { showSystemNotification('⚠️ Введите сумму', 'warning'); return; }
     
     const response = await apiCall('/fund/add', 'POST', { sum: -amount });
     if (response && response.success) {
-        showNotif(`💰 Убавлено ${amount.toLocaleString()} ₽`, 'success');
+        showSystemNotification(`💰 Убавлено ${amount.toLocaleString()} ₽`, 'warning');
         document.getElementById('fundAddAmount').value = 0;
         loadFundAmount();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
+        window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
     } else {
-        showNotif('Ошибка при убавлении', 'error');
+        showSystemNotification('❌ Ошибка при убавлении', 'error');
     }
 }
 
@@ -387,11 +455,12 @@ async function resetFund() {
     
     const response = await apiCall('/fund/update', 'POST', { amount: 0 });
     if (response && response.success) {
-        showNotif('💰 Фонд обнулён', 'success');
+        showSystemNotification('💰 Фонд обнулён', 'warning');
         loadFundAmount();
         if (typeof updateDashboardStats === 'function') updateDashboardStats();
+        window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
     } else {
-        showNotif('Ошибка при сбросе', 'error');
+        showSystemNotification('❌ Ошибка при сбросе', 'error');
     }
 }
 
@@ -401,7 +470,7 @@ async function resetFund() {
 
 async function setGlobalTheme(themeId) {
     if (window.app?.currentUserRole !== 'director') {
-        showNotif('Только директор может менять тему', 'error');
+        showSystemNotification('❌ Только директор может менять тему', 'error');
         return;
     }
     
@@ -413,16 +482,16 @@ async function setGlobalTheme(themeId) {
     try {
         const response = await apiCall('/admin/theme', 'POST', { theme: themeId });
         if (response && response.success) {
-            showNotif(`🎨 Тема изменена на ${themeNames[themeId]}`, 'success');
+            showSystemNotification(`🎨 Тема изменена на ${themeNames[themeId]}`, 'success');
             applyGlobalTheme(themeId);
             const nameEl = document.getElementById('currentThemeName');
             if (nameEl) nameEl.textContent = themeNames[themeId];
         } else {
-            showNotif('Ошибка при смене темы', 'error');
+            showSystemNotification('❌ Ошибка при смене темы', 'error');
         }
     } catch (err) {
         console.error('Ошибка:', err);
-        showNotif('Ошибка соединения', 'error');
+        showSystemNotification('❌ Ошибка соединения', 'error');
     }
 }
 
@@ -448,7 +517,7 @@ async function loadCurrentTheme() {
             const nameEl = document.getElementById('currentThemeName');
             if (nameEl) nameEl.textContent = themeNames[response.theme] || response.theme;
         }
-    } catch (err) {
+    } catch (16) {
         console.error('Ошибка загрузки темы:', err);
     }
 }
@@ -461,38 +530,38 @@ async function resetAllData() {
     if (!confirm('⚠️ ВНИМАНИЕ! Будут удалены ВСЕ сотрудники кроме директора и ВСЕ данные!\n\nЭто действие НЕОБРАТИМО. Продолжить?')) return;
     if (!confirm('Точно? Все задачи, график, достижения, чаты будут удалены.')) return;
     
-    showNotif('🧹 Сброс данных...', 'info');
+    showSystemNotification('🧹 Сброс данных...', 'info');
     
     try {
         const response = await apiCall('/admin/reset-all', 'POST');
         if (response && response.success) {
-            showNotif('✅ ' + response.message, 'success');
+            showSystemNotification('✅ ' + response.message, 'success');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
     } catch (err) {
         console.error('❌ Ошибка:', err);
-        showNotif('❌ Ошибка соединения', 'error');
+        showSystemNotification('❌ Ошибка соединения', 'error');
     }
 }
 
 async function equalStart() {
     if (!confirm('🚀 Равный старт!\n\nОбнуляется статистика, сохраняются сотрудники.\n\nПродолжить?')) return;
     
-    showNotif('🚀 Равный старт...', 'info');
+    showSystemNotification('🚀 Равный старт...', 'info');
     
     try {
         const response = await apiCall('/admin/equal-start', 'POST');
         if (response && response.success) {
-            showNotif('✅ ' + response.message, 'success');
+            showSystemNotification('✅ ' + response.message, 'success');
             setTimeout(() => location.reload(), 1500);
         } else {
-            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
     } catch (err) {
         console.error('❌ Ошибка:', err);
-        showNotif('❌ Ошибка соединения', 'error');
+        showSystemNotification('❌ Ошибка соединения', 'error');
     }
 }
 
@@ -502,13 +571,13 @@ async function initAchievementsAdmin() {
     try {
         const response = await apiCall('/admin/init-achievements', 'POST');
         if (response && response.success) {
-            showNotif('✅ ' + response.message, 'success');
+            showSystemNotification('✅ ' + response.message, 'success');
         } else {
-            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
     } catch (err) {
         console.error('Ошибка:', err);
-        showNotif('❌ Ошибка соединения', 'error');
+        showSystemNotification('❌ Ошибка соединения', 'error');
     }
 }
 
@@ -517,6 +586,7 @@ async function initAchievementsAdmin() {
 // ============================================
 
 window.initAdmin = initAdmin;
+window.resetAdminState = resetAdminState;
 window.openBonusModal = openBonusModal;
 window.closeBonusModal = closeBonusModal;
 window.giveBonus = giveBonus;
@@ -537,4 +607,4 @@ window.resetAllData = resetAllData;
 window.equalStart = equalStart;
 window.initAchievementsAdmin = initAchievementsAdmin;
 
-console.log('✅ admin.js загружен (исправленная версия v2.0)');
+console.log('✅ admin.js загружен (v2.1 — с уведомлениями)');

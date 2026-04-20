@@ -1,5 +1,5 @@
-// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.3
-// Исправлено: инициализация при переключении вкладок, фокус полей в модалке
+// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.4
+// Добавлены все уведомления
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
@@ -73,11 +73,13 @@ function escapeJsString(str) {
     return str.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\n/g, '\\n');
 }
 
-function showNotif(msg, type) {
-    if (typeof window.showNotif === 'function' && window.showNotif !== showNotif) {
-        window.showNotif(msg, type);
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
     } else {
-        console.log(`[${type}] ${msg}`);
+        console.log(`[${type}] ${message}`);
     }
 }
 
@@ -110,7 +112,7 @@ function getRoleName(role) {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО)
+// ИНИЦИАЛИЗАЦИЯ
 // ============================================
 
 function initSalary() {
@@ -268,6 +270,7 @@ function waitForEmployees(retries = 0) {
         if (container) {
             container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⚠️</div><h3>Не удалось загрузить сотрудников</h3><button class="btn-primary" onclick="location.reload()">🔄 Обновить</button></div>`;
         }
+        showSystemNotification('❌ Не удалось загрузить сотрудников', 'error');
     }
 }
 
@@ -284,6 +287,7 @@ async function loadFundForSalary() {
         }
     } catch (err) {
         console.error('Ошибка загрузки фонда:', err);
+        showSystemNotification('⚠️ Не удалось загрузить фонд', 'warning');
     }
 }
 
@@ -294,7 +298,7 @@ function updateFundDisplay(amount) {
 
 function openFundManagementModal() {
     if (!isDirector) {
-        showNotif('Только директор может управлять фондом', 'error');
+        showSystemNotification('❌ Только директор может управлять фондом', 'error');
         return;
     }
     
@@ -365,7 +369,7 @@ async function setFundAmount() {
     
     const amount = parseInt(document.getElementById('fundSetAmount')?.value) || 0;
     if (amount < 0) {
-        showNotif('Сумма не может быть отрицательной', 'error');
+        showSystemNotification('❌ Сумма не может быть отрицательной', 'error');
         return;
     }
     if (!confirm(`Установить фонд в ${amount.toLocaleString()} ₽?`)) return;
@@ -375,14 +379,14 @@ async function setFundAmount() {
     try {
         const response = await apiCall('/fund/update', 'POST', { amount, reset: false });
         if (response?.success) {
-            showNotif(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
+            showSystemNotification(`💰 Фонд установлен: ${amount.toLocaleString()} ₽`, 'success');
             updateFundDisplay(amount);
             window.fundAmount = amount;
             closeFundManagementModal();
             if (typeof updateDashboardStats === 'function') updateDashboardStats();
             window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
         } else {
-            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+            showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
         }
     } finally {
         isProcessingFund = false;
@@ -393,7 +397,10 @@ async function addToFund() {
     if (isProcessingFund) return;
     
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
-    if (amount <= 0) { showNotif('Введите сумму больше 0', 'warning'); return; }
+    if (amount <= 0) {
+        showSystemNotification('⚠️ Введите сумму больше 0', 'warning');
+        return;
+    }
     
     isProcessingFund = true;
     
@@ -401,14 +408,14 @@ async function addToFund() {
         const response = await apiCall('/fund/add', 'POST', { sum: amount });
         if (response?.success) {
             const newAmount = (window.fundAmount || 0) + amount;
-            showNotif(`💰 Добавлено ${amount.toLocaleString()} ₽`, 'success');
+            showSystemNotification(`💰 Добавлено в фонд: +${amount.toLocaleString()} ₽`, 'success');
             updateFundDisplay(newAmount);
             window.fundAmount = newAmount;
             document.getElementById('fundAddAmount').value = 0;
             if (typeof updateDashboardStats === 'function') updateDashboardStats();
             window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
         } else {
-            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+            showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
         }
     } finally {
         isProcessingFund = false;
@@ -419,11 +426,14 @@ async function subtractFromFund() {
     if (isProcessingFund) return;
     
     const amount = parseInt(document.getElementById('fundAddAmount')?.value) || 0;
-    if (amount <= 0) { showNotif('Введите сумму больше 0', 'warning'); return; }
+    if (amount <= 0) {
+        showSystemNotification('⚠️ Введите сумму больше 0', 'warning');
+        return;
+    }
     
     const currentFund = window.fundAmount || 0;
     if (amount > currentFund) {
-        showNotif(`Недостаточно средств в фонде (доступно: ${currentFund.toLocaleString()} ₽)`, 'error');
+        showSystemNotification(`❌ Недостаточно средств (доступно: ${currentFund.toLocaleString()} ₽)`, 'error');
         return;
     }
     
@@ -433,14 +443,14 @@ async function subtractFromFund() {
         const response = await apiCall('/fund/add', 'POST', { sum: -amount });
         if (response?.success) {
             const newAmount = currentFund - amount;
-            showNotif(`💰 Убавлено ${amount.toLocaleString()} ₽`, 'success');
+            showSystemNotification(`💰 Списано из фонда: -${amount.toLocaleString()} ₽`, 'warning');
             updateFundDisplay(newAmount);
             window.fundAmount = newAmount;
             document.getElementById('fundAddAmount').value = 0;
             if (typeof updateDashboardStats === 'function') updateDashboardStats();
             window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
         } else {
-            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+            showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
         }
     } finally {
         isProcessingFund = false;
@@ -455,14 +465,14 @@ async function resetFund() {
     try {
         const response = await apiCall('/fund/update', 'POST', { amount: 0, reset: true });
         if (response?.success) {
-            showNotif('💰 Фонд обнулён', 'success');
+            showSystemNotification('💰 Фонд обнулён', 'warning');
             updateFundDisplay(0);
             window.fundAmount = 0;
             closeFundManagementModal();
             if (typeof updateDashboardStats === 'function') updateDashboardStats();
             window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'fund' } }));
         } else {
-            showNotif('❌ ' + (response?.error || 'Ошибка'), 'error');
+            showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
         }
     } finally {
         isProcessingFund = false;
@@ -484,7 +494,7 @@ function prevMonth() {
     if (newMonth < 1) { newMonth = 12; newYear--; }
     
     if (newYear < START_YEAR || (newYear === START_YEAR && newMonth < START_MONTH)) {
-        showNotif('📅 Данные доступны с марта 2026 года', 'warning');
+        showSystemNotification('📅 Данные доступны с марта 2026 года', 'warning');
         if (btn) btn.classList.remove('loading');
         return;
     }
@@ -499,6 +509,7 @@ function prevMonth() {
     
     updateDisplay();
     updateUrl();
+    showSystemNotification(`📅 ${MONTHS[currentMonth-1]} ${currentYear}`, 'info');
     loadSalaryData().finally(() => btn?.classList.remove('loading'));
 }
 
@@ -522,6 +533,7 @@ function nextMonth() {
     
     updateDisplay();
     updateUrl();
+    showSystemNotification(`📅 ${MONTHS[currentMonth-1]} ${currentYear}`, 'info');
     loadSalaryData().finally(() => btn?.classList.remove('loading'));
 }
 
@@ -543,6 +555,7 @@ function goToToday() {
     
     updateDisplay();
     updateUrl();
+    showSystemNotification('📅 Переход к текущему месяцу', 'info');
     loadSalaryData();
 }
 
@@ -582,11 +595,14 @@ async function loadSalaryData() {
         if (data && data.employees) {
             employeesList = data.employees.filter(emp => emp.role !== 'director');
             renderTable(data);
+            showSystemNotification(`📊 Загружены данные за ${MONTHS[currentMonth-1]} ${currentYear}`, 'info');
         } else {
             container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>Нет данных</h3><p>${data?.error || 'Попробуйте позже'}</p></div>`;
+            showSystemNotification('❌ Не удалось загрузить данные зарплаты', 'error');
         }
     } catch (err) {
         container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Ошибка</h3><p>${err.message}</p><button class="btn-primary" onclick="loadSalaryData()">🔄 Повторить</button></div>`;
+        showSystemNotification('❌ Ошибка загрузки данных', 'error');
     } finally {
         salaryIsLoading = false;
     }
@@ -735,7 +751,7 @@ function showMonthlyBreakdown(employeeId, employeeName) {
     
     const breakdown = monthlyTotalsCache[employeeId];
     if (!breakdown) {
-        showNotif('Нет данных для отображения', 'warning');
+        showSystemNotification('⚠️ Нет данных для отображения', 'warning');
         return;
     }
     
@@ -767,6 +783,7 @@ function showMonthlyBreakdown(employeeId, employeeName) {
     
     document.body.insertAdjacentHTML('beforeend', modalHtml);
     document.body.style.overflow = 'hidden';
+    showSystemNotification(`📊 Детализация за ${MONTHS[currentMonth-1]}`, 'info');
 }
 
 function closeMonthlyBreakdownModal() {
@@ -788,7 +805,7 @@ function copyBreakdownToClipboard() {
     
     if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => {
-            showNotif('📋 Скопировано в буфер обмена', 'success');
+            showSystemNotification('📋 Детализация скопирована', 'success');
         }).catch(() => {
             fallbackCopy(text);
         });
@@ -806,15 +823,15 @@ function fallbackCopy(text) {
     textarea.select();
     try {
         document.execCommand('copy');
-        showNotif('📋 Скопировано в буфер обмена', 'success');
+        showSystemNotification('📋 Скопировано в буфер обмена', 'success');
     } catch (e) {
-        showNotif('Не удалось скопировать', 'error');
+        showSystemNotification('❌ Не удалось скопировать', 'error');
     }
     document.body.removeChild(textarea);
 }
 
 // ============================================
-// МОДАЛКА РЕДАКТИРОВАНИЯ ДНЯ (ИСПРАВЛЕН ФОКУС)
+// МОДАЛКА РЕДАКТИРОВАНИЯ ДНЯ
 // ============================================
 
 function openDayModal(employeeId, dayNumber, employeeName) {
@@ -822,18 +839,18 @@ function openDayModal(employeeId, dayNumber, employeeName) {
     if (existingModal) existingModal.remove();
     
     if (!employeesList.length) {
-        showNotif('Данные ещё загружаются...', 'warning');
+        showSystemNotification('⏳ Данные ещё загружаются...', 'warning');
         return;
     }
     
     if (dayNumber < 1 || dayNumber > daysInMonth) {
-        showNotif('Некорректный день', 'error');
+        showSystemNotification('❌ Некорректный день', 'error');
         return;
     }
     
     const emp = employeesList.find(e => e.id === employeeId);
     if (!emp) {
-        showNotif('Сотрудник не найден', 'error');
+        showSystemNotification('❌ Сотрудник не найден', 'error');
         return;
     }
     
@@ -1046,14 +1063,14 @@ function clearCurrentDay() {
     inputs.forEach(id => { document.getElementById(id).value = 0; });
     updateDayTotal();
     hasUnsavedChanges = true;
-    showNotif('🧹 Поля очищены', 'info');
+    showSystemNotification('🧹 Поля очищены', 'info');
 }
 
 async function applyToAllOperators() {
     if (!isDirector) return;
     if (!confirm('Применить текущие значения ко ВСЕМ операторам за этот день?')) return;
     
-    showNotif('⏳ Применение...', 'info');
+    const loadingToast = showSystemNotification('⏳ Применение ко всем операторам...', 'loading');
     
     const oklad = parseFloat(document.getElementById('salaryOklad')?.value) || 0;
     const event = parseFloat(document.getElementById('salaryEvent')?.value) || 0;
@@ -1080,7 +1097,12 @@ async function applyToAllOperators() {
         } catch (e) {}
     }
     
-    showNotif(`✅ Применено для ${successCount} из ${operators.length} операторов`, 'success');
+    if (loadingToast) {
+        updateLoadingToast(loadingToast, `✅ Применено для ${successCount} из ${operators.length} операторов`, 'success');
+    } else {
+        showSystemNotification(`✅ Применено для ${successCount} из ${operators.length} операторов`, 'success');
+    }
+    
     monthlyTotalsCache = {};
     dayDataCache = {};
     loadSalaryData();
@@ -1097,7 +1119,7 @@ async function saveCurrentDay() {
     const extraMotivation = parseFloat(document.getElementById('salaryExtraMotivation')?.value) || 0;
     
     if (oklad > MAX_AMOUNT || event > MAX_AMOUNT || turnover > MAX_AMOUNT || bonus35 > MAX_AMOUNT || video > MAX_AMOUNT || extraMotivation > MAX_AMOUNT) {
-        showNotif(`Максимальная сумма: ${MAX_AMOUNT.toLocaleString()} ₽`, 'error');
+        showSystemNotification(`❌ Максимальная сумма: ${MAX_AMOUNT.toLocaleString()} ₽`, 'error');
         return;
     }
     
@@ -1116,7 +1138,7 @@ async function saveCurrentDay() {
         originalDayData.bonus35 === bonus35 &&
         originalDayData.video === video &&
         (originalDayData.extra_motivation || 0) === extraMotivation) {
-        showNotif('Нет изменений для сохранения', 'info');
+        showSystemNotification('ℹ️ Нет изменений для сохранения', 'info');
         return;
     }
     
@@ -1131,7 +1153,7 @@ async function saveCurrentDay() {
     try {
         const response = await apiCall('/salary/day/save', 'POST', data);
         if (response?.success) {
-            showNotif('✅ Сохранено', 'success');
+            showSystemNotification(`✅ Зарплата за ${currentDayNumber} ${MONTHS[currentMonth-1]} сохранена`, 'success');
             hasUnsavedChanges = false;
             originalDayData = { oklad, event, turnover, bonus35, video, extra_motivation: extraMotivation };
             
@@ -1144,10 +1166,10 @@ async function saveCurrentDay() {
             loadFundForSalary();
             window.dispatchEvent(new CustomEvent('dataUpdate', { detail: { type: 'salary' } }));
         } else {
-            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
     } catch (err) {
-        showNotif('❌ Ошибка соединения', 'error');
+        showSystemNotification('❌ Ошибка соединения', 'error');
     } finally {
         isSavingDay = false;
         if (saveBtn) {
@@ -1189,4 +1211,4 @@ window.clearSalarySearch = function() {
     filterSalaryTable('');
 };
 
-console.log('✅ salary.js загружен (v5.3 — исправлена инициализация и фокус полей)');
+console.log('✅ salary.js загружен (v5.4 — с уведомлениями)');

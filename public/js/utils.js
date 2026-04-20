@@ -1,4 +1,5 @@
-// public/js/utils.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/utils.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ v1.1
+// Добавлены все уведомления
 
 // ============================================
 // XSS ЗАЩИТА
@@ -45,7 +46,7 @@ function formatTimeAgo(timestamp) {
 }
 
 // ============================================
-// УВЕДОМЛЕНИЯ
+// УВЕДОМЛЕНИЯ (ОБРАТНАЯ СОВМЕСТИМОСТЬ)
 // ============================================
 
 let activeNotification = null;
@@ -54,7 +55,13 @@ const MAX_NOTIFICATIONS = 5;
 let notificationCount = 0;
 
 function showNotif(msg, type = 'success') {
-    // Ограничиваем количество одновременных уведомлений
+    // Перенаправляем в новую систему уведомлений
+    if (typeof window.showSystemNotification === 'function' && window.showSystemNotification !== showNotif) {
+        window.showSystemNotification(msg, type);
+        return;
+    }
+    
+    // Fallback — старый toast
     if (notificationCount > MAX_NOTIFICATIONS) {
         console.warn('⚠️ Слишком много уведомлений');
         return;
@@ -184,6 +191,17 @@ window.addEventListener('dataUpdate', (e) => {
             if (typeof renderFinesTable === 'function') renderFinesTable();
             if (typeof updateDashboardStats === 'function') updateDashboardStats();
             break;
+        case 'salary':
+            if (typeof loadSalaryData === 'function') loadSalaryData();
+            break;
+        case 'fund':
+            if (typeof loadFundForSalary === 'function') loadFundForSalary();
+            if (typeof updateDashboardStats === 'function') updateDashboardStats();
+            break;
+        case 'achievement':
+            if (typeof renderAchievements === 'function') renderAchievements();
+            if (typeof renderRatingTable === 'function') renderRatingTable();
+            break;
     }
 });
 
@@ -299,8 +317,6 @@ function refreshAllBalanceDisplays() {
     if (typeof renderEmployees === 'function') renderEmployees();
 }
 
-window.refreshAllBalanceDisplays = refreshAllBalanceDisplays;
-
 // ============================================
 // ТРАНЗАКЦИИ
 // ============================================
@@ -376,4 +392,4 @@ window.formatTransactionDate = formatTransactionDate;
 window.getStreakBonus = getStreakBonus;
 window.getNextStreakInfo = getNextStreakInfo;
 
-console.log('✅ utils.js загружен (исправленная версия)');
+console.log('✅ utils.js загружен (v1.1 — с уведомлениями)');

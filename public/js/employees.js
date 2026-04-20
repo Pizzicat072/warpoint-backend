@@ -1,5 +1,5 @@
-// public/js/employees.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ v2.0
-// Исправлены все баги вкладки "Команда"
+// public/js/employees.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Добавлены все уведомления
 
 (function() {
     'use strict';
@@ -12,8 +12,19 @@
     let isOpeningProfile = false;
     let isRendering = false;
     let lastRenderTime = 0;
-    const RENDER_DEBOUNCE = 100; // мс
+    const RENDER_DEBOUNCE = 100;
+    let employeesInitialized = false;
     
+    // ============================================
+    // СБРОС СОСТОЯНИЯ
+    // ============================================
+    function resetEmployeesState() {
+        console.log('🧹 Сброс состояния сотрудников');
+        employeesInitialized = false;
+        currentProfileEmployee = null;
+        pendingAvatarBase64 = null;
+    }
+
     // ============================================
     // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
     // ============================================
@@ -32,6 +43,36 @@
             '/': '&#x2F;', '`': '&#x60;', '=': '&#x3D;'
         };
         return String(str).replace(/[&<>"'`=/]/g, (m) => map[m]);
+    }
+    
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
     }
     
     function getEmployees() { return window.app?.employees || []; }
@@ -54,8 +95,6 @@
         const shift = schedule[today]?.[emp];
         const profile = getProfiles()[emp];
         
-        // Директор и управляющий всегда считаются "на смене" в рабочее время?
-        // Нет, они не привязаны к сменам
         if (profile?.role === 'director' || profile?.role === 'manager') return false;
         if (!shift || !shift.time) return false;
         if (shift.status && shift.status !== 'working') return false;
@@ -64,10 +103,8 @@
         const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
         const shiftStartMinutes = (parseInt(shift.time.split(':')[0]) || 10) * 60;
         
-        // 🔥 ИСПРАВЛЕНО: учитываем special_end_time
         let shiftEndMinutes = 22 * 60;
         if (shift.is_special && shift.special_end_time) {
-            // special_end_time может быть "exchange_..." - это не время, а маркер обмена
             if (!shift.special_end_time.startsWith('exchange_')) {
                 const endHour = parseInt(shift.special_end_time.split(':')[0]) || 22;
                 shiftEndMinutes = endHour * 60;
@@ -96,8 +133,7 @@
         let count = 0;
         for (const [date, shifts] of Object.entries(schedule)) {
             const shiftDate = new Date(date);
-            shiftDate.setHours(23, 59, 59); // Конец дня
-            // 🔥 ИСПРАВЛЕНО: проверяем status === 'working'
+            shiftDate.setHours(23, 59, 59);
             if (shiftDate < now && shifts[emp]?.time && (!shifts[emp]?.status || shifts[emp]?.status === 'working')) {
                 count++;
             }
@@ -163,12 +199,10 @@
         return names[giftId] || giftId;
     }
     
-    // 🔥 НОВОЕ: безопасный рендер с debounce
     function safeRenderEmployees() {
         const now = Date.now();
         if (isRendering) return;
         if (now - lastRenderTime < RENDER_DEBOUNCE) {
-            // Планируем рендер чуть позже
             setTimeout(() => safeRenderEmployees(), RENDER_DEBOUNCE);
             return;
         }
@@ -184,8 +218,9 @@
             }
         });
     }
+
     // ============================================
-    // РЕНДЕР КАРТОЧЕК (ИСПРАВЛЕННЫЙ)
+    // РЕНДЕР КАРТОЧЕК
     // ============================================
     function renderEmployees() {
         const grid = document.getElementById('employeesGrid');
@@ -229,7 +264,6 @@
             const isDirector = p.role === 'director';
             const isManager = p.role === 'manager';
             
-            // 🔥 ИСПРАВЛЕНО: фильтруем архивные задачи и утверждённые штрафы
             const empTasks = tasks.filter(t => t.executor === emp && !t.is_archived);
             const tasksDone = empTasks.filter(t => t.status === 'completed').length;
             const empFines = fines.filter(f => f.employee === emp && f.status === 'approved');
@@ -251,13 +285,11 @@
             const achievementsCount = userAchievements[emp]?.length || 0;
             const completedShifts = getCompletedShifts(emp);
             
-            // 🔥 Непрочитанные сообщения
             const unreadCount = chatUnread[emp] || 0;
             const unreadBadge = unreadCount > 0 
                 ? `<span class="emp-unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` 
                 : '';
             
-            // 🔥 ИСПРАВЛЕНО: правильное отображение аватара
             let avatarHtml = '';
             if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
                 avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" alt="${escapeHtml(emp)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">`;
@@ -271,7 +303,6 @@
             const ratingClass = rating >= 0 ? 'good' : 'bad';
             const ratingPrefix = rating >= 0 ? '+' : '';
             
-            // 🔥 Бейджи дня рождения
             let birthdayBadge = '';
             if (hasBirthdayToday) {
                 birthdayBadge = '<span class="emp-birthday-today" title="День рождения сегодня!">🎂 СЕГОДНЯ</span>';
@@ -378,16 +409,15 @@
             `;
         }).join('');
     }
+
     // ============================================
-    // МОДАЛКА ПРОФИЛЯ (ИСПРАВЛЕННАЯ)
+    // МОДАЛКА ПРОФИЛЯ
     // ============================================
     function openProfile(employeeName) {
-        // 🔥 ИСПРАВЛЕНО: debounce
         if (isOpeningProfile) return;
         isOpeningProfile = true;
         setTimeout(() => isOpeningProfile = false, 300);
         
-        // 🔥 Блокируем скролл страницы
         document.body.style.overflow = 'hidden';
         
         currentProfileEmployee = employeeName;
@@ -409,14 +439,12 @@
         const achievements = getUserAchievements()[employeeName] || [];
         const completedShifts = getCompletedShifts(employeeName);
         
-        // 🔥 ИСПРАВЛЕНО: фильтруем архивные задачи
         const empTasks = tasks.filter(t => t.executor === employeeName && !t.is_archived);
         const tasksDone = empTasks.filter(t => t.status === 'completed').length;
         const tasksInProgress = empTasks.filter(t => t.status === 'in_progress').length;
         const tasksOverdue = empTasks.filter(t => t.status === 'overdue').length;
         const tasksTotal = empTasks.length;
         
-        // 🔥 ИСПРАВЛЕНО: только утверждённые штрафы
         const empFines = fines.filter(f => f.employee === employeeName && f.status === 'approved');
         const finesCount = empFines.length;
         const finesTotal = empFines.reduce((sum, f) => sum + (f.amount || 0), 0);
@@ -435,7 +463,6 @@
         const activeStatus = p.active_status || p.status || '💼 Работаю';
         const streak = p.bonus_streak || 1;
         
-        // 🔥 Аватар для модалки
         let avatarHtml = '';
         if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
             avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover;">`;
@@ -457,7 +484,6 @@
             return;
         }
         
-        // 🔥 Сохраняем в sessionStorage для восстановления после обновления
         sessionStorage.setItem('lastProfileEmployee', employeeName);
         
         modalContent.innerHTML = `
@@ -640,6 +666,7 @@
         
         document.getElementById('profileModal').classList.add('active');
     }
+
     // ============================================
     // ПЕРЕКЛЮЧЕНИЕ ТАБОВ В МОДАЛКЕ
     // ============================================
@@ -653,14 +680,14 @@
         });
         const activeContent = document.getElementById(`profileTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
         if (activeContent) {
-            activeContent.scrollTop = 0; // 🔥 ИСПРАВЛЕНО: сбрасываем скролл
+            activeContent.scrollTop = 0;
             activeContent.classList.add('active');
         }
     };
     
     function closeProfileModal() {
         document.getElementById('profileModal').classList.remove('active');
-        document.body.style.overflow = ''; // 🔥 ИСПРАВЛЕНО: возвращаем скролл
+        document.body.style.overflow = '';
         currentProfileEmployee = null;
         sessionStorage.removeItem('lastProfileEmployee');
     }
@@ -675,7 +702,6 @@
         if (!editFields) return;
         
         if (editFields.style.display === 'none' || editFields.style.display === '') {
-            // 🔥 ИСПРАВЛЕНО: сохраняем оригинальные данные и заполняем поля актуальными значениями
             const p = getProfiles()[currentProfileEmployee];
             if (p) {
                 originalProfileData = {
@@ -708,7 +734,6 @@
         const editFields = document.getElementById('profileEditFields');
         if (!editFields) return;
         
-        // 🔥 ИСПРАВЛЕНО: проверяем, были ли изменения
         const p = getProfiles()[currentProfileEmployee];
         if (p) {
             const currentPhone = document.getElementById('editPhone')?.value || '';
@@ -758,34 +783,30 @@
             const res = await apiCall(`/profiles/${encodeURIComponent(currentProfileEmployee)}`, 'PUT', updates);
             
             if (res?.success) {
-                showNotif('✅ Профиль обновлён', 'success');
+                showSystemNotification('✅ Профиль обновлён', 'success');
                 
-                // 🔥 Обновляем локальные данные
                 if (window.app?.profiles?.[currentProfileEmployee]) {
                     Object.assign(window.app.profiles[currentProfileEmployee], updates);
                 }
                 
-                // 🔥 Если изменилось имя, обновляем employees
                 if (updates.name) {
                     const empIndex = window.app.employees.indexOf(currentProfileEmployee);
                     if (empIndex !== -1) {
                         window.app.employees[empIndex] = updates.name;
                     }
-                    // Обновляем хедер если это текущий пользователь
                     if (currentProfileEmployee === getCurrentUser()) {
                         window.app.currentUser = updates.name;
-                        const headerName = document.getElementById('headerName');
-                        if (headerName) headerName.textContent = updates.name;
+                        document.getElementById('headerName').textContent = updates.name;
                     }
                 }
                 
                 closeProfileModal();
                 safeRenderEmployees();
             } else {
-                showNotif('❌ Ошибка обновления: ' + (res?.error || 'неизвестная'), 'error');
+                showSystemNotification('❌ Ошибка обновления: ' + (res?.error || 'неизвестная'), 'error');
             }
         } catch (err) {
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             if (saveBtn) {
                 saveBtn.innerHTML = originalText;
@@ -795,11 +816,11 @@
     }
     
     // ============================================
-    // АВАТАРЫ (ИСПРАВЛЕНО)
+    // АВАТАРЫ
     // ============================================
     function openAvatarModal() {
         if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
-            showNotif('Можно менять только свой аватар', 'warning');
+            showSystemNotification('❌ Можно менять только свой аватар', 'warning');
             return;
         }
         
@@ -823,27 +844,24 @@
     }
     
     function closeAvatarModal() { 
-        const modal = document.getElementById('avatarModal');
-        if (modal) modal.classList.remove('active'); 
+        document.getElementById('avatarModal').classList.remove('active'); 
     }
     
     async function selectAvatar(avatar) {
         if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
-            showNotif('Можно менять только свой аватар', 'warning');
+            showSystemNotification('❌ Можно менять только свой аватар', 'warning');
             return;
         }
         
         const success = await updateEmployeeAvatar(currentProfileEmployee, avatar);
         if (success) {
-            // 🔥 ИСПРАВЛЕНО: очищаем avatar_url в локальном профиле
             if (window.app.profiles[currentProfileEmployee]) {
                 window.app.profiles[currentProfileEmployee].avatar = avatar;
                 window.app.profiles[currentProfileEmployee].avatar_url = null;
             }
             
-            showNotif('✅ Аватар изменён', 'success');
+            showSystemNotification('✅ Аватар изменён', 'success');
             
-            // 🔥 Обновляем хедер
             if (typeof window.updateHeaderAvatar === 'function') {
                 window.updateHeaderAvatar(null, avatar);
             }
@@ -851,16 +869,15 @@
             safeRenderEmployees();
             closeAvatarModal();
             
-            // 🔥 Отправляем событие обновления
             window.dispatchDataUpdate('profile', { employee: currentProfileEmployee, avatar: avatar });
         } else {
-            showNotif('❌ Ошибка при смене аватара', 'error');
+            showSystemNotification('❌ Ошибка при смене аватара', 'error');
         }
     }
     
     function openAvatarUploadModal() {
         if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
-            showNotif('Можно менять только свой аватар', 'warning');
+            showSystemNotification('❌ Можно менять только свой аватар', 'warning');
             return;
         }
         
@@ -872,23 +889,21 @@
             if (!file) return;
             
             if (!file.type.startsWith('image/')) {
-                showNotif('Можно загружать только изображения', 'error');
+                showSystemNotification('❌ Можно загружать только изображения', 'error');
                 return;
             }
             
             if (file.size > 2 * 1024 * 1024) { 
-                showNotif('Файл слишком большой (макс. 2MB)', 'error'); 
+                showSystemNotification('❌ Файл слишком большой (макс. 2MB)', 'error'); 
                 return; 
             }
             
             const reader = new FileReader();
             reader.onload = (event) => {
                 pendingAvatarBase64 = event.target.result;
-                const previewImg = document.getElementById('avatarPreviewImg');
-                if (previewImg) previewImg.src = pendingAvatarBase64;
-                const previewModal = document.getElementById('avatarPreviewModal');
-                if (previewModal) previewModal.classList.add('active');
-                closeAvatarModal(); // Закрываем модалку выбора аватара
+                document.getElementById('avatarPreviewImg').src = pendingAvatarBase64;
+                document.getElementById('avatarPreviewModal').classList.add('active');
+                closeAvatarModal();
             };
             reader.readAsDataURL(file);
         };
@@ -896,14 +911,13 @@
     }
     
     function closeAvatarPreviewModal() { 
-        const modal = document.getElementById('avatarPreviewModal');
-        if (modal) modal.classList.remove('active'); 
+        document.getElementById('avatarPreviewModal').classList.remove('active'); 
         pendingAvatarBase64 = null; 
     }
     
     async function confirmAvatarUpload() {
         if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) {
-            showNotif('Можно менять только свой аватар', 'warning');
+            showSystemNotification('❌ Можно менять только свой аватар', 'warning');
             return;
         }
         
@@ -911,15 +925,13 @@
         
         const success = await updateEmployeeAvatarBase64(currentProfileEmployee, pendingAvatarBase64);
         if (success) {
-            // 🔥 Обновляем локальный профиль
             if (window.app.profiles[currentProfileEmployee]) {
                 window.app.profiles[currentProfileEmployee].avatar_url = pendingAvatarBase64;
                 window.app.profiles[currentProfileEmployee].avatar = null;
             }
             
-            showNotif('✅ Аватар обновлён', 'success');
+            showSystemNotification('✅ Аватар обновлён', 'success');
             
-            // 🔥 ИСПРАВЛЕНО: обновляем хедер
             if (typeof window.updateHeaderAvatar === 'function') {
                 window.updateHeaderAvatar(pendingAvatarBase64, null);
             }
@@ -929,19 +941,18 @@
             
             window.dispatchDataUpdate('profile', { employee: currentProfileEmployee });
         } else {
-            showNotif('❌ Ошибка при загрузке', 'error');
+            showSystemNotification('❌ Ошибка при загрузке', 'error');
         }
         pendingAvatarBase64 = null;
     }
     
     // ============================================
-    // ЧАТ С СОТРУДНИКОМ (ИСПРАВЛЕНО)
+    // ЧАТ С СОТРУДНИКОМ
     // ============================================
     function openChatWithEmployee(employeeName) {
         if (typeof loadPage === 'function') {
             const currentPage = typeof getCurrentPage === 'function' ? getCurrentPage() : null;
             
-            // 🔥 ИСПРАВЛЕНО: если чат уже открыт с этим сотрудником - мигаем полем ввода
             if (currentPage === 'chat' && typeof currentChatRoom !== 'undefined' && currentChatRoom === employeeName) {
                 const input = document.getElementById('chatInput');
                 if (input) {
@@ -957,10 +968,8 @@
             setTimeout(() => { 
                 if (typeof switchChat === 'function') {
                     switchChat(employeeName);
-                    // 🔥 Фокус на поле ввода
                     setTimeout(() => {
-                        const input = document.getElementById('chatInput');
-                        if (input) input.focus();
+                        document.getElementById('chatInput')?.focus();
                     }, 100);
                 }
             }, 300);
@@ -970,25 +979,17 @@
     function openMyProfile() {
         if (window.app?.currentUser) openProfile(window.app.currentUser);
     }
+
     // ============================================
-    // СОЗДАНИЕ СОТРУДНИКА (ИСПРАВЛЕНО)
+    // СОЗДАНИЕ СОТРУДНИКА
     // ============================================
     function openCreateEmployeeModal() {
-        const modal = document.getElementById('createEmployeeModal');
-        if (modal) modal.classList.add('active');
+        document.getElementById('createEmployeeModal').classList.add('active');
         selectRole('operator');
         
-        // 🔥 Устанавливаем максимальную дату рождения (сегодня)
-        const birthdayInput = document.getElementById('newEmpBirthday');
-        if (birthdayInput) {
-            birthdayInput.max = new Date().toISOString().split('T')[0];
-        }
+        document.getElementById('newEmpBirthday').max = new Date().toISOString().split('T')[0];
         
-        // 🔥 Маска для телефона
-        const phoneInput = document.getElementById('newEmpPhone');
-        if (phoneInput) {
-            phoneInput.addEventListener('input', phoneMaskHandler);
-        }
+        document.getElementById('newEmpPhone').addEventListener('input', phoneMaskHandler);
     }
     
     function phoneMaskHandler(e) {
@@ -1006,23 +1007,15 @@
     }
     
     function closeCreateEmployeeModal() {
-        const modal = document.getElementById('createEmployeeModal');
-        if (modal) modal.classList.remove('active');
-        
-        const phoneInput = document.getElementById('newEmpPhone');
-        if (phoneInput) {
-            phoneInput.removeEventListener('input', phoneMaskHandler);
-        }
-        
+        document.getElementById('createEmployeeModal').classList.remove('active');
+        document.getElementById('newEmpPhone').removeEventListener('input', phoneMaskHandler);
         ['newEmpName', 'newEmpPassword', 'newEmpBirthday', 'newEmpPhone'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = '';
+            document.getElementById(id).value = '';
         });
     }
     
     function selectRole(role) {
-        const roleInput = document.getElementById('newEmpRole');
-        if (roleInput) roleInput.value = role;
+        document.getElementById('newEmpRole').value = role;
         document.querySelectorAll('.emp-role-option').forEach(opt => {
             opt.classList.remove('active');
             const radio = opt.querySelector('input[type="radio"]');
@@ -1041,22 +1034,19 @@
         const phone = document.getElementById('newEmpPhone')?.value;
         
         if (!name || !password) {
-            showNotif('Заполните имя и пароль', 'error');
+            showSystemNotification('❌ Заполните имя и пароль', 'error');
             return;
         }
         
-        // 🔥 ИСПРАВЛЕНО: проверка уникальности на клиенте
         if (window.app?.employees?.includes(name)) {
-            showNotif('❌ Сотрудник с таким именем уже существует', 'error');
+            showSystemNotification('❌ Сотрудник с таким именем уже существует', 'error');
             return;
         }
         
-        // 🔥 Валидация даты рождения
         if (birthday) {
             const birthDate = new Date(birthday);
-            const today = new Date();
-            if (birthDate > today) {
-                showNotif('❌ Дата рождения не может быть в будущем', 'error');
+            if (birthDate > new Date()) {
+                showSystemNotification('❌ Дата рождения не может быть в будущем', 'error');
                 return;
             }
         }
@@ -1072,15 +1062,19 @@
             const response = await apiCall('/employees', 'POST', { name, role, password, birthday, phone });
             
             if (response && response.success) {
-                showNotif(`✅ Сотрудник ${name} создан`, 'success');
+                showSystemNotification(`✅ Сотрудник ${name} создан`, 'success');
                 closeCreateEmployeeModal();
                 await loadEmployees();
                 safeRenderEmployees();
+                
+                if (typeof window.sendEvent === 'function') {
+                    window.sendEvent('new_employee', { name, role });
+                }
             } else {
-                showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+                showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
             }
         } catch (err) {
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             if (saveBtn) {
                 saveBtn.innerHTML = originalText;
@@ -1097,24 +1091,32 @@
         const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
         
         if (coins === 0 && rating === 0) {
-            showNotif('Укажите сумму или рейтинг', 'warning');
+            showSystemNotification('⚠️ Укажите сумму или рейтинг', 'warning');
             return;
         }
         
         if (coins < 0) {
-            showNotif('Сумма монет не может быть отрицательной', 'error');
+            showSystemNotification('❌ Сумма монет не может быть отрицательной', 'error');
             return;
         }
         
         const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
         if (res?.success) {
-            showNotif(`✅ Бонус выдан: ${coins > 0 ? '+' + coins + ' WP' : ''} ${rating !== 0 ? (rating > 0 ? '+' : '') + rating + ' рейтинга' : ''}`, 'success');
+            let msg = '✅ Бонус выдан: ';
+            if (coins > 0) msg += `+${coins} WP `;
+            if (rating !== 0) msg += `${rating > 0 ? '+' : ''}${rating} рейтинга`;
+            showSystemNotification(msg, 'success');
+            
             closeProfileModal();
             await loadEmployees();
             safeRenderEmployees();
             if (typeof refreshAllBalanceDisplays === 'function') refreshAllBalanceDisplays();
+            
+            if (typeof window.sendEvent === 'function' && coins > 0) {
+                window.sendEvent('bonus_received', { coins, reason: 'Бонус от директора' }, employeeName);
+            }
         } else {
-            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
@@ -1124,9 +1126,8 @@
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role });
         if (res?.success) {
-            showNotif(`✅ Роль изменена на ${getRoleShortName(role)}`, 'success');
+            showSystemNotification(`✅ Роль изменена на ${getRoleShortName(role)}`, 'success');
             
-            // 🔥 ИСПРАВЛЕНО: если меняем роль текущему пользователю - обновляем меню
             if (employeeName === getCurrentUser()) {
                 window.app.currentUserRole = role;
                 window.app.currentUserPermissions = window.rolesMap?.[role] || window.rolesMap?.operator;
@@ -1137,14 +1138,14 @@
             await loadEmployees();
             safeRenderEmployees();
         } else {
-            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
     async function resetEmployeePassword(employeeName) {
         const newPassword = document.getElementById('newPassword')?.value;
         if (!newPassword) {
-            showNotif('Введите новый пароль', 'warning');
+            showSystemNotification('⚠️ Введите новый пароль', 'warning');
             return;
         }
         
@@ -1152,23 +1153,21 @@
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/password`, 'PUT', { password: newPassword });
         if (res?.success) {
-            showNotif(`✅ Пароль для ${employeeName} изменён`, 'success');
+            showSystemNotification(`✅ Пароль для ${employeeName} изменён`, 'success');
             document.getElementById('newPassword').value = '';
         } else {
-            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
     async function deleteEmployee(employeeName) {
-        // 🔥 ИСПРАВЛЕНО: подтверждение
         if (!confirm(`⚠️ ВНИМАНИЕ!\n\nВы уверены, что хотите УВОЛИТЬ сотрудника "${employeeName}"?\n\nЭто действие НЕОБРАТИМО! Все данные сотрудника будут удалены.`)) return;
         if (!confirm('Точно? Данные нельзя будет восстановить.')) return;
         
         const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}`, 'DELETE');
         if (res?.success) {
-            showNotif(`✅ ${employeeName} уволен`, 'success');
+            showSystemNotification(`✅ ${employeeName} уволен`, 'warning');
             
-            // 🔥 Оптимистичное удаление из локальных данных
             if (window.app) {
                 window.app.employees = window.app.employees.filter(e => e !== employeeName);
                 delete window.app.profiles[employeeName];
@@ -1177,7 +1176,7 @@
             closeProfileModal();
             safeRenderEmployees();
         } else {
-            showNotif('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (res?.error || 'неизвестная'), 'error');
         }
     }
     
@@ -1185,6 +1184,15 @@
     // ИНИЦИАЛИЗАЦИЯ И ВОССТАНОВЛЕНИЕ
     // ============================================
     function initEmployees() {
+        if (employeesInitialized) {
+            console.log('👥 Сотрудники уже инициализированы');
+            const grid = document.getElementById('employeesGrid');
+            if (grid && grid.children.length === 0) {
+                safeRenderEmployees();
+            }
+            return;
+        }
+        
         console.log('👥 Инициализация команды');
         
         const grid = document.getElementById('employeesGrid');
@@ -1200,36 +1208,31 @@
             createBtn.style.display = window.app?.currentUserRole === 'director' ? 'inline-flex' : 'none';
         }
         
-        // 🔥 Восстановление открытой модалки после обновления
         const lastProfile = sessionStorage.getItem('lastProfileEmployee');
         if (lastProfile && window.app?.employees?.includes(lastProfile)) {
             setTimeout(() => openProfile(lastProfile), 200);
         }
         
-        // 🔥 Обработчик закрытия модалки по Escape
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const profileModal = document.getElementById('profileModal');
-                if (profileModal && profileModal.classList.contains('active')) {
+                if (document.getElementById('profileModal')?.classList.contains('active')) {
                     closeProfileModal();
                 }
-                const createModal = document.getElementById('createEmployeeModal');
-                if (createModal && createModal.classList.contains('active')) {
+                if (document.getElementById('createEmployeeModal')?.classList.contains('active')) {
                     closeCreateEmployeeModal();
                 }
-                const avatarModal = document.getElementById('avatarModal');
-                if (avatarModal && avatarModal.classList.contains('active')) {
+                if (document.getElementById('avatarModal')?.classList.contains('active')) {
                     closeAvatarModal();
                 }
-                const previewModal = document.getElementById('avatarPreviewModal');
-                if (previewModal && previewModal.classList.contains('active')) {
+                if (document.getElementById('avatarPreviewModal')?.classList.contains('active')) {
                     closeAvatarPreviewModal();
                 }
             }
         });
+        
+        employeesInitialized = true;
     }
     
-    // 🔥 Слушаем события обновления данных
     window.addEventListener('dataUpdate', (e) => {
         if (e.detail?.type === 'profile' || e.detail?.type === 'task' || e.detail?.type === 'fine') {
             safeRenderEmployees();
@@ -1240,6 +1243,7 @@
     // ЭКСПОРТ
     // ============================================
     window.initEmployees = initEmployees;
+    window.resetEmployeesState = resetEmployeesState;
     window.renderEmployees = renderEmployees;
     window.safeRenderEmployees = safeRenderEmployees;
     window.openProfile = openProfile;
@@ -1268,5 +1272,5 @@
     window.isOnShiftNow = isOnShiftNow;
     window.isOnlineNow = isOnlineNow;
 
-    console.log('✅ employees.js загружен (исправленная версия v2.0)');
+    console.log('✅ employees.js загружен (v2.1 — с уведомлениями)');
 })();

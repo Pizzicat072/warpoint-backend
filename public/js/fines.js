@@ -1,4 +1,6 @@
-// public/js/fines.js — ОБЁРНУТ В IIFE
+// public/js/fines.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v1.1
+// Добавлены все уведомления
+
 (function() {
     'use strict';
     
@@ -9,6 +11,7 @@
     let currentFineMonthFilter = 'all';
     let isLoadingFines = false;
     let isSavingFine = false;
+    let finesInitialized = false;
 
     const fineTypes = {
         late: { name: 'Опоздание', defaultAmount: 0, defaultCoins: 0, defaultRating: 0 },
@@ -21,9 +24,70 @@
     };
 
     // ============================================
-    // ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+    // СБРОС СОСТОЯНИЯ
     // ============================================
+
+    function resetFinesState() {
+        console.log('🧹 Сброс состояния штрафов');
+        finesInitialized = false;
+    }
+
+    // ============================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(str).replace(/[&<>"']/g, m => map[m]);
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('ru-RU');
+    }
+
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
+    }
+
+    // ============================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================
+
     function initFines() {
+        if (finesInitialized) {
+            console.log('⚠️ Штрафы уже инициализированы');
+            return;
+        }
+        
         console.log('⚠️ Инициализация нарушений');
         
         const tbody = document.getElementById('finesTableBody');
@@ -48,11 +112,14 @@
         if (monthFilter) monthFilter.addEventListener('change', (e) => { currentFineMonthFilter = e.target.value; renderFinesTable(); });
         
         populateFineFilters();
+        
+        finesInitialized = true;
     }
 
     // ============================================
     // ЗАГРУЗКА ДАННЫХ
     // ============================================
+
     async function loadFinesData() {
         if (isLoadingFines) return;
         isLoadingFines = true;
@@ -61,12 +128,15 @@
             const data = await apiCall('/fines');
             if (data && Array.isArray(data)) {
                 finesData = data;
+                showSystemNotification(`📊 Загружено ${finesData.length} нарушений`, 'info');
                 updateFinesStats();
                 renderFinesTable();
+            } else {
+                showSystemNotification('❌ Ошибка загрузки нарушений', 'error');
             }
         } catch (err) {
             console.error('Ошибка загрузки нарушений:', err);
-            showNotif('Ошибка загрузки нарушений', 'error');
+            showSystemNotification('❌ Ошибка загрузки нарушений', 'error');
         } finally {
             isLoadingFines = false;
         }
@@ -90,21 +160,13 @@
         const totalMoney = finesData.filter(f => f.status === 'approved').reduce((sum, f) => sum + (f.amount || 0), 0);
         const totalCoins = finesData.filter(f => f.status === 'approved').reduce((sum, f) => sum + (f.coins || 0), 0);
         
-        const statTotal = document.getElementById('statTotal');
-        const statMonthly = document.getElementById('statMonthly');
-        const statPending = document.getElementById('statPending');
-        const statApproved = document.getElementById('statApproved');
-        const statRejected = document.getElementById('statRejected');
-        const statMoneyAmount = document.getElementById('statMoneyAmount');
-        const statCoinsAmount = document.getElementById('statCoinsAmount');
-        
-        if (statTotal) statTotal.textContent = total;
-        if (statMonthly) statMonthly.textContent = monthlyTotal;
-        if (statPending) statPending.textContent = pending;
-        if (statApproved) statApproved.textContent = approved;
-        if (statRejected) statRejected.textContent = rejected;
-        if (statMoneyAmount) statMoneyAmount.textContent = totalMoney.toLocaleString() + ' ₽';
-        if (statCoinsAmount) statCoinsAmount.textContent = totalCoins;
+        document.getElementById('statTotal').textContent = total;
+        document.getElementById('statMonthly').textContent = monthlyTotal;
+        document.getElementById('statPending').textContent = pending;
+        document.getElementById('statApproved').textContent = approved;
+        document.getElementById('statRejected').textContent = rejected;
+        document.getElementById('statMoneyAmount').textContent = totalMoney.toLocaleString() + ' ₽';
+        document.getElementById('statCoinsAmount').textContent = totalCoins;
     }
 
     function populateFineFilters() {
@@ -148,6 +210,7 @@
     // ============================================
     // РЕНДЕР ТАБЛИЦЫ
     // ============================================
+
     function renderFinesTable() {
         const tbody = document.getElementById('finesTableBody');
         if (!tbody) return;
@@ -214,32 +277,28 @@
         }).join('');
     }
 
-    function formatDate(dateStr) {
-        if (!dateStr) return '—';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('ru-RU');
-    }
-
     // ============================================
     // УДАЛЕНИЕ
     // ============================================
+
     async function deleteFine(fineId) {
         if (!confirm('Удалить нарушение?')) return;
         
         const response = await apiCall(`/fines/${fineId}`, 'DELETE');
         if (response && response.success) {
-            showNotif('Нарушение удалено', 'success');
+            showSystemNotification('🗑️ Нарушение удалено', 'warning');
             await loadFinesData();
             if (typeof loadEmployees === 'function') await loadEmployees();
             if (typeof renderEmployees === 'function') renderEmployees();
         } else {
-            showNotif('Ошибка при удалении', 'error');
+            showSystemNotification('❌ Ошибка при удалении', 'error');
         }
     }
 
     // ============================================
     // МОДАЛКА ШТРАФА
     // ============================================
+
     function openFineModal(fineId = null) {
         const fine = fineId ? finesData.find(f => f.id === fineId) : null;
         const isSystemFine = fine?.created_by === '🤖 Система';
@@ -401,6 +460,7 @@
     // ============================================
     // СОХРАНЕНИЕ ШТРАФА
     // ============================================
+
     async function saveFine(fineId) {
         if (isSavingFine) return;
         isSavingFine = true;
@@ -451,21 +511,24 @@
                 });
                 
                 if (response && response.success) {
-                    showNotif('Нарушение рассмотрено', 'success');
+                    showSystemNotification('✅ Нарушение рассмотрено', 'success');
                     closeFineModal();
                     await loadFinesData();
                     if (typeof loadEmployees === 'function') await loadEmployees();
                     if (typeof renderEmployees === 'function') renderEmployees();
                     if (typeof updateDashboardStats === 'function') updateDashboardStats();
                 } else {
-                    showNotif('Ошибка при рассмотрении', 'error');
+                    showSystemNotification('❌ Ошибка при рассмотрении', 'error');
                 }
             } else {
                 const employee = document.getElementById('fineEmployee')?.value;
                 const type = document.getElementById('fineType')?.value;
                 const description = document.getElementById('fineDescription')?.value;
                 
-                if (!employee) { showNotif('Выберите сотрудника', 'error'); return; }
+                if (!employee) {
+                    showSystemNotification('❌ Выберите сотрудника', 'error');
+                    return;
+                }
                 
                 const amountInput = document.getElementById('fineAmount');
                 const coinsInput = document.getElementById('fineCoins');
@@ -484,12 +547,12 @@
                 
                 const response = await apiCall('/fines', 'POST', { fine: fineData });
                 if (response && response.success) {
-                    showNotif('Нарушение добавлено', 'success');
+                    showSystemNotification('✅ Нарушение добавлено', 'success');
                     closeFineModal();
                     await loadFinesData();
                     if (typeof updateDashboardStats === 'function') updateDashboardStats();
                 } else {
-                    showNotif('Ошибка при создании: ' + (response?.error || 'неизвестная ошибка'), 'error');
+                    showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная ошибка'), 'error');
                 }
             }
         } finally {
@@ -504,6 +567,7 @@
     // ============================================
     // ПРОСМОТР ДЕТАЛЕЙ
     // ============================================
+
     function viewFineDetails(fineId) {
         const fine = finesData.find(f => f.id === fineId);
         if (!fine) return;
@@ -549,31 +613,29 @@
     // ============================================
     // СБРОС ФИЛЬТРОВ
     // ============================================
+
     function resetFineFilters() {
-        const searchInput = document.getElementById('fineSearch');
-        const statusFilter = document.getElementById('fineStatusFilter');
-        const employeeFilter = document.getElementById('fineEmployeeFilter');
-        const typeFilter = document.getElementById('fineTypeFilter');
-        const monthFilter = document.getElementById('fineMonthFilter');
-        
-        if (searchInput) searchInput.value = '';
-        if (statusFilter) statusFilter.value = 'all';
-        if (employeeFilter) employeeFilter.value = 'all';
-        if (typeFilter) typeFilter.value = 'all';
-        if (monthFilter) monthFilter.value = 'all';
+        document.getElementById('fineSearch').value = '';
+        document.getElementById('fineStatusFilter').value = 'all';
+        document.getElementById('fineEmployeeFilter').value = 'all';
+        document.getElementById('fineTypeFilter').value = 'all';
+        document.getElementById('fineMonthFilter').value = 'all';
         
         currentFineStatusFilter = 'all';
         currentFineEmployeeFilter = 'all';
         currentFineTypeFilter = 'all';
         currentFineMonthFilter = 'all';
         
+        showSystemNotification('🔄 Фильтры сброшены', 'info');
         renderFinesTable();
     }
 
     // ============================================
     // ЭКСПОРТ
     // ============================================
+
     window.initFines = initFines;
+    window.resetFinesState = resetFinesState;
     window.loadFinesData = loadFinesData;
     window.renderFinesTable = renderFinesTable;
     window.openFineModal = openFineModal;
@@ -585,5 +647,5 @@
     window.closeFineDetailsModal = closeFineDetailsModal;
     window.resetFineFilters = resetFineFilters;
 
-    console.log('✅ fines.js загружен');
+    console.log('✅ fines.js загружен (v1.1 — с уведомлениями)');
 })();

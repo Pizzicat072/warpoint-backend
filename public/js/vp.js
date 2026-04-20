@@ -1,5 +1,5 @@
-// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.3
-// Исправлены: дубликаты, рекурсия apiCall, двойные /api в эндпоинтах
+// public/js/vp.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v4.4
+// Добавлены все уведомления
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
@@ -19,18 +19,32 @@ let originalVpData = null;
 let searchDebounceTimer = null;
 let vpInitialized = false;
 
-// Глобальные переменные фильтров и сортировки
 let vpStatusFilter = 'all';
 let vpAdminFilter = 'all';
 let vpMyOnly = false;
 let vpSortState = { field: 'date', order: 'desc' };
 
-// Константы
 const VP_START_YEAR = 2026;
 const VP_START_MONTH = 3;
 const VP_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const VP_SCRIPT_AVAILABLE_DAYS = 2;
 const MAX_VP_AMOUNT = 1000000;
+
+// ============================================
+// СБРОС СОСТОЯНИЯ
+// ============================================
+
+function resetVpState() {
+    console.log('🧹 Сброс состояния ВП');
+    vpInitialized = false;
+    if (vpNotificationInterval) {
+        clearInterval(vpNotificationInterval);
+        vpNotificationInterval = null;
+    }
+    if (abortController) {
+        abortController.abort();
+    }
+}
 
 // ============================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -75,31 +89,27 @@ function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, m => map[m]);
 }
 
-function showNotif(msg, type) {
-    if (typeof window.showNotif === 'function' && window.showNotif !== showNotif) {
-        window.showNotif(msg, type);
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
     } else {
-        console.log(`[${type}] ${msg}`);
+        console.log(`[${type}] ${message}`);
     }
 }
 
 async function apiCall(endpoint, method = 'GET', body = null) {
-    // Используем оригинальную функцию из api.js
     if (typeof window.originalApiCall === 'function') {
         return window.originalApiCall(endpoint, method, body);
     }
-    
-    // Если originalApiCall недоступен, проверяем window.apiCall
     if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
         return window.apiCall(endpoint, method, body);
     }
-    
-    // Fallback — прямой fetch
     const token = localStorage.getItem('token');
     const options = { method, headers: { 'Content-Type': 'application/json' } };
     if (token) options.headers['Authorization'] = `Bearer ${token}`;
     if (body) options.body = JSON.stringify(body);
-    
     try {
         const response = await fetch(`/api${endpoint}`, options);
         return await response.json();
@@ -251,7 +261,7 @@ function changeVpMonth(delta) {
     }
     
     if (newYear < VP_START_YEAR || (newYear === VP_START_YEAR && newMonth < VP_START_MONTH)) {
-        showNotif('📅 Данные доступны с марта 2026 года', 'warning');
+        showSystemNotification('📅 Данные доступны с марта 2026 года', 'warning');
         return;
     }
     
@@ -263,6 +273,7 @@ function changeVpMonth(delta) {
     updateVpDisplay();
     updateMonthButtons();
     updateUrl();
+    showSystemNotification(`📅 ${VP_MONTHS[vpCurrentMonth-1]} ${vpCurrentYear}`, 'info');
     loadVpData();
 }
 
@@ -303,6 +314,11 @@ function updateVpInterface() {
 async function loadVpData() {
     if (isLoadingVp) return;
     
+    if (abortController) {
+        abortController.abort();
+    }
+    abortController = new AbortController();
+    
     isLoadingVp = true;
     
     const tbody = document.getElementById('vpTableBody');
@@ -318,14 +334,19 @@ async function loadVpData() {
             vpData = data;
             updateVpStats();
             renderVpTable();
+            showSystemNotification(`📊 Загружено ${vpData.length} мероприятий`, 'info');
         } else if (data && data.success === false) {
             if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="empty-state">❌ ${data.error}</td></tr>`;
+            showSystemNotification('❌ Не удалось загрузить мероприятия', 'error');
         } else {
             if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">🎮 Нет мероприятий</td></tr>';
         }
     } catch (err) {
-        console.error('Ошибка загрузки ВП:', err);
-        if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
+        if (err.name !== 'AbortError') {
+            console.error('Ошибка загрузки ВП:', err);
+            if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="empty-state">❌ Ошибка загрузки данных</td></tr>';
+            showSystemNotification('❌ Ошибка загрузки данных', 'error');
+        }
     } finally {
         isLoadingVp = false;
     }
@@ -350,18 +371,13 @@ function updateVpStats() {
         return daysAfterBooking >= 2;
     }).length;
     
-    const totalEl = document.getElementById('vpTotalCount');
-    const amountEl = document.getElementById('vpTotalAmount');
-    const photoEl = document.getElementById('vpPhotoPending');
-    const scriptEl = document.getElementById('vpScriptPending');
-    const archivedEl = document.getElementById('vpArchivedCount');
-    const unpaidEl = document.getElementById('vpUnpaidOverdue');
+    document.getElementById('vpTotalCount').textContent = total;
+    document.getElementById('vpTotalAmount').textContent = totalAmount.toLocaleString() + ' ₽';
+    document.getElementById('vpPhotoPending').textContent = photoPending;
+    document.getElementById('vpScriptPending').textContent = scriptNotSent;
+    document.getElementById('vpArchivedCount').textContent = archivedBookings.length;
     
-    if (totalEl) totalEl.textContent = total;
-    if (amountEl) amountEl.textContent = totalAmount.toLocaleString() + ' ₽';
-    if (photoEl) photoEl.textContent = photoPending;
-    if (scriptEl) scriptEl.textContent = scriptNotSent;
-    if (archivedEl) archivedEl.textContent = archivedBookings.length;
+    const unpaidEl = document.getElementById('vpUnpaidOverdue');
     if (unpaidEl) {
         unpaidEl.textContent = unpaidOverdue;
         unpaidEl.style.color = unpaidOverdue > 0 ? '#ef4444' : '#10b981';
@@ -492,7 +508,7 @@ async function updatePhotoStatus(id) {
     if (!vp || vp.is_archived) return;
     
     if (!isPhotoActionAvailable(vp)) {
-        showNotif('❌ Сейчас нельзя отметить фото', 'warning');
+        showSystemNotification('❌ Сейчас нельзя отметить фото', 'warning');
         return;
     }
     
@@ -504,7 +520,9 @@ async function updatePhotoStatus(id) {
             vp.photo_status = 'sent';
             renderVpTable();
             updateVpStats();
-            showNotif('📸 Фото отмечено!', 'success');
+            showSystemNotification('📸 Фото отмечено', 'success');
+        } else {
+            showSystemNotification('❌ Ошибка при обновлении', 'error');
         }
     } finally {
         isUpdatingPhoto = false;
@@ -518,7 +536,7 @@ async function updateScriptStatus(id) {
     if (!vp || vp.is_archived) return;
     
     if (!isScriptActionAvailable(vp)) {
-        showNotif('❌ Сейчас нельзя отметить скрипт', 'warning');
+        showSystemNotification('❌ Сейчас нельзя отметить скрипт', 'warning');
         return;
     }
     
@@ -530,7 +548,9 @@ async function updateScriptStatus(id) {
             vp.script_status = 'sent';
             renderVpTable();
             updateVpStats();
-            showNotif('📝 Скрипт отмечен!', 'success');
+            showSystemNotification('📝 Скрипт отмечен', 'success');
+        } else {
+            showSystemNotification('❌ Ошибка при обновлении', 'error');
         }
     } finally {
         isUpdatingScript = false;
@@ -746,15 +766,17 @@ async function restoreVp(vpId) {
     
     const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: false });
     if (response?.success) {
-        showNotif('📦 Восстановлено', 'success');
+        showSystemNotification('📦 Мероприятие восстановлено', 'success');
         await loadVpData();
+    } else {
+        showSystemNotification('❌ Ошибка восстановления', 'error');
     }
 }
 
 async function deleteVpPermanently(vpId) {
     if (!canEditVp) return;
     if (window.app?.currentUserRole !== 'director') {
-        showNotif('Только директор может удалять навсегда', 'error');
+        showSystemNotification('❌ Только директор может удалять навсегда', 'error');
         return;
     }
     if (!confirm('⚠️ Навсегда удалить мероприятие?')) return;
@@ -762,10 +784,12 @@ async function deleteVpPermanently(vpId) {
     
     const response = await apiCall(`/vp/${vpId}`, 'DELETE');
     if (response?.success) {
-        showNotif('🗑️ Удалено', 'success');
+        showSystemNotification('🗑️ Мероприятие удалено навсегда', 'warning');
         vpData = vpData.filter(v => v.id !== vpId);
         renderVpTable();
         updateVpStats();
+    } else {
+        showSystemNotification('❌ Ошибка удаления', 'error');
     }
 }
 
@@ -775,8 +799,10 @@ async function cancelVp(vpId) {
     
     const response = await apiCall(`/vp/${vpId}`, 'PUT', { is_archived: true });
     if (response?.success) {
-        showNotif('📦 В архиве', 'success');
+        showSystemNotification('📦 Мероприятие перемещено в архив', 'info');
         await loadVpData();
+    } else {
+        showSystemNotification('❌ Ошибка архивации', 'error');
     }
 }
 
@@ -799,7 +825,6 @@ function openVpModal(vpId = null) {
     
     const today = getTobolskNow().toISOString().split('T')[0];
     
-    // 🔥 ИСПРАВЛЕНО: корректное извлечение даты из ISO-строки
     let defaultDate = today;
     if (vp?.event_date) {
         if (typeof vp.event_date === 'string' && vp.event_date.includes('T')) {
@@ -811,8 +836,6 @@ function openVpModal(vpId = null) {
     
     const defaultTime = vp?.event_time || '10:00';
     const defaultDuration = vp?.duration || 1;
-    
-    // 🔥 ИСПРАВЛЕНО: автовыбор текущего админа, если он в списке
     const isCurrentUserAdmin = admins.includes(currentUser);
     const defaultAdmin = vp?.admin || (isCurrentUserAdmin ? currentUser : '');
     
@@ -918,6 +941,8 @@ function resetVpForm() {
     document.getElementById('vpAmount').value = originalVpData.amount || 2000;
     document.getElementById('vpPaymentType').value = originalVpData.payment_type || 'evotor_card';
     document.getElementById('vpComment').value = originalVpData.comment || '';
+    
+    showSystemNotification('🔄 Форма сброшена', 'info');
 }
 
 async function saveVp() {
@@ -934,24 +959,36 @@ async function saveVp() {
     const comment = document.getElementById('vpComment')?.value || '';
     
     if (!customerName || !admin || !eventDate) {
-        showNotif('Заполните обязательные поля', 'error');
+        showSystemNotification('❌ Заполните обязательные поля', 'error');
         return;
     }
     
     if (amount > MAX_VP_AMOUNT) {
-        showNotif(`Максимальная сумма: ${MAX_VP_AMOUNT.toLocaleString()} ₽`, 'error');
+        showSystemNotification(`❌ Максимальная сумма: ${MAX_VP_AMOUNT.toLocaleString()} ₽`, 'error');
         return;
     }
     
     const today = getTobolskNow().toISOString().split('T')[0];
     if (eventDate < today) {
-        showNotif('❌ Нельзя создать мероприятие в прошлом', 'error');
+        showSystemNotification('❌ Нельзя создать мероприятие в прошлом', 'error');
         return;
+    }
+    
+    if (eventDate === today) {
+        const now = getTobolskNow();
+        const currentHour = now.getHours();
+        const currentMinutes = now.getMinutes();
+        const [eventHour, eventMinutes] = eventTime.split(':').map(Number);
+        
+        if (eventHour < currentHour || (eventHour === currentHour && eventMinutes <= currentMinutes)) {
+            showSystemNotification('❌ Время мероприятия уже прошло', 'error');
+            return;
+        }
     }
     
     const [startHour] = eventTime.split(':').map(Number);
     if (startHour + duration > 22) {
-        showNotif('❌ Длительность не может выходить за 22:00', 'error');
+        showSystemNotification('❌ Длительность не может выходить за 22:00', 'error');
         return;
     }
     
@@ -976,11 +1013,11 @@ async function saveVp() {
         }
         
         if (response?.success) {
-            showNotif(vpId ? '✅ Обновлено' : '✅ Создано', 'success');
+            showSystemNotification(vpId ? '✅ Мероприятие обновлено' : '✅ Мероприятие создано', 'success');
             closeVpModal();
             await loadVpData();
         } else {
-            showNotif('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
+            showSystemNotification('❌ Ошибка: ' + (response?.error || 'неизвестная'), 'error');
         }
     } finally {
         isSavingVp = false;
@@ -1008,6 +1045,7 @@ function resetVpFilters() {
     vpAdminFilter = 'all';
     vpMyOnly = false;
     
+    showSystemNotification('🔄 Фильтры сброшены', 'info');
     loadVpData();
 }
 
@@ -1051,7 +1089,7 @@ function exportVpToExcel() {
     const dataToExport = vpFilters.showArchived ? vpData : vpData.filter(v => !v.is_archived);
     
     if (dataToExport.length === 0) {
-        showNotif('Нет данных для экспорта', 'warning');
+        showSystemNotification('⚠️ Нет данных для экспорта', 'warning');
         return;
     }
     
@@ -1077,29 +1115,7 @@ function exportVpToExcel() {
     a.click();
     URL.revokeObjectURL(a.href);
     
-    showNotif(`📊 Экспортировано ${dataToExport.length} мероприятий`, 'success');
-}
-
-function getCurrentPage() {
-    // 🔥 ИСПРАВЛЕНО: защита от бесконечной рекурсии
-    if (typeof window.getCurrentPage === 'function' && window.getCurrentPage !== getCurrentPage) {
-        return window.getCurrentPage();
-    }
-    // Fallback: получаем текущую страницу из URL
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('page') || 'dashboard';
-}
-
-function setupVisibilityChange() {
-    document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-            // 🔥 ИСПРАВЛЕНО: не проверяем getCurrentPage(), просто обновляем если контейнер существует
-            const container = document.getElementById('vpTableBody');
-            if (container) {
-                loadVpData();
-            }
-        }
-    });
+    showSystemNotification(`📊 Экспортировано ${dataToExport.length} мероприятий`, 'success');
 }
 
 // ============================================
@@ -1122,7 +1138,12 @@ function goToToday() {
     updateVpDisplay();
     updateMonthButtons();
     updateUrl();
+    showSystemNotification('📅 Переход к текущему месяцу', 'info');
     loadVpData();
+}
+
+function getCurrentPage() {
+    return typeof window.getCurrentPage === 'function' ? window.getCurrentPage() : null;
 }
 
 // ============================================
@@ -1130,6 +1151,7 @@ function goToToday() {
 // ============================================
 
 window.initVp = initVp;
+window.resetVpState = resetVpState;
 window.openVpModal = openVpModal;
 window.closeVpModal = closeVpModal;
 window.resetVpForm = resetVpForm;
@@ -1149,4 +1171,4 @@ window.showBookingDetails = showBookingDetails;
 window.closeBookingDetailsModal = closeBookingDetailsModal;
 window.goToToday = goToToday;
 
-console.log('✅ vp.js загружен (v4.3 — все баги исправлены)');
+console.log('✅ vp.js загружен (v4.4 — с уведомлениями)');

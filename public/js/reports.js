@@ -1,4 +1,6 @@
-// public/js/reports.js — ИСПРАВЛЕННАЯ ВЕРСИЯ С ПАРСИНГОМ
+// public/js/reports.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v1.2
+// Добавлены все уведомления
+
 (function() {
     'use strict';
     
@@ -7,11 +9,70 @@
     let isFirstLoad = true;
     let isReportsActive = false;
     let isLoadingReports = false;
+    let reportsInitialized = false;
+
+    // ============================================
+    // СБРОС СОСТОЯНИЯ
+    // ============================================
+
+    function resetReportsState() {
+        console.log('🧹 Сброс состояния отчётов');
+        reportsInitialized = false;
+        isReportsActive = false;
+        if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+        }
+        if (pieChart) {
+            try { pieChart.destroy(); } catch(e) {}
+            pieChart = null;
+        }
+    }
+
+    // ============================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ============================================
+
+    function showSystemNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log(`[${type}] ${message}`);
+        }
+    }
+
+    async function apiCall(endpoint, method = 'GET', body = null) {
+        if (typeof window.originalApiCall === 'function') {
+            return window.originalApiCall(endpoint, method, body);
+        }
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+            return window.apiCall(endpoint, method, body);
+        }
+        const token = localStorage.getItem('token');
+        const options = { method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = `Bearer ${token}`;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            const response = await fetch(`/api${endpoint}`, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
+    }
 
     // ============================================
     // ИНИЦИАЛИЗАЦИЯ
     // ============================================
+
     function initReports() {
+        if (reportsInitialized) {
+            console.log('📊 Отчёты уже инициализированы');
+            return;
+        }
+        
         console.log('📊 Инициализация отчётов');
         
         const container = document.getElementById('datesGrid');
@@ -28,6 +89,8 @@
         } else {
             setupReports();
         }
+        
+        reportsInitialized = true;
     }
 
     function setupReports() {
@@ -79,6 +142,7 @@
     // ============================================
     // ПРОВЕРКА ПРОГРЕССА
     // ============================================
+
     async function checkProgress() {
         const token = localStorage.getItem('token');
         if (!token || !isReportsActive) return;
@@ -147,6 +211,7 @@
     // ============================================
     // ЗАПУСК ПАРСИНГА
     // ============================================
+
     async function runParser() {
         const btn = document.getElementById('runParserBtn');
         if (!btn) return;
@@ -156,6 +221,7 @@
         btn.disabled = true;
         
         showProgressCard({ percent: 0, message: 'Запуск...' });
+        showSystemNotification('🔄 Запуск парсинга бронирований...', 'info');
         
         try {
             console.log('🚀 Запуск парсинга бронирований...');
@@ -163,16 +229,16 @@
             console.log('📦 Ответ парсинга:', response);
             
             if (response && response.success) {
-                showNotif('✅ Парсинг успешно запущен!', 'success');
+                showSystemNotification('✅ Парсинг успешно запущен!', 'success');
                 setTimeout(() => loadReportsData(), 2000);
             } else {
                 const errorMsg = response?.error || 'Неизвестная ошибка';
-                showNotif('❌ Ошибка парсинга: ' + errorMsg, 'error');
+                showSystemNotification('❌ Ошибка парсинга: ' + errorMsg, 'error');
                 hideProgressCard();
             }
         } catch(e) {
             console.error('❌ Ошибка запуска:', e);
-            showNotif('❌ Ошибка соединения с сервером', 'error');
+            showSystemNotification('❌ Ошибка соединения с сервером', 'error');
             hideProgressCard();
         } finally {
             btn.innerHTML = orig;
@@ -191,14 +257,14 @@
         try {
             const res = await apiCall('/parsing/reset', 'POST');
             if (res && res.success) {
-                showNotif('✅ Состояние парсинга сброшено', 'success');
+                showSystemNotification('✅ Состояние парсинга сброшено', 'success');
                 setTimeout(() => location.reload(), 1500);
             } else {
-                showNotif('❌ Ошибка сброса', 'error');
+                showSystemNotification('❌ Ошибка сброса', 'error');
             }
         } catch(e) {
             console.error(e);
-            showNotif('❌ Ошибка соединения', 'error');
+            showSystemNotification('❌ Ошибка соединения', 'error');
         } finally {
             btn.innerHTML = orig;
             btn.disabled = false;
@@ -206,8 +272,9 @@
     }
 
     // ============================================
-    // ЗАГРУЗКА ДАННЫХ (ИСПРАВЛЕННАЯ)
+    // ЗАГРУЗКА ДАННЫХ
     // ============================================
+
     async function loadReportsData() {
         if (isLoadingReports) return;
         isLoadingReports = true;
@@ -223,7 +290,6 @@
             const data = await apiCall('/parsing/latest');
             console.log('📊 Получены данные:', data);
             
-            // 🔥 ПРОВЕРЯЕМ РАЗНЫЕ ФОРМАТЫ ОТВЕТА
             let parsedData = data;
             if (data && data.data) parsedData = data.data;
             if (data && data.dates) parsedData = data;
@@ -252,6 +318,8 @@
                 updateTime.innerHTML = `<i class="fas fa-clock"></i> Данные: ${new Date(parsedData.parsedAt).toLocaleString()}`;
             }
             
+            showSystemNotification('📊 Данные бронирований загружены', 'info');
+            
         } catch (err) {
             console.error('❌ Ошибка загрузки:', err);
             if (loader) {
@@ -259,6 +327,7 @@
                 loader.style.display = 'block';
             }
             if (content) content.style.display = 'none';
+            showSystemNotification('❌ Ошибка загрузки данных', 'error');
         } finally {
             isLoadingReports = false;
         }
@@ -267,6 +336,7 @@
     // ============================================
     // РЕНДЕР СТАТИСТИКИ
     // ============================================
+
     function renderStats(data) {
         const statsGrid = document.getElementById('statsGrid');
         if (!statsGrid) return;
@@ -292,6 +362,7 @@
     // ============================================
     // РЕНДЕР КРУГОВОЙ ДИАГРАММЫ
     // ============================================
+
     function renderPieChart(data) {
         const canvas = document.getElementById('pieChart');
         if (!canvas) return;
@@ -346,6 +417,7 @@
     // ============================================
     // ФОРМАТИРОВАНИЕ ДАТ
     // ============================================
+
     function formatDateRu(dateStr) {
         if (!dateStr) return '—';
         if (/^\d+$/.test(dateStr)) return `${dateStr} апреля`;
@@ -373,6 +445,7 @@
     // ============================================
     // РЕНДЕР ТОП ДНЕЙ
     // ============================================
+
     function renderTopDays(data) {
         const container = document.getElementById('topDaysContainer');
         if (!container) return;
@@ -426,6 +499,7 @@
     // ============================================
     // РЕНДЕР ДАТ
     // ============================================
+
     function renderDates(data) {
         const datesGrid = document.getElementById('datesGrid');
         if (!datesGrid) return;
@@ -505,11 +579,13 @@
     // ============================================
     // ЭКСПОРТ
     // ============================================
+
     window.initReports = initReports;
+    window.resetReportsState = resetReportsState;
     window.cleanupReports = cleanupReports;
     window.loadReportsData = loadReportsData;
     window.runParser = runParser;
     window.fixParser = fixParser;
 
-    console.log('✅ reports.js загружен (исправленная версия)');
+    console.log('✅ reports.js загружен (v1.2 — с уведомлениями)');
 })();

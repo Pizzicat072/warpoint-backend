@@ -1,15 +1,71 @@
-// public/js/rating.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/rating.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ v1.1
+// Добавлены все уведомления
 
 let ratingData = [];
 let currentRatingSort = 'rating';
 let currentRatingOrder = 'desc';
 let isLoadingRating = false;
+let ratingInitialized = false;
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ (С ПРОВЕРКОЙ DOM)
+// СБРОС СОСТОЯНИЯ
+// ============================================
+
+function resetRatingState() {
+    console.log('🧹 Сброс состояния рейтинга');
+    ratingInitialized = false;
+}
+
+// ============================================
+// ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+// ============================================
+
+function escapeHtml(str) {
+    if (!str) return '';
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return String(str).replace(/[&<>"']/g, m => map[m]);
+}
+
+function showSystemNotification(message, type) {
+    if (typeof window.showSystemNotification === 'function') {
+        window.showSystemNotification(message, type);
+    } else if (typeof window.showNotif === 'function') {
+        window.showNotif(message, type);
+    } else {
+        console.log(`[${type}] ${message}`);
+    }
+}
+
+async function apiCall(endpoint, method = 'GET', body = null) {
+    if (typeof window.originalApiCall === 'function') {
+        return window.originalApiCall(endpoint, method, body);
+    }
+    if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
+        return window.apiCall(endpoint, method, body);
+    }
+    const token = localStorage.getItem('token');
+    const options = { method, headers: { 'Content-Type': 'application/json' } };
+    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+    if (body) options.body = JSON.stringify(body);
+    try {
+        const response = await fetch(`/api${endpoint}`, options);
+        return await response.json();
+    } catch (e) {
+        console.error('Fetch error:', e);
+        return { success: false, error: 'Ошибка соединения' };
+    }
+}
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ
 // ============================================
 
 function initRating() {
+    if (ratingInitialized) {
+        console.log('🏆 Рейтинг уже инициализирован');
+        return;
+    }
+    
     console.log('🏆 Инициализация рейтинга');
     
     const tbody = document.getElementById('ratingTableBody');
@@ -39,6 +95,8 @@ function initRating() {
     }, 300);
     
     updateRatingStats();
+    
+    ratingInitialized = true;
 }
 
 // ============================================
@@ -90,6 +148,7 @@ async function loadRatingData() {
     }).filter(r => r !== null);
     
     isLoadingRating = false;
+    showSystemNotification(`📊 Загружено ${ratingData.length} сотрудников`, 'info');
     renderRatingTable();
 }
 
@@ -221,9 +280,10 @@ function updateRatingStats() {
 // ============================================
 
 window.initRating = initRating;
+window.resetRatingState = resetRatingState;
 window.loadRatingData = loadRatingData;
 window.renderRatingTable = renderRatingTable;
 window.changeRatingOrder = changeRatingOrder;
 window.updateRatingStats = updateRatingStats;
 
-console.log('✅ rating.js загружен (исправленная версия)');
+console.log('✅ rating.js загружен (v1.1 — с уведомлениями)');
