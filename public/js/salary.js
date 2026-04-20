@@ -1,5 +1,5 @@
-// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.0
-// Исправлено 50 багов логики, добавлено управление фондом, поиск, навигация
+// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.1
+// Исправлены дубликаты abortController и roleNames
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
@@ -25,14 +25,6 @@ const START_YEAR = 2026;
 const START_MONTH = 3;
 const MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
 const MAX_AMOUNT = 1000000;
-
-// Локальные roleNames
-const roleNames = {
-    director: 'Директор',
-    manager: 'Управляющий',
-    admin: 'Админ',
-    operator: 'Оператор'
-};
 
 // ============================================
 // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
@@ -80,12 +72,12 @@ async function apiCall(endpoint, method = 'GET', body = null) {
     }
 }
 
-function formatDateForDisplay(dateStr) {
-    if (!dateStr) return '';
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+function getRoleName(role) {
+    if (typeof window.roleNames !== 'undefined' && window.roleNames !== getRoleName) {
+        return window.roleNames[role] || role;
+    }
+    const fallback = { director: 'Директор', manager: 'Управляющий', admin: 'Админ', operator: 'Оператор' };
+    return fallback[role] || role;
 }
 
 // ============================================
@@ -494,7 +486,6 @@ async function loadSalaryData() {
 function filterSalaryTable(searchTerm = null) {
     const searchValue = searchTerm !== null ? searchTerm : document.getElementById('salarySearch')?.value.toLowerCase() || '';
     const hideEmpty = document.getElementById('hideEmptyDays')?.checked || false;
-    const groupByRole = document.getElementById('groupByRole')?.checked || false;
     
     const rows = document.querySelectorAll('.salary-table tbody tr.salary-employee-row');
     let visibleCount = 0;
@@ -602,7 +593,7 @@ function renderTable(data) {
             : (emp.avatar || '👤');
         
         html += `<tr class="salary-employee-row">`;
-        html += `<td class="salary-employee-cell"><div class="salary-employee-content"><div class="salary-employee-avatar" onclick="openProfile('${escapeHtml(emp.name)}')">${avatarHtml}</div><div><div class="salary-employee-name">${escapeHtml(emp.name)}</div><div class="salary-employee-role">${roleNames[emp.role] || 'Оператор'}</div></div></div></td>`;
+        html += `<td class="salary-employee-cell"><div class="salary-employee-content"><div class="salary-employee-avatar" onclick="openProfile('${escapeHtml(emp.name)}')">${avatarHtml}</div><div><div class="salary-employee-name">${escapeHtml(emp.name)}</div><div class="salary-employee-role">${getRoleName(emp.role)}</div></div></div></td>`;
         
         for (let d = 1; d <= daysInMonth; d++) {
             const day = dataMap[`${emp.id}_${d}`];
@@ -965,4 +956,4 @@ window.clearSalarySearch = function() {
     filterSalaryTable('');
 };
 
-console.log('✅ salary.js загружен (v5.0 — исправлено 50 багов)');
+console.log('✅ salary.js загружен (v5.1 — исправлены дубликаты)');
