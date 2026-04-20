@@ -1,5 +1,5 @@
-// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.2
-// Исправлено 30 багов: дубликаты, инициализация, фильтры, фонд, модалка, кэш, навигация
+// public/js/salary.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v5.3
+// Исправлено: инициализация при переключении вкладок, фокус полей в модалке
 
 // ============================================
 // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
@@ -33,6 +33,7 @@ const MAX_AMOUNT = 1000000;
 // ============================================
 
 function resetSalaryState() {
+    console.log('🧹 Сброс состояния зарплаты');
     salaryInitialized = false;
     currentEmployeeId = null;
     currentDayNumber = null;
@@ -42,8 +43,10 @@ function resetSalaryState() {
     hasUnsavedChanges = false;
     currentEmployeeIndex = -1;
     dayInputHandlersInitialized = false;
-    if (abortController) {
-        abortController.abort();
+    
+    if (window.salaryAutoUpdateInterval) {
+        clearInterval(window.salaryAutoUpdateInterval);
+        window.salaryAutoUpdateInterval = null;
     }
 }
 
@@ -107,12 +110,15 @@ function getRoleName(role) {
 }
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ
+// ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО)
 // ============================================
 
 function initSalary() {
+    console.log('💰 Вызов initSalary, initialized =', salaryInitialized);
+    
     const container = document.getElementById('salaryTableContainer');
     if (!container) {
+        console.warn('⚠️ salaryTableContainer не найден');
         salaryInitialized = false;
         setTimeout(initSalary, 100);
         return;
@@ -120,6 +126,12 @@ function initSalary() {
     
     if (salaryInitialized) {
         console.log('💰 Зарплата уже инициализирована');
+        const table = container.querySelector('.salary-table');
+        if (!table) {
+            console.warn('⚠️ Таблица не найдена, перезагружаем');
+            salaryInitialized = false;
+            loadSalaryData();
+        }
         return;
     }
     
@@ -802,7 +814,7 @@ function fallbackCopy(text) {
 }
 
 // ============================================
-// МОДАЛКА РЕДАКТИРОВАНИЯ ДНЯ
+// МОДАЛКА РЕДАКТИРОВАНИЯ ДНЯ (ИСПРАВЛЕН ФОКУС)
 // ============================================
 
 function openDayModal(employeeId, dayNumber, employeeName) {
@@ -859,29 +871,29 @@ function openDayModal(employeeId, dayNumber, employeeName) {
                         </div>
                         <div class="salary-field-input">
                             <span class="currency-symbol">₽</span>
-                            <input type="number" id="salaryOklad" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}>
+                            <input type="number" id="salaryOklad" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''} style="outline: none;">
                         </div>
                     </div>
                     <div class="salary-fields-grid">
                         <div class="salary-field">
                             <div class="salary-field-label"><i class="fas fa-calendar-star"></i><span>МЕРОПРИЯТИЕ</span></div>
-                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryEvent" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryEvent" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''} style="outline: none;"></div>
                         </div>
                         <div class="salary-field">
                             <div class="salary-field-label"><i class="fas fa-chart-line"></i><span>ПРЕМИЯ С ОБОРОТА</span></div>
-                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryTurnover" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryTurnover" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''} style="outline: none;"></div>
                         </div>
                         <div class="salary-field">
                             <div class="salary-field-label" title="Премия при достижении оборота 35 000 ₽ за смену"><i class="fas fa-trophy"></i><span>ПРЕМИЯ ЗА 35 ТЫС.</span><i class="fas fa-question-circle" style="opacity:0.5;font-size:12px;"></i></div>
-                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryBonus35" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryBonus35" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''} style="outline: none;"></div>
                         </div>
                         <div class="salary-field">
                             <div class="salary-field-label"><i class="fas fa-video"></i><span>РОЛИК / ОТЗЫВ</span></div>
-                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryVideo" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''} style="outline: none;"></div>
                         </div>
                         <div class="salary-field extra-field">
                             <div class="salary-field-label"><i class="fas fa-gift"></i><span>ДОП. МОТИВАЦИЯ</span></div>
-                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryExtraMotivation" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''}></div>
+                            <div class="salary-field-input"><span class="currency-symbol">₽</span><input type="number" id="salaryExtraMotivation" class="salary-number-input" placeholder="0" value="0" min="0" max="${MAX_AMOUNT}" ${!isDirector ? 'disabled' : ''} style="outline: none;"></div>
                         </div>
                     </div>
                     <div class="salary-total-day">
@@ -1177,4 +1189,4 @@ window.clearSalarySearch = function() {
     filterSalaryTable('');
 };
 
-console.log('✅ salary.js загружен (v5.2 — исправлено 30 багов)');
+console.log('✅ salary.js загружен (v5.3 — исправлена инициализация и фокус полей)');

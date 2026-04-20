@@ -1,4 +1,5 @@
-// public/js/router.js — ПОЛНОСТЬЮ ИСПРАВЛЕННАЯ ВЕРСИЯ
+// public/js/router.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
+// Исправлено: очистка salary, vp, chat, reports, dashboard при смене страницы
 
 const routes = {
     dashboard: '/pages/dashboard.html',
@@ -22,17 +23,15 @@ let pageLoadTimeout = null;
 let routerInitialized = false;
 
 // ============================================
-// ЗАГРУЗКА СТРАНИЦЫ (С ЗАЩИТОЙ И ИСТОРИЕЙ)
+// ЗАГРУЗКА СТРАНИЦЫ
 // ============================================
 
 async function loadPage(pageId, addToHistory = true) {
-    // 🔥 ЗАЩИТА ОТ ПОВТОРНОЙ ЗАГРУЗКИ ТОЙ ЖЕ СТРАНИЦЫ
     if (currentPage === pageId) {
         console.log(`📄 Страница ${pageId} уже загружена`);
         return;
     }
     
-    // 🔥 ЗАЩИТА ОТ ОДНОВРЕМЕННОЙ ЗАГРУЗКИ
     if (isLoadingPage) {
         console.log('⚠️ Страница уже загружается, подождите...');
         return;
@@ -48,10 +47,8 @@ async function loadPage(pageId, addToHistory = true) {
     
     isLoadingPage = true;
     
-    // 🔥 ПОКАЗЫВАЕМ ИНДИКАТОР ЗАГРУЗКИ
     showPageLoader(container);
     
-    // 🔥 ТАЙМАУТ НА СЛУЧАЙ ЗАВИСАНИЯ
     if (pageLoadTimeout) clearTimeout(pageLoadTimeout);
     pageLoadTimeout = setTimeout(() => {
         console.error('❌ Загрузка страницы зависла:', pageId);
@@ -90,7 +87,6 @@ async function loadPage(pageId, addToHistory = true) {
         currentPage = pageId;
         localStorage.setItem('activeTab', pageId);
         
-        // 🔥 ДОБАВЛЯЕМ В ИСТОРИЮ БРАУЗЕРА
         if (addToHistory) {
             const urlParams = new URLSearchParams();
             urlParams.set('page', pageId);
@@ -98,10 +94,8 @@ async function loadPage(pageId, addToHistory = true) {
             window.history.pushState({ page: pageId }, '', newUrl);
         }
         
-        // 🔥 ОБНОВЛЯЕМ АКТИВНЫЙ ПУНКТ МЕНЮ
         updateActiveMenuItem(pageId);
         
-        // 🔥 ИНИЦИАЛИЗАЦИЯ СТРАНИЦЫ
         setTimeout(() => {
             initializePage(pageId);
         }, 100);
@@ -131,7 +125,6 @@ async function loadPage(pageId, addToHistory = true) {
 // ============================================
 
 function showPageLoader(container) {
-    // Удаляем старый лоадер если есть
     hidePageLoader();
     
     const loader = document.createElement('div');
@@ -144,7 +137,6 @@ function showPageLoader(container) {
         </div>
     `;
     
-    // Добавляем стили если их нет
     if (!document.getElementById('pageLoaderStyles')) {
         const style = document.createElement('style');
         style.id = 'pageLoaderStyles';
@@ -209,14 +201,42 @@ function hidePageLoader() {
 // ============================================
 
 function cleanupCurrentPage() {
-    if (currentPage === 'reports' && typeof cleanupReports === 'function') {
-        cleanupReports();
+    console.log(`🧹 Очистка страницы: ${currentPage}`);
+    
+    // 🔥 Очистка зарплаты
+    if (currentPage === 'salary') {
+        if (typeof window.resetSalaryState === 'function') {
+            console.log('🧹 Вызов resetSalaryState');
+            window.resetSalaryState();
+        }
+        if (typeof window.salaryInitialized !== 'undefined') {
+            window.salaryInitialized = false;
+        }
     }
-    if (currentPage === 'dashboard' && typeof cleanupDashboard === 'function') {
-        cleanupDashboard();
+    
+    // 🔥 Очистка ВП
+    if (currentPage === 'vp' && typeof window.resetVpState === 'function') {
+        window.resetVpState();
     }
-    if (currentPage === 'chat' && typeof cleanupChat === 'function') {
-        cleanupChat();
+    
+    // 🔥 Очистка чата
+    if (currentPage === 'chat' && typeof window.cleanupChat === 'function') {
+        window.cleanupChat();
+    }
+    
+    // 🔥 Очистка отчётов
+    if (currentPage === 'reports' && typeof window.cleanupReports === 'function') {
+        window.cleanupReports();
+    }
+    
+    // 🔥 Очистка дашборда
+    if (currentPage === 'dashboard' && typeof window.cleanupDashboard === 'function') {
+        window.cleanupDashboard();
+    }
+    
+    // 🔥 Сброс флага initialized для ВП
+    if (currentPage === 'vp') {
+        window.vpInitialized = false;
     }
 }
 
@@ -245,6 +265,8 @@ function initializePage(pageId) {
     if (funcName && typeof window[funcName] === 'function') {
         console.log(`🚀 Инициализация: ${funcName}`);
         window[funcName]();
+    } else {
+        console.warn(`⚠️ Функция инициализации не найдена: ${funcName}`);
     }
 }
 
@@ -288,7 +310,6 @@ function renderMainMenu() {
         menuItems.push({ id: 'admin', name: 'Управление', icon: 'cogs' });
     }
     
-    // 🔥 ОПРЕДЕЛЯЕМ АКТИВНУЮ СТРАНИЦУ
     const urlParams = new URLSearchParams(window.location.search);
     const pageFromUrl = urlParams.get('page');
     const savedTab = localStorage.getItem('activeTab');
@@ -312,7 +333,6 @@ function renderMainMenu() {
         });
     });
     
-    // 🔥 ЗАГРУЖАЕМ СТРАНИЦУ БЕЗ ДОБАВЛЕНИЯ В ИСТОРИЮ (она уже там)
     loadPage(activeId, false);
 }
 
@@ -334,14 +354,12 @@ function initRouter() {
     if (routerInitialized) return;
     routerInitialized = true;
     
-    // 🔥 ОБРАБОТЧИК POPSTATE (навигация назад/вперёд)
     window.addEventListener('popstate', (event) => {
         const state = event.state;
         if (state && state.page) {
             console.log('🔄 Навигация по истории:', state.page);
             loadPage(state.page, false);
         } else {
-            // Если нет состояния, загружаем из URL
             const urlParams = new URLSearchParams(window.location.search);
             const pageFromUrl = urlParams.get('page');
             if (pageFromUrl && routes[pageFromUrl]) {
@@ -372,12 +390,10 @@ window.initRouter = initRouter;
 window.routes = routes;
 window.getCurrentPage = getCurrentPage;
 
-// 🔥 АВТОИНИЦИАЛИЗАЦИЯ РОУТЕРА
 setTimeout(initRouter, 100);
 
-// 🔥 ОЧИСТКА ПРИ ВЫГРУЗКЕ
 window.addEventListener('beforeunload', () => {
     cleanupCurrentPage();
 });
 
-console.log('✅ router.js загружен (исправленная версия)');
+console.log('✅ router.js загружен (v2.1)');

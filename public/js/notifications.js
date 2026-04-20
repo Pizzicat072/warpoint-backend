@@ -1,6 +1,6 @@
-// public/js/notifications.js — ВЕРСИЯ v3.0
+// public/js/notifications.js — ВЕРСИЯ v3.1
 // Двухуровневая система: системные toast + важные события с историей
-// Отображается поверх модалок (z-index: 100000+)
+// Исправлен дубликат MAX_NOTIFICATIONS
 
 // ============================================
 // КОНФИГУРАЦИЯ
@@ -199,9 +199,8 @@ const EVENT_CONFIG = {
 let notificationsList = [];
 let unreadCount = 0;
 let notificationIdCounter = 0;
-const MAX_NOTIFICATIONS = 100;
+const NOTIFICATIONS_MAX_COUNT = 100;
 const TOAST_Z_INDEX = 100001;
-const MODAL_Z_INDEX = 100000;
 
 let activeToasts = [];
 let isInitialized = false;
@@ -218,13 +217,12 @@ function initNotifications() {
     }
     isInitialized = true;
     
-    console.log('🔔 Инициализация системы уведомлений v3.0');
+    console.log('🔔 Инициализация системы уведомлений v3.1');
     
     loadNotificationsFromStorage();
     setupPusherNotificationListeners();
     updateNotificationsBadge();
     
-    // Добавляем стили для toast
     injectToastStyles();
 }
 
@@ -242,11 +240,6 @@ function injectToastStyles() {
         @keyframes slideOutRight {
             from { opacity: 1; transform: translateX(0); }
             to { opacity: 0; transform: translateX(100px); }
-        }
-        
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
         }
         
         .system-toast {
@@ -351,7 +344,6 @@ function injectToastStyles() {
             color: #f87171;
         }
         
-        /* Стек уведомлений */
         .system-toast:nth-last-child(1) { bottom: 24px; }
         .system-toast:nth-last-child(2) { bottom: 90px; }
         .system-toast:nth-last-child(3) { bottom: 156px; }
@@ -362,7 +354,6 @@ function injectToastStyles() {
         .event-toast:nth-last-child(2) { bottom: 110px; }
         .event-toast:nth-last-child(3) { bottom: 196px; }
         
-        /* Адаптивность */
         @media (max-width: 768px) {
             .system-toast, .event-toast {
                 left: 16px;
@@ -390,8 +381,8 @@ function loadNotificationsFromStorage() {
             unreadCount = data.unread || 0;
             notificationIdCounter = data.counter || 0;
             
-            if (notificationsList.length > MAX_NOTIFICATIONS) {
-                notificationsList = notificationsList.slice(0, MAX_NOTIFICATIONS);
+            if (notificationsList.length > NOTIFICATIONS_MAX_COUNT) {
+                notificationsList = notificationsList.slice(0, NOTIFICATIONS_MAX_COUNT);
             }
         }
     } catch (e) {
@@ -404,7 +395,7 @@ function loadNotificationsFromStorage() {
 function saveNotificationsToStorage() {
     try {
         localStorage.setItem('warpoint_notifications', JSON.stringify({
-            list: notificationsList.slice(0, MAX_NOTIFICATIONS),
+            list: notificationsList.slice(0, NOTIFICATIONS_MAX_COUNT),
             unread: unreadCount,
             counter: notificationIdCounter
         }));
@@ -466,7 +457,6 @@ function showSystemNotification(message, type = 'info') {
     document.body.appendChild(toast);
     activeToasts.push(toast);
     
-    // Автоудаление
     const duration = type === 'loading' ? 0 : (type === 'error' ? 5000 : 4000);
     if (duration > 0) {
         setTimeout(() => closeToast(toast), duration);
@@ -525,19 +515,14 @@ function sendEvent(eventType, data, recipient = null) {
         recipient: recipient
     };
     
-    // Если получатель — текущий пользователь или нет получателя
     if (!recipient || recipient === window.app?.currentUser) {
         addNotificationToList(notification);
         showEventToast(notification);
     }
     
-    // Отправить через Pusher другому пользователю
     if (recipient && recipient !== window.app?.currentUser) {
         sendPusherNotification(recipient, notification);
     }
-    
-    // Сохранить на сервере (если нужно)
-    // saveNotificationToServer(notification);
 }
 
 function showEventToast(notification) {
@@ -613,8 +598,8 @@ function addNotificationToList(notification) {
     notificationsList.unshift(notification);
     unreadCount++;
     
-    if (notificationsList.length > MAX_NOTIFICATIONS) {
-        notificationsList = notificationsList.slice(0, MAX_NOTIFICATIONS);
+    if (notificationsList.length > NOTIFICATIONS_MAX_COUNT) {
+        notificationsList = notificationsList.slice(0, NOTIFICATIONS_MAX_COUNT);
     }
     
     saveNotificationsToStorage();
@@ -657,7 +642,6 @@ function bindNotificationEvents() {
 function sendPusherNotification(recipient, notification) {
     if (!window.pusher || !window.privateChannel) return;
     
-    // Отправка через серверный API
     fetch('/api/notifications/send', {
         method: 'POST',
         headers: {
@@ -681,7 +665,6 @@ function sendThanks(notificationId) {
     if (!notification) return;
     
     if (notification.type === NOTIFICATION_TYPES.GIFT_RECEIVED && !notification.data.anonymous) {
-        // Отправить благодарность через чат
         if (typeof window.openChatWithEmployee === 'function') {
             window.openChatWithEmployee(notification.data.sender);
         }
@@ -927,7 +910,7 @@ function cleanupNotifications() {
 
 window.initNotifications = initNotifications;
 window.showSystemNotification = showSystemNotification;
-window.showNotif = showSystemNotification; // Обратная совместимость
+window.showNotif = showSystemNotification;
 window.sendEvent = sendEvent;
 window.NOTIFICATION_TYPES = NOTIFICATION_TYPES;
 window.closeToast = closeToast;
@@ -940,7 +923,6 @@ window.clearAllNotifications = clearAllNotifications;
 window.markNotificationRead = markNotificationRead;
 window.cleanupNotifications = cleanupNotifications;
 
-// Экспорт действий для кнопок
 window.sendThanks = sendThanks;
 window.viewGift = viewGift;
 window.viewFine = viewFine;
@@ -957,7 +939,6 @@ window.viewSchedule = viewSchedule;
 window.viewVp = viewVp;
 window.viewSalary = viewSalary;
 
-// Автоинициализация
 setTimeout(() => { if (!isInitialized) initNotifications(); }, 1000);
 
-console.log('✅ notifications.js загружен (v3.0 — двухуровневая система)');
+console.log('✅ notifications.js загружен (v3.1 — двухуровневая система)');
