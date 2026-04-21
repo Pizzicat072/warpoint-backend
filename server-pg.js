@@ -2631,61 +2631,80 @@ app.options('*', cors(corsOptions));
 app.use(helmet({
     // Content Security Policy
     contentSecurityPolicy: {
-        directives: {
-            defaultSrc: ["'self'"],
-            scriptSrc: [
-    "'self'",
-    "'unsafe-inline'",
-    "'unsafe-eval'",
-    "'unsafe-hashes'",        // ← ДОБАВЬ ЭТУ СТРОКУ
-    "https://js.pusher.com",
-    "https://cdnjs.cloudflare.com",
-    "https://cdn.jsdelivr.net",
-],
-            styleSrc: [
-                "'self'",
-                "'unsafe-inline'",
-                "https://cdnjs.cloudflare.com",
-                "https://fonts.googleapis.com",
-            ],
-            fontSrc: [
-                "'self'",
-                "https://cdnjs.cloudflare.com",
-                "https://fonts.gstatic.com",
-                "data:",
-            ],
-            imgSrc: [
-                "'self'",
-                "data:",
-                "blob:",
-                "https:",
-                "http:",
-            ],
-            connectSrc: [
-    "'self'",
-    "https://*.pusher.com",
-    "wss://*.pusher.com",
-    "https://*.warpoint.ru",
-    "https://cdn.jsdelivr.net",
-],
-            mediaSrc: ["'self'", "blob:", "data:"],
-            frameSrc: [
-                "'self'",
-                "https://www.youtube.com",
-                "https://youtube.com",
-                "https://youtu.be",
-                "https://vk.com",
-            ],
-            workerSrc: ["'self'", "blob:"],
-            childSrc: ["'self'", "blob:"],
-            objectSrc: ["'none'"],
-            baseUri: ["'self'"],
-            formAction: ["'self'"],
-            frameAncestors: ["'self'"],
-            upgradeInsecureRequests: SERVER_CONFIG.IS_PRODUCTION ? [] : null,
-        },
-        reportOnly: false,
+    directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            "'unsafe-eval'",
+            "'unsafe-hashes'",
+            "https://js.pusher.com",
+            "https://cdnjs.cloudflare.com",
+            "https://cdn.jsdelivr.net",
+            "https://www.googletagmanager.com",
+            "https://www.google-analytics.com",
+        ],
+        scriptSrcAttr: [
+            "'unsafe-inline'",
+            "'unsafe-hashes'",
+        ],
+        styleSrc: [
+            "'self'",
+            "'unsafe-inline'",
+            "https://cdnjs.cloudflare.com",
+            "https://fonts.googleapis.com",
+        ],
+        styleSrcAttr: [
+            "'unsafe-inline'",
+        ],
+        fontSrc: [
+            "'self'",
+            "https://cdnjs.cloudflare.com",
+            "https://fonts.gstatic.com",
+            "data:",
+        ],
+        imgSrc: [
+            "'self'",
+            "data:",
+            "blob:",
+            "https:",
+            "http:",
+        ],
+        connectSrc: [
+            "'self'",
+            "https://*.pusher.com",
+            "wss://*.pusher.com",
+            "https://*.warpoint.ru",
+            "https://cdn.jsdelivr.net",
+        ],
+        mediaSrc: [
+            "'self'",
+            "blob:",
+            "data:",
+        ],
+        frameSrc: [
+            "'self'",
+            "https://www.youtube.com",
+            "https://youtube.com",
+            "https://youtu.be",
+            "https://vk.com",
+        ],
+        workerSrc: [
+            "'self'",
+            "blob:",
+        ],
+        childSrc: [
+            "'self'",
+            "blob:",
+        ],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+        upgradeInsecureRequests: SERVER_CONFIG.IS_PRODUCTION ? [] : null,
     },
+    reportOnly: false,
+},
     
     // Cross-Origin Embedder Policy
     crossOriginEmbedderPolicy: false,      // Отключаем для совместимости
