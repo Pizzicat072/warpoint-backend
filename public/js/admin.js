@@ -521,7 +521,7 @@ async function loadCurrentTheme() {
             const nameEl = document.getElementById('currentThemeName');
             if (nameEl) nameEl.textContent = themeNames[response.theme] || response.theme;
         }
-    } catch (16) {
+    } catch (err) {
         console.error('Ошибка загрузки темы:', err);
     }
 }
