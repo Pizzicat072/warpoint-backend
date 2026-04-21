@@ -5026,6 +5026,25 @@ async function initDatabase() {
     const startTime = performance.now();
     
     try {
+ // Пересоздаём таблицу achievements с правильной структурой
+        await pool.query(`DROP TABLE IF EXISTS achievements CASCADE`).catch(() => {});
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS achievements (
+                id VARCHAR(100) PRIMARY KEY,
+                name VARCHAR(255) NOT NULL,
+                description TEXT,
+                category VARCHAR(50),
+                required_value INTEGER NOT NULL,
+                coins_reward INTEGER DEFAULT 0,
+                sort_order INTEGER DEFAULT 0,
+                icon VARCHAR(10) DEFAULT '🏆',
+                color VARCHAR(7) DEFAULT '#fbbf24',
+                is_hidden BOOLEAN DEFAULT FALSE,
+                prerequisites JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
         // Проверяем версию схемы
         const versionResult = await pool.query(`
             SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1
@@ -5149,7 +5168,9 @@ await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_bonus_unique_daily
         
         // Добавляем начальные данные
         console.log('📝 Добавление начальных данных...');
-        
+        await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`).catch(() => {});
+await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS color VARCHAR(7) DEFAULT '#fbbf24'`).catch(() => {});
+
         for (const [table, data] of Object.entries(INITIAL_DATA)) {
             for (const row of data) {
                 try {
