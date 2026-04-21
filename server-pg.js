@@ -425,6 +425,8 @@ const DB_CONFIG = {
     connectionTimeoutMillis: 10000,
     statement_timeout: 30000,
     query_timeout: 30000,
+ max: 20,
+    min: 4,
     allowExitOnIdle: true,
     application_name: `warpoint_hub_v4_${process.env.NODE_ENV}`,
     keepAlive: true,
@@ -973,11 +975,7 @@ const MAX_PUSHER_ATTEMPTS = 5;
  */
 function initPusher() {
     if (!PUSHER_CONFIG.appId || !PUSHER_CONFIG.key || !PUSHER_CONFIG.secret) {
-        console.warn('⚠️ Pusher не настроен. Проверьте переменные окружения:');
-        console.warn('   - PUSHER_APP_ID:', PUSHER_CONFIG.appId ? '✓' : '✗');
-        console.warn('   - PUSHER_KEY:', PUSHER_CONFIG.key ? '✓' : '✗');
-        console.warn('   - PUSHER_SECRET:', PUSHER_CONFIG.secret ? '✓' : '✗');
-        console.warn('   - PUSHER_CLUSTER:', PUSHER_CONFIG.cluster ? '✓' : '✗');
+        console.warn('⚠️ Pusher не настроен. Realtime-функции будут недоступны.');
         return null;
     }
     
@@ -987,44 +985,22 @@ function initPusher() {
             key: PUSHER_CONFIG.key,
             secret: PUSHER_CONFIG.secret,
             cluster: PUSHER_CONFIG.cluster,
-            useTLS: PUSHER_CONFIG.useTLS,
-            maxRetries: PUSHER_CONFIG.maxRetries,
-            retryDelay: PUSHER_CONFIG.retryDelay,
-            timeout: PUSHER_CONFIG.timeout,
-            encryptionMasterKey: PUSHER_CONFIG.encryptionMasterKey,
+            useTLS: true
         });
         
-        // Обработчики событий
-        pusher.connection.on('connected', () => {
-            console.log('🔌 Pusher успешно подключён');
-            pusherConnectionAttempts = 0;
-            SERVER_STATE.modules.pusher = true;
-        });
-        
-        pusher.connection.on('disconnected', () => {
-            console.warn('⚠️ Pusher отключён');
-            SERVER_STATE.modules.pusher = false;
-        });
-        
-        pusher.connection.on('connecting', () => {
-            console.log('🔄 Pusher переподключается...');
-            pusherConnectionAttempts++;
-            SERVER_STATS.pusher.reconnects++;
-        });
-        
-        pusher.connection.on('error', (err) => {
-            console.error('❌ Pusher ошибка:', err.message);
-            SERVER_STATS.pusher.errors++;
-            SERVER_STATE.modules.pusher = false;
+        // Проверяем, что pusher создан
+        if (pusher && pusher.connection) {
+            pusher.connection.on('connected', () => {
+                console.log('🔌 Pusher подключён');
+            });
             
-            if (pusherConnectionAttempts >= MAX_PUSHER_ATTEMPTS) {
-                console.error('❌ Достигнут лимит попыток подключения к Pusher');
-            }
-        });
+            pusher.connection.on('error', (err) => {
+                console.error('❌ Pusher error:', err.message);
+            });
+        }
         
         console.log('✅ Pusher инициализирован');
         return pusher;
-        
     } catch (err) {
         console.error('❌ Ошибка инициализации Pusher:', err.message);
         return null;
@@ -3050,12 +3026,6 @@ const globalSlowDown = slowDown({
         return req.path === '/health' || 
                req.path === '/api/health' ||
                req.path.startsWith('/uploads/');
-    },
-    onLimitReached: (req, res, options) => {
-        logger.warn(`Slow down активирован: ${req.method} ${req.path}`, {
-            ip: req.clientIp,
-            userId: req.user?.id,
-        });
     },
 });
 
