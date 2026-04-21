@@ -3012,7 +3012,7 @@ const globalLimiter = rateLimit({
     },
 });
 
-app.use(globalLimiter);
+//app.use(globalLimiter);
 
 
 
@@ -8002,16 +8002,16 @@ console.log(`   - Health check: каждые 15 минут`);
 // ============================================
 
 // Применяем rate limiting к API
-app.use('/api/', apiLimiter);
+//app.use('/api/', apiLimiter);
 
 // Применяем rate limiting к уведомлениям
-app.use('/api/notifications/', notificationLimiter);
+//app.use('/api/notifications/', notificationLimiter);
 
 // Применяем rate limiting к чату
-app.use('/api/chat/', chatLimiter);
+//app.use('/api/chat/', chatLimiter);
 
 // Применяем rate limiting к операциям записи
-app.use(['/api/tasks', '/api/fines', '/api/schedule/shift'], writeLimiter);
+//app.use(['/api/tasks', '/api/fines', '/api/schedule/shift'], writeLimiter);
 
 // ============================================
 // 6.2. API — АВТОРИЗАЦИЯ
