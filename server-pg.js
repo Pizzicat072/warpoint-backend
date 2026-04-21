@@ -3828,6 +3828,7 @@ async function createEnumTypes() {
     
     try {
         for (const [enumName, values] of Object.entries(DB_ENUMS)) {
+            // Проверяем существование ENUM типа
             const enumExists = await client.query(`
                 SELECT 1 FROM pg_type 
                 WHERE typname = $1 AND typtype = 'e'
@@ -3838,10 +3839,14 @@ async function createEnumTypes() {
                 await client.query(`CREATE TYPE ${enumName} AS ENUM (${valuesStr})`);
                 console.log(`   ✅ Создан ENUM: ${enumName} (${values.length} значений)`);
             } else {
-                // Проверяем, нужно ли добавить новые значения
+                // Получаем существующие значения ENUM через pg_enum
                 const currentValues = await client.query(`
-                    SELECT unnest(enum_range(NULL::${enumName}))::text as value
-                `);
+                    SELECT e.enumlabel as value
+                    FROM pg_enum e
+                    JOIN pg_type t ON t.oid = e.enumtypid
+                    WHERE t.typname = $1
+                    ORDER BY e.enumsortorder
+                `, [enumName]);
                 
                 const existingValues = currentValues.rows.map(r => r.value);
                 const missingValues = values.filter(v => !existingValues.includes(v));
@@ -5034,7 +5039,8 @@ async function initDatabase() {
             console.log(`✅ Схема БД актуальна (версия ${currentVersion})`);
             return;
         }
-        await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_stickers_unique_daily ON stickers(employee, gift_id, sender, DATE(created_at))`);
+      // Индекс временно отключен
+// await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_stickers_unique_daily ON stickers(employee, gift_id, sender, DATE(created_at))`);
         // Создаём ENUM типы
         await createEnumTypes();
         
