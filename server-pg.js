@@ -13835,99 +13835,28 @@ function gracefulShutdown(signal) {
 
 async function startServer() {
     try {
-        console.log('\n╔══════════════════════════════════════════════════════════════╗');
-        console.log('║                                                              ║');
-        console.log('║   ██╗    ██╗ █████╗ ██████╗ ██████╗  ██████╗ ██╗███╗   ██╗████████╗  ║');
-        console.log('║   ██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██║████╗  ██║╚══██╔══╝  ║');
-        console.log('║   ██║ █╗ ██║███████║██████╔╝██████╔╝██║   ██║██║██╔██╗ ██║   ██║     ║');
-        console.log('║   ██║███╗██║██╔══██║██╔══██╗██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║     ║');
-        console.log('║   ╚███╔███╔╝██║  ██║██║  ██║██║     ╚██████╔╝██║██║ ╚████║   ██║     ║');
-        console.log('║    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝     ║');
-        console.log('║                                                              ║');
-        console.log('║                    CORPORATE PORTAL v4.0.0                    ║');
-        console.log('║                                                              ║');
-        console.log('╚══════════════════════════════════════════════════════════════╝\n');
-        
-        // Инициализируем Pusher
+        // 1. Сначала инициализируем Pusher
         pusher = initPusher();
         
-        // Инициализируем пул БД
+        // 2. Создаём пул БД
         pool = createDatabasePool();
         
-        // Инициализируем базу данных
+        // 3. Инициализируем БД
         await initDatabase();
         
-        // Инициализируем достижения
+        // 4. Инициализируем достижения
         await initAchievements();
         
-        // Инициализируем cron-задачи
+        // 5. Инициализируем cron-задачи
         initCronJobs();
         
-        // Запускаем сервер
+        // 6. ТОЛЬКО ПОТОМ запускаем сервер!
         server = app.listen(SERVER_CONFIG.PORT, '0.0.0.0', () => {
-            SERVER_STATE.started = new Date();
-            SERVER_STATE.startTime = Date.now();
-            SERVER_STATE.isReady = true;
-            
-            console.log(`\n🚀 WARPOINT Hub запущен на порту ${SERVER_CONFIG.PORT}`);
-            console.log(`🌍 Окружение: ${SERVER_CONFIG.NODE_ENV}`);
-            console.log(`🕐 Часовой пояс: ${SERVER_CONFIG.TIMEZONE}`);
-            console.log(`📊 Текущее время: ${getTobolskNow().toLocaleString()}`);
-            console.log(`\n👤 Директор по умолчанию: Денис / denis_1`);
-            console.log(`\n✨ Готов к работе!\n`);
-            
-            // Запускаем мониторинг памяти
-            setInterval(checkMemoryUsage, 60000);
-            
-            // Первоначальное обновление погоды
-            setTimeout(() => {
-                updateWeatherJob().catch(err => {
-                    logger.error('Ошибка первоначального обновления погоды:', err);
-                });
-            }, 5000);
-        });
-        
-        // Настройка keep-alive
-        server.keepAliveTimeout = SERVER_CONFIG.KEEP_ALIVE_TIMEOUT_MS;
-        server.headersTimeout = SERVER_CONFIG.HEADERS_TIMEOUT_MS;
-        server.timeout = SERVER_CONFIG.SERVER_TIMEOUT_MS;
-        
-        // Обработчики сигналов
-        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-        process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
-        
-        // Обработчики необработанных ошибок
-        process.on('uncaughtException', (err) => {
-            logger.fatal('❌ UNCAUGHT EXCEPTION:', { error: err.message, stack: err.stack });
-            console.error('❌ UNCAUGHT EXCEPTION:', err);
-            
-            if (err.message.includes('EADDRINUSE')) {
-                console.error(`\n❌ Порт ${SERVER_CONFIG.PORT} уже занят!`);
-                console.error('   Остановите другой процесс или измените PORT в .env\n');
-                process.exit(1);
-            }
-            
-            if (!SERVER_CONFIG.IS_PRODUCTION) {
-                console.error(err.stack);
-            }
-        });
-        
-        process.on('unhandledRejection', (reason, promise) => {
-            logger.error('❌ UNHANDLED REJECTION:', { reason });
-            console.error('❌ UNHANDLED REJECTION:', reason);
-        });
-        
-        // Обработка предупреждений
-        process.on('warning', (warning) => {
-            if (warning.name === 'DeprecationWarning' && SERVER_CONFIG.IS_DEVELOPMENT) {
-                console.warn('⚠️ DeprecationWarning:', warning.message);
-            }
+            console.log(`🚀 Сервер запущен на порту ${SERVER_CONFIG.PORT}`);
         });
         
     } catch (err) {
-        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА:', err.message);
-        console.error(err.stack);
+        console.error('❌ Ошибка запуска:', err);
         process.exit(1);
     }
 }
