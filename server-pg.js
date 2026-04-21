@@ -240,7 +240,7 @@ const requestIp = require('request-ip');
 const responseTime = require('response-time');
 const methodOverride = require('method-override');
 const multer = require('multer');
-const { body, validationResult, check, param, query } = require('express-validator');
+const { body, validationResult, check, param } = require('express-validator');
 
 // База данных
 const { Pool } = require('pg');
@@ -7742,7 +7742,7 @@ async function backupDatabase() {
         
         JOB_STATS.backup.runs++;
         
-    } catch (17) {
+    } catch (err) {
         result.success = false;
         result.error = err.message;
         console.error('❌ Ошибка создания бэкапа:', err.message);
@@ -11464,7 +11464,7 @@ app.post('/api/salary/apply-all',
                 updated,
             });
             
-        } catch (17) {
+        } catch (err) {
             logger.error('Ошибка применения ко всем:', null, err);
             res.status(500).json({ success: false, error: 'Ошибка сервера' });
         }
