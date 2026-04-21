@@ -1,5 +1,5 @@
-// public/js/auth.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
-// Добавлены все уведомления
+// public/js/auth.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v3.0
+// Исправлены все баги: очистка window.app, проверки, Pusher, обработчики
 
 let isLoggingIn = false;
 let heartbeatInterval = null;
@@ -7,6 +7,7 @@ let lastHeartbeat = 0;
 const HEARTBEAT_INTERVAL = 60000;
 const TOKEN_EXPIRY_CHECK_INTERVAL = 300000;
 let authInitialized = false;
+let activityHandlers = [];
 
 // ============================================
 // СБРОС СОСТОЯНИЯ
@@ -40,6 +41,26 @@ function showSystemNotification(message, type) {
     console.log(`[${type}] ${message}`);
 }
 
+function showLoginModal() {
+    const loginModal = document.getElementById('loginModal');
+    const mainContainer = document.getElementById('mainContainer');
+    if (loginModal) {
+        loginModal.style.display = 'flex';
+        loginModal.classList.add('active');
+    }
+    if (mainContainer) mainContainer.style.display = 'none';
+}
+
+function hideLoginModal() {
+    const loginModal = document.getElementById('loginModal');
+    const mainContainer = document.getElementById('mainContainer');
+    if (loginModal) {
+        loginModal.style.display = 'none';
+        loginModal.classList.remove('active');
+    }
+    if (mainContainer) mainContainer.style.display = 'block';
+}
+
 // ============================================
 // ВХОД
 // ============================================
@@ -50,27 +71,55 @@ async function login() {
         return;
     }
     
-    if (typeof window.showGlobalLoader === 'function') {
-        window.showGlobalLoader();
+    // Проверка, не вошёл ли уже пользователь
+    if (window.app?.currentUser) {
+        showSystemNotification('⚠️ Вы уже вошли в систему', 'warning');
+        return;
+    }
+    
+    // Проверка интернета
+    if (!navigator.onLine) {
+        showSystemNotification('❌ Нет подключения к интернету', 'error');
+        const errorEl = document.getElementById('loginErrorMessage');
+        if (errorEl) errorEl.textContent = '❌ Нет подключения к интернету';
+        return;
     }
     
     const loginName = document.getElementById('loginName')?.value.trim();
     const pass = document.getElementById('loginPassword')?.value;
+    const rememberMe = document.getElementById('rememberMe')?.checked || false;
+    
+    // Очистка предыдущей ошибки
+    const errorEl = document.getElementById('loginErrorMessage');
+    if (errorEl) errorEl.textContent = '';
+    
+    // Убираем класс error с полей
+    document.getElementById('loginName')?.classList.remove('error');
+    document.getElementById('loginPassword')?.classList.remove('error');
     
     if (!loginName || !pass) {
+        if (!loginName) document.getElementById('loginName')?.classList.add('error');
+        if (!pass) document.getElementById('loginPassword')?.classList.add('error');
         showSystemNotification('❌ Введите логин и пароль', 'error');
+        if (errorEl) errorEl.textContent = '❌ Введите логин и пароль';
+        document.getElementById('loginPassword')?.focus();
         return;
     }
     
     console.log('📤 Отправка запроса:', { username: loginName });
     
-    const loginBtn = document.querySelector('#loginForm button[type="submit"]');
+    const loginBtn = document.getElementById('loginSubmitBtn');
     const originalBtnText = loginBtn?.innerHTML || 'Войти';
     if (loginBtn) {
         loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
         loginBtn.disabled = true;
     }
     isLoggingIn = true;
+    
+    // Показываем прелоадер если есть
+    if (typeof window.showGlobalLoader === 'function') {
+        window.showGlobalLoader();
+    }
     
     try {
         const response = await fetch('/api/auth/login', {
@@ -91,26 +140,37 @@ async function login() {
         const data = await response.json();
         console.log('📦 Данные ответа:', data);
         
-        if (data.success) {
+        if (data.success && data.token && data.user) {
             console.log('✅ Логин успешен!');
             
-            window.app = window.app || {};
-            window.app.currentUser = data.user.name;
-            window.app.currentUserRole = data.user.role;
-            window.app.currentUserPermissions = rolesMap[window.app.currentUserRole] || rolesMap.operator;
+            // Запоминаем логин если нужно
+            if (rememberMe) {
+                localStorage.setItem('savedLogin', loginName);
+            } else {
+                localStorage.removeItem('savedLogin');
+            }
+            
+            // 🔥 ПОЛНОСТЬЮ ОЧИЩАЕМ window.app перед установкой новых данных
+            window.app = {
+                currentUser: data.user.name,
+                currentUserRole: data.user.role,
+                currentUserPermissions: (window.rolesMap && window.rolesMap[data.user.role]) || (window.rolesMap && window.rolesMap.operator) || {},
+                employees: [],
+                profiles: {},
+                tasks: [],
+                fines: [],
+                schedule: {},
+                lastActivity: {},
+                stickers: {},
+                achievements: {},
+                messages: {}
+            };
             
             localStorage.setItem('token', data.token);
             localStorage.setItem('currentUser', JSON.stringify(data.user));
             localStorage.setItem('tokenExpiry', JSON.stringify(Date.now() + 7 * 24 * 60 * 60 * 1000));
             
-            const loginModal = document.getElementById('loginModal');
-            const mainContainer = document.getElementById('mainContainer');
-            
-            if (loginModal) {
-                loginModal.style.display = 'none';
-                loginModal.classList.remove('active');
-            }
-            if (mainContainer) mainContainer.style.display = 'block';
+            hideLoginModal();
             
             const headerName = document.getElementById('headerName');
             if (headerName) headerName.textContent = window.app.currentUser;
@@ -126,17 +186,19 @@ async function login() {
                 }
             }
             
+            // Достижения при входе
             if (data.newAchievements && data.newAchievements.length > 0) {
                 for (const ach of data.newAchievements) {
                     showSystemNotification(`🏆 ${escapeHtml(ach.name)} (+${ach.coins} WP)`, 'success');
                 }
             }
             
-            await loadEmployees();
-            await loadTasks();
-            await loadFines();
-            await loadSchedule();
-            await loadLastActivity();
+            // Загружаем данные
+            if (typeof loadEmployees === 'function') await loadEmployees();
+            if (typeof loadTasks === 'function') await loadTasks();
+            if (typeof loadFines === 'function') await loadFines();
+            if (typeof loadSchedule === 'function') await loadSchedule();
+            if (typeof loadLastActivity === 'function') await loadLastActivity();
             
             startHeartbeat();
             initActivityTracker();
@@ -145,35 +207,42 @@ async function login() {
                 window.initPusher();
             }
             
-            renderMainMenu();
+            if (typeof renderMainMenu === 'function') renderMainMenu();
+            
+            // Скрываем скелетон
+            const skeleton = document.getElementById('pageSkeleton');
+            if (skeleton) skeleton.style.display = 'none';
             
             showSystemNotification(`👋 Добро пожаловать, ${escapeHtml(window.app.currentUser)}!`, 'success');
             
         } else {
-            showSystemNotification('❌ ' + (data.error || 'Неверный логин или пароль'), 'error');
-            hideGlobalLoaderOnError();
+            // Ошибка от сервера
+            const errorMsg = data.error || 'Неверный логин или пароль';
+            if (errorEl) errorEl.textContent = '❌ ' + errorMsg;
+            document.getElementById('loginName')?.classList.add('error');
+            document.getElementById('loginPassword')?.classList.add('error');
+            showSystemNotification('❌ ' + errorMsg, 'error');
+            document.getElementById('loginPassword')?.focus();
+            
+            if (typeof window.hideGlobalLoader === 'function') {
+                window.hideGlobalLoader();
+            }
         }
     } catch (err) {
         console.error('❌ Ошибка входа:', err);
-        showSystemNotification('❌ Ошибка соединения с сервером', 'error');
-        hideGlobalLoaderOnError();
+        const errorMsg = err.message === 'Failed to fetch' ? 'Нет соединения с сервером' : 'Ошибка соединения с сервером';
+        if (errorEl) errorEl.textContent = '❌ ' + errorMsg;
+        showSystemNotification('❌ ' + errorMsg, 'error');
+        
+        if (typeof window.hideGlobalLoader === 'function') {
+            window.hideGlobalLoader();
+        }
     } finally {
         if (loginBtn) {
             loginBtn.innerHTML = originalBtnText;
             loginBtn.disabled = false;
         }
         isLoggingIn = false;
-    }
-}
-
-function hideGlobalLoaderOnError() {
-    const loader = document.getElementById('globalLoader');
-    if (loader) {
-        loader.classList.add('fade-out');
-        setTimeout(() => {
-            loader.style.display = 'none';
-            loader.classList.remove('fade-out');
-        }, 400);
     }
 }
 
@@ -184,39 +253,64 @@ function hideGlobalLoaderOnError() {
 function authLogout() {
     const userName = window.app?.currentUser;
     
-    if (window.app) {
-        window.app.currentUser = null;
-        window.app.currentUserRole = null;
-        window.app.currentUserPermissions = null;
-    }
+    // 🔥 Очистка обработчиков активности
+    cleanupActivityTracker();
     
-    localStorage.removeItem('currentUser');
-    localStorage.removeItem('token');
-    localStorage.removeItem('tokenExpiry');
-    localStorage.removeItem('lastActivity');
+    // 🔥 Отключение Pusher
+    if (window.pusher) {
+        window.pusher.disconnect();
+        window.pusher = null;
+    }
+    window.channel = null;
+    window.privateChannel = null;
+    
+    // 🔥 ПОЛНАЯ ОЧИСТКА window.app
+    window.app = {
+        currentUser: null,
+        currentUserRole: null,
+        currentUserPermissions: null,
+        employees: [],
+        profiles: {},
+        tasks: [],
+        fines: [],
+        schedule: {},
+        lastActivity: {},
+        stickers: {},
+        achievements: {}
+    };
+    
+    // 🔥 Очистка localStorage (все ключи WARPOINT)
+    const keysToRemove = [
+        'currentUser', 'token', 'tokenExpiry', 'lastActivity',
+        'warpoint_notifications', 'warpoint_offline_data',
+        'activeTab', 'savedLogin'
+    ];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // Не очищаем настройки интерфейса (тему, скрытые блоки)
     
     if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
         heartbeatInterval = null;
     }
     
-    if (userName && window.app?.lastActivity) {
-        delete window.app.lastActivity[userName];
-    }
-    
-    const loginModal = document.getElementById('loginModal');
-    const mainContainer = document.getElementById('mainContainer');
-    
-    if (loginModal) {
-        loginModal.style.display = 'flex';
-        loginModal.classList.add('active');
-    }
-    if (mainContainer) mainContainer.style.display = 'none';
+    showLoginModal();
     
     if (typeof renderEmployees === 'function') renderEmployees();
     if (typeof loadActivity === 'function') loadActivity();
     
-    showSystemNotification('👋 Вы вышли из системы', 'info');
+    if (userName) {
+        showSystemNotification(`👋 ${userName}, вы вышли из системы`, 'info');
+    }
+    
+    // Проверка, что модалка входа показалась
+    setTimeout(() => {
+        const loginModal = document.getElementById('loginModal');
+        if (loginModal && loginModal.style.display !== 'flex') {
+            console.warn('⚠️ Модалка входа не найдена, перезагружаем');
+            window.location.reload();
+        }
+    }, 100);
 }
 
 // ============================================
@@ -224,11 +318,12 @@ function authLogout() {
 // ============================================
 
 function isTokenExpired() {
-    const expiry = localStorage.getItem('tokenExpiry');
-    if (!expiry) return false;
     try {
+        const expiry = localStorage.getItem('tokenExpiry');
+        if (!expiry) return false;
         return Date.now() > JSON.parse(expiry);
-    } catch(e) {
+    } catch (e) {
+        console.error('Ошибка проверки токена:', e);
         return false;
     }
 }
@@ -236,7 +331,9 @@ function isTokenExpired() {
 function checkTokenAndLogout() {
     if (isTokenExpired()) {
         console.log('🔐 Токен истёк, выполняем выход');
-        authLogout();
+        if (typeof authLogout === 'function') {
+            authLogout();
+        }
         showSystemNotification('⏳ Сессия истекла. Пожалуйста, войдите снова.', 'warning');
         return true;
     }
@@ -248,6 +345,11 @@ function checkTokenAndLogout() {
 // ============================================
 
 async function loadLastActivity() {
+    if (typeof apiCall !== 'function') {
+        console.error('apiCall не загружен');
+        return;
+    }
+    
     try {
         const response = await apiCall('/last-activity');
         if (response && response.success) {
@@ -291,6 +393,19 @@ const ACTIVITY_RENDER_DEBOUNCE = 5000;
 async function sendHeartbeat() {
     if (checkTokenAndLogout()) return;
     
+    // Проверка, что пользователь вошёл
+    if (!window.app?.currentUser) {
+        console.log('⚠️ Heartbeat: пользователь не авторизован');
+        return;
+    }
+    
+    // Проверка интернета
+    if (!navigator.onLine) {
+        console.log('⚠️ Heartbeat: нет интернета');
+        if (typeof setSyncStatus === 'function') setSyncStatus('offline');
+        return;
+    }
+    
     const now = Date.now();
     if (now - lastHeartbeat < HEARTBEAT_INTERVAL / 2) return;
     lastHeartbeat = now;
@@ -327,22 +442,27 @@ async function sendHeartbeat() {
                 }
             }
             
-            if (typeof setSyncStatus === 'function') {
-                setSyncStatus('online');
+            if (typeof window.setSyncStatus === 'function') {
+                window.setSyncStatus('online');
             }
-        } else if (response.status === 401) {
+        } else if (response.status === 401 || response.status === 403) {
             console.log('🔐 Токен истёк при heartbeat');
             authLogout();
         }
     } catch (e) {
         console.error('Heartbeat error:', e);
-        if (typeof setSyncStatus === 'function') {
-            setSyncStatus('offline');
+        if (typeof window.setSyncStatus === 'function') {
+            window.setSyncStatus('offline');
         }
     }
 }
 
 function startHeartbeat(intervalMs = HEARTBEAT_INTERVAL) {
+    if (!window.app?.currentUser) {
+        console.warn('⚠️ Heartbeat не запущен: нет пользователя');
+        return;
+    }
+    
     if (heartbeatInterval) clearInterval(heartbeatInterval);
     
     sendHeartbeat();
@@ -357,6 +477,11 @@ function startHeartbeat(intervalMs = HEARTBEAT_INTERVAL) {
 // ============================================
 
 function initActivityTracker() {
+    if (!window.app?.currentUser) return;
+    
+    // Очищаем старые обработчики
+    cleanupActivityTracker();
+    
     const updateActivity = () => {
         if (window.app && window.app.currentUser) {
             window.app.lastActivity = window.app.lastActivity || {};
@@ -377,30 +502,68 @@ function initActivityTracker() {
         }
     };
     
-    ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(event => {
+    // Throttle для mousemove
+    let throttleTimer = null;
+    const throttledUpdate = () => {
+        if (throttleTimer) return;
+        throttleTimer = setTimeout(() => {
+            updateActivity();
+            throttleTimer = null;
+        }, 1000);
+    };
+    
+    const events = ['click', 'keydown', 'scroll', 'touchstart'];
+    const moveEvents = ['mousemove'];
+    
+    events.forEach(event => {
         document.addEventListener(event, updateActivity, { passive: true });
+        activityHandlers.push({ event, handler: updateActivity });
     });
     
-    document.addEventListener('visibilitychange', () => { 
+    moveEvents.forEach(event => {
+        document.addEventListener(event, throttledUpdate, { passive: true });
+        activityHandlers.push({ event, handler: throttledUpdate });
+    });
+    
+    const visibilityHandler = () => { 
         if (!document.hidden) {
             updateActivity();
             sendHeartbeat();
         }
-    });
+    };
+    document.addEventListener('visibilitychange', visibilityHandler);
+    activityHandlers.push({ event: 'visibilitychange', handler: visibilityHandler });
     
     console.log('✅ Activity tracker инициализирован');
 }
 
+function cleanupActivityTracker() {
+    activityHandlers.forEach(({ event, handler }) => {
+        document.removeEventListener(event, handler);
+    });
+    activityHandlers = [];
+    console.log('🧹 Activity tracker очищен');
+}
+
 // ============================================
-// ВОССТАНОВЛЕНИЕ АКТИВНОСТИ
+// ВОССТАНОВЛЕНИЕ АКТИВНОСТИ (ФИЛЬТР СТАРЫХ ДАННЫХ)
 // ============================================
 
 (function restoreLastActivity() {
     const saved = localStorage.getItem('lastActivity');
     if (saved) { 
         try { 
+            const data = JSON.parse(saved);
+            // 🔥 Фильтруем старые данные (старше 5 минут)
+            const now = Date.now();
+            const filtered = {};
+            for (const [user, timestamp] of Object.entries(data)) {
+                if (now - timestamp < 5 * 60 * 1000) {
+                    filtered[user] = timestamp;
+                }
+            }
             window.app = window.app || {};
-            window.app.lastActivity = JSON.parse(saved); 
+            window.app.lastActivity = filtered;
         } catch(e) {
             window.app = window.app || {};
             window.app.lastActivity = {};
@@ -417,8 +580,11 @@ window.authLogout = authLogout;
 window.startHeartbeat = startHeartbeat;
 window.sendHeartbeat = sendHeartbeat;
 window.initActivityTracker = initActivityTracker;
+window.cleanupActivityTracker = cleanupActivityTracker;
 window.loadLastActivity = loadLastActivity;
 window.checkTokenAndLogout = checkTokenAndLogout;
 window.resetAuthState = resetAuthState;
+window.showLoginModal = showLoginModal;
+window.hideLoginModal = hideLoginModal;
 
-console.log('✅ auth.js загружен (v2.1 — с уведомлениями)');
+console.log('✅ auth.js загружен (v3.0 — все баги исправлены)');

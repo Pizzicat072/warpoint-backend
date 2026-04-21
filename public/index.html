@@ -3,17 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0a0c12">
     <title>WARPOINT — Хаб сотрудников</title>
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
+        /* 🔥 Инлайн-стили для предотвращения мигания белого фона */
+        body {
+            background: #0a0c12;
+            margin: 0;
+            padding: 0;
+        }
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
         body {
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             color: #ffffff;
@@ -21,8 +27,6 @@
             -webkit-font-smoothing: antialiased;
             position: relative;
         }
-        
-        /* ФОН ПО УМОЛЧАНИЮ (градиент) */
         body::before {
             content: '';
             position: fixed;
@@ -34,13 +38,10 @@
             z-index: -2;
             transition: opacity 0.5s ease;
         }
-        
-        /* Если картинка загружена — заменяем фон */
         body.bg-image-loaded::before {
             background: url('/2026-04-02_03-45-56.png') center/cover no-repeat !important;
             filter: brightness(0.4) saturate(0.8) !important;
         }
-        
         body::after {
             content: '';
             position: fixed;
@@ -52,10 +53,18 @@
             z-index: -1;
         }
         
+        /* Анимация перехода страниц */
+        #pageContainer {
+            animation: pageFadeIn 0.25s ease-out;
+        }
+        @keyframes pageFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         /* ============================================ */
         /* КРУТОЙ ПРЕМИУМ ПРЕЛОАДЕР                     */
         /* ============================================ */
-        
         #globalLoader {
             position: fixed;
             top: 0;
@@ -70,20 +79,16 @@
             transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
             overflow: hidden;
         }
-        
         #globalLoader.fade-out {
             opacity: 0;
             visibility: hidden;
         }
-        
-        /* Анимированные орбы */
         .loader-orb-bg {
             position: absolute;
             width: 100%;
             height: 100%;
             overflow: hidden;
         }
-        
         .loader-orb {
             position: absolute;
             border-radius: 50%;
@@ -91,7 +96,6 @@
             opacity: 0.2;
             animation: orbFloat 12s ease-in-out infinite;
         }
-        
         .orb-1 {
             width: 500px;
             height: 500px;
@@ -100,7 +104,6 @@
             left: -150px;
             animation-delay: 0s;
         }
-        
         .orb-2 {
             width: 600px;
             height: 600px;
@@ -109,7 +112,6 @@
             right: -150px;
             animation-delay: 4s;
         }
-        
         .orb-3 {
             width: 400px;
             height: 400px;
@@ -119,13 +121,10 @@
             transform: translate(-50%, -50%);
             animation-delay: 2s;
         }
-        
         @keyframes orbFloat {
             0%, 100% { transform: translate(0, 0) scale(1); }
             50% { transform: translate(40px, -30px) scale(1.2); }
         }
-        
-        /* Частицы */
         .loader-particles {
             position: absolute;
             top: 0;
@@ -134,7 +133,6 @@
             height: 100%;
             pointer-events: none;
         }
-        
         .loader-particle {
             position: absolute;
             width: 2px;
@@ -143,15 +141,12 @@
             border-radius: 50%;
             animation: particleFloat 8s ease-in-out infinite;
         }
-        
         @keyframes particleFloat {
             0% { transform: translateY(100vh) translateX(0); opacity: 0; }
             10% { opacity: 0.8; }
             90% { opacity: 0.8; }
             100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
         }
-        
-        /* Основной контент */
         .loader-content {
             position: relative;
             z-index: 10;
@@ -166,25 +161,20 @@
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
             animation: contentGlow 3s ease-in-out infinite;
         }
-        
         @keyframes contentGlow {
             0%, 100% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.2) inset; }
             50% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.5) inset; }
         }
-        
-        /* Анимированное лого */
         .loader-logo {
             margin-bottom: 30px;
             position: relative;
         }
-        
         .loader-logo-wrapper {
             position: relative;
             width: 100px;
             height: 100px;
             margin: 0 auto;
         }
-        
         .loader-logo-ring {
             position: absolute;
             top: -10px;
@@ -199,7 +189,6 @@
             mask-composite: exclude;
             animation: ringRotate 3s linear infinite;
         }
-        
         .loader-logo-ring-2 {
             position: absolute;
             top: -20px;
@@ -210,17 +199,14 @@
             border: 1px solid rgba(139, 92, 246, 0.3);
             animation: ringRotateReverse 5s linear infinite;
         }
-        
         @keyframes ringRotate {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        
         @keyframes ringRotateReverse {
             from { transform: rotate(360deg); }
             to { transform: rotate(0deg); }
         }
-        
         .loader-logo img {
             width: 100%;
             height: 100%;
@@ -229,13 +215,10 @@
             box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
             animation: logoPulse 2s ease-in-out infinite;
         }
-        
         @keyframes logoPulse {
             0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
             50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
         }
-        
-        /* Текст WARPOINT HUB */
         .loader-title {
             font-size: 36px;
             font-weight: 800;
@@ -247,7 +230,6 @@
             color: transparent;
             text-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
         }
-        
         .loader-subtitle {
             font-size: 11px;
             color: #94a3b8;
@@ -255,12 +237,9 @@
             text-transform: uppercase;
             margin-bottom: 35px;
         }
-        
-        /* Прогресс-бар */
         .loader-progress-section {
             margin-bottom: 25px;
         }
-        
         .loader-progress-bar {
             width: 100%;
             height: 4px;
@@ -269,7 +248,6 @@
             overflow: hidden;
             margin-bottom: 12px;
         }
-        
         .loader-progress-fill {
             width: 0%;
             height: 100%;
@@ -278,7 +256,6 @@
             transition: width 0.3s ease-out;
             position: relative;
         }
-        
         .loader-progress-fill::after {
             content: '';
             position: absolute;
@@ -289,20 +266,16 @@
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
             filter: blur(3px);
         }
-        
         .loader-percent {
             font-size: 13px;
             font-weight: 600;
             color: #a78bfa;
             margin-bottom: 8px;
         }
-        
         .loader-status-text {
             font-size: 12px;
             color: #64748b;
         }
-        
-        /* Смена подсказок */
         .loader-tip {
             margin-top: 30px;
             padding: 12px 20px;
@@ -313,10 +286,15 @@
             color: #cbd5e1;
             transition: opacity 0.3s ease;
         }
-        
         .loader-tip i {
             margin-right: 8px;
             color: #fbbf24;
+        }
+        .loader-module-name {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #6366f1;
+            opacity: 0.8;
         }
         
         /* ===== СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ) ===== */
@@ -340,30 +318,30 @@
             transition: all 0.2s ease !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
         }
-        
         #syncIndicator:hover {
             transform: scale(1.05);
             background: rgba(18, 24, 34, 0.95);
             border-color: rgba(99, 102, 241, 0.4);
         }
-        
         #syncIndicator i {
             font-size: 20px;
             color: #ef4444;
             transition: color 0.2s ease;
         }
-        
         #syncIndicator.online i {
             color: #10b981;
         }
-        
         #syncIndicator.connecting i {
             color: #f59e0b;
             animation: syncSpin 1.5s linear infinite;
         }
-        
         @keyframes syncSpin {
             to { transform: rotate(360deg); }
+        }
+        /* Скрывать индикатор на странице входа */
+        body:has(#loginModal[style*="display: flex"]) #syncIndicator,
+        body:has(#loginModal.active) #syncIndicator {
+            display: none !important;
         }
         
         /* ===== МОДАЛКА АВТОРИЗАЦИИ ===== */
@@ -378,11 +356,14 @@
             justify-content: center;
             z-index: 100000;
             padding: 20px;
+            background: rgba(5, 7, 15, 0.8);
+            backdrop-filter: blur(20px);
         }
-        
         .login-card {
             width: 400px;
             max-width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
             padding: 48px 40px;
             background: rgba(18, 24, 34, 0.85);
             backdrop-filter: blur(20px);
@@ -392,25 +373,38 @@
             text-align: center;
             animation: cardAppear 0.5s ease-out;
         }
-        
+        /* Кастомный скроллбар для модалки */
+        .login-card::-webkit-scrollbar {
+            width: 4px;
+        }
+        .login-card::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        .login-card::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 4px;
+        }
         @keyframes cardAppear {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
         .login-logo-clean {
             width: 100px;
             height: 100px;
             margin: 0 auto 32px;
+            cursor: pointer;
+            transition: transform 0.2s;
         }
-        
+        .login-logo-clean:hover {
+            transform: scale(1.05);
+        }
         .login-logo-clean img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
-        
         .login-brand-name {
             font-size: 28px;
             font-weight: 700;
@@ -420,18 +414,15 @@
             background-clip: text;
             color: transparent;
         }
-        
         .login-brand-sub {
             font-size: 13px;
             color: #9ca3af;
             margin-bottom: 40px;
         }
-        
         .login-field {
             position: relative;
             margin-bottom: 16px;
         }
-        
         .login-field i {
             position: absolute;
             left: 16px;
@@ -439,27 +430,75 @@
             transform: translateY(-50%);
             color: #9ca3af;
         }
-        
+        .login-field .toggle-password {
+            left: auto;
+            right: 16px;
+            cursor: pointer;
+            color: #9ca3af;
+            transition: color 0.2s;
+        }
+        .login-field .toggle-password:hover {
+            color: #a78bfa;
+        }
         .login-field input {
             width: 100%;
-            padding: 14px 16px 14px 48px;
+            padding: 14px 48px 14px 48px;
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 16px;
             color: #fff;
             font-size: 15px;
             outline: none;
+            transition: all 0.2s;
         }
-        
         .login-field input:focus {
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
-        
+        .login-field input.error {
+            border-color: #ef4444;
+            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
+        }
+        .capslock-warning {
+            position: absolute;
+            bottom: -20px;
+            left: 0;
+            font-size: 11px;
+            color: #f59e0b;
+            display: none;
+        }
+        .capslock-warning.show {
+            display: block;
+        }
+        .login-error-message {
+            color: #ef4444;
+            font-size: 12px;
+            margin-top: 8px;
+            margin-bottom: 8px;
+            min-height: 20px;
+        }
+        .login-options {
+            display: flex;
+            align-items: center;
+            margin: 12px 0;
+        }
+        .remember-me {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #9ca3af;
+        }
+        .remember-me input {
+            width: 16px;
+            height: 16px;
+            accent-color: #6366f1;
+        }
         .login-submit-btn {
             width: 100%;
             padding: 14px 20px;
-            margin-top: 32px;
+            margin-top: 24px;
             background: linear-gradient(135deg, #6366f1, #8b5cf6);
             border: none;
             border-radius: 16px;
@@ -472,12 +511,14 @@
             gap: 8px;
             transition: all 0.2s;
         }
-        
-        .login-submit-btn:hover {
+        .login-submit-btn:hover:not(:disabled) {
             transform: translateY(-1px);
             box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
         }
-        
+        .login-submit-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
         .login-footer-note {
             margin-top: 24px;
             font-size: 12px;
@@ -508,31 +549,26 @@
             top: 0;
             z-index: 1000;
         }
-        
         .logo-area {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        
         .logo-icon {
             width: 40px;
             height: 40px;
             border-radius: 12px;
             overflow: hidden;
         }
-        
         .logo-icon img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        
         .logo-text {
             font-size: 22px;
             font-weight: 700;
         }
-        
         .logo-badge {
             background: #6366f1;
             padding: 2px 8px;
@@ -540,7 +576,6 @@
             font-size: 10px;
             margin-left: 8px;
         }
-        
         .user-card {
             display: flex;
             align-items: center;
@@ -549,7 +584,6 @@
             border-radius: 40px;
             padding: 4px 16px 4px 8px;
         }
-        
         .user-avatar {
             width: 36px;
             height: 36px;
@@ -561,42 +595,60 @@
             font-size: 18px;
             cursor: pointer;
             overflow: hidden;
+            transition: transform 0.2s;
         }
-        
+        .user-avatar:hover {
+            transform: scale(1.05);
+        }
         .user-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
-        
         .user-info {
             text-align: right;
         }
-        
         .user-name {
             font-weight: 600;
             font-size: 13px;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
-        
         .user-status {
             font-size: 10px;
             color: #9ca3af;
         }
-        
         .logout-btn {
             background: transparent;
             border: 1px solid rgba(239, 68, 68, 0.3);
             border-radius: 20px;
-            padding: 4px 12px;
+            padding: 6px 14px;
             color: #f87171;
             cursor: pointer;
             font-size: 11px;
+            transition: all 0.2s;
         }
-        
         .logout-btn:hover {
             background: rgba(239, 68, 68, 0.1);
         }
-        
+        .about-link {
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 13px;
+            padding: 6px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .about-link:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a78bfa;
+        }
         .notifications-icon {
             position: relative;
             cursor: pointer;
@@ -608,7 +660,6 @@
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.04);
         }
-        
         .notifications-icon .badge {
             position: absolute;
             top: -4px;
@@ -625,7 +676,6 @@
             justify-content: center;
             padding: 0 4px;
         }
-        
         .notifications-dropdown {
             position: absolute;
             top: 60px;
@@ -640,11 +690,21 @@
             overflow: hidden;
             display: none;
         }
-        
+        .notifications-dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 15px;
+            width: 16px;
+            height: 16px;
+            background: #131720;
+            transform: rotate(45deg);
+            border-left: 1px solid rgba(255, 255, 255, 0.06);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
         .notifications-dropdown.show {
             display: block;
         }
-        
         .main-menu {
             background: rgba(11, 14, 20, 0.8);
             backdrop-filter: blur(12px);
@@ -655,7 +715,18 @@
             padding: 0 16px;
             overflow-x: auto;
         }
-        
+        /* Индикатор скролла для меню */
+        .main-menu::-webkit-scrollbar {
+            height: 3px;
+        }
+        .main-menu::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 2px;
+        }
+        .main-menu::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 2px;
+        }
         .menu-container {
             display: flex;
             align-items: center;
@@ -664,7 +735,6 @@
             margin: 0 auto;
             padding: 8px 0;
         }
-        
         .menu-item {
             display: flex;
             flex-direction: column;
@@ -676,42 +746,50 @@
             padding: 8px 16px;
             cursor: pointer;
             white-space: nowrap;
+            transition: all 0.2s;
         }
-        
+        @media (hover: hover) {
+            .menu-item:hover {
+                background: rgba(255, 255, 255, 0.04);
+            }
+        }
         .menu-item i {
             font-size: 18px;
             color: #9ca3af;
         }
-        
         .menu-item .menu-tooltip {
             font-size: 10px;
             color: #9ca3af;
         }
-        
-        .menu-item:hover {
-            background: rgba(255, 255, 255, 0.04);
-        }
-        
         .menu-item.active {
             background: rgba(99, 102, 241, 0.1);
         }
-        
         .menu-item.active i,
         .menu-item.active .menu-tooltip {
             color: #818cf8;
         }
         
+        /* ===== АДАПТИВНОСТЬ ===== */
         @media (max-width: 768px) {
             .header { padding: 12px 16px; }
             .logo-text { font-size: 18px; }
             .user-info { display: none; }
+            .about-link span { display: none; }
+            .about-link { padding: 8px; }
             .main-menu { top: 60px; }
             .menu-item .menu-tooltip { display: none; }
             .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
-            .login-card { padding: 36px 28px; }
+            .notifications-dropdown::before { right: 25px; }
+            .login-card { padding: 36px 24px; }
             #syncIndicator { bottom: 16px !important; left: 16px !important; width: 40px !important; height: 40px !important; }
             .loader-title { font-size: 28px; letter-spacing: 2px; }
             .loader-content { padding: 35px 25px; }
+            .login-logo-clean { width: 80px; height: 80px; }
+            .logout-btn { padding: 10px 16px; min-height: 44px; }
+        }
+        @media (max-width: 480px) {
+            .login-card { padding: 32px 20px; }
+            .login-brand-name { font-size: 24px; }
         }
     </style>
 </head>
@@ -744,6 +822,7 @@
             </div>
             <div class="loader-percent" id="loaderPercent">0%</div>
             <div class="loader-status-text" id="loaderStatusText">Инициализация системы...</div>
+            <div class="loader-module-name" id="loaderModuleName"></div>
         </div>
         
         <div class="loader-tip" id="loaderTip">
@@ -754,14 +833,14 @@
 </div>
 
 <!-- СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ) -->
-<div id="syncIndicator" onclick="if(typeof window.initPusher==='function')window.initPusher()">
+<div id="syncIndicator" onclick="if(typeof window.initPusher==='function')window.initPusher()" title="Статус подключения к чату">
     <i class="fas fa-broadcast-tower"></i>
 </div>
 
 <!-- МОДАЛКА АВТОРИЗАЦИИ -->
 <div id="loginModal">
     <div class="login-card">
-        <div class="login-logo-clean">
+        <div class="login-logo-clean" onclick="location.reload()" title="Обновить страницу">
             <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
         </div>
         <h1 class="login-brand-name">WARPOINT</h1>
@@ -769,13 +848,23 @@
         <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
             <div class="login-field">
                 <i class="fas fa-user"></i>
-                <input type="text" id="loginName" placeholder="Логин" autocomplete="username">
+                <input type="text" id="loginName" placeholder="Логин" autocomplete="username" value="">
             </div>
             <div class="login-field">
                 <i class="fas fa-lock"></i>
                 <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
+                <i class="fas fa-eye toggle-password" id="togglePassword" onclick="togglePasswordVisibility()" title="Показать пароль"></i>
+                <div class="capslock-warning" id="capslockWarning">
+                    <i class="fas fa-exclamation-triangle"></i> Caps Lock включён
+                </div>
             </div>
-            <button type="submit" class="login-submit-btn">
+            <div class="login-error-message" id="loginErrorMessage"></div>
+            <div class="login-options">
+                <label class="remember-me">
+                    <input type="checkbox" id="rememberMe"> Запомнить меня
+                </label>
+            </div>
+            <button type="submit" class="login-submit-btn" id="loginSubmitBtn">
                 <span>Войти</span>
                 <i class="fas fa-arrow-right"></i>
             </button>
@@ -797,7 +886,7 @@
             <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ</span></div>
         </div>
         <div style="display: flex; align-items: center; gap: 12px;">
-            <a href="/about.html" style="color: #9ca3af; text-decoration: none; font-size: 13px;"><i class="fas fa-info-circle"></i> О проекте</a>
+            <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i><span> О проекте</span></a>
             <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotificationsDropdown()">
                 <i class="far fa-bell"></i>
                 <span class="badge" id="notificationsBadge" style="display: none;">0</span>
@@ -826,8 +915,62 @@
     </div>
     
     <div class="main-menu" id="mainMenu"></div>
-    <div id="pageContainer"></div>
+    <div id="pageContainer">
+        <!-- Скелетон загрузки -->
+        <div class="page-skeleton" id="pageSkeleton">
+            <div class="skeleton-header"></div>
+            <div class="skeleton-grid">
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+                <div class="skeleton-card"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Футер -->
+    <footer style="text-align: center; padding: 20px; color: #64748b; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 40px;">
+        <span>© WARPOINT 2026 — Корпоративный портал v3.0</span>
+        <span style="margin: 0 10px;">•</span>
+        <span id="appVersion">Загрузка...</span>
+    </footer>
 </div>
+
+<style>
+    /* Скелетоны */
+    .page-skeleton {
+        padding: 24px 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    .skeleton-header {
+        height: 60px;
+        background: linear-gradient(90deg, #2a3240 25%, #3a4250 50%, #2a3240 75%);
+        background-size: 200% 100%;
+        border-radius: 16px;
+        animation: skeletonLoading 1.5s infinite;
+        margin-bottom: 24px;
+    }
+    .skeleton-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+    }
+    .skeleton-card {
+        height: 200px;
+        background: linear-gradient(90deg, #2a3240 25%, #3a4250 50%, #2a3240 75%);
+        background-size: 200% 100%;
+        border-radius: 20px;
+        animation: skeletonLoading 1.5s infinite;
+    }
+    @keyframes skeletonLoading {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    @media (max-width: 768px) {
+        .skeleton-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+</style>
 
 <!-- СКРИПТЫ -->
 <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
@@ -853,7 +996,57 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
-    // ПРОВЕРКА ФОНОВОЙ КАРТИНКИ
+    // ============================================
+    // ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ INDEX
+    // ============================================
+    
+    // Показать/скрыть пароль
+    window.togglePasswordVisibility = function() {
+        const input = document.getElementById('loginPassword');
+        const icon = document.getElementById('togglePassword');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    };
+    
+    // Обнаружение Caps Lock
+    document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
+        const warning = document.getElementById('capslockWarning');
+        if (e.getModifierState && e.getModifierState('CapsLock')) {
+            warning.classList.add('show');
+        } else {
+            warning.classList.remove('show');
+        }
+    });
+    
+    // Закрытие дропдауна уведомлений по клику вне
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('notificationsDropdown');
+        const icon = document.getElementById('notificationsIcon');
+        if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
+            dropdown.classList.remove('show');
+        }
+    });
+    
+    // Закрытие по свайпу на мобильных
+    let touchStartY = 0;
+    document.getElementById('notificationsDropdown')?.addEventListener('touchstart', (e) => {
+        touchStartY = e.touches[0].clientY;
+    });
+    document.getElementById('notificationsDropdown')?.addEventListener('touchmove', (e) => {
+        const touchY = e.touches[0].clientY;
+        if (touchY - touchStartY > 50) {
+            document.getElementById('notificationsDropdown').classList.remove('show');
+        }
+    });
+    
+    // Проверка фоновой картинки
     (function() {
         const img = new Image();
         img.onload = function() {
@@ -865,7 +1058,10 @@
         };
         img.src = '/2026-04-02_03-45-56.png';
     })();
-
+    
+    // Версия приложения
+    document.getElementById('appVersion').textContent = 'v3.0.0';
+    
     const PUSHER_KEY = '91e6eb7093c4b16a3275';
     const PUSHER_CLUSTER = 'ap1';
     const CHANNEL_NAME = 'private-warpoint-sync';
@@ -876,7 +1072,7 @@
     let pusherReconnectTimer = null;
     
     // ============================================
-    // ПРЕЛОАДЕР (КРУТАЯ ВЕРСИЯ)
+    // ПРЕЛОАДЕР
     // ============================================
     
     const requiredModules = [
@@ -902,15 +1098,16 @@
     let loaderForceHideTimer = null;
     const MAXIMUM_DISPLAY_MS = 8000;
     let startTime = Date.now();
+    let hideLoaderTimer = null;
     
     const globalLoader = document.getElementById('globalLoader');
     const loaderProgressFill = document.getElementById('loaderProgressFill');
     const loaderPercent = document.getElementById('loaderPercent');
     const loaderStatusText = document.getElementById('loaderStatusText');
+    const loaderModuleName = document.getElementById('loaderModuleName');
     const loaderTipSpan = document.querySelector('#loaderTip span');
     const loaderParticles = document.getElementById('loaderParticles');
     
-    // Создаём частицы
     function createParticles() {
         if (!loaderParticles) return;
         loaderParticles.innerHTML = '';
@@ -927,11 +1124,12 @@
         }
     }
     
-    // Показать прелоадер
     window.showGlobalLoader = function() {
         if (globalLoader) {
-            globalLoader.style.display = 'flex';
+            // Сброс анимации
             globalLoader.classList.remove('fade-out');
+            if (hideLoaderTimer) clearTimeout(hideLoaderTimer);
+            globalLoader.style.display = 'flex';
             loadedModules = 0;
             allModulesLoaded = false;
             startTime = Date.now();
@@ -939,17 +1137,17 @@
             if (loaderProgressFill) loaderProgressFill.style.width = '0%';
             if (loaderPercent) loaderPercent.textContent = '0%';
             if (loaderStatusText) loaderStatusText.textContent = 'Инициализация системы...';
+            if (loaderModuleName) loaderModuleName.textContent = '';
             
             createParticles();
             startTipRotation();
         }
     };
     
-    // Скрыть прелоадер
     window.hideGlobalLoader = function() {
         if (globalLoader) {
             globalLoader.classList.add('fade-out');
-            setTimeout(() => {
+            hideLoaderTimer = setTimeout(() => {
                 if (globalLoader.classList.contains('fade-out')) {
                     globalLoader.style.display = 'none';
                 }
@@ -957,6 +1155,10 @@
         }
         if (tipInterval) clearInterval(tipInterval);
         if (loaderForceHideTimer) clearTimeout(loaderForceHideTimer);
+        
+        // Скрыть скелетон
+        const skeleton = document.getElementById('pageSkeleton');
+        if (skeleton) skeleton.style.display = 'none';
     };
     
     function startTipRotation() {
@@ -967,12 +1169,13 @@
         }, 3500);
     }
     
-    function updateLoaderProgress() {
+    function updateLoaderProgress(moduleName) {
         loadedModules++;
         const percent = Math.min(100, Math.round((loadedModules / requiredModules.length) * 100));
         
         if (loaderProgressFill) loaderProgressFill.style.width = percent + '%';
         if (loaderPercent) loaderPercent.textContent = percent + '%';
+        if (loaderModuleName) loaderModuleName.textContent = `📦 ${moduleName || ''}`;
         
         if (loaderStatusText) {
             if (percent < 20) loaderStatusText.textContent = '⚡ Инициализация ядра...';
@@ -984,27 +1187,27 @@
         
         if (loadedModules >= requiredModules.length) {
             allModulesLoaded = true;
-            setTimeout(() => window.hideGlobalLoader(), 800);
+            setTimeout(() => window.hideGlobalLoader(), 500);
         }
     }
     
-    // Отслеживаем загрузку скриптов
+    // Отслеживание загрузки скриптов
     document.querySelectorAll('script[src*="/js/"]').forEach(script => {
-        script.addEventListener('load', updateLoaderProgress);
+        const src = script.src.split('/').pop();
+        script.addEventListener('load', () => updateLoaderProgress(src));
         script.addEventListener('error', () => {
-            console.error('❌ Ошибка загрузки:', script.src);
-            updateLoaderProgress();
+            console.error('❌ Ошибка загрузки:', src);
+            updateLoaderProgress(src + ' (ошибка)');
         });
     });
     
     window.addEventListener('load', function() {
         if (!allModulesLoaded) {
             loadedModules = requiredModules.length;
-            updateLoaderProgress();
+            updateLoaderProgress('готово');
         }
     });
     
-    // Принудительное скрытие через 8 секунд (защита от зависания)
     loaderForceHideTimer = setTimeout(() => {
         if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
             console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
@@ -1033,6 +1236,14 @@
         return result;
     }
     
+    function setSyncStatus(status) {
+        const indicator = document.getElementById('syncIndicator');
+        if (!indicator) return;
+        indicator.classList.remove('online', 'connecting');
+        if (status === 'online') indicator.classList.add('online');
+        else if (status === 'connecting') indicator.classList.add('connecting');
+    }
+    
     function initPusher() {
         if (isPusherInitializing) return;
         
@@ -1040,23 +1251,25 @@
         if (!token) return;
         
         const syncIndicator = document.getElementById('syncIndicator');
-        if (syncIndicator) {
-            syncIndicator.classList.remove('online');
-            syncIndicator.classList.add('connecting');
-        }
+        setSyncStatus('connecting');
         
         if (window.pusher && window.pusher.connection?.state === 'connected') {
-            if (syncIndicator) {
-                syncIndicator.classList.add('online');
-                syncIndicator.classList.remove('connecting');
-            }
+            setSyncStatus('online');
             return;
         }
         
         isPusherInitializing = true;
+        pusherInitAttempts = 0; // Сброс счётчика при ручном запуске
         
         try {
             if (window.pusher) window.pusher.disconnect();
+            
+            if (typeof Pusher === 'undefined') {
+                console.error('❌ Pusher не загружен');
+                setSyncStatus('offline');
+                isPusherInitializing = false;
+                return;
+            }
             
             window.pusher = new Pusher(PUSHER_KEY, {
                 cluster: PUSHER_CLUSTER,
@@ -1074,10 +1287,7 @@
             
             window.pusher.connection.bind('connected', () => {
                 console.log('🟢 Pusher подключён');
-                if (syncIndicator) {
-                    syncIndicator.classList.add('online');
-                    syncIndicator.classList.remove('connecting');
-                }
+                setSyncStatus('online');
                 pusherInitAttempts = 0;
                 isPusherInitializing = false;
                 if (pusherReconnectTimer) {
@@ -1088,16 +1298,19 @@
             
             window.pusher.connection.bind('disconnected', () => {
                 console.log('🔴 Pusher отключён');
-                if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
+                setSyncStatus('offline');
                 isPusherInitializing = false;
                 schedulePusherReconnect();
             });
             
             window.pusher.connection.bind('error', (err) => {
                 console.error('❌ Pusher error:', err);
-                if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
+                setSyncStatus('offline');
                 isPusherInitializing = false;
                 schedulePusherReconnect();
+                if (typeof showSystemNotification === 'function') {
+                    showSystemNotification('⚠️ Проблемы с подключением к чату', 'warning');
+                }
             });
             
             window.channel.bind('schedule-updated', (data) => {
@@ -1105,12 +1318,16 @@
                 if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
                 if (typeof updateDashboardStats === 'function') updateDashboardStats();
                 if (typeof renderEmployees === 'function') renderEmployees();
-                if (typeof showNotif === 'function') showNotif(`📅 Смена для ${escapeHtml(data.employee)} обновлена`, 'info');
+            });
+            
+            // Подписка на уведомления для обновления бейджа
+            window.channel.bind('global-notification', () => {
+                if (typeof updateNotificationsBadge === 'function') updateNotificationsBadge();
             });
             
         } catch (err) {
             console.error('Pusher error:', err);
-            if (syncIndicator) syncIndicator.classList.remove('online', 'connecting');
+            setSyncStatus('offline');
             isPusherInitializing = false;
             schedulePusherReconnect();
         }
@@ -1127,6 +1344,7 @@
     }
     
     window.initPusher = initPusher;
+    window.setSyncStatus = setSyncStatus;
     
     // ============================================
     // АВТОРИЗАЦИЯ
@@ -1145,6 +1363,10 @@
                 document.getElementById('loginModal').style.display = 'none';
                 document.getElementById('mainContainer').style.display = 'block';
                 document.getElementById('headerName').textContent = user.name;
+                document.getElementById('appVersion').textContent = 'v3.0.0';
+                
+                // Показываем скелетон
+                document.getElementById('pageSkeleton').style.display = 'block';
                 
                 if (typeof loadEmployees === 'function') {
                     loadEmployees().then(() => { 
@@ -1152,23 +1374,52 @@
                         if (typeof loadFines === 'function') loadFines(); 
                         if (typeof loadSchedule === 'function') loadSchedule(); 
                         if (typeof renderMainMenu === 'function') renderMainMenu(); 
+                        document.getElementById('pageSkeleton').style.display = 'none';
+                    }).catch(() => {
+                        if (typeof renderMainMenu === 'function') renderMainMenu();
+                        document.getElementById('pageSkeleton').style.display = 'none';
                     });
                 }
                 setTimeout(() => initPusher(), 1000);
             } catch(e) {
                 localStorage.removeItem('currentUser');
                 localStorage.removeItem('token');
+                showLoginModal();
             }
         }
+    } else {
+        showLoginModal();
+    }
+    
+    function showLoginModal() {
+        document.getElementById('loginModal').style.display = 'flex';
+        document.getElementById('mainContainer').style.display = 'none';
     }
     
     window.updateHeaderAvatar = function(avatarUrl, avatarEmoji) {
         const headerAvatar = document.getElementById('headerAvatar');
-        if (headerAvatar) {
-            if (avatarUrl) headerAvatar.innerHTML = `<img src="${escapeHtml(avatarUrl)}" style="width:100%;height:100%;object-fit:cover;">`;
-            else if (avatarEmoji) headerAvatar.innerHTML = escapeHtml(avatarEmoji);
-            else headerAvatar.innerHTML = '👤';
-        }
+        const welcomeAvatar = document.getElementById('welcomeAvatar');
+        
+        const updateEl = (el) => {
+            if (!el) return;
+            if (avatarUrl) {
+                const safeUrl = typeof escapeHtml === 'function' ? escapeHtml(avatarUrl) : avatarUrl;
+                el.innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;">`;
+            } else if (avatarEmoji) {
+                const safeEmoji = typeof escapeHtml === 'function' ? escapeHtml(avatarEmoji) : avatarEmoji;
+                el.innerHTML = safeEmoji;
+            } else {
+                el.innerHTML = '👤';
+            }
+        };
+        
+        updateEl(headerAvatar);
+        updateEl(welcomeAvatar);
+    };
+    
+    window.updateHeaderStatus = function(status) {
+        const el = document.getElementById('headerStatus');
+        if (el) el.textContent = status || '';
     };
     
     // Функции для уведомлений
@@ -1183,20 +1434,25 @@
     };
     
     window.markAllNotificationsRead = function() {
-        if (typeof window.markAllNotificationsRead === 'function') {
+        if (typeof window.markAllNotificationsRead === 'function' && window.markAllNotificationsRead !== markAllNotificationsRead) {
             window.markAllNotificationsRead();
-        } else if (typeof markAllNotificationsRead === 'function') {
-            markAllNotificationsRead();
         }
     };
     
     window.clearAllNotifications = function() {
-        if (typeof window.clearAllNotifications === 'function') {
+        if (typeof window.clearAllNotifications === 'function' && window.clearAllNotifications !== clearAllNotifications) {
             window.clearAllNotifications();
-        } else if (typeof clearAllNotifications === 'function') {
-            clearAllNotifications();
         }
     };
+    
+    // Запоминание логина
+    const savedLogin = localStorage.getItem('savedLogin');
+    if (savedLogin) {
+        document.getElementById('loginName').value = savedLogin;
+        document.getElementById('rememberMe').checked = true;
+    }
+    
+    console.log('✅ index.html загружен (v3.0 — с исправлениями)');
 </script>
 </body>
 </html>
