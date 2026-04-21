@@ -4008,21 +4008,18 @@ const TABLE_DEFINITIONS = {
         )
     `,
     
-    // Подарки/стикеры
     stickers: `
-        CREATE TABLE IF NOT EXISTS stickers (
-            id SERIAL PRIMARY KEY,
-            sender VARCHAR(100),
-            employee VARCHAR(100) NOT NULL,
-            gift_id VARCHAR(50) NOT NULL,
-            quantity INTEGER DEFAULT 1,
-            is_anonymous BOOLEAN DEFAULT FALSE,
-            message TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(employee, gift_id, sender, DATE(created_at))
-        )
-    `,
-    
+    CREATE TABLE IF NOT EXISTS stickers (
+        id SERIAL PRIMARY KEY,
+        sender VARCHAR(100),
+        employee VARCHAR(100) NOT NULL,
+        gift_id VARCHAR(50) NOT NULL,
+        quantity INTEGER DEFAULT 1,
+        is_anonymous BOOLEAN DEFAULT FALSE,
+        message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`,
     // Задачи
     tasks: `
         CREATE TABLE IF NOT EXISTS tasks (
@@ -5037,7 +5034,7 @@ async function initDatabase() {
             console.log(`✅ Схема БД актуальна (версия ${currentVersion})`);
             return;
         }
-        
+        await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_stickers_unique_daily ON stickers(employee, gift_id, sender, DATE(created_at))`);
         // Создаём ENUM типы
         await createEnumTypes();
         
