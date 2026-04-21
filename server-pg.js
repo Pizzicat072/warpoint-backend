@@ -4362,14 +4362,13 @@ const TABLE_DEFINITIONS = {
     // История ежедневных бонусов
     daily_bonus_history: `
         CREATE TABLE IF NOT EXISTS daily_bonus_history (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-            streak_day INTEGER NOT NULL,
-            amount INTEGER NOT NULL,
-            claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, claimed_at::date)
-        )
-    `,
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+    streak_day INTEGER NOT NULL,
+    amount INTEGER NOT NULL,
+    claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+`,
     
     // Начисления за смены
     shift_earnings: `
@@ -5039,6 +5038,21 @@ async function initDatabase() {
             console.log(`✅ Схема БД актуальна (версия ${currentVersion})`);
             return;
         }
+await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
+await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE`);
+await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS sender VARCHAR(100)`);
+await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`);
+await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS color VARCHAR(7) DEFAULT '#fbbf24'`);
+await pool.query(`ALTER TABLE knowledge_categories ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0`);
+
+// Переименование колонки (если нужно)
+try {
+    await pool.query(`ALTER TABLE system_settings RENAME COLUMN setting_key TO "key"`);
+} catch (e) {
+    // Колонка уже переименована или не существует
+}
+await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_bonus_unique_daily ON daily_bonus_history(user_id, DATE(claimed_at))`);
       // Индекс временно отключен
 // await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_stickers_unique_daily ON stickers(employee, gift_id, sender, DATE(created_at))`);
         // Создаём ENUM типы
