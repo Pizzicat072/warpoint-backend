@@ -2921,7 +2921,7 @@ setInterval(() => {
 class MemoryStore {
     constructor(windowMs) {
         this.windowMs = windowMs;
-        this.store = rateLimitStore;
+        this.store = new Map();
     }
     
     async increment(key) {
@@ -2931,19 +2931,16 @@ class MemoryStore {
         let record = this.store.get(key);
         
         if (!record || now > record.resetTime) {
-            record = {
-                count: 1,
-                resetTime,
-            };
-        } else {
-            record.count++;
+            record = { count: 0, resetTime };
         }
         
+        record.count++;
         this.store.set(key, record);
         
+        // 🔥 ВАЖНО: Возвращаем правильный объект
         return {
-            count: record.count,
-            resetTime: record.resetTime,
+            totalHits: record.count,
+            resetTime: new Date(record.resetTime)
         };
     }
     
@@ -2963,7 +2960,6 @@ class MemoryStore {
         this.store.clear();
     }
 }
-
 // Глобальный rate limiter
 const globalLimiter = rateLimit({
     windowMs: RATE_LIMIT_CONFIG.GLOBAL.windowMs,
@@ -5000,6 +4996,8 @@ async function initDatabase() {
             console.log(`✅ Схема БД актуальна (версия ${currentVersion})`);
             return;
         }
+await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`).catch(() => {});
+        await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`).catch(() => {});
 await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE`);
 await pool.query(`ALTER TABLE employees ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
 await pool.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS is_deleted BOOLEAN DEFAULT FALSE`);
