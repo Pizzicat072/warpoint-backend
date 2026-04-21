@@ -4019,7 +4019,7 @@ const TABLE_DEFINITIONS = {
             is_anonymous BOOLEAN DEFAULT FALSE,
             message TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(employee, gift_id, sender, created_at::date)
+            UNIQUE(employee, gift_id, sender, DATE(created_at))
         )
     `,
     
