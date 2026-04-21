@@ -269,7 +269,6 @@ const Queue = require('bull');
 
 // HTTP клиенты
 const axios = require('axios');
-const fetch = require('node-fetch');
 const cheerio = require('cheerio');
 
 // Парсинг
