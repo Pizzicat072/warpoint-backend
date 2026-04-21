@@ -228,7 +228,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const slowDown = require('express-slow-down');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const hpp = require('hpp');
@@ -521,21 +520,7 @@ const RATE_LIMIT_CONFIG = {
     },
 };
 
-// Настройки Slow Down (замедление вместо блокировки)
-const SLOW_DOWN_CONFIG = {
-    GLOBAL: {
-        windowMs: 15 * 60 * 1000,        // 15 минут
-        delayAfter: 100,                  // после 100 запросов
-        delayMs: (hits) => hits * 100,    // увеличиваем задержку
-        maxDelayMs: 10000,                // максимум 10 секунд
-    },
-    API: {
-        windowMs: 15 * 60 * 1000,
-        delayAfter: 50,
-        delayMs: (hits) => hits * 50,
-        maxDelayMs: 5000,
-    },
-};
+
 
 // Настройки сессий
 const SESSION_CONFIG = {
@@ -2337,7 +2322,6 @@ module.exports = {
     BCRYPT_CONFIG,
     PUSHER_CONFIG,
     RATE_LIMIT_CONFIG,
-    SLOW_DOWN_CONFIG,
     SESSION_CONFIG,
     UPLOAD_CONFIG,
     CHAT_CONFIG,
@@ -3015,21 +2999,8 @@ const globalLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// Slow down - замедление вместо блокировки
-const globalSlowDown = slowDown({
-    windowMs: SLOW_DOWN_CONFIG.GLOBAL.windowMs,
-    delayAfter: SLOW_DOWN_CONFIG.GLOBAL.delayAfter,
-    delayMs: SLOW_DOWN_CONFIG.GLOBAL.delayMs,
-    maxDelayMs: SLOW_DOWN_CONFIG.GLOBAL.maxDelayMs,
-    keyGenerator: (req) => req.user?.id || req.clientIp || req.ip,
-    skip: (req) => {
-        return req.path === '/health' || 
-               req.path === '/api/health' ||
-               req.path.startsWith('/uploads/');
-    },
-});
 
-app.use(globalSlowDown);
+
 
 // Rate limiter для логина (защита от брутфорса)
 const loginLimiter = rateLimit({
@@ -3105,7 +3076,9 @@ const writeLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     store: new MemoryStore(RATE_LIMIT_CONFIG.WRITE.windowMs),
-    keyGenerator: (req) => req.user?.id || req.clientIp || req.ip,
+    keyGenerator: (req) => {
+    return req.user?.id || req.ip || req.socket.remoteAddress;
+},
 });
 
 // ============================================
