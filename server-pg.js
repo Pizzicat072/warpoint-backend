@@ -2637,6 +2637,7 @@ app.use(helmet({
     "'self'",
     "'unsafe-inline'",
     "'unsafe-eval'",
+    "'unsafe-hashes'",        // ← ДОБАВЬ ЭТУ СТРОКУ
     "https://js.pusher.com",
     "https://cdnjs.cloudflare.com",
     "https://cdn.jsdelivr.net",
