@@ -86,7 +86,14 @@ app.use(helmet({
             scriptSrc: ["'self'", "'unsafe-inline'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
             imgSrc: ["'self'", "data:", "https:"],
             fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
-            connectSrc: ["'self'", "https://api.pusherapp.com", "https://js.pusher.com", "https://cdn.jsdelivr.net"],
+            connectSrc: [
+                "'self'", 
+                "https://api.pusherapp.com", 
+                "https://js.pusher.com", 
+                "https://cdn.jsdelivr.net",
+                "wss://ws-ap1.pusher.com",
+                "https://sockjs-ap1.pusher.com"
+            ],
             frameSrc: ["'self'"]
         }
     },
