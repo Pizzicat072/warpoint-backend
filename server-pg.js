@@ -13953,7 +13953,7 @@ async function startServer() {
         initCronJobs();
         
         // 🔥 САМЫЙ ПОСЛЕДНИЙ ШАГ — ЗАПУСК СЕРВЕРА
-        server = app.listen(PORT, '0.0.0.0', () => {
+        server = app.listen(SERVER_CONFIG.PORT, '0.0.0.0', () => {
             console.log(`\n🚀 WARPOINT Hub запущен на порту ${PORT}`);
             console.log(`🌍 Окружение: ${SERVER_CONFIG.NODE_ENV}`);
             console.log(`✨ Готов к работе!\n`);
