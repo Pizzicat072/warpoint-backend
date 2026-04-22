@@ -5298,9 +5298,6 @@ async function addColumnIfNotExists(table, column, type, defaultValue = null) {
     }
 }
 
-/**
- * Выполняет все необходимые миграции
- */
 async function runMigrations() {
     console.log('🔄 Выполнение миграций...');
     
@@ -5315,11 +5312,23 @@ async function runMigrations() {
             await addColumnIfNotExists('employees', 'total_exchanges', 'INTEGER', '0');
             await addColumnIfNotExists('employees', 'deleted_at', 'TIMESTAMP');
             await addColumnIfNotExists('employees', 'is_active', 'BOOLEAN', 'TRUE');
+            await addColumnIfNotExists('employees', 'avatar_url', 'TEXT');
+            await addColumnIfNotExists('employees', 'active_status', 'VARCHAR(100)');
+            await addColumnIfNotExists('employees', 'can_edit_vp', 'BOOLEAN', 'FALSE');
+            await addColumnIfNotExists('employees', 'dashboard_style', 'VARCHAR(50)', "'glass'");
+            await addColumnIfNotExists('employees', 'bought_styles', 'TEXT', "'[\"glass\"]'");
+            await addColumnIfNotExists('employees', 'bonus_streak', 'INTEGER', '1');
+            await addColumnIfNotExists('employees', 'last_bonus_claimed_at', 'TIMESTAMP');
+            await addColumnIfNotExists('employees', 'phone', 'VARCHAR(20)');
+            await addColumnIfNotExists('employees', 'birthday', 'DATE');
         },
         
         // Миграция 2: Добавляем колонки в tasks
         async () => {
             await addColumnIfNotExists('tasks', 'wp_reward', 'INTEGER', '0');
+            await addColumnIfNotExists('tasks', 'penalty_applied', 'BOOLEAN', 'FALSE');
+            await addColumnIfNotExists('tasks', 'completed_at', 'TIMESTAMP');
+            await addColumnIfNotExists('tasks', 'archived_at', 'TIMESTAMP');
         },
         
         // Миграция 3: Добавляем колонки в messages
@@ -5333,7 +5342,29 @@ async function runMigrations() {
             await addColumnIfNotExists('messages', 'attachments', 'JSONB');
         },
         
-        // Миграция 4: Обновляем типы данных
+        // Миграция 4: Добавляем колонки в achievements
+        async () => {
+            await addColumnIfNotExists('achievements', 'icon', 'VARCHAR(10)', "'🏆'");
+            await addColumnIfNotExists('achievements', 'color', 'VARCHAR(7)', "'#fbbf24'");
+            await addColumnIfNotExists('achievements', 'is_hidden', 'BOOLEAN', 'FALSE');
+            await addColumnIfNotExists('achievements', 'prerequisites', 'JSONB');
+        },
+        
+        // Миграция 5: Добавляем колонки в knowledge_categories
+        async () => {
+            await addColumnIfNotExists('knowledge_categories', 'sort_order', 'INTEGER', '0');
+            await addColumnIfNotExists('knowledge_categories', 'description', 'TEXT');
+            await addColumnIfNotExists('knowledge_categories', 'parent_id', 'INTEGER');
+        },
+        
+        // Миграция 6: Добавляем колонки в salary_daily
+        async () => {
+            await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
+            await addColumnIfNotExists('salary_daily', 'created_by', 'INTEGER');
+            await addColumnIfNotExists('salary_daily', 'updated_by', 'INTEGER');
+        },
+        
+        // Миграция 7: Обновляем типы данных
         async () => {
             try {
                 await query('ALTER TABLE employees ALTER COLUMN hours TYPE NUMERIC(10,2)');
@@ -5353,7 +5384,6 @@ async function runMigrations() {
     
     console.log('✅ Миграции выполнены');
 }
-
 // ============================================
 // 3.11. ЭКСПОРТ
 // ============================================
