@@ -13089,7 +13089,65 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: 'Ошибка сервера' });
     }
 });
-
+// ============================================
+// GET /api/data — ПОЛУЧЕНИЕ ВСЕХ ДАННЫХ
+// ============================================
+app.get('/api/data', authMiddleware, async (req, res) => {
+    try {
+        const employees = await query(
+            `SELECT * FROM employees WHERE deleted_at IS NULL AND is_active = TRUE ORDER BY name`
+        );
+        
+        const tasks = await query(
+            `SELECT * FROM tasks WHERE is_archived = FALSE ORDER BY created_at DESC LIMIT 500`
+        );
+        
+        const fines = await query(
+            `SELECT * FROM fines ORDER BY date DESC LIMIT 500`
+        );
+        
+        const schedule = await query(
+            `SELECT * FROM schedule ORDER BY date DESC LIMIT 1000`
+        );
+        
+        // Профили
+        const profiles = {};
+        employees.rows.forEach(e => {
+            profiles[e.name] = {
+                id: e.id, name: e.name, avatar: e.avatar, avatar_url: e.avatar_url,
+                status: e.status, active_status: e.active_status, coins: e.coins,
+                rating: e.rating, role: e.role, hours: parseFloat(e.hours) || 0,
+                birthday: e.birthday, phone: e.phone, dashboard_style: e.dashboard_style,
+                bought_styles: e.bought_styles, can_edit_vp: e.can_edit_vp,
+                bonus_streak: e.bonus_streak || 1
+            };
+        });
+        
+        // График по датам
+        const scheduleByDate = {};
+        schedule.rows.forEach(s => {
+            const dateStr = s.date instanceof Date ? s.date.toISOString().split('T')[0] : s.date;
+            if (!scheduleByDate[dateStr]) scheduleByDate[dateStr] = {};
+            scheduleByDate[dateStr][s.employee] = {
+                time: s.shift_time, status: s.shift_status,
+                is_special: s.is_special, special_end_time: s.special_end_time
+            };
+        });
+        
+        res.json({
+            success: true,
+            employees: employees.rows.map(e => e.name),
+            profiles: profiles,
+            tasks: tasks.rows,
+            fines: fines.rows,
+            schedule: scheduleByDate
+        });
+        
+    } catch (err) {
+        console.error('❌ /api/data error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 // ============================================
 // 9.6. ЭКСПОРТ
 // ============================================
