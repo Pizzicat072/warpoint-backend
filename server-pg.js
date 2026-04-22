@@ -12,7 +12,6 @@ const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const compression = require('compression');
 const multer = require('multer');
-const { body, validationResult } = require('express-validator');
 const NodeCache = require('node-cache');
 const winston = require('winston');
 const sanitizeHtml = require('sanitize-html');
@@ -39,8 +38,9 @@ const bookingParser = new BookingParser();
 let pool = null;
 let pusher = null;
 let server = null;
+let dbInitialized = false;
 
-const SERVER_STATE = { started: null, isReady: false, isShuttingDown: false, version: '5.1.0' };
+const SERVER_STATE = { started: null, isReady: false, isShuttingDown: false, version: '5.1.1' };
 
 const DB_CONFIG = { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false }, max: 8, min: 2, idleTimeoutMillis: 30000, connectionTimeoutMillis: 10000, allowExitOnIdle: true, application_name: 'warpoint_hub_v5' };
 
@@ -65,7 +65,7 @@ function verifyToken(token) { try { return jwt.verify(token, JWT_SECRET); } catc
 
 function createDatabasePool() { if (pool) return pool; pool = new Pool(DB_CONFIG); pool.on('error', (err) => { logger.error('DB Pool Error:', err.message); if (err.message.includes('Connection terminated')) { pool = null; setTimeout(createDatabasePool, 5000); } }); logger.info('Пул БД создан'); return pool; }
 
-async function query(text, params) { if (!pool) pool = createDatabasePool(); const start = Date.now(); try { const result = await pool.query(text, params); const duration = Date.now() - start; if (duration > 500) logger.warn('Slow query:', { text: text.substring(0, 200), duration, rows: result.rowCount }); return result; } catch (err) { logger.error('SQL Error:', { message: err.message, query: text.substring(0, 200) }); throw err; } }
+async function query(text, params) { if (!pool) pool = createDatabasePool(); const start = Date.now(); try { const result = await pool.query(text, params); const duration = Date.now() - start; if (duration > 500) logger.warn('Slow query:', { duration, rows: result.rowCount, text: text.substring(0, 200) }); return result; } catch (err) { logger.error('SQL Error:', { message: err.message, query: text.substring(0, 200) }); throw err; } }
 
 async function transaction(callback) { const client = await pool.connect(); try { await client.query('BEGIN'); const result = await callback(client); await client.query('COMMIT'); return result; } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); } }
 
@@ -95,7 +95,7 @@ const managerOrDirector = roleMiddleware('manager', 'director');
 const adminOrAbove = roleMiddleware('admin', 'manager', 'director');
 
 const TABLE_DEFINITIONS = {
-    system_settings: `CREATE TABLE IF NOT EXISTS system_settings (key VARCHAR(100) PRIMARY KEY, value TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
+    system_settings: `CREATE TABLE IF NOT EXISTS system_settings (key VARCHAR(100) PRIMARY KEY, val TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
     employees: `CREATE TABLE IF NOT EXISTS employees (id SERIAL PRIMARY KEY, name VARCHAR(100) UNIQUE NOT NULL, avatar VARCHAR(10) DEFAULT '👤', avatar_url TEXT, status VARCHAR(100) DEFAULT '💼 Работаю', active_status VARCHAR(100), coins INTEGER DEFAULT 100, rating INTEGER DEFAULT 0, role VARCHAR(50) DEFAULT 'operator', hours NUMERIC(10,2) DEFAULT 0, birthday DATE, phone VARCHAR(20), last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP, dashboard_style VARCHAR(50) DEFAULT 'standart', bought_styles TEXT DEFAULT '["standart"]', can_edit_vp BOOLEAN DEFAULT FALSE, bonus_streak INTEGER DEFAULT 1, last_bonus_claimed_at TIMESTAMP, total_shifts INTEGER DEFAULT 0, total_tasks_completed INTEGER DEFAULT 0, total_gifts_sent INTEGER DEFAULT 0, total_gifts_received INTEGER DEFAULT 0, total_messages INTEGER DEFAULT 0, total_exchanges INTEGER DEFAULT 0, deleted_at TIMESTAMP, is_active BOOLEAN DEFAULT TRUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
     passwords: `CREATE TABLE IF NOT EXISTS passwords (username VARCHAR(100) PRIMARY KEY, password_hash VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
     achievements: `CREATE TABLE IF NOT EXISTS achievements (id VARCHAR(100) PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, category VARCHAR(50), required_value INTEGER NOT NULL, coins_reward INTEGER DEFAULT 0, sort_order INTEGER DEFAULT 0, icon VARCHAR(10) DEFAULT '🏆', color VARCHAR(7) DEFAULT '#fbbf24', is_hidden BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`,
@@ -151,7 +151,7 @@ const INDEX_DEFINITIONS = [
     `CREATE INDEX IF NOT EXISTS idx_knowledge_articles_category ON knowledge_articles(category_id)`
 ];
 
-console.log('✅ ЧАСТЬ 1/10 загружена (конфигурация, БД, middleware)');
+console.log('✅ ЧАСТЬ 1/10 загружена (конфигурация, БД, middleware) — ИСПРАВЛЕНО');
 async function addColumnIfNotExists(table, column, type, defaultValue = null) {
     try {
         const check = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`, [table, column]);
@@ -205,13 +205,15 @@ async function runMigrations() {
 
 async function initSystemSettings() {
     const settings = [
-        { key: 'app_version', value: '5.1.0' },
-        { key: 'global_theme', value: 'vr-portal' },
-        { key: 'vp_script_available_days', value: '2' },
-        { key: 'auto_archive_tasks_days', value: '3' },
-        { key: 'exchange_expire_hours', value: '24' }
+        { key: 'app_version', val: '5.1.1' },
+        { key: 'global_theme', val: 'vr-portal' },
+        { key: 'vp_script_available_days', val: '2' },
+        { key: 'auto_archive_tasks_days', val: '3' },
+        { key: 'exchange_expire_hours', val: '24' }
     ];
-    for (const s of settings) await query(`INSERT INTO system_settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`, [s.key, s.value]).catch(() => {});
+    for (const s of settings) {
+        await query(`INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = NOW()`, [s.key, s.val]).catch(e => logger.warn('Settings init:', e.message));
+    }
 }
 
 async function initCorporateFund() {
@@ -1673,8 +1675,13 @@ function gracefulShutdown(signal) {
     let shutdownTimeout = setTimeout(() => { logger.error('Forcing shutdown after timeout'); process.exit(1); }, 15000);
     const cleanup = async () => {
         clearTimeout(shutdownTimeout);
-        if (server) { server.close(() => logger.info('HTTP server closed')); server.closeAllConnections?.(); }
-        if (pool) { await pool.end().then(() => logger.info('Database pool closed')).catch(e => logger.error('Error closing pool:', e.message)); }
+        if (server) { 
+            server.close(() => logger.info('HTTP server closed')); 
+            if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+        }
+        if (pool) { 
+            await pool.end().then(() => logger.info('Database pool closed')).catch(e => logger.error('Error closing pool:', e.message)); 
+        }
         if (pusher && typeof pusher.disconnect === 'function') pusher.disconnect();
         cache.flushAll();
         logger.info('WARPOINT Hub shut down');
@@ -1684,51 +1691,126 @@ function gracefulShutdown(signal) {
 }
 
 async function startServer() {
-    try {
-        logger.info('\n╔══════════════════════════════════════════════════════════════╗\n║   ██╗    ██╗ █████╗ ██████╗ ██████╗  ██████╗ ██╗███╗   ██╗████████╗  ║\n║   ██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██║████╗  ██║╚══██╔══╝  ║\n║   ██║ █╗ ██║███████║██████╔╝██████╔╝██║   ██║██║██╔██╗ ██║   ██║     ║\n║   ██║███╗██║██╔══██║██╔══██╗██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║     ║\n║   ╚███╔███╔╝██║  ██║██║  ██║██║     ╚██████╔╝██║██║ ╚████║   ██║     ║\n║    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝     ║\n║                    CORPORATE PORTAL v5.1.0                    ║\n╚══════════════════════════════════════════════════════════════╝');
-        const dataDir = path.join(__dirname, 'data');
-        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-        pusher = initPusher();
-        pool = createDatabasePool();
-        if (!pool) throw new Error('Не удалось создать пул БД');
-        await initDatabase();
-        await initAchievements();
-        initCronJobs();
+    // 🔥 ЗАЩИТА ОТ ДВОЙНОЙ ИНИЦИАЛИЗАЦИИ
+    if (dbInitialized) {
+        logger.info('БД уже инициализирована, запускаем только HTTP сервер...');
         server = app.listen(PORT, '0.0.0.0', () => {
             SERVER_STATE.started = new Date();
             SERVER_STATE.isReady = true;
-            logger.info(`WARPOINT Hub запущен на порту ${PORT}, окружение: ${process.env.NODE_ENV || 'development'}, время: ${getTobolskDateTime()}`);
+            logger.info(`WARPOINT Hub запущен на порту ${PORT}`);
+            logger.info(`Окружение: ${process.env.NODE_ENV || 'development'}`);
+            logger.info(`Время: ${getTobolskDateTime()}`);
+        });
+        setupServerHandlers();
+        return;
+    }
+    
+    try {
+        logger.info('\n╔══════════════════════════════════════════════════════════════╗\n║   ██╗    ██╗ █████╗ ██████╗ ██████╗  ██████╗ ██╗███╗   ██╗████████╗  ║\n║   ██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██║████╗  ██║╚══██╔══╝  ║\n║   ██║ █╗ ██║███████║██████╔╝██████╔╝██║   ██║██║██╔██╗ ██║   ██║     ║\n║   ██║███╗██║██╔══██║██╔══██╗██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║     ║\n║   ╚███╔███╔╝██║  ██║██║  ██║██║     ╚██████╔╝██║██║ ╚████║   ██║     ║\n║    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝     ║\n║                    CORPORATE PORTAL v5.1.1                    ║\n╚══════════════════════════════════════════════════════════════╝');
+        
+        const dataDir = path.join(__dirname, 'data');
+        if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+        
+        pusher = initPusher();
+        pool = createDatabasePool();
+        if (!pool) throw new Error('Не удалось создать пул БД');
+        
+        await initDatabase();
+        dbInitialized = true;  // 🔥 ПОМЕЧАЕМ ЧТО БД ИНИЦИАЛИЗИРОВАНА
+        
+        await initAchievements();
+        initCronJobs();
+        
+        server = app.listen(PORT, '0.0.0.0', () => {
+            SERVER_STATE.started = new Date();
+            SERVER_STATE.isReady = true;
+            logger.info(`WARPOINT Hub запущен на порту ${PORT}`);
+            logger.info(`Окружение: ${process.env.NODE_ENV || 'development'}`);
+            logger.info(`Время: ${getTobolskDateTime()}`);
             logger.info('Директор по умолчанию: Денис / denis_1');
         });
-        server.keepAliveTimeout = 65000;
-        server.headersTimeout = 66000;
-        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-        process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
-        process.on('uncaughtException', (err) => { logger.error('UNCAUGHT EXCEPTION:', err.message, err.stack); if (err.message.includes('EADDRINUSE')) { logger.error(`Порт ${PORT} уже занят!`); process.exit(1); } });
-        process.on('unhandledRejection', (reason) => logger.error('UNHANDLED REJECTION:', reason));
+        
+        setupServerHandlers();
+        
+        // Пост-инициализация
         setTimeout(async () => {
             try {
                 const check = await query("SELECT id FROM employees WHERE name = 'Денис' AND is_active = TRUE AND deleted_at IS NULL");
-                if (check.rows.length === 0) { logger.warn('Директор не найден, создаём...'); await createDefaultDirector(); }
-                else {
+                if (check.rows.length === 0) { 
+                    logger.warn('Директор не найден, создаём...'); 
+                    await createDefaultDirector(); 
+                } else {
                     const passCheck = await query("SELECT username FROM passwords WHERE username = 'Денис'");
-                    if (passCheck.rows.length === 0) { const hashedPassword = await hashPassword('denis_1'); await query("INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)", [hashedPassword]); }
+                    if (passCheck.rows.length === 0) { 
+                        const hashedPassword = await hashPassword('denis_1'); 
+                        await query("INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)", [hashedPassword]); 
+                    }
                 }
                 const achievementsCheck = await query("SELECT COUNT(*) FROM achievements");
-                if (parseInt(achievementsCheck.rows[0].count) === 0) { logger.warn('Достижения не найдены, инициализируем...'); await initAchievements(); }
-            } catch (err) { logger.error('Ошибка пост-инициализации:', err.message); }
+                if (parseInt(achievementsCheck.rows[0].count) === 0) { 
+                    logger.warn('Достижения не найдены, инициализируем...'); 
+                    await initAchievements(); 
+                }
+            } catch (err) { 
+                logger.error('Ошибка пост-инициализации:', err.message); 
+            }
         }, 3000);
-        setInterval(() => { const mem = process.memoryUsage(); logger.debug(`Память: RSS=${Math.round(mem.rss/1024/1024)}MB, Heap=${Math.round(mem.heapUsed/1024/1024)}/${Math.round(mem.heapTotal/1024/1024)}MB`); }, 300000);
-        setInterval(async () => { try { const result = await query("DELETE FROM notifications WHERE created_at < NOW() - INTERVAL '30 days'"); if (result.rowCount > 0) logger.debug(`Очищено уведомлений: ${result.rowCount}`); } catch (e) {} }, 86400000);
-        setTimeout(() => { updateWeatherJob().catch(err => logger.error('Погода:', err.message)); }, 5000);
+        
+        // Мониторинг памяти
+        setInterval(() => { 
+            const mem = process.memoryUsage(); 
+            logger.debug(`Память: RSS=${Math.round(mem.rss/1024/1024)}MB, Heap=${Math.round(mem.heapUsed/1024/1024)}/${Math.round(mem.heapTotal/1024/1024)}MB`); 
+        }, 300000);
+        
+        // Очистка старых уведомлений
+        setInterval(async () => { 
+            try { 
+                const result = await query("DELETE FROM notifications WHERE created_at < NOW() - INTERVAL '30 days'"); 
+                if (result.rowCount > 0) logger.debug(`Очищено уведомлений: ${result.rowCount}`); 
+            } catch (e) {} 
+        }, 86400000);
+        
+        // Первое обновление погоды
+        setTimeout(() => { 
+            updateWeatherJob().catch(err => logger.error('Погода:', err.message)); 
+        }, 5000);
+        
+        // Авто-парсинг (если включен)
         setTimeout(async () => {
             try {
-                const parserData = await query("SELECT value FROM system_settings WHERE key = 'auto_parse_enabled'");
-                if (parserData.rows[0]?.value === 'true') { logger.info('Запуск авто-парсинга...'); bookingParser.parseAvailability().catch(e => logger.error('Ошибка авто-парсинга:', e.message)); }
+                const parserData = await query("SELECT val FROM system_settings WHERE key = 'auto_parse_enabled'");
+                if (parserData.rows[0]?.val === 'true') { 
+                    logger.info('Запуск авто-парсинга...'); 
+                    bookingParser.parseAvailability().catch(e => logger.error('Ошибка авто-парсинга:', e.message)); 
+                }
             } catch (e) {}
         }, 10000);
-    } catch (err) { logger.error('КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА:', err.message, err.stack); process.exit(1); }
+        
+    } catch (err) { 
+        logger.error('КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА:', err.message, err.stack); 
+        process.exit(1); 
+    }
+}
+
+function setupServerHandlers() {
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 66000;
+    
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
+    
+    process.on('uncaughtException', (err) => { 
+        logger.error('UNCAUGHT EXCEPTION:', err.message, err.stack); 
+        if (err.message.includes('EADDRINUSE')) { 
+            logger.error(`Порт ${PORT} уже занят!`); 
+            process.exit(1); 
+        } 
+    });
+    
+    process.on('unhandledRejection', (reason) => { 
+        logger.error('UNHANDLED REJECTION:', reason); 
+    });
 }
 
 startServer().catch(err => { logger.error('Ошибка запуска:', err); process.exit(1); });
@@ -1736,5 +1818,5 @@ startServer().catch(err => { logger.error('Ошибка запуска:', err); 
 const publicAPI = { app, startServer, gracefulShutdown, query, addNotification, checkAndAwardAchievements };
 module.exports = publicAPI;
 
-console.log('✅ ЧАСТЬ 8/10 загружена (статика, запуск, graceful shutdown)');
+console.log('✅ ЧАСТЬ 8/10 загружена (статика, запуск, graceful shutdown) — ИСПРАВЛЕНО');
 if (require.main === module) startServer().catch(err => { logger.error('Fatal error:', err); process.exit(1); });
