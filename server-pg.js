@@ -1885,14 +1885,40 @@ function setupServerHandlers() {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
     process.on('uncaughtException', (err) => { 
-        logger.error('UNCAUGHT EXCEPTION:', err.message); 
-        if (err.message.includes('EADDRINUSE')) process.exit(1);
+        if (err.message.includes('EADDRINUSE')) {
+            logger.error('Порт уже занят — выходим без паники');
+            process.exit(0);
+        } else {
+            logger.error('UNCAUGHT EXCEPTION:', err.message);
+        }
     });
     process.on('unhandledRejection', (reason) => logger.error('UNHANDLED REJECTION:', reason));
 }
 
+// 🔥 ЗАЩИТА ОТ ДВОЙНОГО ЗАПУСКА
+let isStarting = false;
+
+async function safeStart() {
+    if (isStarting) {
+        logger.warn('Сервер уже запускается, пропускаем...');
+        return;
+    }
+    if (SERVER_STATE.isReady) {
+        logger.warn('Сервер уже запущен, пропускаем...');
+        return;
+    }
+    isStarting = true;
+    try {
+        await startServer();
+    } catch (err) {
+        logger.error('Ошибка запуска:', err);
+        process.exit(1);
+    }
+}
+
+// Запускаем только если это главный модуль
 if (require.main === module) {
-    startServer().catch(err => { logger.error('Ошибка запуска:', err); process.exit(1); });
+    safeStart();
 }
 
 const publicAPI = { app, startServer, gracefulShutdown, query, addNotification, checkAndAwardAchievements };
