@@ -164,8 +164,39 @@ async function addColumnIfNotExists(table, column, type, defaultValue = null) {
     } catch (err) { logger.warn(`Миграция ${table}.${column}: ${err.message}`); }
 }
 
+async function fixSystemSettingsTable() {
+    try {
+        const tableCheck = await query(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'system_settings')`);
+        if (!tableCheck.rows[0].exists) {
+            logger.info('Таблица system_settings не существует, будет создана позже');
+            return;
+        }
+        const valueCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'value'`);
+        const valCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'val'`);
+        if (valueCheck.rows.length > 0 && valCheck.rows.length === 0) {
+            logger.info('🔄 Переименование system_settings.value -> system_settings.val');
+            await query(`ALTER TABLE system_settings RENAME COLUMN value TO val`);
+            logger.info('✅ Колонка переименована');
+        } else if (valueCheck.rows.length === 0 && valCheck.rows.length === 0) {
+            logger.info('Добавление колонки val в system_settings');
+            await query(`ALTER TABLE system_settings ADD COLUMN val TEXT`);
+        } else {
+            logger.info('Таблица system_settings уже в правильном формате');
+        }
+    } catch (err) {
+        logger.error('Ошибка миграции system_settings:', err.message);
+        try {
+            logger.warn('Попытка пересоздания system_settings...');
+            await query(`DROP TABLE IF EXISTS system_settings CASCADE`);
+            await query(`CREATE TABLE system_settings (key VARCHAR(100) PRIMARY KEY, val TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+            logger.info('✅ Таблица system_settings пересоздана');
+        } catch (e) { logger.error('Не удалось пересоздать system_settings:', e.message); }
+    }
+}
+
 async function runMigrations() {
     logger.info('Выполнение миграций...');
+    await fixSystemSettingsTable();
     const employeeColumns = [
         { name: 'total_shifts', type: 'INTEGER', default: '0' },
         { name: 'total_tasks_completed', type: 'INTEGER', default: '0' },
@@ -204,6 +235,7 @@ async function runMigrations() {
 }
 
 async function initSystemSettings() {
+    await new Promise(r => setTimeout(r, 100));
     const settings = [
         { key: 'app_version', val: '5.1.1' },
         { key: 'global_theme', val: 'vr-portal' },
@@ -212,8 +244,11 @@ async function initSystemSettings() {
         { key: 'exchange_expire_hours', val: '24' }
     ];
     for (const s of settings) {
-        await query(`INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = NOW()`, [s.key, s.val]).catch(e => logger.warn('Settings init:', e.message));
+        try {
+            await query(`INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = NOW()`, [s.key, s.val]);
+        } catch (e) { logger.warn(`Не удалось вставить ${s.key}:`, e.message); }
     }
+    logger.info('Системные настройки инициализированы');
 }
 
 async function initCorporateFund() {
@@ -291,7 +326,7 @@ async function initDatabase() {
         await initSystemSettings();
         await createDefaultDirector();
         await initCorporateFund();
-        await query(`INSERT INTO schema_migrations (version, name) VALUES (5, 'WARPOINT HUB v5.1') ON CONFLICT (version) DO NOTHING`);
+        await query(`INSERT INTO schema_migrations (version, name) VALUES (5, 'WARPOINT HUB v5.1.1') ON CONFLICT (version) DO NOTHING`);
         logger.info(`БД инициализирована за ${Date.now() - startTime}ms`);
     } catch (err) { logger.error('Ошибка инициализации БД:', err.message); throw err; }
 }
@@ -321,9 +356,7 @@ async function checkOverdueTasks() {
             if (task.is_group_task === 'operators') { const ops = await query("SELECT name FROM employees WHERE role = 'operator' AND is_active = TRUE"); executors = ops.rows.map(r => r.name); }
             else if (task.is_group_task === 'admins') { const admins = await query("SELECT name FROM employees WHERE role = 'admin' AND is_active = TRUE"); executors = admins.rows.map(r => r.name); }
             else if (task.executor) executors = [task.executor];
-            for (const emp of executors) {
-                await query(`INSERT INTO fines (date, employee, type, description, status, created_by) VALUES ($1, $2, 'task_overdue', $3, 'pending', '🤖 Система')`, [today, emp, `Просрочена задача: ${task.name}`]);
-            }
+            for (const emp of executors) await query(`INSERT INTO fines (date, employee, type, description, status, created_by) VALUES ($1, $2, 'task_overdue', $3, 'pending', '🤖 Система')`, [today, emp, `Просрочена задача: ${task.name}`]);
             await query("UPDATE tasks SET status = 'overdue', penalty_applied = TRUE WHERE id = $1", [task.id]);
         }
         if (overdue.rows.length > 0) logger.info(`Создано штрафов за просрочку: ${overdue.rows.length * (overdue.rows[0]?.is_group_task ? 2 : 1)}`);
@@ -391,7 +424,7 @@ function initCronJobs() {
     logger.info('Cron-задачи запущены');
 }
 
-console.log('✅ ЧАСТЬ 2/10 загружена (миграции, достижения, cron)');
+console.log('✅ ЧАСТЬ 2/10 загружена (миграции, достижения, cron) — ИСПРАВЛЕНО');
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
