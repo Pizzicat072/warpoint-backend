@@ -196,7 +196,57 @@ async function fixSystemSettingsTable() {
 
 async function runMigrations() {
     logger.info('Выполнение миграций...');
+    
+    // 🔥 ИСПРАВЛЯЕМ system_settings
     await fixSystemSettingsTable();
+    
+    // 🔥 ИСПРАВЛЯЕМ passwords — САМОЕ ВАЖНОЕ СЕЙЧАС
+    try {
+        // Проверяем существование колонки password_hash
+        const passHashCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'password_hash'`);
+        if (passHashCheck.rows.length === 0) {
+            logger.info('Добавление колонки password_hash в passwords');
+            await query(`ALTER TABLE passwords ADD COLUMN password_hash VARCHAR(255)`);
+        }
+        
+        // Проверяем существование старой колонки hash
+        const hashCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'hash'`);
+        if (hashCheck.rows.length > 0) {
+            logger.info('Копирование данных из hash в password_hash');
+            await query(`UPDATE passwords SET password_hash = hash WHERE password_hash IS NULL`);
+        }
+        
+        // Проверяем существование колонки username
+        const userCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'username'`);
+        if (userCheck.rows.length === 0) {
+            logger.info('Добавление колонки username в passwords');
+            await query(`ALTER TABLE passwords ADD COLUMN username VARCHAR(100)`);
+            // Если есть колонка user_id, копируем или создаём связь
+        }
+        
+        logger.info('✅ Таблица passwords исправлена');
+    } catch (e) {
+        logger.error('Ошибка миграции passwords:', e.message);
+        // Если совсем всё плохо — пересоздаём
+        try {
+            logger.warn('Попытка пересоздания passwords...');
+            // Сохраняем существующие пароли если возможно
+            const existingData = await query(`SELECT * FROM passwords`).catch(() => ({ rows: [] }));
+            await query(`DROP TABLE IF EXISTS passwords CASCADE`);
+            await query(`CREATE TABLE passwords (username VARCHAR(100) PRIMARY KEY, password_hash VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+            // Восстанавливаем данные если были
+            for (const row of existingData.rows) {
+                if (row.username && row.password_hash) {
+                    await query(`INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [row.username, row.password_hash]);
+                }
+            }
+            logger.info('✅ Таблица passwords пересоздана');
+        } catch (e2) {
+            logger.error('Не удалось пересоздать passwords:', e2.message);
+        }
+    }
+    
+    // Остальные миграции
     const employeeColumns = [
         { name: 'total_shifts', type: 'INTEGER', default: '0' },
         { name: 'total_tasks_completed', type: 'INTEGER', default: '0' },
@@ -216,6 +266,7 @@ async function runMigrations() {
         { name: 'birthday', type: 'DATE', default: null }
     ];
     for (const col of employeeColumns) await addColumnIfNotExists('employees', col.name, col.type, col.default);
+    
     await addColumnIfNotExists('tasks', 'wp_reward', 'INTEGER', '0');
     await addColumnIfNotExists('tasks', 'penalty_applied', 'BOOLEAN', 'FALSE');
     await addColumnIfNotExists('tasks', 'group_progress', 'JSONB', null);
@@ -228,9 +279,11 @@ async function runMigrations() {
     await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
     await addColumnIfNotExists('vp_bookings', 'duration', 'INTEGER', '1');
     await addColumnIfNotExists('fines', 'director_comment', 'TEXT', null);
+    
     await query(`CREATE TABLE IF NOT EXISTS pending_achievements (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, achievement_id))`).catch(() => {});
     await query(`CREATE TABLE IF NOT EXISTS schedule_special_cases (id SERIAL PRIMARY KEY, date DATE NOT NULL UNIQUE, cases JSONB NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
     await query(`CREATE TABLE IF NOT EXISTS task_attachments (id SERIAL PRIMARY KEY, task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE, file_name VARCHAR(255) NOT NULL, file_size INTEGER, file_type VARCHAR(100), file_data TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
+    
     logger.info('Миграции выполнены');
 }
 
