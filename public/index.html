@@ -1205,9 +1205,10 @@
                     <input type="text" id="loginName" placeholder="Логин" autocomplete="username" value="" required>
                 </div>
                 <div class="login-field">
-                    <i class="fas fa-lock"></i>
-                    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required>
-                    <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль"></i>
+    <i class="fas fa-lock" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
+    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required style="padding-right: 48px !important;">
+    <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; cursor: pointer; transition: color 0.2s; left: auto;"></i>
+</div>
                     <div class="capslock-warning" id="capslockWarning">
                         <i class="fas fa-exclamation-triangle"></i> Caps Lock включён
                     </div>
@@ -2083,12 +2084,12 @@
             
             // Показать/скрыть пароль
             document.getElementById('togglePassword')?.addEventListener('click', function() {
-                const input = document.getElementById('loginPassword');
-                if (input) {
-                    input.type = input.type === 'password' ? 'text' : 'password';
-                    this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-                }
-            });
+    const input = document.getElementById('loginPassword');
+    if (input) {
+        input.type = input.type === 'password' ? 'text' : 'password';
+        this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+    }
+});
             
             // Обнаружение Caps Lock
             document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
