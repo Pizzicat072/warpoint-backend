@@ -1828,25 +1828,19 @@ async function startServer() {
 function setupServerHandlers() {
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;
-    
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
-    
     process.on('uncaughtException', (err) => { 
-        logger.error('UNCAUGHT EXCEPTION:', err.message, err.stack); 
-        if (err.message.includes('EADDRINUSE')) { 
-            logger.error(`Порт ${PORT} уже занят!`); 
-            process.exit(1); 
-        } 
+        logger.error('UNCAUGHT EXCEPTION:', err.message); 
+        if (err.message.includes('EADDRINUSE')) process.exit(1);
     });
-    
-    process.on('unhandledRejection', (reason) => { 
-        logger.error('UNHANDLED REJECTION:', reason); 
-    });
+    process.on('unhandledRejection', (reason) => logger.error('UNHANDLED REJECTION:', reason));
 }
 
-startServer().catch(err => { logger.error('Ошибка запуска:', err); process.exit(1); });
+if (require.main === module) {
+    startServer().catch(err => { logger.error('Ошибка запуска:', err); process.exit(1); });
+}
 
 const publicAPI = { app, startServer, gracefulShutdown, query, addNotification, checkAndAwardAchievements };
 module.exports = publicAPI;
