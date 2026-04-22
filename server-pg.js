@@ -312,7 +312,7 @@ try {
         { name: 'birthday', type: 'DATE', default: null }
     ];
     for (const col of employeeColumns) await addColumnIfNotExists('employees', col.name, col.type, col.default);
-    
+    await addColumnIfNotExists('employees', 'updated_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
     await addColumnIfNotExists('tasks', 'wp_reward', 'INTEGER', '0');
     await addColumnIfNotExists('tasks', 'penalty_applied', 'BOOLEAN', 'FALSE');
     await addColumnIfNotExists('tasks', 'group_progress', 'JSONB', null);
@@ -578,7 +578,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
         }
         
         // Успешный вход
-        await query("UPDATE employees SET last_active = NOW() WHERE id = $1", [user.id]);
+        await query("UPDATE employees SET last_active = NOW() WHERE id = $1", [user.id]).catch(e => logger.warn('Не удалось обновить last_active:', e.message));
         delete user.password_hash;
         
         const token = generateToken({ id: user.id, username: user.name, role: user.role });
