@@ -78,7 +78,20 @@ async function addNotification(recipient, type, data) { try { await query("INSER
 function escapeHtml(str) { if (!str) return ''; return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m])); }
 
 app.set('trust proxy', 1);
-app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"], scriptSrc: ["'self'", "'unsafe-inline'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"], imgSrc: ["'self'", "data:", "https:"], fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"], connectSrc: ["'self'", "https://api.pusherapp.com"], frameSrc: ["'self'"] } }, crossOriginEmbedderPolicy: false }));
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            imgSrc: ["'self'", "data:", "https:"],
+            fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
+            connectSrc: ["'self'", "https://api.pusherapp.com", "https://js.pusher.com", "https://cdn.jsdelivr.net"],
+            frameSrc: ["'self'"]
+        }
+    },
+    crossOriginEmbedderPolicy: false
+}));
 app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
@@ -514,36 +527,69 @@ console.log('✅ ЧАСТЬ 2/10 загружена (миграции, дост�
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
-        if (!username || !password) return res.status(400).json({ success: false, error: 'Введите логин и пароль' });
-        const userResult = await query(`SELECT e.*, p.password_hash FROM employees e LEFT JOIN passwords p ON p.username = e.name WHERE e.name = $1 AND e.is_active = TRUE AND e.deleted_at IS NULL`, [username]);
-        if (userResult.rows.length === 0) return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
+        logger.info(`Попытка входа: ${username}`);
+        
+        if (!username || !password) {
+            return res.status(400).json({ success: false, error: 'Введите логин и пароль' });
+        }
+        
+        // Проверяем существование пользователя
+        const userCheck = await query(`SELECT id, name FROM employees WHERE name = $1`, [username]);
+        if (userCheck.rows.length === 0) {
+            logger.warn(`Пользователь не найден: ${username}`);
+            return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
+        }
+        
+        // Получаем пользователя с паролем
+        const userResult = await query(
+            `SELECT e.*, p.password_hash 
+             FROM employees e 
+             LEFT JOIN passwords p ON p.username = e.name 
+             WHERE e.name = $1 AND e.is_active = TRUE AND e.deleted_at IS NULL`,
+            [username]
+        );
+        
+        if (userResult.rows.length === 0) {
+            return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
+        }
+        
         const user = userResult.rows[0];
+        logger.info(`Пользователь найден: ${user.name}, роль: ${user.role}`);
+        
+        // Проверяем пароль
         if (!user.password_hash) {
+            logger.warn(`Нет хеша пароля для: ${username}`);
+            
+            // Если это директор и пароль denis_1 - создаём хеш
             if (user.role === 'director' && password === 'denis_1') {
+                logger.info('Создаём пароль для директора');
                 const hashedPassword = await hashPassword('denis_1');
                 await query("INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET password_hash = $2", [username, hashedPassword]);
                 user.password_hash = hashedPassword;
-            } else return res.status(401).json({ success: false, error: 'Пароль не установлен' });
+            } else {
+                return res.status(401).json({ success: false, error: 'Пароль не установлен' });
+            }
         }
+        
         const validPassword = await comparePassword(password, user.password_hash);
-        if (!validPassword) return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
-        const today = getTobolskDate();
-        const lastClaim = user.last_bonus_claimed_at ? new Date(user.last_bonus_claimed_at).toISOString().split('T')[0] : null;
-        let streak = user.bonus_streak || 1;
-        if (lastClaim !== today) {
-            const yesterday = getTobolskNow().subtract(1, 'day').format('YYYY-MM-DD');
-            if (lastClaim === yesterday) streak = Math.min(streak + 1, 365);
-            else streak = 1;
-            await query("UPDATE employees SET bonus_streak = $1 WHERE id = $2", [streak, user.id]);
+        if (!validPassword) {
+            logger.warn(`Неверный пароль для: ${username}`);
+            return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
         }
+        
+        // Успешный вход
         await query("UPDATE employees SET last_active = NOW() WHERE id = $1", [user.id]);
         delete user.password_hash;
+        
         const token = generateToken({ id: user.id, username: user.name, role: user.role });
-        await checkAndAwardAchievements(user.id);
-        const pendingAchievements = await query("SELECT a.id, a.name, a.coins_reward FROM pending_achievements pa JOIN achievements a ON a.id = pa.achievement_id WHERE pa.user_id = $1", [user.id]);
-        logger.info(`Вход: ${username}`);
-        res.json({ success: true, user, token, newAchievements: pendingAchievements.rows });
-    } catch (err) { logger.error('Ошибка входа:', err.message); res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера' }); }
+        
+        logger.info(`✅ Успешный вход: ${username}`);
+        res.json({ success: true, user, token });
+        
+    } catch (err) {
+        logger.error('Ошибка входа:', err.message, err.stack);
+        res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера' });
+    }
 });
 
 app.post('/api/auth/logout', authMiddleware, (req, res) => { res.json({ success: true, message: 'Выход выполнен' }); });
