@@ -249,10 +249,10 @@ const TABLE_DEFINITIONS = {
     // Системные настройки
     system_settings: `
         CREATE TABLE IF NOT EXISTS system_settings (
-            setting_key VARCHAR(100) PRIMARY KEY,
-            setting_value TEXT,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+    key VARCHAR(100) PRIMARY KEY,
+    value TEXT,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
     `,
     
     // Сотрудники
@@ -731,9 +731,9 @@ async function initSystemSettings() {
     
     for (const s of settings) {
         await query(`
-            INSERT INTO system_settings (setting_key, setting_value)
+            INSERT INTO system_settings (key, value)
             VALUES ($1, $2)
-            ON CONFLICT (setting_key) DO NOTHING
+            ON CONFLICT (key) DO NOTHING
         `, [s.key, s.value]).catch(() => {});
     }
 }
@@ -2374,8 +2374,8 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
 
 app.get('/api/admin/theme', authMiddleware, async (req, res) => {
     try {
-        const result = await query("SELECT setting_value FROM system_settings WHERE setting_key = 'global_theme'");
-        res.json({ success: true, theme: result.rows[0]?.setting_value || 'vr-portal' });
+        const result = await query("SELECT value FROM system_settings WHERE key = 'global_theme'");
+        res.json({ success: true, theme: result.rows[0]?.value || 'vr-portal' });
     } catch (err) {
         res.json({ success: true, theme: 'vr-portal' });
     }
@@ -2389,7 +2389,7 @@ app.post('/api/admin/theme', authMiddleware, async (req, res) => {
     try {
         const { theme } = req.body;
         await query(
-            "INSERT INTO system_settings (setting_key, setting_value) VALUES ('global_theme', $1) ON CONFLICT (setting_key) DO UPDATE SET setting_value = $1",
+            "INSERT INTO system_settings (key, value) VALUES ('global_theme', $1) ON CONFLICT (key) DO UPDATE SET value = $1",
             [theme]
         );
         res.json({ success: true, theme });
