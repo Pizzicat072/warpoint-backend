@@ -1823,7 +1823,7 @@ app.post('/api/salary/apply-all', authMiddleware, async (req, res) => {
         }
         
         res.json({ success: true, updated: operators.rows.length });
-    } catch (17) {
+    } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
