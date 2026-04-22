@@ -2,31 +2,99 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, maximum-scale=1.0">
     <meta name="theme-color" content="#0a0c12">
-    <title>WARPOINT — Хаб сотрудников</title>
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="WARPOINT HUB">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-TileColor" content="#0a0c12">
+    <meta name="msapplication-config" content="none">
+    
+    <!-- SEO -->
+    <meta name="description" content="WARPOINT HUB — корпоративный портал для управления VR-клубом. Сотрудники, график смен, задачи, штрафы, зарплата, достижения, чат и аналитика в одном месте.">
+    <meta name="keywords" content="WARPOINT, VR, виртуальная реальность, клуб, управление персоналом, график смен, задачи, KPI, зарплата, CRM, корпоративный портал">
+    <meta name="author" content="WARPOINT Team">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="google" content="notranslate">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="WARPOINT HUB — Корпоративный портал VR-клуба">
+    <meta property="og:description" content="Полнофункциональная система управления: сотрудники, график, задачи, штрафы, зарплата, достижения, чат, база знаний и аналитика.">
+    <meta property="og:image" content="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
+    <meta property="og:url" content="https://warpoint.ru">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="WARPOINT HUB">
+    <meta property="og:locale" content="ru_RU">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="WARPOINT HUB">
+    <meta name="twitter:description" content="Корпоративный портал VR-клуба">
+    <meta name="twitter:image" content="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
+    
+    <title>WARPOINT HUB — Корпоративный портал</title>
+    
+    <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="apple-touch-icon" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
+    <link rel="mask-icon" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" color="#0a0c12">
+    
+    <!-- Preconnect для ускорения загрузки -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://js.pusher.com">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'; this.onload=null;">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
+    
+    <!-- Основные стили -->
     <link rel="stylesheet" href="/css/style.css">
+    
+    <!-- КРИТИЧЕСКИЕ INLINE-СТИЛИ — ПРЕДОТВРАЩЕНИЕ FOUC -->
     <style>
-        /* 🔥 Инлайн-стили для предотвращения мигания белого фона */
-        body {
-            background: #0a0c12;
-            margin: 0;
-            padding: 0;
-        }
-        * {
+        /* ============================================ */
+        /* CRITICAL STYLES — NO FOUC                     */
+        /* ============================================ */
+        
+        /* Reset & Box-sizing */
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
+        /* Базовые стили body */
+        html {
+            font-size: 16px;
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+            scroll-behavior: smooth;
+        }
+        
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #0a0c12;
             color: #ffffff;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
             position: relative;
+            overflow-x: hidden;
+            line-height: 1.5;
         }
+        
+        /* Системные шрифты если Inter не загружен */
+        @supports (font-variation-settings: normal) {
+            body { font-family: 'Inter var', sans-serif; }
+        }
+        
+        /* Фоновый градиент */
         body::before {
             content: '';
             position: fixed;
@@ -35,13 +103,11 @@
             width: 100%;
             height: 100%;
             background: radial-gradient(ellipse at 20% 30%, #0a0f1e, #05070f);
-            z-index: -2;
-            transition: opacity 0.5s ease;
+            z-index: -3;
+            pointer-events: none;
         }
-        body.bg-image-loaded::before {
-            background: url('/2026-04-02_03-45-56.png') center/cover no-repeat !important;
-            filter: brightness(0.4) saturate(0.8) !important;
-        }
+        
+        /* Фоновое изображение (загружается асинхронно) */
         body::after {
             content: '';
             position: fixed;
@@ -50,21 +116,51 @@
             width: 100%;
             height: 100%;
             background: rgba(0, 0, 0, 0.5);
-            z-index: -1;
+            z-index: -2;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
         }
         
-        /* Анимация перехода страниц */
-        #pageContainer {
-            animation: pageFadeIn 0.25s ease-out;
-        }
-        @keyframes pageFadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
+        body.bg-image-loaded::after {
+            background: url('/2026-04-02_03-45-56.png') center/cover no-repeat !important;
+            filter: brightness(0.4) saturate(0.8) !important;
+            opacity: 1;
         }
         
-        /* ============================================ */
-        /* КРУТОЙ ПРЕМИУМ ПРЕЛОАДЕР                     */
-        /* ============================================ */
+        /* Анимации */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        @keyframes skeletonLoading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* ===== ПРЕЛОАДЕР ===== */
         #globalLoader {
             position: fixed;
             top: 0;
@@ -76,26 +172,30 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.8s;
+            transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
             overflow: hidden;
         }
+        
         #globalLoader.fade-out {
             opacity: 0;
             visibility: hidden;
         }
+        
         .loader-orb-bg {
             position: absolute;
             width: 100%;
             height: 100%;
             overflow: hidden;
         }
+        
         .loader-orb {
             position: absolute;
             border-radius: 50%;
             filter: blur(80px);
-            opacity: 0.2;
+            opacity: 0.15;
             animation: orbFloat 12s ease-in-out infinite;
         }
+        
         .orb-1 {
             width: 500px;
             height: 500px;
@@ -104,6 +204,7 @@
             left: -150px;
             animation-delay: 0s;
         }
+        
         .orb-2 {
             width: 600px;
             height: 600px;
@@ -112,6 +213,7 @@
             right: -150px;
             animation-delay: 4s;
         }
+        
         .orb-3 {
             width: 400px;
             height: 400px;
@@ -121,10 +223,12 @@
             transform: translate(-50%, -50%);
             animation-delay: 2s;
         }
+        
         @keyframes orbFloat {
             0%, 100% { transform: translate(0, 0) scale(1); }
             50% { transform: translate(40px, -30px) scale(1.2); }
         }
+        
         .loader-particles {
             position: absolute;
             top: 0;
@@ -133,6 +237,7 @@
             height: 100%;
             pointer-events: none;
         }
+        
         .loader-particle {
             position: absolute;
             width: 2px;
@@ -141,12 +246,14 @@
             border-radius: 50%;
             animation: particleFloat 8s ease-in-out infinite;
         }
+        
         @keyframes particleFloat {
             0% { transform: translateY(100vh) translateX(0); opacity: 0; }
             10% { opacity: 0.8; }
             90% { opacity: 0.8; }
             100% { transform: translateY(-100vh) translateX(50px); opacity: 0; }
         }
+        
         .loader-content {
             position: relative;
             z-index: 10;
@@ -156,25 +263,30 @@
             padding: 50px 40px;
             background: rgba(15, 20, 35, 0.4);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-radius: 48px;
             border: 1px solid rgba(99, 102, 241, 0.3);
             box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
             animation: contentGlow 3s ease-in-out infinite;
         }
+        
         @keyframes contentGlow {
             0%, 100% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(99, 102, 241, 0.2) inset; }
             50% { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(139, 92, 246, 0.5) inset; }
         }
+        
         .loader-logo {
             margin-bottom: 30px;
             position: relative;
         }
+        
         .loader-logo-wrapper {
             position: relative;
             width: 100px;
             height: 100px;
             margin: 0 auto;
         }
+        
         .loader-logo-ring {
             position: absolute;
             top: -10px;
@@ -189,6 +301,7 @@
             mask-composite: exclude;
             animation: ringRotate 3s linear infinite;
         }
+        
         .loader-logo-ring-2 {
             position: absolute;
             top: -20px;
@@ -199,14 +312,17 @@
             border: 1px solid rgba(139, 92, 246, 0.3);
             animation: ringRotateReverse 5s linear infinite;
         }
+        
         @keyframes ringRotate {
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
+        
         @keyframes ringRotateReverse {
             from { transform: rotate(360deg); }
             to { transform: rotate(0deg); }
         }
+        
         .loader-logo img {
             width: 100%;
             height: 100%;
@@ -215,10 +331,12 @@
             box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
             animation: logoPulse 2s ease-in-out infinite;
         }
+        
         @keyframes logoPulse {
             0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(99, 102, 241, 0.5); }
             50% { transform: scale(1.05); box-shadow: 0 0 40px rgba(99, 102, 241, 0.8); }
         }
+        
         .loader-title {
             font-size: 36px;
             font-weight: 800;
@@ -230,6 +348,7 @@
             color: transparent;
             text-shadow: 0 0 40px rgba(139, 92, 246, 0.3);
         }
+        
         .loader-subtitle {
             font-size: 11px;
             color: #94a3b8;
@@ -237,9 +356,11 @@
             text-transform: uppercase;
             margin-bottom: 35px;
         }
+        
         .loader-progress-section {
             margin-bottom: 25px;
         }
+        
         .loader-progress-bar {
             width: 100%;
             height: 4px;
@@ -248,6 +369,7 @@
             overflow: hidden;
             margin-bottom: 12px;
         }
+        
         .loader-progress-fill {
             width: 0%;
             height: 100%;
@@ -256,6 +378,7 @@
             transition: width 0.3s ease-out;
             position: relative;
         }
+        
         .loader-progress-fill::after {
             content: '';
             position: absolute;
@@ -266,16 +389,19 @@
             background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3));
             filter: blur(3px);
         }
+        
         .loader-percent {
             font-size: 13px;
             font-weight: 600;
             color: #a78bfa;
             margin-bottom: 8px;
         }
+        
         .loader-status-text {
             font-size: 12px;
             color: #64748b;
         }
+        
         .loader-tip {
             margin-top: 30px;
             padding: 12px 20px;
@@ -286,10 +412,12 @@
             color: #cbd5e1;
             transition: opacity 0.3s ease;
         }
+        
         .loader-tip i {
             margin-right: 8px;
             color: #fbbf24;
         }
+        
         .loader-module-name {
             margin-top: 8px;
             font-size: 11px;
@@ -297,7 +425,7 @@
             opacity: 0.8;
         }
         
-        /* ===== СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ) ===== */
+        /* ===== СИНХРОНИЗАЦИЯ ===== */
         #syncIndicator {
             position: fixed !important;
             bottom: 24px !important;
@@ -308,6 +436,7 @@
             height: 46px !important;
             background: rgba(18, 24, 34, 0.85) !important;
             backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
             border-radius: 14px !important;
             display: flex !important;
             align-items: center !important;
@@ -318,33 +447,38 @@
             transition: all 0.2s ease !important;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
         }
+        
         #syncIndicator:hover {
             transform: scale(1.05);
             background: rgba(18, 24, 34, 0.95);
             border-color: rgba(99, 102, 241, 0.4);
         }
+        
         #syncIndicator i {
             font-size: 20px;
             color: #ef4444;
             transition: color 0.2s ease;
         }
+        
         #syncIndicator.online i {
             color: #10b981;
         }
+        
         #syncIndicator.connecting i {
             color: #f59e0b;
             animation: syncSpin 1.5s linear infinite;
         }
+        
         @keyframes syncSpin {
             to { transform: rotate(360deg); }
         }
-        /* Скрывать индикатор на странице входа */
+        
         body:has(#loginModal[style*="display: flex"]) #syncIndicator,
         body:has(#loginModal.active) #syncIndicator {
             display: none !important;
         }
         
-        /* ===== МОДАЛКА АВТОРИЗАЦИИ ===== */
+        /* ===== МОДАЛКА ВХОДА ===== */
         #loginModal {
             position: fixed;
             top: 0;
@@ -358,37 +492,44 @@
             padding: 20px;
             background: rgba(5, 7, 15, 0.8);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
         }
+        
         .login-card {
-            width: 400px;
+            width: 420px;
             max-width: 100%;
             max-height: 90vh;
             overflow-y: auto;
             padding: 48px 40px;
             background: rgba(18, 24, 34, 0.85);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-radius: 32px;
             border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
             text-align: center;
             animation: cardAppear 0.5s ease-out;
         }
-        /* Кастомный скроллбар для модалки */
-        .login-card::-webkit-scrollbar {
-            width: 4px;
-        }
-        .login-card::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-        .login-card::-webkit-scrollbar-thumb {
-            background: #6366f1;
-            border-radius: 4px;
-        }
+        
         @keyframes cardAppear {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+        
+        .login-card::-webkit-scrollbar {
+            width: 4px;
+        }
+        
+        .login-card::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+        
+        .login-card::-webkit-scrollbar-thumb {
+            background: #6366f1;
+            border-radius: 4px;
+        }
+        
         .login-logo-clean {
             width: 100px;
             height: 100px;
@@ -396,15 +537,18 @@
             cursor: pointer;
             transition: transform 0.2s;
         }
+        
         .login-logo-clean:hover {
             transform: scale(1.05);
         }
+        
         .login-logo-clean img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
+        
         .login-brand-name {
             font-size: 28px;
             font-weight: 700;
@@ -414,22 +558,27 @@
             background-clip: text;
             color: transparent;
         }
+        
         .login-brand-sub {
             font-size: 13px;
             color: #9ca3af;
             margin-bottom: 40px;
         }
+        
         .login-field {
             position: relative;
             margin-bottom: 16px;
         }
+        
         .login-field i {
             position: absolute;
             left: 16px;
             top: 50%;
             transform: translateY(-50%);
             color: #9ca3af;
+            font-size: 16px;
         }
+        
         .login-field .toggle-password {
             left: auto;
             right: 16px;
@@ -437,9 +586,11 @@
             color: #9ca3af;
             transition: color 0.2s;
         }
+        
         .login-field .toggle-password:hover {
             color: #a78bfa;
         }
+        
         .login-field input {
             width: 100%;
             padding: 14px 48px 14px 48px;
@@ -451,14 +602,17 @@
             outline: none;
             transition: all 0.2s;
         }
+        
         .login-field input:focus {
             border-color: #6366f1;
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
+        
         .login-field input.error {
             border-color: #ef4444;
             box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
         }
+        
         .capslock-warning {
             position: absolute;
             bottom: -20px;
@@ -467,9 +621,11 @@
             color: #f59e0b;
             display: none;
         }
+        
         .capslock-warning.show {
             display: block;
         }
+        
         .login-error-message {
             color: #ef4444;
             font-size: 12px;
@@ -477,11 +633,13 @@
             margin-bottom: 8px;
             min-height: 20px;
         }
+        
         .login-options {
             display: flex;
             align-items: center;
             margin: 12px 0;
         }
+        
         .remember-me {
             display: flex;
             align-items: center;
@@ -490,11 +648,14 @@
             font-size: 13px;
             color: #9ca3af;
         }
+        
         .remember-me input {
             width: 16px;
             height: 16px;
             accent-color: #6366f1;
+            cursor: pointer;
         }
+        
         .login-submit-btn {
             width: 100%;
             padding: 14px 20px;
@@ -510,15 +671,19 @@
             justify-content: center;
             gap: 8px;
             transition: all 0.2s;
+            font-size: 15px;
         }
+        
         .login-submit-btn:hover:not(:disabled) {
             transform: translateY(-1px);
             box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
         }
+        
         .login-submit-btn:disabled {
             opacity: 0.7;
             cursor: not-allowed;
         }
+        
         .login-footer-note {
             margin-top: 24px;
             font-size: 12px;
@@ -534,6 +699,11 @@
             position: relative;
             z-index: 10;
             min-height: 100vh;
+            display: none;
+        }
+        
+        #mainContainer[style*="display: block"] {
+            animation: fadeIn 0.3s ease;
         }
         
         /* ===== ХЕДЕР ===== */
@@ -544,38 +714,50 @@
             padding: 16px 32px;
             background: rgba(11, 14, 20, 0.8);
             backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             position: sticky;
             top: 0;
             z-index: 1000;
+            flex-wrap: wrap;
+            gap: 12px;
         }
+        
         .logo-area {
             display: flex;
             align-items: center;
             gap: 12px;
         }
+        
         .logo-icon {
             width: 40px;
             height: 40px;
             border-radius: 12px;
             overflow: hidden;
+            flex-shrink: 0;
         }
+        
         .logo-icon img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
+        
         .logo-text {
             font-size: 22px;
             font-weight: 700;
+            white-space: nowrap;
         }
+        
         .logo-badge {
             background: #6366f1;
             padding: 2px 8px;
             border-radius: 20px;
             font-size: 10px;
             margin-left: 8px;
+            font-weight: 600;
         }
+        
         .user-card {
             display: flex;
             align-items: center;
@@ -584,6 +766,7 @@
             border-radius: 40px;
             padding: 4px 16px 4px 8px;
         }
+        
         .user-avatar {
             width: 36px;
             height: 36px;
@@ -596,18 +779,23 @@
             cursor: pointer;
             overflow: hidden;
             transition: transform 0.2s;
+            flex-shrink: 0;
         }
+        
         .user-avatar:hover {
             transform: scale(1.05);
         }
+        
         .user-avatar img {
             width: 100%;
             height: 100%;
             object-fit: cover;
         }
+        
         .user-info {
             text-align: right;
         }
+        
         .user-name {
             font-weight: 600;
             font-size: 13px;
@@ -616,10 +804,12 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+        
         .user-status {
             font-size: 10px;
             color: #9ca3af;
         }
+        
         .logout-btn {
             background: transparent;
             border: 1px solid rgba(239, 68, 68, 0.3);
@@ -629,10 +819,13 @@
             cursor: pointer;
             font-size: 11px;
             transition: all 0.2s;
+            white-space: nowrap;
         }
+        
         .logout-btn:hover {
             background: rgba(239, 68, 68, 0.1);
         }
+        
         .about-link {
             color: #9ca3af;
             text-decoration: none;
@@ -644,11 +837,14 @@
             display: flex;
             align-items: center;
             gap: 6px;
+            white-space: nowrap;
         }
+        
         .about-link:hover {
             background: rgba(99, 102, 241, 0.15);
             color: #a78bfa;
         }
+        
         .notifications-icon {
             position: relative;
             cursor: pointer;
@@ -659,7 +855,13 @@
             justify-content: center;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.04);
+            transition: all 0.2s;
         }
+        
+        .notifications-icon:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+        
         .notifications-icon .badge {
             position: absolute;
             top: -4px;
@@ -675,7 +877,9 @@
             align-items: center;
             justify-content: center;
             padding: 0 4px;
+            border: 1px solid #0a0c12;
         }
+        
         .notifications-dropdown {
             position: absolute;
             top: 60px;
@@ -690,6 +894,7 @@
             overflow: hidden;
             display: none;
         }
+        
         .notifications-dropdown::before {
             content: '';
             position: absolute;
@@ -702,12 +907,17 @@
             border-left: 1px solid rgba(255, 255, 255, 0.06);
             border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
+        
         .notifications-dropdown.show {
             display: block;
+            animation: fadeInUp 0.2s ease;
         }
+        
+        /* ===== ГЛАВНОЕ МЕНЮ ===== */
         .main-menu {
             background: rgba(11, 14, 20, 0.8);
             backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             position: sticky;
             top: 72px;
@@ -715,18 +925,21 @@
             padding: 0 16px;
             overflow-x: auto;
         }
-        /* Индикатор скролла для меню */
+        
         .main-menu::-webkit-scrollbar {
             height: 3px;
         }
+        
         .main-menu::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 2px;
         }
+        
         .main-menu::-webkit-scrollbar-thumb {
             background: #6366f1;
             border-radius: 2px;
         }
+        
         .menu-container {
             display: flex;
             align-items: center;
@@ -735,6 +948,7 @@
             margin: 0 auto;
             padding: 8px 0;
         }
+        
         .menu-item {
             display: flex;
             flex-direction: column;
@@ -748,711 +962,2071 @@
             white-space: nowrap;
             transition: all 0.2s;
         }
+        
         @media (hover: hover) {
             .menu-item:hover {
                 background: rgba(255, 255, 255, 0.04);
             }
         }
+        
         .menu-item i {
             font-size: 18px;
             color: #9ca3af;
+            transition: color 0.2s;
         }
+        
         .menu-item .menu-tooltip {
             font-size: 10px;
             color: #9ca3af;
+            transition: color 0.2s;
         }
+        
         .menu-item.active {
             background: rgba(99, 102, 241, 0.1);
         }
+        
         .menu-item.active i,
         .menu-item.active .menu-tooltip {
             color: #818cf8;
         }
         
+        /* ===== СКЕЛЕТОНЫ ===== */
+        .page-skeleton {
+            padding: 24px 32px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .skeleton-header {
+            height: 60px;
+            background: linear-gradient(90deg, #2a3240 25%, #3a4250 50%, #2a3240 75%);
+            background-size: 200% 100%;
+            border-radius: 16px;
+            animation: skeletonLoading 1.5s infinite;
+            margin-bottom: 24px;
+        }
+        
+        .skeleton-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+        
+        .skeleton-card {
+            height: 200px;
+            background: linear-gradient(90deg, #2a3240 25%, #3a4250 50%, #2a3240 75%);
+            background-size: 200% 100%;
+            border-radius: 20px;
+            animation: skeletonLoading 1.5s infinite;
+        }
+        
+        /* ===== ФУТЕР ===== */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+            margin-top: 40px;
+        }
+        
         /* ===== АДАПТИВНОСТЬ ===== */
         @media (max-width: 768px) {
-            .header { padding: 12px 16px; }
-            .logo-text { font-size: 18px; }
-            .user-info { display: none; }
-            .about-link span { display: none; }
-            .about-link { padding: 8px; }
-            .main-menu { top: 60px; }
-            .menu-item .menu-tooltip { display: none; }
-            .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
-            .notifications-dropdown::before { right: 25px; }
-            .login-card { padding: 36px 24px; }
-            #syncIndicator { bottom: 16px !important; left: 16px !important; width: 40px !important; height: 40px !important; }
-            .loader-title { font-size: 28px; letter-spacing: 2px; }
-            .loader-content { padding: 35px 25px; }
-            .login-logo-clean { width: 80px; height: 80px; }
-            .logout-btn { padding: 10px 16px; min-height: 44px; }
+            .header {
+                padding: 12px 16px;
+            }
+            
+            .logo-text {
+                font-size: 18px;
+            }
+            
+            .user-info {
+                display: none;
+            }
+            
+            .about-link span {
+                display: none;
+            }
+            
+            .about-link {
+                padding: 8px;
+            }
+            
+            .main-menu {
+                top: 60px;
+            }
+            
+            .menu-item .menu-tooltip {
+                display: none;
+            }
+            
+            .notifications-dropdown {
+                width: calc(100% - 40px);
+                right: 20px;
+                left: 20px;
+            }
+            
+            .notifications-dropdown::before {
+                right: 25px;
+            }
+            
+            .login-card {
+                padding: 36px 24px;
+            }
+            
+            #syncIndicator {
+                bottom: 16px !important;
+                left: 16px !important;
+                width: 40px !important;
+                height: 40px !important;
+            }
+            
+            .loader-title {
+                font-size: 28px;
+                letter-spacing: 2px;
+            }
+            
+            .loader-content {
+                padding: 35px 25px;
+            }
+            
+            .login-logo-clean {
+                width: 80px;
+                height: 80px;
+            }
+            
+            .logout-btn {
+                padding: 10px 16px;
+                min-height: 44px;
+            }
+            
+            .skeleton-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
+        
         @media (max-width: 480px) {
-            .login-card { padding: 32px 20px; }
-            .login-brand-name { font-size: 24px; }
+            .login-card {
+                padding: 32px 20px;
+            }
+            
+            .login-brand-name {
+                font-size: 24px;
+            }
+            
+            .skeleton-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        /* ===== УТИЛИТЫ ===== */
+        .hidden {
+            display: none !important;
+        }
+        
+        .visually-hidden {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            margin: -1px;
+            padding: 0;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            border: 0;
+        }
+        
+        .text-gradient {
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .no-select {
+            user-select: none;
+            -webkit-user-select: none;
         }
     </style>
 </head>
 <body>
-
-<!-- КРУТОЙ ПРЕМИУМ ПРЕЛОАДЕР -->
-<div id="globalLoader" style="display: none;">
-    <div class="loader-orb-bg">
-        <div class="loader-orb orb-1"></div>
-        <div class="loader-orb orb-2"></div>
-        <div class="loader-orb orb-3"></div>
-    </div>
-    
-    <div class="loader-particles" id="loaderParticles"></div>
-    
-    <div class="loader-content">
-        <div class="loader-logo">
-            <div class="loader-logo-wrapper">
-                <div class="loader-logo-ring"></div>
-                <div class="loader-logo-ring-2"></div>
-                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
-            </div>
-        </div>
-        <div class="loader-title">WARPOINT HUB</div>
-        <div class="loader-subtitle">КОРПОРАТИВНЫЙ ПОРТАЛ</div>
-        
-        <div class="loader-progress-section">
-            <div class="loader-progress-bar">
-                <div class="loader-progress-fill" id="loaderProgressFill"></div>
-            </div>
-            <div class="loader-percent" id="loaderPercent">0%</div>
-            <div class="loader-status-text" id="loaderStatusText">Инициализация системы...</div>
-            <div class="loader-module-name" id="loaderModuleName"></div>
+    <!-- ПРЕЛОАДЕР -->
+    <div id="globalLoader">
+        <div class="loader-orb-bg">
+            <div class="loader-orb orb-1"></div>
+            <div class="loader-orb orb-2"></div>
+            <div class="loader-orb orb-3"></div>
         </div>
         
-        <div class="loader-tip" id="loaderTip">
-            <i class="fas fa-lightbulb"></i>
-            <span>WARPOINT — корпоративный портал</span>
-        </div>
-    </div>
-</div>
-
-<!-- СИНХРОНИЗАЦИЯ (ЛЕВЫЙ НИЖНИЙ УГОЛ) -->
-<div id="syncIndicator" onclick="if(typeof window.initPusher==='function')window.initPusher()" title="Статус подключения к чату">
-    <i class="fas fa-broadcast-tower"></i>
-</div>
-
-<!-- МОДАЛКА АВТОРИЗАЦИИ -->
-<div id="loginModal">
-    <div class="login-card">
-        <div class="login-logo-clean" onclick="location.reload()" title="Обновить страницу">
-            <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
-        </div>
-        <h1 class="login-brand-name">WARPOINT</h1>
-        <p class="login-brand-sub">корпоративный портал</p>
-        <form id="loginForm" onsubmit="event.preventDefault(); window.login();">
-            <div class="login-field">
-                <i class="fas fa-user"></i>
-                <input type="text" id="loginName" placeholder="Логин" autocomplete="username" value="">
-            </div>
-            <div class="login-field">
-                <i class="fas fa-lock"></i>
-                <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
-                <i class="fas fa-eye toggle-password" id="togglePassword" onclick="togglePasswordVisibility()" title="Показать пароль"></i>
-                <div class="capslock-warning" id="capslockWarning">
-                    <i class="fas fa-exclamation-triangle"></i> Caps Lock включён
+        <div class="loader-particles" id="loaderParticles"></div>
+        
+        <div class="loader-content">
+            <div class="loader-logo">
+                <div class="loader-logo-wrapper">
+                    <div class="loader-logo-ring"></div>
+                    <div class="loader-logo-ring-2"></div>
+                    <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" loading="eager">
                 </div>
             </div>
-            <div class="login-error-message" id="loginErrorMessage"></div>
-            <div class="login-options">
-                <label class="remember-me">
-                    <input type="checkbox" id="rememberMe"> Запомнить меня
-                </label>
+            <div class="loader-title">WARPOINT HUB</div>
+            <div class="loader-subtitle">КОРПОРАТИВНЫЙ ПОРТАЛ</div>
+            
+            <div class="loader-progress-section">
+                <div class="loader-progress-bar">
+                    <div class="loader-progress-fill" id="loaderProgressFill"></div>
+                </div>
+                <div class="loader-percent" id="loaderPercent">0%</div>
+                <div class="loader-status-text" id="loaderStatusText">Инициализация системы...</div>
+                <div class="loader-module-name" id="loaderModuleName"></div>
             </div>
-            <button type="submit" class="login-submit-btn" id="loginSubmitBtn">
-                <span>Войти</span>
-                <i class="fas fa-arrow-right"></i>
-            </button>
-        </form>
-        <div class="login-footer-note">
-            <i class="fas fa-shield-alt"></i>
-            <span>только для сотрудников</span>
+            
+            <div class="loader-tip" id="loaderTip">
+                <i class="fas fa-lightbulb"></i>
+                <span>WARPOINT — корпоративный портал</span>
+            </div>
         </div>
     </div>
-</div>
-
-<!-- ОСНОВНОЙ КОНТЕЙНЕР -->
-<div id="mainContainer" style="display: none;">
-    <div class="header">
-        <div class="logo-area">
-            <div class="logo-icon">
-                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+    
+    <!-- ИНДИКАТОР СИНХРОНИЗАЦИИ -->
+    <div id="syncIndicator" onclick="if(typeof window.auth?.reconnectPusher==='function')window.auth.reconnectPusher(); else if(typeof window.initPusher==='function')window.initPusher()" title="Статус подключения к чату">
+        <i class="fas fa-broadcast-tower"></i>
+    </div>
+    
+    <!-- МОДАЛКА ВХОДА -->
+    <div id="loginModal">
+        <div class="login-card">
+            <div class="login-logo-clean" onclick="location.reload()" title="Обновить страницу">
+                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" loading="eager">
             </div>
-            <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ</span></div>
-        </div>
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i><span> О проекте</span></a>
-            <div class="notifications-icon" id="notificationsIcon" onclick="toggleNotificationsDropdown()">
-                <i class="far fa-bell"></i>
-                <span class="badge" id="notificationsBadge" style="display: none;">0</span>
-            </div>
-            <div class="notifications-dropdown" id="notificationsDropdown">
-                <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between;">
-                    <h4 style="margin:0;font-size:13px;"><i class="far fa-bell"></i> Уведомления</h4>
-                    <div style="display:flex;gap:12px;">
-                        <button onclick="markAllNotificationsRead()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button>
-                        <button onclick="clearAllNotifications()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button>
+            <h1 class="login-brand-name">WARPOINT</h1>
+            <p class="login-brand-sub">корпоративный портал</p>
+            <form id="loginForm" onsubmit="return false;">
+                <div class="login-field">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="loginName" placeholder="Логин" autocomplete="username" value="" required>
+                </div>
+                <div class="login-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required>
+                    <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль"></i>
+                    <div class="capslock-warning" id="capslockWarning">
+                        <i class="fas fa-exclamation-triangle"></i> Caps Lock включён
                     </div>
                 </div>
-                <div id="notificationsList" style="max-height:360px;overflow-y:auto;">
-                    <div style="padding:40px;text-align:center;color:#9ca3af;">Загрузка...</div>
+                <div class="login-error-message" id="loginErrorMessage"></div>
+                <div class="login-options">
+                    <label class="remember-me">
+                        <input type="checkbox" id="rememberMe"> Запомнить меня
+                    </label>
                 </div>
-            </div>
-            <div class="user-card">
-                <div class="user-avatar" id="headerAvatar" onclick="openMyProfile()">👤</div>
-                <div class="user-info">
-                    <div class="user-name" id="headerName">Гость</div>
-                    <div class="user-status" id="headerStatus"></div>
-                </div>
-                <button class="logout-btn" onclick="window.authLogout()"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+                <button type="submit" class="login-submit-btn" id="loginSubmitBtn">
+                    <span>Войти</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            <div class="login-footer-note">
+                <i class="fas fa-shield-alt"></i>
+                <span>только для сотрудников</span>
             </div>
         </div>
     </div>
-    
-    <div class="main-menu" id="mainMenu"></div>
-    <div id="pageContainer">
-        <!-- Скелетон загрузки -->
-        <div class="page-skeleton" id="pageSkeleton">
-            <div class="skeleton-header"></div>
-            <div class="skeleton-grid">
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
-                <div class="skeleton-card"></div>
+    <!-- ОСНОВНОЙ КОНТЕЙНЕР -->
+    <div id="mainContainer" style="display: none;">
+        <!-- ХЕДЕР -->
+        <header class="header">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" loading="lazy">
+                </div>
+                <div class="logo-text">
+                    WARPOINT 
+                    <span class="logo-badge">ХАБ</span>
+                </div>
             </div>
-        </div>
-    </div>
-    
-    <!-- Футер -->
-    <footer style="text-align: center; padding: 20px; color: #64748b; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); margin-top: 40px;">
-        <span>© WARPOINT 2026 — Корпоративный портал v3.0</span>
-        <span style="margin: 0 10px;">•</span>
-        <span id="appVersion">Загрузка...</span>
-    </footer>
-</div>
-
-<style>
-    /* Скелетоны */
-    .page-skeleton {
-        padding: 24px 32px;
-        max-width: 1400px;
-        margin: 0 auto;
-    }
-    .skeleton-header {
-        height: 60px;
-        background: linear-gradient(90deg, #2a3240 25%, #3a4250 50%, #2a3240 75%);
-        background-size: 200% 100%;
-        border-radius: 16px;
-        animation: skeletonLoading 1.5s infinite;
-        margin-bottom: 24px;
-    }
-    .skeleton-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 20px;
-    }
-    .skeleton-card {
-        height: 200px;
-        background: linear-gradient(90deg, #2a3240 25%, #3a4250 50%, #2a3240 75%);
-        background-size: 200% 100%;
-        border-radius: 20px;
-        animation: skeletonLoading 1.5s infinite;
-    }
-    @keyframes skeletonLoading {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
-    }
-    @media (max-width: 768px) {
-        .skeleton-grid { grid-template-columns: repeat(2, 1fr); }
-    }
-</style>
-
-<!-- СКРИПТЫ -->
-<script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
-<script src="/js/utils.js"></script>
-<script src="/js/api.js"></script>
-<script src="/js/achievements.js"></script>
-<script src="/js/auth.js"></script>
-<script src="/js/router.js"></script>
-<script src="/js/dashboard.js"></script>
-<script src="/js/employees.js"></script>
-<script src="/js/schedule.js"></script>
-<script src="/js/tasks.js"></script>
-<script src="/js/shop.js"></script>
-<script src="/js/rating.js"></script>
-<script src="/js/notifications.js"></script>
-<script src="/js/fines.js"></script>
-<script src="/js/chat.js"></script>
-<script src="/js/knowledge.js"></script>
-<script src="/js/vp.js"></script>
-<script src="/js/salary.js"></script>
-<script src="/js/admin.js"></script>
-<script src="/js/reports.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-    // ============================================
-    // ГЛОБАЛЬНЫЕ ФУНКЦИИ ДЛЯ INDEX
-    // ============================================
-    
-    // Показать/скрыть пароль
-    window.togglePasswordVisibility = function() {
-        const input = document.getElementById('loginPassword');
-        const icon = document.getElementById('togglePassword');
-        if (input.type === 'password') {
-            input.type = 'text';
-            icon.classList.remove('fa-eye');
-            icon.classList.add('fa-eye-slash');
-        } else {
-            input.type = 'password';
-            icon.classList.remove('fa-eye-slash');
-            icon.classList.add('fa-eye');
-        }
-    };
-    
-    // Обнаружение Caps Lock
-    document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
-        const warning = document.getElementById('capslockWarning');
-        if (e.getModifierState && e.getModifierState('CapsLock')) {
-            warning.classList.add('show');
-        } else {
-            warning.classList.remove('show');
-        }
-    });
-    
-    // Закрытие дропдауна уведомлений по клику вне
-    document.addEventListener('click', function(e) {
-        const dropdown = document.getElementById('notificationsDropdown');
-        const icon = document.getElementById('notificationsIcon');
-        if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
-            dropdown.classList.remove('show');
-        }
-    });
-    
-    // Закрытие по свайпу на мобильных
-    let touchStartY = 0;
-    document.getElementById('notificationsDropdown')?.addEventListener('touchstart', (e) => {
-        touchStartY = e.touches[0].clientY;
-    });
-    document.getElementById('notificationsDropdown')?.addEventListener('touchmove', (e) => {
-        const touchY = e.touches[0].clientY;
-        if (touchY - touchStartY > 50) {
-            document.getElementById('notificationsDropdown').classList.remove('show');
-        }
-    });
-    
-    // Проверка фоновой картинки
-    (function() {
-        const img = new Image();
-        img.onload = function() {
-            document.body.classList.add('bg-image-loaded');
-            console.log('✅ Фоновая картинка загружена');
-        };
-        img.onerror = function() {
-            console.log('⚠️ Фоновая картинка не найдена, используется градиент');
-        };
-        img.src = '/2026-04-02_03-45-56.png';
-    })();
-    
-    // Версия приложения
-    document.getElementById('appVersion').textContent = 'v3.0.0';
-    
-    const PUSHER_KEY = '91e6eb7093c4b16a3275';
-    const PUSHER_CLUSTER = 'ap1';
-    const CHANNEL_NAME = 'private-warpoint-sync';
-    
-    let pusherInitAttempts = 0;
-    const MAX_PUSHER_ATTEMPTS = 5;
-    let isPusherInitializing = false;
-    let pusherReconnectTimer = null;
-    
-    // ============================================
-    // ПРЕЛОАДЕР
-    // ============================================
-    
-    const requiredModules = [
-        'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
-        'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
-        'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
-        'vp.js', 'salary.js', 'admin.js', 'reports.js'
-    ];
-    
-    const loaderTips = [
-        'Добро пожаловать в WARPOINT HUB',
-        'Управляйте задачами и графиком',
-        'Следите за рейтингом команды',
-        'Получайте достижения и бонусы',
-        'Общайтесь в чате с коллегами',
-        'Ваша команда — ваша сила'
-    ];
-    
-    let loadedModules = 0;
-    let tipIndex = 0;
-    let allModulesLoaded = false;
-    let tipInterval = null;
-    let loaderForceHideTimer = null;
-    const MAXIMUM_DISPLAY_MS = 8000;
-    let startTime = Date.now();
-    let hideLoaderTimer = null;
-    
-    const globalLoader = document.getElementById('globalLoader');
-    const loaderProgressFill = document.getElementById('loaderProgressFill');
-    const loaderPercent = document.getElementById('loaderPercent');
-    const loaderStatusText = document.getElementById('loaderStatusText');
-    const loaderModuleName = document.getElementById('loaderModuleName');
-    const loaderTipSpan = document.querySelector('#loaderTip span');
-    const loaderParticles = document.getElementById('loaderParticles');
-    
-    function createParticles() {
-        if (!loaderParticles) return;
-        loaderParticles.innerHTML = '';
-        for (let i = 0; i < 50; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'loader-particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = (Math.random() * 8) + 's';
-            particle.style.animationDuration = (6 + Math.random() * 6) + 's';
-            particle.style.opacity = Math.random() * 0.5 + 0.2;
-            particle.style.width = (1 + Math.random() * 3) + 'px';
-            particle.style.height = particle.style.width;
-            loaderParticles.appendChild(particle);
-        }
-    }
-    
-    window.showGlobalLoader = function() {
-        if (globalLoader) {
-            // Сброс анимации
-            globalLoader.classList.remove('fade-out');
-            if (hideLoaderTimer) clearTimeout(hideLoaderTimer);
-            globalLoader.style.display = 'flex';
-            loadedModules = 0;
-            allModulesLoaded = false;
-            startTime = Date.now();
             
-            if (loaderProgressFill) loaderProgressFill.style.width = '0%';
-            if (loaderPercent) loaderPercent.textContent = '0%';
-            if (loaderStatusText) loaderStatusText.textContent = 'Инициализация системы...';
-            if (loaderModuleName) loaderModuleName.textContent = '';
-            
-            createParticles();
-            startTipRotation();
-        }
-    };
-    
-    window.hideGlobalLoader = function() {
-        if (globalLoader) {
-            globalLoader.classList.add('fade-out');
-            hideLoaderTimer = setTimeout(() => {
-                if (globalLoader.classList.contains('fade-out')) {
-                    globalLoader.style.display = 'none';
-                }
-            }, 800);
-        }
-        if (tipInterval) clearInterval(tipInterval);
-        if (loaderForceHideTimer) clearTimeout(loaderForceHideTimer);
-        
-        // Скрыть скелетон
-        const skeleton = document.getElementById('pageSkeleton');
-        if (skeleton) skeleton.style.display = 'none';
-    };
-    
-    function startTipRotation() {
-        if (tipInterval) clearInterval(tipInterval);
-        tipInterval = setInterval(() => {
-            tipIndex = (tipIndex + 1) % loaderTips.length;
-            if (loaderTipSpan) loaderTipSpan.textContent = loaderTips[tipIndex];
-        }, 3500);
-    }
-    
-    function updateLoaderProgress(moduleName) {
-        loadedModules++;
-        const percent = Math.min(100, Math.round((loadedModules / requiredModules.length) * 100));
-        
-        if (loaderProgressFill) loaderProgressFill.style.width = percent + '%';
-        if (loaderPercent) loaderPercent.textContent = percent + '%';
-        if (loaderModuleName) loaderModuleName.textContent = `📦 ${moduleName || ''}`;
-        
-        if (loaderStatusText) {
-            if (percent < 20) loaderStatusText.textContent = '⚡ Инициализация ядра...';
-            else if (percent < 40) loaderStatusText.textContent = '📦 Загрузка модулей...';
-            else if (percent < 60) loaderStatusText.textContent = '🔧 Настройка компонентов...';
-            else if (percent < 80) loaderStatusText.textContent = '🎨 Применение стилей...';
-            else loaderStatusText.textContent = '🚀 Запуск системы...';
-        }
-        
-        if (loadedModules >= requiredModules.length) {
-            allModulesLoaded = true;
-            setTimeout(() => window.hideGlobalLoader(), 500);
-        }
-    }
-    
-    // Отслеживание загрузки скриптов
-    document.querySelectorAll('script[src*="/js/"]').forEach(script => {
-        const src = script.src.split('/').pop();
-        script.addEventListener('load', () => updateLoaderProgress(src));
-        script.addEventListener('error', () => {
-            console.error('❌ Ошибка загрузки:', src);
-            updateLoaderProgress(src + ' (ошибка)');
-        });
-    });
-    
-    window.addEventListener('load', function() {
-        if (!allModulesLoaded) {
-            loadedModules = requiredModules.length;
-            updateLoaderProgress('готово');
-        }
-    });
-    
-    loaderForceHideTimer = setTimeout(() => {
-        if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
-            console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
-            if (loaderProgressFill) loaderProgressFill.style.width = '100%';
-            if (loaderPercent) loaderPercent.textContent = '100%';
-            window.hideGlobalLoader();
-            allModulesLoaded = true;
-        }
-    }, MAXIMUM_DISPLAY_MS);
-    
-    // ============================================
-    // PUSHER
-    // ============================================
-    
-    function transliterateForChannel(name) {
-        const ru = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'e','ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u','ф':'f','х':'h','ц':'ts','ч':'ch','ш':'sh','щ':'sch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'};
-        let result = '';
-        for (let i = 0; i < name.length; i++) {
-            const char = name[i];
-            if (ru[char]) result += ru[char];
-            else if (char.match(/[a-zA-Z0-9]/)) result += char.toLowerCase();
-        }
-        result = result.replace(/[^a-z0-9]/g, '');
-        const defaultNames = {'Денис':'denis','Андрей':'andrey','Максим':'maxim'};
-        if (result === '' || result.length < 3) result = defaultNames[name] || 'user';
-        return result;
-    }
-    
-    function setSyncStatus(status) {
-        const indicator = document.getElementById('syncIndicator');
-        if (!indicator) return;
-        indicator.classList.remove('online', 'connecting');
-        if (status === 'online') indicator.classList.add('online');
-        else if (status === 'connecting') indicator.classList.add('connecting');
-    }
-    
-    function initPusher() {
-        if (isPusherInitializing) return;
-        
-        const token = localStorage.getItem('token');
-        if (!token) return;
-        
-        const syncIndicator = document.getElementById('syncIndicator');
-        setSyncStatus('connecting');
-        
-        if (window.pusher && window.pusher.connection?.state === 'connected') {
-            setSyncStatus('online');
-            return;
-        }
-        
-        isPusherInitializing = true;
-        pusherInitAttempts = 0; // Сброс счётчика при ручном запуске
-        
-        try {
-            if (window.pusher) window.pusher.disconnect();
-            
-            if (typeof Pusher === 'undefined') {
-                console.error('❌ Pusher не загружен');
-                setSyncStatus('offline');
-                isPusherInitializing = false;
-                return;
-            }
-            
-            window.pusher = new Pusher(PUSHER_KEY, {
-                cluster: PUSHER_CLUSTER,
-                forceTLS: true,
-                authEndpoint: '/api/pusher/auth',
-                auth: { headers: { 'Authorization': 'Bearer ' + token } }
-            });
-            
-            window.channel = window.pusher.subscribe(CHANNEL_NAME);
-            
-            const currentUser = window.app?.currentUser;
-            if (currentUser) {
-                window.privateChannel = window.pusher.subscribe('private-user-' + transliterateForChannel(currentUser));
-            }
-            
-            window.pusher.connection.bind('connected', () => {
-                console.log('🟢 Pusher подключён');
-                setSyncStatus('online');
-                pusherInitAttempts = 0;
-                isPusherInitializing = false;
-                if (pusherReconnectTimer) {
-                    clearTimeout(pusherReconnectTimer);
-                    pusherReconnectTimer = null;
-                }
-            });
-            
-            window.pusher.connection.bind('disconnected', () => {
-                console.log('🔴 Pusher отключён');
-                setSyncStatus('offline');
-                isPusherInitializing = false;
-                schedulePusherReconnect();
-            });
-            
-            window.pusher.connection.bind('error', (err) => {
-                console.error('❌ Pusher error:', err);
-                setSyncStatus('offline');
-                isPusherInitializing = false;
-                schedulePusherReconnect();
-                if (typeof showSystemNotification === 'function') {
-                    showSystemNotification('⚠️ Проблемы с подключением к чату', 'warning');
-                }
-            });
-            
-            window.channel.bind('schedule-updated', (data) => {
-                if (typeof loadScheduleData === 'function') loadScheduleData();
-                if (typeof updateNextShiftInfo === 'function') updateNextShiftInfo();
-                if (typeof updateDashboardStats === 'function') updateDashboardStats();
-                if (typeof renderEmployees === 'function') renderEmployees();
-            });
-            
-            // Подписка на уведомления для обновления бейджа
-            window.channel.bind('global-notification', () => {
-                if (typeof updateNotificationsBadge === 'function') updateNotificationsBadge();
-            });
-            
-        } catch (err) {
-            console.error('Pusher error:', err);
-            setSyncStatus('offline');
-            isPusherInitializing = false;
-            schedulePusherReconnect();
-        }
-    }
-    
-    function schedulePusherReconnect() {
-        if (pusherReconnectTimer) clearTimeout(pusherReconnectTimer);
-        pusherInitAttempts++;
-        if (pusherInitAttempts <= MAX_PUSHER_ATTEMPTS) {
-            const delay = Math.min(30000, 2000 * Math.pow(2, pusherInitAttempts));
-            console.log(`🔄 Переподключение Pusher через ${delay}ms (попытка ${pusherInitAttempts}/${MAX_PUSHER_ATTEMPTS})`);
-            pusherReconnectTimer = setTimeout(() => initPusher(), delay);
-        }
-    }
-    
-    window.initPusher = initPusher;
-    window.setSyncStatus = setSyncStatus;
-    
-    // ============================================
-    // АВТОРИЗАЦИЯ
-    // ============================================
-    
-    const token = localStorage.getItem('token');
-    if (token) {
-        const savedUser = localStorage.getItem('currentUser');
-        if (savedUser) {
-            try {
-                const user = JSON.parse(savedUser);
-                window.app = window.app || {};
-                window.app.currentUser = user.name;
-                window.app.currentUserRole = user.role;
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <!-- Ссылка "О проекте" -->
+                <a href="/about.html" class="about-link">
+                    <i class="fas fa-info-circle"></i>
+                    <span>О проекте</span>
+                </a>
                 
+                <!-- Уведомления -->
+                <div class="notifications-icon" id="notificationsIcon" onclick="if(typeof window.toggleNotificationsDropdown==='function')window.toggleNotificationsDropdown()" title="Уведомления">
+                    <i class="far fa-bell"></i>
+                    <span class="badge" id="notificationsBadge" style="display: none;">0</span>
+                </div>
+                <div class="notifications-dropdown" id="notificationsDropdown">
+                    <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between; align-items: center;">
+                        <h4 style="margin:0;font-size:13px;font-weight:600;"><i class="far fa-bell"></i> Уведомления</h4>
+                        <div style="display:flex;gap:12px;">
+                            <button onclick="if(typeof window.markAllNotificationsRead==='function')window.markAllNotificationsRead()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;transition:color 0.2s;" onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='#9ca3af'">✓ Все</button>
+                            <button onclick="if(typeof window.clearAllNotifications==='function')window.clearAllNotifications()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="notificationsList" style="max-height:360px;overflow-y:auto;">
+                        <div style="padding:40px;text-align:center;color:#9ca3af;">
+                            <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Профиль пользователя -->
+                <div class="user-card">
+                    <div class="user-avatar" id="headerAvatar" onclick="if(typeof window.openMyProfile==='function')window.openMyProfile()" title="Открыть профиль">
+                        👤
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name" id="headerName">Гость</div>
+                        <div class="user-status" id="headerStatus"></div>
+                    </div>
+                    <button class="logout-btn" onclick="if(typeof window.authLogout==='function')window.authLogout()" title="Выйти">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- ГЛАВНОЕ МЕНЮ -->
+        <nav class="main-menu" id="mainMenu" aria-label="Главное меню">
+            <!-- Меню рендерится через router.js -->
+        </nav>
+        
+        <!-- КОНТЕЙНЕР СТРАНИЦ -->
+        <main id="pageContainer" role="main">
+            <!-- Скелетон загрузки страницы -->
+            <div class="page-skeleton" id="pageSkeleton">
+                <div class="skeleton-header"></div>
+                <div class="skeleton-grid">
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+            </div>
+        </main>
+        
+        <!-- ФУТЕР -->
+        <footer>
+            <span>© WARPOINT 2026 — Корпоративный портал v4.0.0</span>
+            <span style="margin: 0 10px;">•</span>
+            <span id="appVersion">Загрузка...</span>
+            <span style="margin: 0 10px;">•</span>
+            <span id="connectionStatus">
+                <i class="fas fa-circle" style="font-size: 6px; color: #ef4444;"></i>
+                <span>Офлайн</span>
+            </span>
+        </footer>
+    </div>
+    
+    <!-- ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ СТРАНИЦ -->
+    <style>
+        /* ============================================ */
+        /* PAGE TRANSITIONS & ANIMATIONS                 */
+        /* ============================================ */
+        
+        #pageContainer {
+            animation: pageFadeIn 0.25s ease-out;
+            min-height: calc(100vh - 140px);
+        }
+        
+        @keyframes pageFadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Анимация переключения страниц */
+        .page-transition-enter {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        
+        .page-transition-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.2s ease, transform 0.2s ease;
+        }
+        
+        .page-transition-exit {
+            opacity: 1;
+        }
+        
+        .page-transition-exit-active {
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        
+        /* ============================================ */
+        /* OFFLINE BANNER                               */
+        /* ============================================ */
+        
+        .offline-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(239, 68, 68, 0.95);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            color: white;
+            text-align: center;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 500;
+            z-index: 10000;
+            transform: translateY(-100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .offline-banner.show {
+            transform: translateY(0);
+        }
+        
+        .offline-banner i {
+            font-size: 14px;
+        }
+        
+        .offline-banner .close-banner {
+            margin-left: auto;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+        
+        .offline-banner .close-banner:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* ============================================ */
+        /* UPDATE NOTIFICATION                          */
+        /* ============================================ */
+        
+        .update-notification {
+            position: fixed;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: linear-gradient(135deg, #1a1f2e, #0f1222);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 40px;
+            padding: 12px 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 9997;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: transform 0.3s ease;
+        }
+        
+        .update-notification.show {
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .update-notification i {
+            color: #10b981;
+            font-size: 20px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .update-notification span {
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+        
+        .update-notification button {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: 30px;
+            padding: 6px 16px;
+            color: white;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .update-notification button:hover {
+            transform: scale(1.05);
+        }
+        
+        /* ============================================ */
+        /* KEYBOARD SHORTCUTS HINT                      */
+        /* ============================================ */
+        
+        .shortcuts-hint {
+            position: fixed;
+            bottom: 80px;
+            right: 24px;
+            background: rgba(18, 24, 34, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 12px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 9996;
+            font-size: 11px;
+            color: #94a3b8;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            pointer-events: none;
+        }
+        
+        .shortcuts-hint.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .shortcuts-hint kbd {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: monospace;
+            color: #a78bfa;
+            margin: 0 2px;
+        }
+        
+        /* ============================================ */
+        /* TOOLTIP                                      */
+        /* ============================================ */
+        
+        [data-tooltip] {
+            position: relative;
+            cursor: help;
+        }
+        
+        [data-tooltip]:before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            background: #1a1f2e;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+            pointer-events: none;
+            z-index: 10000;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        [data-tooltip]:hover:before {
+            opacity: 1;
+            visibility: visible;
+            transform: translateX(-50%) translateY(-4px);
+        }
+        
+        /* ============================================ */
+        /* FOCUS STYLES                                 */
+        /* ============================================ */
+        
+        :focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+        }
+        
+        button:focus-visible,
+        a:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 2px solid #6366f1;
+            outline-offset: 2px;
+        }
+        
+        /* ============================================ */
+        /* PRINT STYLES                                 */
+        /* ============================================ */
+        
+        @media print {
+            .header,
+            .main-menu,
+            #syncIndicator,
+            .logout-btn,
+            .notifications-icon,
+            footer {
+                display: none !important;
+            }
+            
+            #mainContainer {
+                padding: 20px;
+            }
+            
+            body {
+                background: white;
+                color: black;
+            }
+            
+            .glass-card, .info-card, .stat-card {
+                background: white;
+                border: 1px solid #ddd;
+                box-shadow: none;
+            }
+        }
+        
+        /* ============================================ */
+        /* HIGH CONTRAST MODE                           */
+        /* ============================================ */
+        
+        @media (prefers-contrast: high) {
+            body {
+                background: #000;
+            }
+            
+            .glass-card, .info-card, .stat-card {
+                background: #111;
+                border: 2px solid #fff;
+            }
+            
+            button {
+                border: 2px solid #fff;
+            }
+        }
+        
+        /* ============================================ */
+        /* REDUCED MOTION                               */
+        /* ============================================ */
+        
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        }
+        
+        /* ============================================ */
+        /* DARK MODE SPECIFIC (уже тёмная, но на всякий) */
+        /* ============================================ */
+        
+        @media (prefers-color-scheme: dark) {
+            /* Уже тёмная тема по умолчанию */
+        }
+        
+        @media (prefers-color-scheme: light) {
+            /* Форсируем тёмную тему */
+            body {
+                background: #0a0c12 !important;
+                color: #ffffff !important;
+            }
+        }
+    </style>
+    
+    <!-- ОФЛАЙН-БАННЕР -->
+    <div id="offlineBanner" class="offline-banner">
+        <i class="fas fa-wifi-slash"></i>
+        <span>Нет соединения с интернетом. Данные могут быть устаревшими.</span>
+        <span class="close-banner" onclick="document.getElementById('offlineBanner').classList.remove('show')">✕</span>
+    </div>
+    
+    <!-- УВЕДОМЛЕНИЕ ОБ ОБНОВЛЕНИИ -->
+    <div id="updateNotification" class="update-notification">
+        <i class="fas fa-sync-alt fa-spin"></i>
+        <span>Доступна новая версия</span>
+        <button onclick="location.reload()">Обновить</button>
+    </div>
+    
+    <!-- ПОДСКАЗКА ГОРЯЧИХ КЛАВИШ -->
+    <div id="shortcutsHint" class="shortcuts-hint">
+        <div style="margin-bottom: 6px; font-weight: 600; color: #e2e8f0;">Горячие клавиши</div>
+        <div><kbd>Ctrl</kbd> + <kbd>K</kbd> — поиск</div>
+        <div><kbd>Ctrl</kbd> + <kbd>/</kbd> — показать подсказку</div>
+        <div><kbd>Esc</kbd> — закрыть модалку</div>
+        <div><kbd>←</kbd> <kbd>→</kbd> — навигация по месяцам</div>
+    </div>
+    <!-- ============================================ -->
+    <!-- СКРИПТЫ                                       -->
+    <!-- ============================================ -->
+    
+    <!-- Внешние библиотеки -->
+    <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Основные модули -->
+    <script src="/js/utils.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/achievements.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/router.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/employees.js"></script>
+    <script src="/js/schedule.js"></script>
+    <script src="/js/tasks.js"></script>
+    <script src="/js/shop.js"></script>
+    <script src="/js/rating.js"></script>
+    <script src="/js/notifications.js"></script>
+    <script src="/js/fines.js"></script>
+    <script src="/js/chat.js"></script>
+    <script src="/js/knowledge.js"></script>
+    <script src="/js/vp.js"></script>
+    <script src="/js/salary.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/reports.js"></script>
+    
+    <!-- ============================================ -->
+    <!-- ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ                      -->
+    <!-- ============================================ -->
+    <script>
+        (function() {
+            'use strict';
+            
+            // ============================================
+            // КОНФИГУРАЦИЯ
+            // ============================================
+            
+            const CONFIG = {
+                VERSION: '4.0.0',
+                BUILD_DATE: '2026-04-21',
+                PUSHER_KEY: '91e6eb7093c4b16a3275',
+                PUSHER_CLUSTER: 'ap1',
+                MAX_LOADER_DISPLAY_MS: 8000,
+                HEARTBEAT_INTERVAL_MS: 60000,
+                ACTIVITY_CHECK_INTERVAL_MS: 30000
+            };
+            
+            // ============================================
+            // ГЛОБАЛЬНОЕ СОСТОЯНИЕ
+            // ============================================
+            
+            window.app = window.app || {
+                currentUser: null,
+                currentUserRole: null,
+                currentUserPermissions: null,
+                employees: [],
+                profiles: {},
+                tasks: [],
+                fines: [],
+                schedule: {},
+                lastActivity: {},
+                stickers: {},
+                achievements: {},
+                messages: {},
+                version: CONFIG.VERSION
+            };
+            
+            // ============================================
+            // ПРЕЛОАДЕР
+            // ============================================
+            
+            const requiredModules = [
+                'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
+                'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
+                'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
+                'vp.js', 'salary.js', 'admin.js', 'reports.js'
+            ];
+            
+            const loaderTips = [
+                { icon: '🎮', text: 'Добро пожаловать в WARPOINT HUB' },
+                { icon: '📋', text: 'Управляйте задачами и графиком' },
+                { icon: '🏆', text: 'Следите за рейтингом команды' },
+                { icon: '🎁', text: 'Получайте достижения и бонусы' },
+                { icon: '💬', text: 'Общайтесь в чате с коллегами' },
+                { icon: '🤝', text: 'Ваша команда — ваша сила' },
+                { icon: '⚡', text: 'Автоматизация рутины' },
+                { icon: '📊', text: 'Аналитика и отчёты' }
+            ];
+            
+            let loadedModules = 0;
+            let tipIndex = 0;
+            let allModulesLoaded = false;
+            let loaderForceHideTimer = null;
+            let tipRotationTimer = null;
+            let startTime = Date.now();
+            
+            // DOM элементы
+            const globalLoader = document.getElementById('globalLoader');
+            const loaderProgressFill = document.getElementById('loaderProgressFill');
+            const loaderPercent = document.getElementById('loaderPercent');
+            const loaderStatusText = document.getElementById('loaderStatusText');
+            const loaderModuleName = document.getElementById('loaderModuleName');
+            const loaderTipSpan = document.querySelector('#loaderTip span');
+            const loaderTipIcon = document.querySelector('#loaderTip i');
+            const loaderParticles = document.getElementById('loaderParticles');
+            
+            /**
+             * Создание частиц для прелоадера
+             */
+            function createParticles() {
+                if (!loaderParticles) return;
+                loaderParticles.innerHTML = '';
+                
+                for (let i = 0; i < 50; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'loader-particle';
+                    particle.style.left = Math.random() * 100 + '%';
+                    particle.style.animationDelay = (Math.random() * 8) + 's';
+                    particle.style.animationDuration = (6 + Math.random() * 6) + 's';
+                    particle.style.opacity = Math.random() * 0.5 + 0.2;
+                    particle.style.width = (1 + Math.random() * 3) + 'px';
+                    particle.style.height = particle.style.width;
+                    loaderParticles.appendChild(particle);
+                }
+            }
+            
+            /**
+             * Ротация подсказок
+             */
+            function rotateTip() {
+                tipIndex = (tipIndex + 1) % loaderTips.length;
+                const tip = loaderTips[tipIndex];
+                
+                if (loaderTipIcon) {
+                    loaderTipIcon.className = '';
+                    loaderTipIcon.textContent = tip.icon;
+                }
+                if (loaderTipSpan) {
+                    loaderTipSpan.textContent = tip.text;
+                }
+            }
+            
+            /**
+             * Обновление прогресса загрузки
+             */
+            function updateLoaderProgress(moduleName) {
+                loadedModules++;
+                const percent = Math.min(100, Math.round((loadedModules / requiredModules.length) * 100));
+                
+                if (loaderProgressFill) {
+                    loaderProgressFill.style.width = percent + '%';
+                }
+                if (loaderPercent) {
+                    loaderPercent.textContent = percent + '%';
+                }
+                if (loaderModuleName) {
+                    loaderModuleName.textContent = `📦 ${moduleName || ''}`;
+                }
+                
+                if (loaderStatusText) {
+                    if (percent < 20) {
+                        loaderStatusText.textContent = '⚡ Инициализация ядра...';
+                    } else if (percent < 40) {
+                        loaderStatusText.textContent = '📦 Загрузка модулей...';
+                    } else if (percent < 60) {
+                        loaderStatusText.textContent = '🔧 Настройка компонентов...';
+                    } else if (percent < 80) {
+                        loaderStatusText.textContent = '🎨 Применение стилей...';
+                    } else {
+                        loaderStatusText.textContent = '🚀 Запуск системы...';
+                    }
+                }
+                
+                if (loadedModules >= requiredModules.length) {
+                    allModulesLoaded = true;
+                    setTimeout(() => hideGlobalLoader(), 500);
+                }
+            }
+            
+            /**
+             * Показать глобальный прелоадер
+             */
+            window.showGlobalLoader = function() {
+                if (!globalLoader) return;
+                
+                globalLoader.classList.remove('fade-out');
+                globalLoader.style.display = 'flex';
+                
+                loadedModules = 0;
+                allModulesLoaded = false;
+                startTime = Date.now();
+                
+                if (loaderProgressFill) loaderProgressFill.style.width = '0%';
+                if (loaderPercent) loaderPercent.textContent = '0%';
+                if (loaderStatusText) loaderStatusText.textContent = 'Инициализация системы...';
+                if (loaderModuleName) loaderModuleName.textContent = '';
+                
+                createParticles();
+                
+                if (tipRotationTimer) clearInterval(tipRotationTimer);
+                tipRotationTimer = setInterval(rotateTip, 3500);
+                
+                // Принудительное скрытие по таймауту
+                if (loaderForceHideTimer) clearTimeout(loaderForceHideTimer);
+                loaderForceHideTimer = setTimeout(() => {
+                    if (globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
+                        console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
+                        if (loaderProgressFill) loaderProgressFill.style.width = '100%';
+                        if (loaderPercent) loaderPercent.textContent = '100%';
+                        hideGlobalLoader();
+                        allModulesLoaded = true;
+                    }
+                }, CONFIG.MAX_LOADER_DISPLAY_MS);
+            };
+            
+            /**
+             * Скрыть глобальный прелоадер
+             */
+            window.hideGlobalLoader = function() {
+                if (!globalLoader) return;
+                
+                globalLoader.classList.add('fade-out');
+                
+                setTimeout(() => {
+                    if (globalLoader.classList.contains('fade-out')) {
+                        globalLoader.style.display = 'none';
+                    }
+                }, 600);
+                
+                if (tipRotationTimer) {
+                    clearInterval(tipRotationTimer);
+                    tipRotationTimer = null;
+                }
+                if (loaderForceHideTimer) {
+                    clearTimeout(loaderForceHideTimer);
+                    loaderForceHideTimer = null;
+                }
+                
+                // Скрываем скелетон
+                const skeleton = document.getElementById('pageSkeleton');
+                if (skeleton) skeleton.style.display = 'none';
+            };
+            
+            // Отслеживание загрузки скриптов
+            document.querySelectorAll('script[src*="/js/"]').forEach(script => {
+                const src = script.src.split('/').pop();
+                
+                script.addEventListener('load', function() {
+                    updateLoaderProgress(src);
+                });
+                
+                script.addEventListener('error', function() {
+                    console.error('❌ Ошибка загрузки:', src);
+                    updateLoaderProgress(src + ' (ошибка)');
+                });
+            });
+            
+            // Fallback если не все скрипты загрузились
+            window.addEventListener('load', function() {
+                if (!allModulesLoaded) {
+                    loadedModules = requiredModules.length;
+                    updateLoaderProgress('готово');
+                }
+                
+                // Загружаем фоновое изображение
+                loadBackgroundImage();
+            });
+            
+            // Создаём частицы при старте
+            createParticles();
+            
+            // Запускаем ротацию подсказок
+            tipRotationTimer = setInterval(rotateTip, 3500);
+            
+            // Принудительное скрытие по таймауту
+            loaderForceHideTimer = setTimeout(() => {
+                if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
+                    console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
+                    if (loaderProgressFill) loaderProgressFill.style.width = '100%';
+                    if (loaderPercent) loaderPercent.textContent = '100%';
+                    hideGlobalLoader();
+                    allModulesLoaded = true;
+                }
+            }, CONFIG.MAX_LOADER_DISPLAY_MS);
+            
+            // ============================================
+            // ФОНОВОЕ ИЗОБРАЖЕНИЕ
+            // ============================================
+            
+            function loadBackgroundImage() {
+                const img = new Image();
+                img.onload = function() {
+                    document.body.classList.add('bg-image-loaded');
+                    console.log('✅ Фоновая картинка загружена');
+                };
+                img.onerror = function() {
+                    console.log('⚠️ Фоновая картинка не найдена, используется градиент');
+                };
+                img.src = '/2026-04-02_03-45-56.png';
+            }
+            
+            // ============================================
+            // СТАТУС ПОДКЛЮЧЕНИЯ
+            // ============================================
+            
+            function updateConnectionStatus() {
+                const statusEl = document.getElementById('connectionStatus');
+                if (!statusEl) return;
+                
+                const icon = statusEl.querySelector('i');
+                const span = statusEl.querySelector('span');
+                
+                if (navigator.onLine) {
+                    icon.style.color = '#10b981';
+                    span.textContent = 'Онлайн';
+                } else {
+                    icon.style.color = '#ef4444';
+                    span.textContent = 'Офлайн';
+                    
+                    // Показываем офлайн-баннер
+                    const banner = document.getElementById('offlineBanner');
+                    if (banner) banner.classList.add('show');
+                }
+            }
+            
+            window.addEventListener('online', function() {
+                updateConnectionStatus();
+                document.getElementById('offlineBanner')?.classList.remove('show');
+                
+                if (typeof window.showNotification === 'function') {
+                    window.showNotification('📡 Соединение восстановлено', 'success');
+                }
+                
+                // Обработка офлайн-очереди
+                if (typeof window.auth?.processOfflineQueue === 'function') {
+                    window.auth.processOfflineQueue();
+                }
+            });
+            
+            window.addEventListener('offline', function() {
+                updateConnectionStatus();
+                document.getElementById('offlineBanner')?.classList.add('show');
+                
+                if (typeof window.showNotification === 'function') {
+                    window.showNotification('📡 Нет соединения с интернетом', 'warning');
+                }
+            });
+            
+            updateConnectionStatus();
+            
+            // ============================================
+            // ВЕРСИЯ ПРИЛОЖЕНИЯ
+            // ============================================
+            
+            document.getElementById('appVersion').textContent = `v${CONFIG.VERSION}`;
+            
+            // ============================================
+            // ГОРЯЧИЕ КЛАВИШИ
+            // ============================================
+            
+            document.addEventListener('keydown', function(e) {
+                // Ctrl + K — фокус на поиск (если есть)
+                if (e.ctrlKey && e.key === 'k') {
+                    e.preventDefault();
+                    const searchInput = document.querySelector('#taskSearch, #fineSearch, #salarySearch, #vpSearch, #knowledgeSearch');
+                    if (searchInput) {
+                        searchInput.focus();
+                    }
+                }
+                
+                // Ctrl + / — показать подсказку
+                if (e.ctrlKey && e.key === '/') {
+                    e.preventDefault();
+                    const hint = document.getElementById('shortcutsHint');
+                    if (hint) {
+                        hint.classList.add('show');
+                        setTimeout(() => hint.classList.remove('show'), 3000);
+                    }
+                }
+                
+                // Escape — закрыть модалки
+                if (e.key === 'Escape') {
+                    // Закрытие модалок обрабатывается в соответствующих модулях
+                }
+            });
+            
+            // ============================================
+            // ОТСЛЕЖИВАНИЕ АКТИВНОСТИ
+            // ============================================
+            
+            let lastActivity = Date.now();
+            
+            function updateLastActivity() {
+                lastActivity = Date.now();
+                
+                if (window.app && window.app.currentUser) {
+                    window.app.lastActivity = window.app.lastActivity || {};
+                    window.app.lastActivity[window.app.currentUser] = lastActivity;
+                }
+            }
+            
+            ['click', 'keydown', 'scroll', 'mousemove', 'touchstart'].forEach(eventType => {
+                document.addEventListener(eventType, updateLastActivity, { passive: true });
+            });
+            
+            // Периодическая отправка heartbeat
+            setInterval(() => {
+                if (window.app?.currentUser && typeof window.sendHeartbeat === 'function') {
+                    window.sendHeartbeat();
+                }
+            }, CONFIG.HEARTBEAT_INTERVAL_MS);
+            
+            // ============================================
+            // SERVICE WORKER (если нужен)
+            // ============================================
+            
+            if ('serviceWorker' in navigator && location.protocol === 'https:') {
+                // Раскомментировать если нужен PWA
+                // navigator.serviceWorker.register('/sw.js').catch(console.error);
+            }
+            
+            // ============================================
+            // ФУНКЦИИ ДЛЯ МОДАЛКИ ВХОДА
+            // ============================================
+            
+            // Показать/скрыть пароль
+            document.getElementById('togglePassword')?.addEventListener('click', function() {
+                const input = document.getElementById('loginPassword');
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                    this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+                }
+            });
+            
+            // Обнаружение Caps Lock
+            document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
+                const warning = document.getElementById('capslockWarning');
+                if (e.getModifierState && e.getModifierState('CapsLock')) {
+                    warning?.classList.add('show');
+                } else {
+                    warning?.classList.remove('show');
+                }
+            });
+            
+            // Восстановление сохранённого логина
+            const savedLogin = localStorage.getItem('savedLogin');
+            if (savedLogin) {
+                const loginInput = document.getElementById('loginName');
+                const rememberCheckbox = document.getElementById('rememberMe');
+                
+                if (loginInput) loginInput.value = savedLogin;
+                if (rememberCheckbox) rememberCheckbox.checked = true;
+            }
+            
+            // ============================================
+            // ЗАКРЫТИЕ ДРОПДАУНА УВЕДОМЛЕНИЙ
+            // ============================================
+            
+            document.addEventListener('click', function(e) {
+                const dropdown = document.getElementById('notificationsDropdown');
+                const icon = document.getElementById('notificationsIcon');
+                
+                if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // Закрытие по свайпу на мобильных
+            let touchStartY = 0;
+            const dropdown = document.getElementById('notificationsDropdown');
+            
+            dropdown?.addEventListener('touchstart', (e) => {
+                touchStartY = e.touches[0].clientY;
+            });
+            
+            dropdown?.addEventListener('touchmove', (e) => {
+                const touchY = e.touches[0].clientY;
+                if (touchY - touchStartY > 50) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // ============================================
+            // ОБРАБОТЧИК НАВИГАЦИИ
+            // ============================================
+            
+            window.addEventListener('popstate', function(e) {
+                const state = e.state;
+                if (state && state.page && typeof window.loadPage === 'function') {
+                    window.loadPage(state.page, false);
+                }
+            });
+            
+            // ============================================
+            // ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
+            // ============================================
+            
+            window.showLoginModal = function() {
+                document.getElementById('loginModal').style.display = 'flex';
+                document.getElementById('mainContainer').style.display = 'none';
+            };
+            
+            window.hideLoginModal = function() {
                 document.getElementById('loginModal').style.display = 'none';
                 document.getElementById('mainContainer').style.display = 'block';
-                document.getElementById('headerName').textContent = user.name;
-                document.getElementById('appVersion').textContent = 'v3.0.0';
-                
-                // Показываем скелетон
-                document.getElementById('pageSkeleton').style.display = 'block';
-                
-                if (typeof loadEmployees === 'function') {
-                    loadEmployees().then(() => { 
-                        if (typeof loadTasks === 'function') loadTasks(); 
-                        if (typeof loadFines === 'function') loadFines(); 
-                        if (typeof loadSchedule === 'function') loadSchedule(); 
-                        if (typeof renderMainMenu === 'function') renderMainMenu(); 
-                        document.getElementById('pageSkeleton').style.display = 'none';
-                    }).catch(() => {
-                        if (typeof renderMainMenu === 'function') renderMainMenu();
-                        document.getElementById('pageSkeleton').style.display = 'none';
-                    });
+            };
+            
+            window.toggleNotificationsDropdown = function() {
+                const dropdown = document.getElementById('notificationsDropdown');
+                if (dropdown) {
+                    dropdown.classList.toggle('show');
+                    
+                    if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
+                        window.renderNotificationsDropdown();
+                    }
                 }
-                setTimeout(() => initPusher(), 1000);
-            } catch(e) {
-                localStorage.removeItem('currentUser');
-                localStorage.removeItem('token');
+            };
+            
+            window.openMyProfile = function() {
+                if (window.app?.currentUser && typeof window.openProfile === 'function') {
+                    window.openProfile(window.app.currentUser);
+                }
+            };
+            
+            // ============================================
+            // ПРОВЕРКА АВТОРИЗАЦИИ
+            // ============================================
+            
+            const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
+            
+            if (token) {
+                const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
+                
+                if (savedUser) {
+                    try {
+                        const user = JSON.parse(savedUser);
+                        window.app = window.app || {};
+                        window.app.currentUser = user.name || user;
+                        window.app.currentUserRole = user.role || 'operator';
+                        
+                        hideLoginModal();
+                        
+                        const headerName = document.getElementById('headerName');
+                        if (headerName) headerName.textContent = window.app.currentUser;
+                        
+                        // Показываем скелетон
+                        const skeleton = document.getElementById('pageSkeleton');
+                        if (skeleton) skeleton.style.display = 'block';
+                        
+                        // Загружаем данные
+                        if (typeof window.loadEmployees === 'function') {
+                            window.loadEmployees().then(() => {
+                                if (typeof window.loadTasks === 'function') window.loadTasks();
+                                if (typeof window.loadFines === 'function') window.loadFines();
+                                if (typeof window.loadSchedule === 'function') window.loadSchedule();
+                                if (typeof window.renderMainMenu === 'function') window.renderMainMenu();
+                                
+                                if (skeleton) skeleton.style.display = 'none';
+                            }).catch(() => {
+                                if (typeof window.renderMainMenu === 'function') window.renderMainMenu();
+                                if (skeleton) skeleton.style.display = 'none';
+                            });
+                        }
+                        
+                        // Инициализация Pusher с задержкой
+                        setTimeout(() => {
+                            if (typeof window.auth?.initPusher === 'function') {
+                                window.auth.initPusher();
+                            } else if (typeof window.initPusher === 'function') {
+                                window.initPusher();
+                            }
+                        }, 1000);
+                        
+                    } catch (e) {
+                        console.error('Ошибка парсинга пользователя:', e);
+                        showLoginModal();
+                    }
+                }
+            } else {
                 showLoginModal();
             }
-        }
-    } else {
-        showLoginModal();
-    }
-    
-    function showLoginModal() {
-        document.getElementById('loginModal').style.display = 'flex';
-        document.getElementById('mainContainer').style.display = 'none';
-    }
-    
-    window.updateHeaderAvatar = function(avatarUrl, avatarEmoji) {
-        const headerAvatar = document.getElementById('headerAvatar');
-        const welcomeAvatar = document.getElementById('welcomeAvatar');
+            
+            console.log('✅ index.html v4.0.0 ULTRA MEGA EDITION загружен');
+            
+        })();
+    </script>
+</body>
+</html>
+    <!-- ============================================ -->
+    <!-- ДОПОЛНИТЕЛЬНЫЕ СТИЛИ (ПРОДОЛЖЕНИЕ)             -->
+    <!-- ============================================ -->
+    <style>
+        /* ============================================ */
+        /* КАСТОМНЫЙ СКРОЛЛБАР                           */
+        /* ============================================ */
         
-        const updateEl = (el) => {
-            if (!el) return;
-            if (avatarUrl) {
-                const safeUrl = typeof escapeHtml === 'function' ? escapeHtml(avatarUrl) : avatarUrl;
-                el.innerHTML = `<img src="${safeUrl}" style="width:100%;height:100%;object-fit:cover;">`;
-            } else if (avatarEmoji) {
-                const safeEmoji = typeof escapeHtml === 'function' ? escapeHtml(avatarEmoji) : avatarEmoji;
-                el.innerHTML = safeEmoji;
-            } else {
-                el.innerHTML = '👤';
-            }
-        };
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
         
-        updateEl(headerAvatar);
-        updateEl(welcomeAvatar);
-    };
-    
-    window.updateHeaderStatus = function(status) {
-        const el = document.getElementById('headerStatus');
-        if (el) el.textContent = status || '';
-    };
-    
-    // Функции для уведомлений
-    window.toggleNotificationsDropdown = function() {
-        const dropdown = document.getElementById('notificationsDropdown');
-        if (dropdown) {
-            dropdown.classList.toggle('show');
-            if (dropdown.classList.contains('show') && typeof renderNotificationsDropdown === 'function') {
-                renderNotificationsDropdown();
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 10px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+            background-clip: padding-box;
+        }
+        
+        ::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        
+        /* ============================================ */
+        /* ВЫДЕЛЕНИЕ ТЕКСТА                              */
+        /* ============================================ */
+        
+        ::selection {
+            background: rgba(99, 102, 241, 0.4);
+            color: #ffffff;
+            text-shadow: none;
+        }
+        
+        ::-moz-selection {
+            background: rgba(99, 102, 241, 0.4);
+            color: #ffffff;
+            text-shadow: none;
+        }
+        
+        /* ============================================ */
+        /* PLACEHOLDER СТИЛИ                             */
+        /* ============================================ */
+        
+        ::placeholder {
+            color: #475569;
+            opacity: 0.7;
+            font-size: 0.95em;
+        }
+        
+        :-ms-input-placeholder {
+            color: #475569;
+        }
+        
+        /* ============================================ */
+        /* АВТОЗАПОЛНЕНИЕ                               */
+        /* ============================================ */
+        
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: #ffffff;
+            transition: background-color 5000s ease-in-out 0s;
+            box-shadow: inset 0 0 20px 20px rgba(0, 0, 0, 0.3);
+            border-color: #6366f1;
+        }
+        
+        /* ============================================ */
+        /* LOADING SPINNER                              */
+        /* ============================================ */
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-radius: 50%;
+            border-top-color: #6366f1;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        .loading-spinner-sm {
+            width: 20px;
+            height: 20px;
+            border-width: 2px;
+        }
+        
+        .loading-spinner-lg {
+            width: 60px;
+            height: 60px;
+            border-width: 4px;
+        }
+        
+        /* ============================================ */
+        /* PULSE DOT (индикатор активности)              */
+        /* ============================================ */
+        
+        .pulse-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            position: relative;
+        }
+        
+        .pulse-dot::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border-radius: 50%;
+            background: #10b981;
+            opacity: 0.5;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .pulse-dot.warning {
+            background: #f59e0b;
+        }
+        
+        .pulse-dot.warning::after {
+            background: #f59e0b;
+        }
+        
+        .pulse-dot.danger {
+            background: #ef4444;
+        }
+        
+        .pulse-dot.danger::after {
+            background: #ef4444;
+        }
+        
+        /* ============================================ */
+        /* BADGE STYLES                                 */
+        /* ============================================ */
+        
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            line-height: 1.4;
+            white-space: nowrap;
+        }
+        
+        .badge-primary {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a78bfa;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        
+        .badge-success {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .badge-warning {
+            background: rgba(245, 158, 11, 0.15);
+            color: #f59e0b;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        
+        .badge-danger {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        
+        .badge-info {
+            background: rgba(6, 182, 212, 0.15);
+            color: #06b6d4;
+            border: 1px solid rgba(6, 182, 212, 0.3);
+        }
+        
+        .badge-new {
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        /* ============================================ */
+        /* EMPTY STATE                                  */
+        /* ============================================ */
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #64748b;
+        }
+        
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #e2e8f0;
+        }
+        
+        .empty-state p {
+            font-size: 14px;
+            color: #94a3b8;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        .empty-state button {
+            margin-top: 24px;
+        }
+        
+        /* ============================================ */
+        /* TOOLTIP (продолжение)                        */
+        /* ============================================ */
+        
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            opacity: 0;
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1a1f2e;
+            color: #e2e8f0;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 11px;
+            white-space: nowrap;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 1000;
+            border: 1px solid rgba(99, 102, 241, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .tooltip .tooltip-text::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #1a1f2e;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* ============================================ */
+        /* RIPPLE EFFECT (для кнопок)                   */
+        /* ============================================ */
+        
+        .ripple {
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .ripple-effect {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(0);
+            animation: ripple-animation 0.6s ease-out;
+            pointer-events: none;
+        }
+        
+        @keyframes ripple-animation {
+            to {
+                transform: scale(4);
+                opacity: 0;
             }
         }
-    };
-    
-    window.markAllNotificationsRead = function() {
-        if (typeof window.markAllNotificationsRead === 'function' && window.markAllNotificationsRead !== markAllNotificationsRead) {
-            window.markAllNotificationsRead();
+        
+        /* ============================================ */
+        /* GLASS MORPHISM ЭФФЕКТЫ                       */
+        /* ============================================ */
+        
+        .glass {
+            background: rgba(20, 25, 50, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(99, 102, 241, 0.2);
         }
-    };
-    
-    window.clearAllNotifications = function() {
-        if (typeof window.clearAllNotifications === 'function' && window.clearAllNotifications !== clearAllNotifications) {
-            window.clearAllNotifications();
+        
+        .glass-light {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
         }
-    };
-    
-    // Запоминание логина
-    const savedLogin = localStorage.getItem('savedLogin');
-    if (savedLogin) {
-        document.getElementById('loginName').value = savedLogin;
-        document.getElementById('rememberMe').checked = true;
-    }
-    
-    console.log('✅ index.html загружен (v3.0 — с исправлениями)');
-</script>
+        
+        .glass-heavy {
+            background: rgba(10, 12, 18, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(99, 102, 241, 0.3);
+        }
+        
+        /* ============================================ */
+        /* GRADIENT BORDERS                             */
+        /* ============================================ */
+        
+        .border-gradient {
+            position: relative;
+            border: none;
+        }
+        
+        .border-gradient::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: inherit;
+            padding: 1px;
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        
+        /* ============================================ */
+        /* SHIMMER EFFECT (загрузка)                    */
+        /* ============================================ */
+        
+        .shimmer {
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.05),
+                transparent
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        
+        /* ============================================ */
+        /* HOVER GLOW                                   */
+        /* ============================================ */
+        
+        .hover-glow {
+            transition: all 0.3s ease;
+        }
+        
+        .hover-glow:hover {
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* ============================================ */
+        /* NEON TEXT                                    */
+        /* ============================================ */
+        
+        .neon-text {
+            text-shadow: 0 0 5px #6366f1, 0 0 10px #6366f1, 0 0 20px #8b5cf6;
+        }
+        
+        .neon-text-pink {
+            text-shadow: 0 0 5px #ec4899, 0 0 10px #ec4899, 0 0 20px #f472b6;
+        }
+        
+        /* ============================================ */
+        /* FLOATING ANIMATION                           */
+        /* ============================================ */
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+        
+        .float-slow {
+            animation: float 5s ease-in-out infinite;
+        }
+        
+        /* ============================================ */
+        /* GLOW EFFECT                                  */
+        /* ============================================ */
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.6); }
+        }
+        
+        .glow {
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        /* ============================================ */
+        /* SLIDE IN                                     */
+        /* ============================================ */
+        
+        @keyframes slideInLeft {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes slideInRight {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .animate-slide-left {
+            animation: slideInLeft 0.3s ease-out;
+        }
+        
+        .animate-slide-right {
+            animation: slideInRight 0.3s ease-out;
+        }
+        
+        .animate-slide-up {
+            animation: slideInUp 0.3s ease-out;
+        }
+        
+        /* ============================================ */
+        /* FADE IN                                      */
+        /* ============================================ */
+        
+        @keyframes fadeInScale {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        .animate-fade-scale {
+            animation: fadeInScale 0.2s ease-out;
+        }
+        
+        /* ============================================ */
+        /* STATUS COLORS                                */
+        /* ============================================ */
+        
+        .text-success { color: #10b981 !important; }
+        .text-warning { color: #f59e0b !important; }
+        .text-danger { color: #ef4444 !important; }
+        .text-info { color: #06b6d4 !important; }
+        .text-primary { color: #6366f1 !important; }
+        .text-secondary { color: #8b5cf6 !important; }
+        .text-gold { color: #fbbf24 !important; }
+        .text-muted { color: #64748b !important; }
+        
+        .bg-success { background: rgba(16, 185, 129, 0.15) !important; }
+        .bg-warning { background: rgba(245, 158, 11, 0.15) !important; }
+        .bg-danger { background: rgba(239, 68, 68, 0.15) !important; }
+        .bg-info { background: rgba(6, 182, 212, 0.15) !important; }
+        .bg-primary { background: rgba(99, 102, 241, 0.15) !important; }
+        .bg-gold { background: rgba(251, 191, 36, 0.15) !important; }
+        
+        .border-success { border-color: #10b981 !important; }
+        .border-warning { border-color: #f59e0b !important; }
+        .border-danger { border-color: #ef4444 !important; }
+        .border-info { border-color: #06b6d4 !important; }
+        .border-primary { border-color: #6366f1 !important; }
+        .border-gold { border-color: #fbbf24 !important; }
+        
+        /* ============================================ */
+        /* SPACING UTILITIES                            */
+        /* ============================================ */
+        
+        .m-0 { margin: 0 !important; }
+        .mt-1 { margin-top: 4px !important; }
+        .mt-2 { margin-top: 8px !important; }
+        .mt-3 { margin-top: 12px !important; }
+        .mt-4 { margin-top: 16px !important; }
+        .mt-5 { margin-top: 24px !important; }
+        .mb-1 { margin-bottom: 4px !important; }
+        .mb-2 { margin-bottom: 8px !important; }
+        .mb-3 { margin-bottom: 12px !important; }
+        .mb-4 { margin-bottom: 16px !important; }
+        .mb-5 { margin-bottom: 24px !important; }
+        .ml-auto { margin-left: auto !important; }
+        .mr-auto { margin-right: auto !important; }
+        .mx-auto { margin-left: auto !important; margin-right: auto !important; }
+        
+        .p-1 { padding: 4px !important; }
+        .p-2 { padding: 8px !important; }
+        .p-3 { padding: 12px !important; }
+        .p-4 { padding: 16px !important; }
+        .p-5 { padding: 24px !important; }
+        
+        /* ============================================ */
+        /* FLEX UTILITIES                               */
+        /* ============================================ */
+        
+        .d-flex { display: flex !important; }
+        .d-inline-flex { display: inline-flex !important; }
+        .d-block { display: block !important; }
+        .d-inline-block { display: inline-block !important; }
+        .d-none { display: none !important; }
+        
+        .flex-row { flex-direction: row !important; }
+        .flex-column { flex-direction: column !important; }
+        .flex-wrap { flex-wrap: wrap !important; }
+        .flex-nowrap { flex-wrap: nowrap !important; }
+        
+        .justify-start { justify-content: flex-start !important; }
+        .justify-end { justify-content: flex-end !important; }
+        .justify-center { justify-content: center !important; }
+        .justify-between { justify-content: space-between !important; }
+        .justify-around { justify-content: space-around !important; }
+        
+        .align-start { align-items: flex-start !important; }
+        .align-end { align-items: flex-end !important; }
+        .align-center { align-items: center !important; }
+        .align-stretch { align-items: stretch !important; }
+        .align-baseline { align-items: baseline !important; }
+        
+        .flex-1 { flex: 1 !important; }
+        .flex-grow-0 { flex-grow: 0 !important; }
+        .flex-grow-1 { flex-grow: 1 !important; }
+        .flex-shrink-0 { flex-shrink: 0 !important; }
+        
+        .gap-1 { gap: 4px !important; }
+        .gap-2 { gap: 8px !important; }
+        .gap-3 { gap: 12px !important; }
+        .gap-4 { gap: 16px !important; }
+        .gap-5 { gap: 24px !important; }
+        
+        /* ============================================ */
+        /* TEXT UTILITIES                               */
+        /* ============================================ */
+        
+        .text-left { text-align: left !important; }
+        .text-center { text-align: center !important; }
+        .text-right { text-align: right !important; }
+        
+        .text-truncate {
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            white-space: nowrap !important;
+        }
+        
+        .text-break {
+            word-break: break-word !important;
+            overflow-wrap: break-word !important;
+        }
+        
+        .font-bold { font-weight: 700 !important; }
+        .font-semibold { font-weight: 600 !important; }
+        .font-medium { font-weight: 500 !important; }
+        .font-normal { font-weight: 400 !important; }
+        
+        .text-xs { font-size: 10px !important; }
+        .text-sm { font-size: 12px !important; }
+        .text-base { font-size: 14px !important; }
+        .text-lg { font-size: 16px !important; }
+        .text-xl { font-size: 18px !important; }
+        .text-2xl { font-size: 24px !important; }
+        .text-3xl { font-size: 32px !important; }
+        
+        /* ============================================ */
+        /* CURSOR UTILITIES                             */
+        /* ============================================ */
+        
+        .cursor-pointer { cursor: pointer !important; }
+        .cursor-default { cursor: default !important; }
+        .cursor-not-allowed { cursor: not-allowed !important; }
+        .cursor-help { cursor: help !important; }
+        .cursor-grab { cursor: grab !important; }
+        .cursor-grabbing { cursor: grabbing !important; }
+        
+        /* ============================================ */
+        /* OPACITY UTILITIES                            */
+        /* ============================================ */
+        
+        .opacity-0 { opacity: 0 !important; }
+        .opacity-25 { opacity: 0.25 !important; }
+        .opacity-50 { opacity: 0.5 !important; }
+        .opacity-75 { opacity: 0.75 !important; }
+        .opacity-100 { opacity: 1 !important; }
+        
+        /* ============================================ */
+        /* Z-INDEX UTILITIES                            */
+        /* ============================================ */
+        
+        .z-0 { z-index: 0 !important; }
+        .z-10 { z-index: 10 !important; }
+        .z-20 { z-index: 20 !important; }
+        .z-30 { z-index: 30 !important; }
+        .z-40 { z-index: 40 !important; }
+        .z-50 { z-index: 50 !important; }
+        .z-auto { z-index: auto !important; }
+        
+        /* ============================================ */
+        /* POSITION UTILITIES                           */
+        /* ============================================ */
+        
+        .position-relative { position: relative !important; }
+        .position-absolute { position: absolute !important; }
+        .position-fixed { position: fixed !important; }
+        .position-sticky { position: sticky !important; }
+        
+        .top-0 { top: 0 !important; }
+        .bottom-0 { bottom: 0 !important; }
+        .left-0 { left: 0 !important; }
+        .right-0 { right: 0 !important; }
+        
+        /* ============================================ */
+        /* WIDTH & HEIGHT UTILITIES                     */
+        /* ============================================ */
+        
+        .w-100 { width: 100% !important; }
+        .w-75 { width: 75% !important; }
+        .w-50 { width: 50% !important; }
+        .w-25 { width: 25% !important; }
+        .w-auto { width: auto !important; }
+        
+        .h-100 { height: 100% !important; }
+        .h-75 { height: 75% !important; }
+        .h-50 { height: 50% !important; }
+        .h-25 { height: 25% !important; }
+        .h-auto { height: auto !important; }
+        
+        .min-h-100 { min-height: 100% !important; }
+        .min-vh-100 { min-height: 100vh !important; }
+        
+        /* ============================================ */
+        /* OVERFLOW UTILITIES                           */
+        /* ============================================ */
+        
+        .overflow-auto { overflow: auto !important; }
+        .overflow-hidden { overflow: hidden !important; }
+        .overflow-visible { overflow: visible !important; }
+        .overflow-scroll { overflow: scroll !important; }
+        
+        .overflow-x-auto { overflow-x: auto !important; }
+        .overflow-x-hidden { overflow-x: hidden !important; }
+        .overflow-y-auto { overflow-y: auto !important; }
+        .overflow-y-hidden { overflow-y: hidden !important; }
+        
+        /* ============================================ */
+        /* BORDER UTILITIES                             */
+        /* ============================================ */
+        
+        .border { border: 1px solid rgba(99, 102, 241, 0.2) !important; }
+        .border-0 { border: 0 !important; }
+        .border-top { border-top: 1px solid rgba(99, 102, 241, 0.2) !important; }
+        .border-bottom { border-bottom: 1px solid rgba(99, 102, 241, 0.2) !important; }
+        .border-left { border-left: 1px solid rgba(99, 102, 241, 0.2) !important; }
+        .border-right { border-right: 1px solid rgba(99, 102, 241, 0.2) !important; }
+        
+        .rounded { border-radius: 8px !important; }
+        .rounded-lg { border-radius: 16px !important; }
+        .rounded-xl { border-radius: 24px !important; }
+        .rounded-2xl { border-radius: 32px !important; }
+        .rounded-full { border-radius: 9999px !important; }
+        .rounded-none { border-radius: 0 !important; }
+        
+        /* ============================================ */
+        /* SHADOW UTILITIES                             */
+        /* ============================================ */
+        
+        .shadow-sm { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important; }
+        .shadow { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; }
+        .shadow-md { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15) !important; }
+        .shadow-lg { box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2) !important; }
+        .shadow-xl { box-shadow: 0 20px 25px rgba(0, 0, 0, 0.25) !important; }
+        .shadow-2xl { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3) !important; }
+        .shadow-none { box-shadow: none !important; }
+        
+        .shadow-glow { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important; }
+        .shadow-glow-lg { box-shadow: 0 0 40px rgba(99, 102, 241, 0.4) !important; }
+        
+        /* ============================================ */
+        /* TRANSITION UTILITIES                         */
+        /* ============================================ */
+        
+        .transition { transition: all 0.2s ease !important; }
+        .transition-slow { transition: all 0.3s ease !important; }
+        .transition-fast { transition: all 0.1s ease !important; }
+        .transition-none { transition: none !important; }
+        
+        /* ============================================ */
+        /* TRANSFORM UTILITIES                          */
+        /* ============================================ */
+        
+        .transform { transform: translateZ(0) !important; }
+        .scale-95 { transform: scale(0.95) !important; }
+        .scale-100 { transform: scale(1) !important; }
+        .scale-105 { transform: scale(1.05) !important; }
+        .scale-110 { transform: scale(1.1) !important; }
+        
+        .hover-scale:hover { transform: scale(1.02) !important; }
+        .hover-scale-lg:hover { transform: scale(1.05) !important; }
+        
+        /* ============================================ */
+        /* VISIBILITY UTILITIES                         */
+        /* ============================================ */
+        
+        .visible { visibility: visible !important; }
+        .invisible { visibility: hidden !important; }
+        
+        /* ============================================ */
+        /* POINTER EVENTS                               */
+        /* ============================================ */
+        
+        .pointer-events-none { pointer-events: none !important; }
+        .pointer-events-auto { pointer-events: auto !important; }
+        
+        /* ============================================ */
+        /* USER SELECT                                  */
+        /* ============================================ */
+        
+        .select-none { user-select: none !important; }
+        .select-text { user-select: text !important; }
+        .select-all { user-select: all !important; }
+        
+        /* ============================================ */
+        /* WHITESPACE                                   */
+        /* ============================================ */
+        
+        .whitespace-normal { white-space: normal !important; }
+        .whitespace-nowrap { white-space: nowrap !important; }
+        .whitespace-pre { white-space: pre !important; }
+        .whitespace-pre-line { white-space: pre-line !important; }
+        .whitespace-pre-wrap { white-space: pre-wrap !important; }
+    </style>
 </body>
 </html>
