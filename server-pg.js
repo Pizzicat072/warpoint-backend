@@ -1886,43 +1886,20 @@ function setupServerHandlers() {
     process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
     process.on('uncaughtException', (err) => { 
         if (err.message.includes('EADDRINUSE')) {
-            logger.error('Порт уже занят — выходим без паники');
+            logger.error('Порт занят — выходим');
             process.exit(0);
-        } else {
-            logger.error('UNCAUGHT EXCEPTION:', err.message);
         }
+        logger.error('UNCAUGHT EXCEPTION:', err.message);
     });
-    process.on('unhandledRejection', (reason) => logger.error('UNHANDLED REJECTION:', reason));
 }
 
-// 🔥 ЗАЩИТА ОТ ДВОЙНОГО ЗАПУСКА
-let isStarting = false;
+// 🔥 ЗАПУСКАЕМ ТОЛЬКО ОДИН РАЗ
+startServer().catch(err => { 
+    logger.error('Fatal error:', err); 
+    process.exit(1); 
+});
 
-async function safeStart() {
-    if (isStarting) {
-        logger.warn('Сервер уже запускается, пропускаем...');
-        return;
-    }
-    if (SERVER_STATE.isReady) {
-        logger.warn('Сервер уже запущен, пропускаем...');
-        return;
-    }
-    isStarting = true;
-    try {
-        await startServer();
-    } catch (err) {
-        logger.error('Ошибка запуска:', err);
-        process.exit(1);
-    }
-}
+// Экспорт для тестов
+module.exports = { app, startServer, gracefulShutdown, query, addNotification, checkAndAwardAchievements };
 
-// Запускаем только если это главный модуль
-if (require.main === module) {
-    safeStart();
-}
-
-const publicAPI = { app, startServer, gracefulShutdown, query, addNotification, checkAndAwardAchievements };
-module.exports = publicAPI;
-
-console.log('✅ ЧАСТЬ 8/10 загружена (статика, запуск, graceful shutdown) — ИСПРАВЛЕНО');
-if (require.main === module) startServer().catch(err => { logger.error('Fatal error:', err); process.exit(1); });
+console.log('✅ ЧАСТЬ 8/10 загружена');
