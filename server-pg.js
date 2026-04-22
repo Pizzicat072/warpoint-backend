@@ -13954,7 +13954,7 @@ async function startServer() {
         
         // 🔥 САМЫЙ ПОСЛЕДНИЙ ШАГ — ЗАПУСК СЕРВЕРА
         server = app.listen(SERVER_CONFIG.PORT, '0.0.0.0', () => {
-            console.log(`\n🚀 WARPOINT Hub запущен на порту ${PORT}`);
+            console.log(`\n🚀 WARPOINT Hub запущен на порту ${SERVER_CONFIG.PORT}`);
             console.log(`🌍 Окружение: ${SERVER_CONFIG.NODE_ENV}`);
             console.log(`✨ Готов к работе!\n`);
         });
