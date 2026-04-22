@@ -13942,28 +13942,25 @@ function gracefulShutdown(signal) {
 
 async function startServer() {
     try {
-        // 1. Сначала инициализируем Pusher
+        // Баннер
+        console.log('╔══════════════════════════════════════════════════════════════╗');
+        // ...
+        
         pusher = initPusher();
-        
-        // 2. Создаём пул БД
         pool = createDatabasePool();
-        
-        // 3. Инициализируем БД
         await initDatabase();
-        
-        // 4. Инициализируем достижения
         await initAchievements();
-        
-        // 5. Инициализируем cron-задачи
         initCronJobs();
         
-        // 6. ТОЛЬКО ПОТОМ запускаем сервер!
-        server = app.listen(SERVER_CONFIG.PORT, '0.0.0.0', () => {
-            console.log(`🚀 Сервер запущен на порту ${SERVER_CONFIG.PORT}`);
+        // 🔥 САМЫЙ ПОСЛЕДНИЙ ШАГ — ЗАПУСК СЕРВЕРА
+        server = app.listen(PORT, '0.0.0.0', () => {
+            console.log(`\n🚀 WARPOINT Hub запущен на порту ${PORT}`);
+            console.log(`🌍 Окружение: ${SERVER_CONFIG.NODE_ENV}`);
+            console.log(`✨ Готов к работе!\n`);
         });
         
     } catch (err) {
-        console.error('❌ Ошибка запуска:', err);
+        console.error('❌ КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА:', err.message);
         process.exit(1);
     }
 }
