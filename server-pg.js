@@ -5177,11 +5177,6 @@ await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS color VARCHA
         throw err;
     }
 }
-
-/**
- * Создаёт директора по умолчанию
- * @returns {Promise<void>}
- */
 async function createDefaultDirector() {
     try {
         // Проверяем, есть ли директор
@@ -5189,39 +5184,62 @@ async function createDefaultDirector() {
             "SELECT id FROM employees WHERE role = 'director' LIMIT 1"
         );
         
+        let directorId = null;
+        
         if (directorCheck.rows.length === 0) {
-            const hashedPassword = await hashPassword('denis_1');
+            console.log('📝 Создание директора...');
             
             // Создаём директора
             const result = await query(
                 `INSERT INTO employees (name, avatar, coins, rating, role, dashboard_style, bought_styles, bonus_streak)
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                 RETURNING id`,
+                 RETURNING id, name`,
                 ['Денис', '👑', 1000, 0, 'director', 'glass', '["glass"]', 1]
             );
             
-            const directorId = result.rows[0].id;
-            
-            // Создаём пароль
+            const director = result.rows[0];
+            directorId = director.id;
+            console.log(`   ✅ Создан директор: ${director.name}`);
+        } else {
+            directorId = directorCheck.rows[0].id;
+            console.log('   Директор уже существует');
+        }
+        
+        // Проверяем пароль
+        const passwordCheck = await query(
+            "SELECT * FROM passwords WHERE username = 'Денис'"
+        );
+        
+        const hashedPassword = await hashPassword('denis_1');
+        
+        if (passwordCheck.rows.length === 0) {
             await query(
-                'INSERT INTO passwords (username, password_hash) VALUES ($1, $2)',
-                ['Денис', hashedPassword]
+                "INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)",
+                [hashedPassword]
             );
-            
-            console.log('✅ Создан директор: Денис (пароль: denis_1)');
-            
-            // Даём начальные достижения
+            console.log('   ✅ Пароль для директора создан');
+        } else {
+            await query(
+                "UPDATE passwords SET password_hash = $1 WHERE username = 'Денис'",
+                [hashedPassword]
+            );
+            console.log('   ✅ Пароль директора обновлён');
+        }
+        
+        // Даём начальные достижения
+        if (directorId) {
             await query(
                 `INSERT INTO user_achievements (user_id, achievement_id)
-                 SELECT $1, id FROM achievements WHERE id IN ('first_login', 'welcome')
+                 SELECT $1, id FROM achievements WHERE id IN ('first_login', 'set_avatar', 'complete_profile')
                  ON CONFLICT DO NOTHING`,
                 [directorId]
             );
-        } else {
-            console.log('   Директор уже существует');
+            console.log('   ✅ Начальные достижения выданы');
         }
+        
     } catch (err) {
         console.error('❌ Ошибка создания директора:', err.message);
+        throw err;
     }
 }
 
