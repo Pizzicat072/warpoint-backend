@@ -5128,10 +5128,11 @@ await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_bonus_unique_daily
         
         // Добавляем начальные данные
         console.log('📝 Добавление начальных данных...');
-        await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS icon VARCHAR(10) DEFAULT '🏆'`).catch(() => {});
-await pool.query(`ALTER TABLE achievements ADD COLUMN IF NOT EXISTS color VARCHAR(7) DEFAULT '#fbbf24'`).catch(() => {});
 
-        for (const [table, data] of Object.entries(INITIAL_DATA)) {
+// Выполняем все миграции (добавляем недостающие колонки)
+await runMigrations();
+
+for (const [table, data] of Object.entries(INITIAL_DATA)) {
             for (const row of data) {
                 try {
                     const keys = Object.keys(row);
