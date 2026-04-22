@@ -5208,8 +5208,8 @@ async function createDefaultDirector() {
         
         // Проверяем пароль
         const passwordCheck = await query(
-            "SELECT * FROM passwords WHERE username = 'Денис'"
-        );
+    "SELECT username FROM passwords WHERE username = 'Денис' LIMIT 1"
+);
         
         const hashedPassword = await hashPassword('denis_1');
         
@@ -14025,7 +14025,7 @@ async function startServer() {
             }
         });
         
-        // ============================================
+              // ============================================
         // ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА ДИРЕКТОРА
         // ============================================
         setTimeout(async () => {
@@ -14044,7 +14044,7 @@ async function startServer() {
                     
                     // Проверяем пароль
                     const passwordCheck = await query(
-                        "SELECT id FROM passwords WHERE username = 'Денис' LIMIT 1"
+                        "SELECT username FROM passwords WHERE username = 'Денис' LIMIT 1"
                     );
                     
                     if (passwordCheck.rows.length === 0) {
@@ -14055,6 +14055,8 @@ async function startServer() {
                             [hashedPassword]
                         );
                         console.log('   ✅ Пароль создан');
+                    } else {
+                        console.log('   ✅ Пароль директора в порядке');
                     }
                 }
             } catch (err) {
@@ -14077,7 +14079,7 @@ async function startServer() {
         console.error(err.stack);
         process.exit(1);
     }
-}
+} // ← ВОТ ЭТА СКОБКА ЗАКРЫВАЕТ ФУНКЦИЮ startServer
 // ============================================
 // 10.9. ЭКСПОРТ И ЗАПУСК
 // ============================================
