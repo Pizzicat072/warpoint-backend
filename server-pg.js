@@ -200,51 +200,84 @@ async function runMigrations() {
     // 🔥 ИСПРАВЛЯЕМ system_settings
     await fixSystemSettingsTable();
     
-    // 🔥 ИСПРАВЛЯЕМ passwords — САМОЕ ВАЖНОЕ СЕЙЧАС
-    try {
-        // Проверяем существование колонки password_hash
-        const passHashCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'password_hash'`);
-        if (passHashCheck.rows.length === 0) {
-            logger.info('Добавление колонки password_hash в passwords');
+    // 🔥 ПОЛНОЕ ИСПРАВЛЕНИЕ ТАБЛИЦЫ PASSWORDS
+try {
+    // 1. Проверяем существование старой колонки password
+    const oldColCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'password'`);
+    
+    // 2. Проверяем существование колонки password_hash
+    const hashColCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'password_hash'`);
+    
+    // 3. Если есть старая колонка password
+    if (oldColCheck.rows.length > 0) {
+        logger.info('Найдена старая колонка password');
+        
+        // Если password_hash ещё нет - создаём и копируем данные
+        if (hashColCheck.rows.length === 0) {
+            logger.info('Создаём password_hash и копируем данные');
             await query(`ALTER TABLE passwords ADD COLUMN password_hash VARCHAR(255)`);
+            await query(`UPDATE passwords SET password_hash = password WHERE password_hash IS NULL`);
         }
         
-        // Проверяем существование старой колонки hash
-        const hashCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'hash'`);
-        if (hashCheck.rows.length > 0) {
-            logger.info('Копирование данных из hash в password_hash');
-            await query(`UPDATE passwords SET password_hash = hash WHERE password_hash IS NULL`);
-        }
+        // Удаляем ограничение NOT NULL со старой колонки
+        logger.info('Снимаем NOT NULL с password');
+        await query(`ALTER TABLE passwords ALTER COLUMN password DROP NOT NULL`);
         
-        // Проверяем существование колонки username
-        const userCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'username'`);
-        if (userCheck.rows.length === 0) {
-            logger.info('Добавление колонки username в passwords');
-            await query(`ALTER TABLE passwords ADD COLUMN username VARCHAR(100)`);
-            // Если есть колонка user_id, копируем или создаём связь
-        }
+        // Удаляем старую колонку
+        logger.info('Удаляем старую колонку password');
+        await query(`ALTER TABLE passwords DROP COLUMN IF EXISTS password`);
         
-        logger.info('✅ Таблица passwords исправлена');
-    } catch (e) {
-        logger.error('Ошибка миграции passwords:', e.message);
-        // Если совсем всё плохо — пересоздаём
-        try {
-            logger.warn('Попытка пересоздания passwords...');
-            // Сохраняем существующие пароли если возможно
-            const existingData = await query(`SELECT * FROM passwords`).catch(() => ({ rows: [] }));
-            await query(`DROP TABLE IF EXISTS passwords CASCADE`);
-            await query(`CREATE TABLE passwords (username VARCHAR(100) PRIMARY KEY, password_hash VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-            // Восстанавливаем данные если были
-            for (const row of existingData.rows) {
-                if (row.username && row.password_hash) {
-                    await query(`INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [row.username, row.password_hash]);
-                }
-            }
-            logger.info('✅ Таблица passwords пересоздана');
-        } catch (e2) {
-            logger.error('Не удалось пересоздать passwords:', e2.message);
-        }
+        logger.info('✅ Старая колонка password удалена');
     }
+    
+    // 4. Если нет ни password ни password_hash - создаём password_hash
+    if (oldColCheck.rows.length === 0 && hashColCheck.rows.length === 0) {
+        logger.info('Создаём колонку password_hash');
+        await query(`ALTER TABLE passwords ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)`);
+    }
+    
+    // 5. Проверяем наличие колонки username (на всякий случай)
+    const userCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'username'`);
+    if (userCheck.rows.length === 0) {
+        logger.info('Добавляем колонку username');
+        await query(`ALTER TABLE passwords ADD COLUMN username VARCHAR(100)`);
+    }
+    
+    logger.info('✅ Таблица passwords полностью исправлена');
+    
+} catch (e) {
+    logger.error('Ошибка миграции passwords:', e.message);
+    
+    // Если всё сломалось - пересоздаём таблицу
+    try {
+        logger.warn('Пересоздание таблицы passwords...');
+        
+        // Сохраняем существующие данные
+        const existingData = await query(`SELECT username, password_hash FROM passwords`).catch(() => ({ rows: [] }));
+        
+        // Удаляем старую таблицу
+        await query(`DROP TABLE IF EXISTS passwords CASCADE`);
+        
+        // Создаём новую с правильной структурой
+        await query(`CREATE TABLE passwords (
+            username VARCHAR(100) PRIMARY KEY, 
+            password_hash VARCHAR(255) NOT NULL, 
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+        
+        // Восстанавливаем данные
+        for (const row of existingData.rows) {
+            if (row.username && row.password_hash) {
+                await query(`INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [row.username, row.password_hash]);
+            }
+        }
+        
+        logger.info('✅ Таблица passwords пересоздана');
+    } catch (e2) {
+        logger.error('Не удалось пересоздать passwords:', e2.message);
+    }
+}
     
     // Остальные миграции
     const employeeColumns = [
