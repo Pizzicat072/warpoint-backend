@@ -13942,29 +13942,142 @@ function gracefulShutdown(signal) {
 
 async function startServer() {
     try {
-        // Баннер
-        console.log('╔══════════════════════════════════════════════════════════════╗');
-        // ...
+        console.log('\n╔══════════════════════════════════════════════════════════════╗');
+        console.log('║                                                              ║');
+        console.log('║   ██╗    ██╗ █████╗ ██████╗ ██████╗  ██████╗ ██╗███╗   ██╗████████╗  ║');
+        console.log('║   ██║    ██║██╔══██╗██╔══██╗██╔══██╗██╔═══██╗██║████╗  ██║╚══██╔══╝  ║');
+        console.log('║   ██║ █╗ ██║███████║██████╔╝██████╔╝██║   ██║██║██╔██╗ ██║   ██║     ║');
+        console.log('║   ██║███╗██║██╔══██║██╔══██╗██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║     ║');
+        console.log('║   ╚███╔███╔╝██║  ██║██║  ██║██║     ╚██████╔╝██║██║ ╚████║   ██║     ║');
+        console.log('║    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝     ║');
+        console.log('║                                                              ║');
+        console.log('║                    CORPORATE PORTAL v4.0.0                    ║');
+        console.log('║                                                              ║');
+        console.log('╚══════════════════════════════════════════════════════════════╝\n');
         
+        // Инициализируем Pusher
         pusher = initPusher();
+        
+        // Инициализируем пул БД
         pool = createDatabasePool();
+        if (!pool) {
+            throw new Error('Не удалось создать пул базы данных');
+        }
+        
+        // Инициализируем базу данных
         await initDatabase();
+        
+        // Инициализируем достижения
         await initAchievements();
+        
+        // Инициализируем cron-задачи
         initCronJobs();
         
-        // 🔥 САМЫЙ ПОСЛЕДНИЙ ШАГ — ЗАПУСК СЕРВЕРА
+        // Запускаем сервер
         server = app.listen(SERVER_CONFIG.PORT, '0.0.0.0', () => {
+            SERVER_STATE.started = new Date();
+            SERVER_STATE.startTime = Date.now();
+            SERVER_STATE.isReady = true;
+            
             console.log(`\n🚀 WARPOINT Hub запущен на порту ${SERVER_CONFIG.PORT}`);
             console.log(`🌍 Окружение: ${SERVER_CONFIG.NODE_ENV}`);
-            console.log(`✨ Готов к работе!\n`);
+            console.log(`🕐 Часовой пояс: ${SERVER_CONFIG.TIMEZONE}`);
+            console.log(`📊 Текущее время: ${getTobolskNow().toLocaleString()}`);
+            console.log(`\n👤 Директор по умолчанию: Денис / denis_1`);
+            console.log(`\n✨ Готов к работе!\n`);
         });
+        
+        // Настройка keep-alive
+        server.keepAliveTimeout = SERVER_CONFIG.KEEP_ALIVE_TIMEOUT_MS;
+        server.headersTimeout = SERVER_CONFIG.HEADERS_TIMEOUT_MS;
+        server.timeout = SERVER_CONFIG.SERVER_TIMEOUT_MS;
+        
+        // Обработчики сигналов
+        process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+        process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+        process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
+        
+        // Обработчики необработанных ошибок
+        process.on('uncaughtException', (err) => {
+            logger.fatal('❌ UNCAUGHT EXCEPTION:', { error: err.message, stack: err.stack });
+            console.error('❌ UNCAUGHT EXCEPTION:', err);
+            
+            if (err.message.includes('EADDRINUSE')) {
+                console.error(`\n❌ Порт ${SERVER_CONFIG.PORT} уже занят!`);
+                console.error('   Остановите другой процесс или измените PORT в .env\n');
+                process.exit(1);
+            }
+            
+            if (!SERVER_CONFIG.IS_PRODUCTION) {
+                console.error(err.stack);
+            }
+        });
+        
+        process.on('unhandledRejection', (reason, promise) => {
+            logger.error('❌ UNHANDLED REJECTION:', { reason });
+            console.error('❌ UNHANDLED REJECTION:', reason);
+        });
+        
+        // Обработка предупреждений
+        process.on('warning', (warning) => {
+            if (warning.name === 'DeprecationWarning' && SERVER_CONFIG.IS_DEVELOPMENT) {
+                console.warn('⚠️ DeprecationWarning:', warning.message);
+            }
+        });
+        
+        // ============================================
+        // ПРИНУДИТЕЛЬНАЯ ПРОВЕРКА ДИРЕКТОРА
+        // ============================================
+        setTimeout(async () => {
+            try {
+                console.log('🔍 Проверка наличия директора...');
+                
+                const directorCheck = await query(
+                    "SELECT id, name FROM employees WHERE name = 'Денис' LIMIT 1"
+                );
+                
+                if (directorCheck.rows.length === 0) {
+                    console.log('⚠️ Директор не найден, создаём...');
+                    await createDefaultDirector();
+                } else {
+                    console.log(`✅ Директор найден: ${directorCheck.rows[0].name}`);
+                    
+                    // Проверяем пароль
+                    const passwordCheck = await query(
+                        "SELECT id FROM passwords WHERE username = 'Денис' LIMIT 1"
+                    );
+                    
+                    if (passwordCheck.rows.length === 0) {
+                        console.log('⚠️ Пароль директора не найден, создаём...');
+                        const hashedPassword = await hashPassword('denis_1');
+                        await query(
+                            "INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)",
+                            [hashedPassword]
+                        );
+                        console.log('   ✅ Пароль создан');
+                    }
+                }
+            } catch (err) {
+                console.error('❌ Ошибка проверки директора:', err.message);
+            }
+        }, 3000);
+        
+        // Запускаем мониторинг памяти
+        setInterval(checkMemoryUsage, 60000);
+        
+        // Первоначальное обновление погоды
+        setTimeout(() => {
+            updateWeatherJob().catch(err => {
+                logger.error('Ошибка первоначального обновления погоды:', err);
+            });
+        }, 5000);
         
     } catch (err) {
         console.error('❌ КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА:', err.message);
+        console.error(err.stack);
         process.exit(1);
     }
 }
-
 // ============================================
 // 10.9. ЭКСПОРТ И ЗАПУСК
 // ============================================
