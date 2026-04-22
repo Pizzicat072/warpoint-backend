@@ -1050,7 +1050,9 @@
                         <div class="user-name" id="headerName">Гость</div>
                         <div class="user-status" id="headerStatus"></div>
                     </div>
-                    <button class="logout-btn" onclick="if(typeof window.authLogout==='function')window.authLogout()"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+                    <button class="logout-btn" id="logoutBtn">
+    <i class="fas fa-sign-out-alt"></i> Выйти
+</button>
                 </div>
             </div>
         </header>
@@ -1195,12 +1197,24 @@
                 setInterval(rotateTip, 3500);
             };
             
-            function hideGlobalLoader() {
-                if (!globalLoader) return;
-                globalLoader.classList.add('fade-out');
-                setTimeout(() => { if (globalLoader.classList.contains('fade-out')) globalLoader.style.display = 'none'; }, 600);
-                document.getElementById('pageSkeleton').style.display = 'none';
-            }
+           function hideGlobalLoader() {
+    const loader = document.getElementById('globalLoader');
+    const skeleton = document.getElementById('pageSkeleton');
+    
+    if (!loader) return;
+    
+    loader.classList.add('fade-out');
+    
+    setTimeout(() => { 
+        if (loader && loader.classList.contains('fade-out')) {
+            loader.style.display = 'none'; 
+        }
+    }, 600);
+    
+    if (skeleton) {
+        skeleton.style.display = 'none';
+    }
+}
             
             window.hideGlobalLoader = hideGlobalLoader;
             
@@ -1299,6 +1313,47 @@
             document.getElementById('appVersion').textContent = 'v' + CONFIG.VERSION;
             console.log('✅ WARPOINT HUB v' + CONFIG.VERSION + ' загружен');
         })();
+(function() {
+    // Кнопка выхода
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', function() {
+            if (typeof window.authLogout === 'function') {
+                window.authLogout();
+            }
+        });
+    }
+    
+    // Уведомления
+    const notifIcon = document.getElementById('notificationsIcon');
+    if (notifIcon) {
+        notifIcon.addEventListener('click', function() {
+            if (typeof window.toggleNotificationsDropdown === 'function') {
+                window.toggleNotificationsDropdown();
+            }
+        });
+    }
+    
+    // Аватар в хедере
+    const headerAvatar = document.getElementById('headerAvatar');
+    if (headerAvatar) {
+        headerAvatar.addEventListener('click', function() {
+            if (typeof window.openMyProfile === 'function') {
+                window.openMyProfile();
+            }
+        });
+    }
+    
+    // Индикатор синхронизации
+    const syncIndicator = document.getElementById('syncIndicator');
+    if (syncIndicator) {
+        syncIndicator.addEventListener('click', function() {
+            if (typeof window.auth?.reconnectPusher === 'function') {
+                window.auth.reconnectPusher();
+            }
+        });
+    }
+})();
     </script>
 </body>
 </html>

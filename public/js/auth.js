@@ -442,9 +442,10 @@
     // ============================================
     
     function startTokenChecker() {
-        stopTokenChecker();
-        STATE.tokenCheckTimer = setInterval(checkToken, CONFIG.TOKEN_CHECK_INTERVAL_MS);
-    }
+    stopTokenChecker();
+    // Проверяем раз в 30 минут вместо 5
+    STATE.tokenCheckTimer = setInterval(checkToken, 30 * 60 * 1000);
+}
 
     function stopTokenChecker() {
         if (STATE.tokenCheckTimer) {
@@ -454,15 +455,39 @@
     }
 
     async function checkToken() {
-        if (isTokenExpired()) {
+    if (!STATE.isAuthenticated) return;
+    
+    const token = getToken();
+    if (!token) return;
+    
+    // Проверяем не истек ли токен
+    if (isTokenExpired()) {
+        logger.info('Токен истек, пробуем обновить...');
+        const refreshed = await refreshToken();
+        if (!refreshed) {
+            logger.warn('Не удалось обновить токен');
+            // НЕ ВЫХОДИМ СРАЗУ, даём шанс пользователю
+            showNotification('Сессия истекла. Сохраните данные и войдите снова.', 'warning');
+        }
+    }
+    
+    // Проверяем валидность токена на сервере
+    try {
+        const response = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
             const refreshed = await refreshToken();
             if (!refreshed) {
                 await logout({ silent: true });
-                showNotification('Сессия истекла', 'warning');
+                showNotification('Сессия истекла. Войдите снова.', 'warning');
             }
         }
+    } catch (e) {
+        // Сеть недоступна - не разлогиниваем
+        logger.warn('Сеть недоступна при проверке токена');
     }
-
+}
     // ============================================
     // PUSHER
     // ============================================

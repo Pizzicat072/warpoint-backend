@@ -83,21 +83,29 @@ app.use(helmet({
         directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-            imgSrc: ["'self'", "data:", "https:"],
+            styleSrcAttr: ["'unsafe-inline'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],
+            imgSrc: ["'self'", "data:", "https:", "http:"],
             fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
             connectSrc: [
-                "'self'", 
-                "https://api.pusherapp.com", 
-                "https://js.pusher.com", 
+                "'self'",
+                "https://*.pusher.com",
+                "wss://*.pusher.com",
+                "https://api.pusherapp.com",
+                "https://js.pusher.com",
                 "https://cdn.jsdelivr.net",
-                "wss://ws-ap1.pusher.com",
-                "https://sockjs-ap1.pusher.com"
+                "https://sockjs-ap1.pusher.com",
+                "wss://ws-ap1.pusher.com"
             ],
-            frameSrc: ["'self'"]
+            frameSrc: ["'self'"],
+            workerSrc: ["'self'", "blob:"],
+            childSrc: ["'self'", "blob:"]
         }
     },
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 app.use(compression({ level: 6, threshold: 1024 }));
 app.use(cors({ origin: true, credentials: true }));
