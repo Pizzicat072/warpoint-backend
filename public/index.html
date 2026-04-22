@@ -9,66 +9,38 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="application-name" content="WARPOINT HUB">
     <meta name="format-detection" content="telephone=no">
-    <meta name="msapplication-TileColor" content="#0a0c12">
-    <meta name="msapplication-config" content="none">
     
-    <!-- SEO -->
-    <meta name="description" content="WARPOINT HUB — корпоративный портал для управления VR-клубом. Сотрудники, график смен, задачи, штрафы, зарплата, достижения, чат и аналитика в одном месте.">
-    <meta name="keywords" content="WARPOINT, VR, виртуальная реальность, клуб, управление персоналом, график смен, задачи, KPI, зарплата, CRM, корпоративный портал">
+    <meta name="description" content="WARPOINT HUB — корпоративный портал для управления VR-клубом. Сотрудники, график смен, задачи, штрафы, зарплата, достижения, чат и аналитика.">
+    <meta name="keywords" content="WARPOINT, VR, клуб, управление, сотрудники, график, задачи, KPI, зарплата, CRM">
     <meta name="author" content="WARPOINT Team">
     <meta name="robots" content="noindex, nofollow">
-    <meta name="google" content="notranslate">
     
-    <!-- Open Graph -->
     <meta property="og:title" content="WARPOINT HUB — Корпоративный портал VR-клуба">
-    <meta property="og:description" content="Полнофункциональная система управления: сотрудники, график, задачи, штрафы, зарплата, достижения, чат, база знаний и аналитика.">
+    <meta property="og:description" content="Полнофункциональная система управления VR-клубом">
     <meta property="og:image" content="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
-    <meta property="og:url" content="https://warpoint.ru">
+    <meta property="og:url" content="https://warpoint-backend-7jfb.onrender.com">
     <meta property="og:type" content="website">
-    <meta property="og:site_name" content="WARPOINT HUB">
-    <meta property="og:locale" content="ru_RU">
-    
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="WARPOINT HUB">
-    <meta name="twitter:description" content="Корпоративный портал VR-клуба">
-    <meta name="twitter:image" content="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
     
     <title>WARPOINT HUB — Корпоративный портал</title>
     
-    <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
     <link rel="apple-touch-icon" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
-    <link rel="mask-icon" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" color="#0a0c12">
     
-    <!-- Preconnect для ускорения загрузки -->
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="preconnect" href="https://js.pusher.com">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
-    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'; this.onload=null;">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"></noscript>
-    
-    <!-- Основные стили -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     
-    <!-- КРИТИЧЕСКИЕ INLINE-СТИЛИ — ПРЕДОТВРАЩЕНИЕ FOUC -->
     <style>
-        /* ============================================ */
-        /* CRITICAL STYLES — NO FOUC                     */
-        /* ============================================ */
-        
-        /* Reset & Box-sizing */
-        *, *::before, *::after {
+        /* ===== CRITICAL STYLES ===== */
+        * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
         
-        /* Базовые стили body */
         html {
             font-size: 16px;
             -webkit-text-size-adjust: 100%;
@@ -77,24 +49,17 @@
         }
         
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #0a0c12;
             color: #ffffff;
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
-            text-rendering: optimizeLegibility;
             position: relative;
             overflow-x: hidden;
             line-height: 1.5;
         }
         
-        /* Системные шрифты если Inter не загружен */
-        @supports (font-variation-settings: normal) {
-            body { font-family: 'Inter var', sans-serif; }
-        }
-        
-        /* Фоновый градиент */
         body::before {
             content: '';
             position: fixed;
@@ -107,7 +72,6 @@
             pointer-events: none;
         }
         
-        /* Фоновое изображение (загружается асинхронно) */
         body::after {
             content: '';
             position: fixed;
@@ -128,21 +92,15 @@
             opacity: 1;
         }
         
-        /* Анимации */
+        /* ===== АНИМАЦИИ ===== */
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
         }
         
         @keyframes fadeInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
         @keyframes spin {
@@ -425,7 +383,7 @@
             opacity: 0.8;
         }
         
-        /* ===== СИНХРОНИЗАЦИЯ ===== */
+        /* ===== ИНДИКАТОР СИНХРОНИЗАЦИИ ===== */
         #syncIndicator {
             position: fixed !important;
             bottom: 24px !important;
@@ -516,30 +474,12 @@
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .login-card::-webkit-scrollbar {
-            width: 4px;
-        }
-        
-        .login-card::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 4px;
-        }
-        
-        .login-card::-webkit-scrollbar-thumb {
-            background: #6366f1;
-            border-radius: 4px;
-        }
-        
         .login-logo-clean {
             width: 100px;
             height: 100px;
             margin: 0 auto 32px;
             cursor: pointer;
             transition: transform 0.2s;
-        }
-        
-        .login-logo-clean:hover {
-            transform: scale(1.05);
         }
         
         .login-logo-clean img {
@@ -608,11 +548,6 @@
             box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
         }
         
-        .login-field input.error {
-            border-color: #ef4444;
-            box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15);
-        }
-        
         .capslock-warning {
             position: absolute;
             bottom: -20px;
@@ -653,7 +588,6 @@
             width: 16px;
             height: 16px;
             accent-color: #6366f1;
-            cursor: pointer;
         }
         
         .login-submit-btn {
@@ -671,7 +605,6 @@
             justify-content: center;
             gap: 8px;
             transition: all 0.2s;
-            font-size: 15px;
         }
         
         .login-submit-btn:hover:not(:disabled) {
@@ -702,10 +635,6 @@
             display: none;
         }
         
-        #mainContainer[style*="display: block"] {
-            animation: fadeIn 0.3s ease;
-        }
-        
         /* ===== ХЕДЕР ===== */
         .header {
             display: flex;
@@ -734,7 +663,6 @@
             height: 40px;
             border-radius: 12px;
             overflow: hidden;
-            flex-shrink: 0;
         }
         
         .logo-icon img {
@@ -746,7 +674,6 @@
         .logo-text {
             font-size: 22px;
             font-weight: 700;
-            white-space: nowrap;
         }
         
         .logo-badge {
@@ -755,7 +682,6 @@
             border-radius: 20px;
             font-size: 10px;
             margin-left: 8px;
-            font-weight: 600;
         }
         
         .user-card {
@@ -779,7 +705,6 @@
             cursor: pointer;
             overflow: hidden;
             transition: transform 0.2s;
-            flex-shrink: 0;
         }
         
         .user-avatar:hover {
@@ -819,7 +744,6 @@
             cursor: pointer;
             font-size: 11px;
             transition: all 0.2s;
-            white-space: nowrap;
         }
         
         .logout-btn:hover {
@@ -837,7 +761,6 @@
             display: flex;
             align-items: center;
             gap: 6px;
-            white-space: nowrap;
         }
         
         .about-link:hover {
@@ -855,11 +778,6 @@
             justify-content: center;
             border-radius: 10px;
             background: rgba(255, 255, 255, 0.04);
-            transition: all 0.2s;
-        }
-        
-        .notifications-icon:hover {
-            background: rgba(255, 255, 255, 0.08);
         }
         
         .notifications-icon .badge {
@@ -877,7 +795,6 @@
             align-items: center;
             justify-content: center;
             padding: 0 4px;
-            border: 1px solid #0a0c12;
         }
         
         .notifications-dropdown {
@@ -893,19 +810,6 @@
             z-index: 9999;
             overflow: hidden;
             display: none;
-        }
-        
-        .notifications-dropdown::before {
-            content: '';
-            position: absolute;
-            top: -8px;
-            right: 15px;
-            width: 16px;
-            height: 16px;
-            background: #131720;
-            transform: rotate(45deg);
-            border-left: 1px solid rgba(255, 255, 255, 0.06);
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
         
         .notifications-dropdown.show {
@@ -924,20 +828,6 @@
             z-index: 999;
             padding: 0 16px;
             overflow-x: auto;
-        }
-        
-        .main-menu::-webkit-scrollbar {
-            height: 3px;
-        }
-        
-        .main-menu::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 2px;
-        }
-        
-        .main-menu::-webkit-scrollbar-thumb {
-            background: #6366f1;
-            border-radius: 2px;
         }
         
         .menu-container {
@@ -963,22 +853,14 @@
             transition: all 0.2s;
         }
         
-        @media (hover: hover) {
-            .menu-item:hover {
-                background: rgba(255, 255, 255, 0.04);
-            }
-        }
-        
         .menu-item i {
             font-size: 18px;
             color: #9ca3af;
-            transition: color 0.2s;
         }
         
         .menu-item .menu-tooltip {
             font-size: 10px;
             color: #9ca3af;
-            transition: color 0.2s;
         }
         
         .menu-item.active {
@@ -1032,119 +914,26 @@
         
         /* ===== АДАПТИВНОСТЬ ===== */
         @media (max-width: 768px) {
-            .header {
-                padding: 12px 16px;
-            }
-            
-            .logo-text {
-                font-size: 18px;
-            }
-            
-            .user-info {
-                display: none;
-            }
-            
-            .about-link span {
-                display: none;
-            }
-            
-            .about-link {
-                padding: 8px;
-            }
-            
-            .main-menu {
-                top: 60px;
-            }
-            
-            .menu-item .menu-tooltip {
-                display: none;
-            }
-            
-            .notifications-dropdown {
-                width: calc(100% - 40px);
-                right: 20px;
-                left: 20px;
-            }
-            
-            .notifications-dropdown::before {
-                right: 25px;
-            }
-            
-            .login-card {
-                padding: 36px 24px;
-            }
-            
-            #syncIndicator {
-                bottom: 16px !important;
-                left: 16px !important;
-                width: 40px !important;
-                height: 40px !important;
-            }
-            
-            .loader-title {
-                font-size: 28px;
-                letter-spacing: 2px;
-            }
-            
-            .loader-content {
-                padding: 35px 25px;
-            }
-            
-            .login-logo-clean {
-                width: 80px;
-                height: 80px;
-            }
-            
-            .logout-btn {
-                padding: 10px 16px;
-                min-height: 44px;
-            }
-            
-            .skeleton-grid {
-                grid-template-columns: repeat(2, 1fr);
-            }
+            .header { padding: 12px 16px; }
+            .logo-text { font-size: 18px; }
+            .user-info { display: none; }
+            .about-link span { display: none; }
+            .about-link { padding: 8px; }
+            .main-menu { top: 60px; }
+            .menu-item .menu-tooltip { display: none; }
+            .notifications-dropdown { width: calc(100% - 40px); right: 20px; left: 20px; }
+            .login-card { padding: 36px 24px; }
+            #syncIndicator { bottom: 16px !important; left: 16px !important; width: 40px !important; height: 40px !important; }
+            .loader-title { font-size: 28px; }
+            .loader-content { padding: 35px 25px; }
+            .login-logo-clean { width: 80px; height: 80px; }
+            .skeleton-grid { grid-template-columns: repeat(2, 1fr); }
         }
         
         @media (max-width: 480px) {
-            .login-card {
-                padding: 32px 20px;
-            }
-            
-            .login-brand-name {
-                font-size: 24px;
-            }
-            
-            .skeleton-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        /* ===== УТИЛИТЫ ===== */
-        .hidden {
-            display: none !important;
-        }
-        
-        .visually-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            margin: -1px;
-            padding: 0;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            border: 0;
-        }
-        
-        .text-gradient {
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-        }
-        
-        .no-select {
-            user-select: none;
-            -webkit-user-select: none;
+            .login-card { padding: 32px 20px; }
+            .login-brand-name { font-size: 24px; }
+            .skeleton-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
@@ -1156,20 +945,17 @@
             <div class="loader-orb orb-2"></div>
             <div class="loader-orb orb-3"></div>
         </div>
-        
         <div class="loader-particles" id="loaderParticles"></div>
-        
         <div class="loader-content">
             <div class="loader-logo">
                 <div class="loader-logo-wrapper">
                     <div class="loader-logo-ring"></div>
                     <div class="loader-logo-ring-2"></div>
-                    <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" loading="eager">
+                    <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
                 </div>
             </div>
             <div class="loader-title">WARPOINT HUB</div>
             <div class="loader-subtitle">КОРПОРАТИВНЫЙ ПОРТАЛ</div>
-            
             <div class="loader-progress-section">
                 <div class="loader-progress-bar">
                     <div class="loader-progress-fill" id="loaderProgressFill"></div>
@@ -1178,7 +964,6 @@
                 <div class="loader-status-text" id="loaderStatusText">Инициализация системы...</div>
                 <div class="loader-module-name" id="loaderModuleName"></div>
             </div>
-            
             <div class="loader-tip" id="loaderTip">
                 <i class="fas fa-lightbulb"></i>
                 <span>WARPOINT — корпоративный портал</span>
@@ -1187,28 +972,27 @@
     </div>
     
     <!-- ИНДИКАТОР СИНХРОНИЗАЦИИ -->
-    <div id="syncIndicator" onclick="if(typeof window.auth?.reconnectPusher==='function')window.auth.reconnectPusher(); else if(typeof window.initPusher==='function')window.initPusher()" title="Статус подключения к чату">
+    <div id="syncIndicator" onclick="if(typeof window.auth?.reconnectPusher==='function')window.auth.reconnectPusher()" title="Статус подключения">
         <i class="fas fa-broadcast-tower"></i>
     </div>
     
     <!-- МОДАЛКА ВХОДА -->
     <div id="loginModal">
         <div class="login-card">
-            <div class="login-logo-clean" onclick="location.reload()" title="Обновить страницу">
-                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" loading="eager">
+            <div class="login-logo-clean" onclick="location.reload()">
+                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
             </div>
             <h1 class="login-brand-name">WARPOINT</h1>
             <p class="login-brand-sub">корпоративный портал</p>
             <form id="loginForm" onsubmit="return false;">
                 <div class="login-field">
                     <i class="fas fa-user"></i>
-                    <input type="text" id="loginName" placeholder="Логин" autocomplete="username" value="" required>
+                    <input type="text" id="loginName" placeholder="Логин" autocomplete="username" required>
                 </div>
                 <div class="login-field">
-    <i class="fas fa-lock" style="position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af;"></i>
-    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required style="padding-right: 48px !important;">
-    <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; cursor: pointer; transition: color 0.2s; left: auto;"></i>
-</div>
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required>
+                    <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль"></i>
                     <div class="capslock-warning" id="capslockWarning">
                         <i class="fas fa-exclamation-triangle"></i> Caps Lock включён
                     </div>
@@ -1230,71 +1014,50 @@
             </div>
         </div>
     </div>
+    
     <!-- ОСНОВНОЙ КОНТЕЙНЕР -->
     <div id="mainContainer" style="display: none;">
-        <!-- ХЕДЕР -->
         <header class="header">
             <div class="logo-area">
                 <div class="logo-icon">
                     <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT" loading="lazy">
                 </div>
                 <div class="logo-text">
-                    WARPOINT 
-                    <span class="logo-badge">ХАБ</span>
+                    WARPOINT <span class="logo-badge">ХАБ</span>
                 </div>
             </div>
-            
             <div style="display: flex; align-items: center; gap: 12px;">
-                <!-- Ссылка "О проекте" -->
-                <a href="/about.html" class="about-link">
-                    <i class="fas fa-info-circle"></i>
-                    <span>О проекте</span>
-                </a>
-                
-                <!-- Уведомления -->
-                <div class="notifications-icon" id="notificationsIcon" onclick="if(typeof window.toggleNotificationsDropdown==='function')window.toggleNotificationsDropdown()" title="Уведомления">
+                <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i><span> О проекте</span></a>
+                <div class="notifications-icon" id="notificationsIcon" onclick="if(typeof window.toggleNotificationsDropdown==='function')window.toggleNotificationsDropdown()">
                     <i class="far fa-bell"></i>
                     <span class="badge" id="notificationsBadge" style="display: none;">0</span>
                 </div>
                 <div class="notifications-dropdown" id="notificationsDropdown">
-                    <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between; align-items: center;">
-                        <h4 style="margin:0;font-size:13px;font-weight:600;"><i class="far fa-bell"></i> Уведомления</h4>
+                    <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; justify-content: space-between;">
+                        <h4 style="margin:0;font-size:13px;"><i class="far fa-bell"></i> Уведомления</h4>
                         <div style="display:flex;gap:12px;">
-                            <button onclick="if(typeof window.markAllNotificationsRead==='function')window.markAllNotificationsRead()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;transition:color 0.2s;" onmouseover="this.style.color='#a78bfa'" onmouseout="this.style.color='#9ca3af'">✓ Все</button>
-                            <button onclick="if(typeof window.clearAllNotifications==='function')window.clearAllNotifications()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;transition:color 0.2s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'">🗑️</button>
+                            <button onclick="if(typeof window.markAllNotificationsRead==='function')window.markAllNotificationsRead()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button>
+                            <button onclick="if(typeof window.clearAllNotifications==='function')window.clearAllNotifications()" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button>
                         </div>
                     </div>
                     <div id="notificationsList" style="max-height:360px;overflow-y:auto;">
-                        <div style="padding:40px;text-align:center;color:#9ca3af;">
-                            <i class="fas fa-spinner fa-spin"></i> Загрузка...
-                        </div>
+                        <div style="padding:40px;text-align:center;color:#9ca3af;">Загрузка...</div>
                     </div>
                 </div>
-                
-                <!-- Профиль пользователя -->
                 <div class="user-card">
-                    <div class="user-avatar" id="headerAvatar" onclick="if(typeof window.openMyProfile==='function')window.openMyProfile()" title="Открыть профиль">
-                        👤
-                    </div>
+                    <div class="user-avatar" id="headerAvatar" onclick="if(typeof window.openMyProfile==='function')window.openMyProfile()">👤</div>
                     <div class="user-info">
                         <div class="user-name" id="headerName">Гость</div>
                         <div class="user-status" id="headerStatus"></div>
                     </div>
-                    <button class="logout-btn" onclick="if(typeof window.authLogout==='function')window.authLogout()" title="Выйти">
-                        <i class="fas fa-sign-out-alt"></i> Выйти
-                    </button>
+                    <button class="logout-btn" onclick="if(typeof window.authLogout==='function')window.authLogout()"><i class="fas fa-sign-out-alt"></i> Выйти</button>
                 </div>
             </div>
         </header>
         
-        <!-- ГЛАВНОЕ МЕНЮ -->
-        <nav class="main-menu" id="mainMenu" aria-label="Главное меню">
-            <!-- Меню рендерится через router.js -->
-        </nav>
+        <nav class="main-menu" id="mainMenu"></nav>
         
-        <!-- КОНТЕЙНЕР СТРАНИЦ -->
-        <main id="pageContainer" role="main">
-            <!-- Скелетон загрузки страницы -->
+        <main id="pageContainer">
             <div class="page-skeleton" id="pageSkeleton">
                 <div class="skeleton-header"></div>
                 <div class="skeleton-grid">
@@ -1306,363 +1069,16 @@
             </div>
         </main>
         
-        <!-- ФУТЕР -->
         <footer>
             <span>© WARPOINT 2026 — Корпоративный портал v4.0.0</span>
             <span style="margin: 0 10px;">•</span>
             <span id="appVersion">Загрузка...</span>
-            <span style="margin: 0 10px;">•</span>
-            <span id="connectionStatus">
-                <i class="fas fa-circle" style="font-size: 6px; color: #ef4444;"></i>
-                <span>Офлайн</span>
-            </span>
         </footer>
     </div>
     
-    <!-- ДОПОЛНИТЕЛЬНЫЕ СТИЛИ ДЛЯ СТРАНИЦ -->
-    <style>
-        /* ============================================ */
-        /* PAGE TRANSITIONS & ANIMATIONS                 */
-        /* ============================================ */
-        
-        #pageContainer {
-            animation: pageFadeIn 0.25s ease-out;
-            min-height: calc(100vh - 140px);
-        }
-        
-        @keyframes pageFadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(8px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* Анимация переключения страниц */
-        .page-transition-enter {
-            opacity: 0;
-            transform: translateY(10px);
-        }
-        
-        .page-transition-enter-active {
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-        
-        .page-transition-exit {
-            opacity: 1;
-        }
-        
-        .page-transition-exit-active {
-            opacity: 0;
-            transition: opacity 0.15s ease;
-        }
-        
-        /* ============================================ */
-        /* OFFLINE BANNER                               */
-        /* ============================================ */
-        
-        .offline-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: rgba(239, 68, 68, 0.95);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            color: white;
-            text-align: center;
-            padding: 8px 16px;
-            font-size: 13px;
-            font-weight: 500;
-            z-index: 10000;
-            transform: translateY(-100%);
-            transition: transform 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .offline-banner.show {
-            transform: translateY(0);
-        }
-        
-        .offline-banner i {
-            font-size: 14px;
-        }
-        
-        .offline-banner .close-banner {
-            margin-left: auto;
-            cursor: pointer;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background 0.2s;
-        }
-        
-        .offline-banner .close-banner:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        /* ============================================ */
-        /* UPDATE NOTIFICATION                          */
-        /* ============================================ */
-        
-        .update-notification {
-            position: fixed;
-            bottom: 80px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: linear-gradient(135deg, #1a1f2e, #0f1222);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 40px;
-            padding: 12px 24px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-            z-index: 9997;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            transition: transform 0.3s ease;
-        }
-        
-        .update-notification.show {
-            transform: translateX(-50%) translateY(0);
-        }
-        
-        .update-notification i {
-            color: #10b981;
-            font-size: 20px;
-            animation: pulse 1.5s infinite;
-        }
-        
-        .update-notification span {
-            color: #e2e8f0;
-            font-size: 14px;
-        }
-        
-        .update-notification button {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border: none;
-            border-radius: 30px;
-            padding: 6px 16px;
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        
-        .update-notification button:hover {
-            transform: scale(1.05);
-        }
-        
-        /* ============================================ */
-        /* KEYBOARD SHORTCUTS HINT                      */
-        /* ============================================ */
-        
-        .shortcuts-hint {
-            position: fixed;
-            bottom: 80px;
-            right: 24px;
-            background: rgba(18, 24, 34, 0.9);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 12px;
-            padding: 12px 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            z-index: 9996;
-            font-size: 11px;
-            color: #94a3b8;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-            pointer-events: none;
-        }
-        
-        .shortcuts-hint.show {
-            opacity: 1;
-            visibility: visible;
-        }
-        
-        .shortcuts-hint kbd {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            border-radius: 4px;
-            padding: 2px 6px;
-            font-family: monospace;
-            color: #a78bfa;
-            margin: 0 2px;
-        }
-        
-        /* ============================================ */
-        /* TOOLTIP                                      */
-        /* ============================================ */
-        
-        [data-tooltip] {
-            position: relative;
-            cursor: help;
-        }
-        
-        [data-tooltip]:before {
-            content: attr(data-tooltip);
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%) translateY(-8px);
-            background: #1a1f2e;
-            color: #e2e8f0;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 11px;
-            white-space: nowrap;
-            opacity: 0;
-            visibility: hidden;
-            transition: all 0.2s;
-            pointer-events: none;
-            z-index: 10000;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        [data-tooltip]:hover:before {
-            opacity: 1;
-            visibility: visible;
-            transform: translateX(-50%) translateY(-4px);
-        }
-        
-        /* ============================================ */
-        /* FOCUS STYLES                                 */
-        /* ============================================ */
-        
-        :focus-visible {
-            outline: 2px solid #6366f1;
-            outline-offset: 2px;
-        }
-        
-        button:focus-visible,
-        a:focus-visible,
-        input:focus-visible,
-        select:focus-visible,
-        textarea:focus-visible {
-            outline: 2px solid #6366f1;
-            outline-offset: 2px;
-        }
-        
-        /* ============================================ */
-        /* PRINT STYLES                                 */
-        /* ============================================ */
-        
-        @media print {
-            .header,
-            .main-menu,
-            #syncIndicator,
-            .logout-btn,
-            .notifications-icon,
-            footer {
-                display: none !important;
-            }
-            
-            #mainContainer {
-                padding: 20px;
-            }
-            
-            body {
-                background: white;
-                color: black;
-            }
-            
-            .glass-card, .info-card, .stat-card {
-                background: white;
-                border: 1px solid #ddd;
-                box-shadow: none;
-            }
-        }
-        
-        /* ============================================ */
-        /* HIGH CONTRAST MODE                           */
-        /* ============================================ */
-        
-        @media (prefers-contrast: high) {
-            body {
-                background: #000;
-            }
-            
-            .glass-card, .info-card, .stat-card {
-                background: #111;
-                border: 2px solid #fff;
-            }
-            
-            button {
-                border: 2px solid #fff;
-            }
-        }
-        
-        /* ============================================ */
-        /* REDUCED MOTION                               */
-        /* ============================================ */
-        
-        @media (prefers-reduced-motion: reduce) {
-            *,
-            *::before,
-            *::after {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-                scroll-behavior: auto !important;
-            }
-        }
-        
-        /* ============================================ */
-        /* DARK MODE SPECIFIC (уже тёмная, но на всякий) */
-        /* ============================================ */
-        
-        @media (prefers-color-scheme: dark) {
-            /* Уже тёмная тема по умолчанию */
-        }
-        
-        @media (prefers-color-scheme: light) {
-            /* Форсируем тёмную тему */
-            body {
-                background: #0a0c12 !important;
-                color: #ffffff !important;
-            }
-        }
-    </style>
-    
-    <!-- ОФЛАЙН-БАННЕР -->
-    <div id="offlineBanner" class="offline-banner">
-        <i class="fas fa-wifi-slash"></i>
-        <span>Нет соединения с интернетом. Данные могут быть устаревшими.</span>
-        <span class="close-banner" onclick="document.getElementById('offlineBanner').classList.remove('show')">✕</span>
-    </div>
-    
-    <!-- УВЕДОМЛЕНИЕ ОБ ОБНОВЛЕНИИ -->
-    <div id="updateNotification" class="update-notification">
-        <i class="fas fa-sync-alt fa-spin"></i>
-        <span>Доступна новая версия</span>
-        <button onclick="location.reload()">Обновить</button>
-    </div>
-    
-    <!-- ПОДСКАЗКА ГОРЯЧИХ КЛАВИШ -->
-    <div id="shortcutsHint" class="shortcuts-hint">
-        <div style="margin-bottom: 6px; font-weight: 600; color: #e2e8f0;">Горячие клавиши</div>
-        <div><kbd>Ctrl</kbd> + <kbd>K</kbd> — поиск</div>
-        <div><kbd>Ctrl</kbd> + <kbd>/</kbd> — показать подсказку</div>
-        <div><kbd>Esc</kbd> — закрыть модалку</div>
-        <div><kbd>←</kbd> <kbd>→</kbd> — навигация по месяцам</div>
-    </div>
-    <!-- ============================================ -->
-    <!-- СКРИПТЫ                                       -->
-    <!-- ============================================ -->
-    
-    <!-- Внешние библиотеки -->
+    <!-- СКРИПТЫ -->
     <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    
-    <!-- Основные модули -->
     <script src="/js/utils.js"></script>
     <script src="/js/api.js"></script>
     <script src="/js/achievements.js"></script>
@@ -1683,50 +1099,25 @@
     <script src="/js/admin.js"></script>
     <script src="/js/reports.js"></script>
     
-    <!-- ============================================ -->
-    <!-- ИНИЦИАЛИЗАЦИЯ ПРИЛОЖЕНИЯ                      -->
-    <!-- ============================================ -->
     <script>
         (function() {
             'use strict';
             
-            // ============================================
-            // КОНФИГУРАЦИЯ
-            // ============================================
-            
             const CONFIG = {
                 VERSION: '4.0.0',
-                BUILD_DATE: '2026-04-21',
-                PUSHER_KEY: '91e6eb7093c4b16a3275',
-                PUSHER_CLUSTER: 'ap1',
-                MAX_LOADER_DISPLAY_MS: 8000,
-                HEARTBEAT_INTERVAL_MS: 60000,
-                ACTIVITY_CHECK_INTERVAL_MS: 30000
+                MAX_LOADER_DISPLAY_MS: 8000
             };
-            
-            // ============================================
-            // ГЛОБАЛЬНОЕ СОСТОЯНИЕ
-            // ============================================
             
             window.app = window.app || {
                 currentUser: null,
                 currentUserRole: null,
-                currentUserPermissions: null,
                 employees: [],
                 profiles: {},
                 tasks: [],
                 fines: [],
                 schedule: {},
-                lastActivity: {},
-                stickers: {},
-                achievements: {},
-                messages: {},
                 version: CONFIG.VERSION
             };
-            
-            // ============================================
-            // ПРЕЛОАДЕР
-            // ============================================
             
             const requiredModules = [
                 'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
@@ -1740,20 +1131,13 @@
                 { icon: '📋', text: 'Управляйте задачами и графиком' },
                 { icon: '🏆', text: 'Следите за рейтингом команды' },
                 { icon: '🎁', text: 'Получайте достижения и бонусы' },
-                { icon: '💬', text: 'Общайтесь в чате с коллегами' },
-                { icon: '🤝', text: 'Ваша команда — ваша сила' },
-                { icon: '⚡', text: 'Автоматизация рутины' },
-                { icon: '📊', text: 'Аналитика и отчёты' }
+                { icon: '💬', text: 'Общайтесь в чате с коллегами' }
             ];
             
             let loadedModules = 0;
             let tipIndex = 0;
             let allModulesLoaded = false;
-            let loaderForceHideTimer = null;
-            let tipRotationTimer = null;
-            let startTime = Date.now();
             
-            // DOM элементы
             const globalLoader = document.getElementById('globalLoader');
             const loaderProgressFill = document.getElementById('loaderProgressFill');
             const loaderPercent = document.getElementById('loaderPercent');
@@ -1761,337 +1145,89 @@
             const loaderModuleName = document.getElementById('loaderModuleName');
             const loaderTipSpan = document.querySelector('#loaderTip span');
             const loaderTipIcon = document.querySelector('#loaderTip i');
-            const loaderParticles = document.getElementById('loaderParticles');
             
-            /**
-             * Создание частиц для прелоадера
-             */
             function createParticles() {
-                if (!loaderParticles) return;
-                loaderParticles.innerHTML = '';
-                
+                const container = document.getElementById('loaderParticles');
+                if (!container) return;
                 for (let i = 0; i < 50; i++) {
-                    const particle = document.createElement('div');
-                    particle.className = 'loader-particle';
-                    particle.style.left = Math.random() * 100 + '%';
-                    particle.style.animationDelay = (Math.random() * 8) + 's';
-                    particle.style.animationDuration = (6 + Math.random() * 6) + 's';
-                    particle.style.opacity = Math.random() * 0.5 + 0.2;
-                    particle.style.width = (1 + Math.random() * 3) + 'px';
-                    particle.style.height = particle.style.width;
-                    loaderParticles.appendChild(particle);
+                    const p = document.createElement('div');
+                    p.className = 'loader-particle';
+                    p.style.left = Math.random() * 100 + '%';
+                    p.style.animationDelay = (Math.random() * 8) + 's';
+                    p.style.animationDuration = (6 + Math.random() * 6) + 's';
+                    container.appendChild(p);
                 }
             }
             
-            /**
-             * Ротация подсказок
-             */
             function rotateTip() {
                 tipIndex = (tipIndex + 1) % loaderTips.length;
                 const tip = loaderTips[tipIndex];
-                
-                if (loaderTipIcon) {
-                    loaderTipIcon.className = '';
-                    loaderTipIcon.textContent = tip.icon;
-                }
-                if (loaderTipSpan) {
-                    loaderTipSpan.textContent = tip.text;
-                }
+                if (loaderTipIcon) loaderTipIcon.textContent = tip.icon;
+                if (loaderTipSpan) loaderTipSpan.textContent = tip.text;
             }
             
-            /**
-             * Обновление прогресса загрузки
-             */
             function updateLoaderProgress(moduleName) {
                 loadedModules++;
                 const percent = Math.min(100, Math.round((loadedModules / requiredModules.length) * 100));
-                
-                if (loaderProgressFill) {
-                    loaderProgressFill.style.width = percent + '%';
-                }
-                if (loaderPercent) {
-                    loaderPercent.textContent = percent + '%';
-                }
-                if (loaderModuleName) {
-                    loaderModuleName.textContent = `📦 ${moduleName || ''}`;
-                }
-                
+                if (loaderProgressFill) loaderProgressFill.style.width = percent + '%';
+                if (loaderPercent) loaderPercent.textContent = percent + '%';
+                if (loaderModuleName) loaderModuleName.textContent = '📦 ' + (moduleName || '');
                 if (loaderStatusText) {
-                    if (percent < 20) {
-                        loaderStatusText.textContent = '⚡ Инициализация ядра...';
-                    } else if (percent < 40) {
-                        loaderStatusText.textContent = '📦 Загрузка модулей...';
-                    } else if (percent < 60) {
-                        loaderStatusText.textContent = '🔧 Настройка компонентов...';
-                    } else if (percent < 80) {
-                        loaderStatusText.textContent = '🎨 Применение стилей...';
-                    } else {
-                        loaderStatusText.textContent = '🚀 Запуск системы...';
-                    }
+                    if (percent < 30) loaderStatusText.textContent = '⚡ Инициализация ядра...';
+                    else if (percent < 60) loaderStatusText.textContent = '📦 Загрузка модулей...';
+                    else if (percent < 90) loaderStatusText.textContent = '🔧 Настройка компонентов...';
+                    else loaderStatusText.textContent = '🚀 Запуск системы...';
                 }
-                
                 if (loadedModules >= requiredModules.length) {
                     allModulesLoaded = true;
-                    setTimeout(() => hideGlobalLoader(), 500);
+                    setTimeout(hideGlobalLoader, 500);
                 }
             }
             
-            /**
-             * Показать глобальный прелоадер
-             */
             window.showGlobalLoader = function() {
                 if (!globalLoader) return;
-                
                 globalLoader.classList.remove('fade-out');
                 globalLoader.style.display = 'flex';
-                
                 loadedModules = 0;
-                allModulesLoaded = false;
-                startTime = Date.now();
-                
                 if (loaderProgressFill) loaderProgressFill.style.width = '0%';
                 if (loaderPercent) loaderPercent.textContent = '0%';
-                if (loaderStatusText) loaderStatusText.textContent = 'Инициализация системы...';
-                if (loaderModuleName) loaderModuleName.textContent = '';
-                
                 createParticles();
-                
-                if (tipRotationTimer) clearInterval(tipRotationTimer);
-                tipRotationTimer = setInterval(rotateTip, 3500);
-                
-                // Принудительное скрытие по таймауту
-                if (loaderForceHideTimer) clearTimeout(loaderForceHideTimer);
-                loaderForceHideTimer = setTimeout(() => {
-                    if (globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
-                        console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
-                        if (loaderProgressFill) loaderProgressFill.style.width = '100%';
-                        if (loaderPercent) loaderPercent.textContent = '100%';
-                        hideGlobalLoader();
-                        allModulesLoaded = true;
-                    }
-                }, CONFIG.MAX_LOADER_DISPLAY_MS);
+                setInterval(rotateTip, 3500);
             };
             
-            /**
-             * Скрыть глобальный прелоадер
-             */
-            window.hideGlobalLoader = function() {
+            function hideGlobalLoader() {
                 if (!globalLoader) return;
-                
                 globalLoader.classList.add('fade-out');
-                
-                setTimeout(() => {
-                    if (globalLoader.classList.contains('fade-out')) {
-                        globalLoader.style.display = 'none';
-                    }
-                }, 600);
-                
-                if (tipRotationTimer) {
-                    clearInterval(tipRotationTimer);
-                    tipRotationTimer = null;
-                }
-                if (loaderForceHideTimer) {
-                    clearTimeout(loaderForceHideTimer);
-                    loaderForceHideTimer = null;
-                }
-                
-                // Скрываем скелетон
-                const skeleton = document.getElementById('pageSkeleton');
-                if (skeleton) skeleton.style.display = 'none';
-            };
+                setTimeout(() => { if (globalLoader.classList.contains('fade-out')) globalLoader.style.display = 'none'; }, 600);
+                document.getElementById('pageSkeleton').style.display = 'none';
+            }
             
-            // Отслеживание загрузки скриптов
+            window.hideGlobalLoader = hideGlobalLoader;
+            
             document.querySelectorAll('script[src*="/js/"]').forEach(script => {
-                const src = script.src.split('/').pop();
-                
-                script.addEventListener('load', function() {
-                    updateLoaderProgress(src);
-                });
-                
-                script.addEventListener('error', function() {
-                    console.error('❌ Ошибка загрузки:', src);
-                    updateLoaderProgress(src + ' (ошибка)');
-                });
+                script.addEventListener('load', () => updateLoaderProgress(script.src.split('/').pop()));
             });
             
-            // Fallback если не все скрипты загрузились
-            window.addEventListener('load', function() {
-                if (!allModulesLoaded) {
-                    loadedModules = requiredModules.length;
-                    updateLoaderProgress('готово');
-                }
-                
-                // Загружаем фоновое изображение
-                loadBackgroundImage();
-            });
-            
-            // Создаём частицы при старте
             createParticles();
+            setInterval(rotateTip, 3500);
             
-            // Запускаем ротацию подсказок
-            tipRotationTimer = setInterval(rotateTip, 3500);
-            
-            // Принудительное скрытие по таймауту
-            loaderForceHideTimer = setTimeout(() => {
-                if (globalLoader && globalLoader.style.display !== 'none' && !globalLoader.classList.contains('fade-out')) {
-                    console.warn('⚠️ Принудительное скрытие прелоадера (таймаут)');
-                    if (loaderProgressFill) loaderProgressFill.style.width = '100%';
-                    if (loaderPercent) loaderPercent.textContent = '100%';
-                    hideGlobalLoader();
-                    allModulesLoaded = true;
-                }
-            }, CONFIG.MAX_LOADER_DISPLAY_MS);
-            
-            // ============================================
-            // ФОНОВОЕ ИЗОБРАЖЕНИЕ
-            // ============================================
+            setTimeout(() => { if (!allModulesLoaded) { loadedModules = requiredModules.length; updateLoaderProgress('готово'); } }, CONFIG.MAX_LOADER_DISPLAY_MS);
             
             function loadBackgroundImage() {
                 const img = new Image();
-                img.onload = function() {
-                    document.body.classList.add('bg-image-loaded');
-                    console.log('✅ Фоновая картинка загружена');
-                };
-                img.onerror = function() {
-                    console.log('⚠️ Фоновая картинка не найдена, используется градиент');
-                };
+                img.onload = () => document.body.classList.add('bg-image-loaded');
                 img.src = '/2026-04-02_03-45-56.png';
             }
+            loadBackgroundImage();
             
-            // ============================================
-            // СТАТУС ПОДКЛЮЧЕНИЯ
-            // ============================================
-            
-            function updateConnectionStatus() {
-                const statusEl = document.getElementById('connectionStatus');
-                if (!statusEl) return;
-                
-                const icon = statusEl.querySelector('i');
-                const span = statusEl.querySelector('span');
-                
-                if (navigator.onLine) {
-                    icon.style.color = '#10b981';
-                    span.textContent = 'Онлайн';
-                } else {
-                    icon.style.color = '#ef4444';
-                    span.textContent = 'Офлайн';
-                    
-                    // Показываем офлайн-баннер
-                    const banner = document.getElementById('offlineBanner');
-                    if (banner) banner.classList.add('show');
-                }
-            }
-            
-            window.addEventListener('online', function() {
-                updateConnectionStatus();
-                document.getElementById('offlineBanner')?.classList.remove('show');
-                
-                if (typeof window.showNotification === 'function') {
-                    window.showNotification('📡 Соединение восстановлено', 'success');
-                }
-                
-                // Обработка офлайн-очереди
-                if (typeof window.auth?.processOfflineQueue === 'function') {
-                    window.auth.processOfflineQueue();
-                }
-            });
-            
-            window.addEventListener('offline', function() {
-                updateConnectionStatus();
-                document.getElementById('offlineBanner')?.classList.add('show');
-                
-                if (typeof window.showNotification === 'function') {
-                    window.showNotification('📡 Нет соединения с интернетом', 'warning');
-                }
-            });
-            
-            updateConnectionStatus();
-            
-            // ============================================
-            // ВЕРСИЯ ПРИЛОЖЕНИЯ
-            // ============================================
-            
-            document.getElementById('appVersion').textContent = `v${CONFIG.VERSION}`;
-            
-            // ============================================
-            // ГОРЯЧИЕ КЛАВИШИ
-            // ============================================
-            
-            document.addEventListener('keydown', function(e) {
-                // Ctrl + K — фокус на поиск (если есть)
-                if (e.ctrlKey && e.key === 'k') {
-                    e.preventDefault();
-                    const searchInput = document.querySelector('#taskSearch, #fineSearch, #salarySearch, #vpSearch, #knowledgeSearch');
-                    if (searchInput) {
-                        searchInput.focus();
-                    }
-                }
-                
-                // Ctrl + / — показать подсказку
-                if (e.ctrlKey && e.key === '/') {
-                    e.preventDefault();
-                    const hint = document.getElementById('shortcutsHint');
-                    if (hint) {
-                        hint.classList.add('show');
-                        setTimeout(() => hint.classList.remove('show'), 3000);
-                    }
-                }
-                
-                // Escape — закрыть модалки
-                if (e.key === 'Escape') {
-                    // Закрытие модалок обрабатывается в соответствующих модулях
-                }
-            });
-            
-            // ============================================
-            // ОТСЛЕЖИВАНИЕ АКТИВНОСТИ
-            // ============================================
-            
-            let lastActivity = Date.now();
-            
-            function updateLastActivity() {
-                lastActivity = Date.now();
-                
-                if (window.app && window.app.currentUser) {
-                    window.app.lastActivity = window.app.lastActivity || {};
-                    window.app.lastActivity[window.app.currentUser] = lastActivity;
-                }
-            }
-            
-            ['click', 'keydown', 'scroll', 'mousemove', 'touchstart'].forEach(eventType => {
-                document.addEventListener(eventType, updateLastActivity, { passive: true });
-            });
-            
-            // Периодическая отправка heartbeat
-            setInterval(() => {
-                if (window.app?.currentUser && typeof window.sendHeartbeat === 'function') {
-                    window.sendHeartbeat();
-                }
-            }, CONFIG.HEARTBEAT_INTERVAL_MS);
-            
-            // ============================================
-            // SERVICE WORKER (если нужен)
-            // ============================================
-            
-            if ('serviceWorker' in navigator && location.protocol === 'https:') {
-                // Раскомментировать если нужен PWA
-                // navigator.serviceWorker.register('/sw.js').catch(console.error);
-            }
-            
-            // ============================================
-            // ФУНКЦИИ ДЛЯ МОДАЛКИ ВХОДА
-            // ============================================
-            
-            // Показать/скрыть пароль
             document.getElementById('togglePassword')?.addEventListener('click', function() {
-    const input = document.getElementById('loginPassword');
-    if (input) {
-        input.type = input.type === 'password' ? 'text' : 'password';
-        this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-    }
-});
+                const input = document.getElementById('loginPassword');
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                    this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+                }
+            });
             
-            // Обнаружение Caps Lock
             document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
                 const warning = document.getElementById('capslockWarning');
                 if (e.getModifierState && e.getModifierState('CapsLock')) {
@@ -2101,58 +1237,19 @@
                 }
             });
             
-            // Восстановление сохранённого логина
             const savedLogin = localStorage.getItem('savedLogin');
             if (savedLogin) {
-                const loginInput = document.getElementById('loginName');
-                const rememberCheckbox = document.getElementById('rememberMe');
-                
-                if (loginInput) loginInput.value = savedLogin;
-                if (rememberCheckbox) rememberCheckbox.checked = true;
+                document.getElementById('loginName').value = savedLogin;
+                document.getElementById('rememberMe').checked = true;
             }
-            
-            // ============================================
-            // ЗАКРЫТИЕ ДРОПДАУНА УВЕДОМЛЕНИЙ
-            // ============================================
             
             document.addEventListener('click', function(e) {
                 const dropdown = document.getElementById('notificationsDropdown');
                 const icon = document.getElementById('notificationsIcon');
-                
                 if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
                     dropdown.classList.remove('show');
                 }
             });
-            
-            // Закрытие по свайпу на мобильных
-            let touchStartY = 0;
-            const dropdown = document.getElementById('notificationsDropdown');
-            
-            dropdown?.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-            });
-            
-            dropdown?.addEventListener('touchmove', (e) => {
-                const touchY = e.touches[0].clientY;
-                if (touchY - touchStartY > 50) {
-                    dropdown.classList.remove('show');
-                }
-            });
-            
-            // ============================================
-            // ОБРАБОТЧИК НАВИГАЦИИ
-            // ============================================
-            
-            window.addEventListener('popstate', function(e) {
-                const state = e.state;
-                if (state && state.page && typeof window.loadPage === 'function') {
-                    window.loadPage(state.page, false);
-                }
-            });
-            
-            // ============================================
-            // ЭКСПОРТ ГЛОБАЛЬНЫХ ФУНКЦИЙ
-            // ============================================
             
             window.showLoginModal = function() {
                 document.getElementById('loginModal').style.display = 'flex';
@@ -2168,7 +1265,6 @@
                 const dropdown = document.getElementById('notificationsDropdown');
                 if (dropdown) {
                     dropdown.classList.toggle('show');
-                    
                     if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
                         window.renderNotificationsDropdown();
                     }
@@ -2181,57 +1277,18 @@
                 }
             };
             
-            // ============================================
-            // ПРОВЕРКА АВТОРИЗАЦИИ
-            // ============================================
-            
             const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
-            
             if (token) {
                 const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
-                
                 if (savedUser) {
                     try {
                         const user = JSON.parse(savedUser);
-                        window.app = window.app || {};
                         window.app.currentUser = user.name || user;
                         window.app.currentUserRole = user.role || 'operator';
-                        
                         hideLoginModal();
-                        
-                        const headerName = document.getElementById('headerName');
-                        if (headerName) headerName.textContent = window.app.currentUser;
-                        
-                        // Показываем скелетон
-                        const skeleton = document.getElementById('pageSkeleton');
-                        if (skeleton) skeleton.style.display = 'block';
-                        
-                        // Загружаем данные
-                        if (typeof window.loadEmployees === 'function') {
-                            window.loadEmployees().then(() => {
-                                if (typeof window.loadTasks === 'function') window.loadTasks();
-                                if (typeof window.loadFines === 'function') window.loadFines();
-                                if (typeof window.loadSchedule === 'function') window.loadSchedule();
-                                if (typeof window.renderMainMenu === 'function') window.renderMainMenu();
-                                
-                                if (skeleton) skeleton.style.display = 'none';
-                            }).catch(() => {
-                                if (typeof window.renderMainMenu === 'function') window.renderMainMenu();
-                                if (skeleton) skeleton.style.display = 'none';
-                            });
-                        }
-                        
-                        // Инициализация Pusher с задержкой
-                        setTimeout(() => {
-                            if (typeof window.auth?.initPusher === 'function') {
-                                window.auth.initPusher();
-                            } else if (typeof window.initPusher === 'function') {
-                                window.initPusher();
-                            }
-                        }, 1000);
-                        
+                        document.getElementById('headerName').textContent = window.app.currentUser;
+                        if (typeof window.renderMainMenu === 'function') window.renderMainMenu();
                     } catch (e) {
-                        console.error('Ошибка парсинга пользователя:', e);
                         showLoginModal();
                     }
                 }
@@ -2239,795 +1296,9 @@
                 showLoginModal();
             }
             
-            console.log('✅ index.html v4.0.0 ULTRA MEGA EDITION загружен');
-            
+            document.getElementById('appVersion').textContent = 'v' + CONFIG.VERSION;
+            console.log('✅ WARPOINT HUB v' + CONFIG.VERSION + ' загружен');
         })();
     </script>
-</body>
-</html>
-    <!-- ============================================ -->
-    <!-- ДОПОЛНИТЕЛЬНЫЕ СТИЛИ (ПРОДОЛЖЕНИЕ)             -->
-    <!-- ============================================ -->
-    <style>
-        /* ============================================ */
-        /* КАСТОМНЫЙ СКРОЛЛБАР                           */
-        /* ============================================ */
-        
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 10px;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            border-radius: 10px;
-            border: 2px solid transparent;
-            background-clip: padding-box;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: linear-gradient(135deg, #8b5cf6, #a78bfa);
-            background-clip: padding-box;
-        }
-        
-        ::-webkit-scrollbar-corner {
-            background: transparent;
-        }
-        
-        /* ============================================ */
-        /* ВЫДЕЛЕНИЕ ТЕКСТА                              */
-        /* ============================================ */
-        
-        ::selection {
-            background: rgba(99, 102, 241, 0.4);
-            color: #ffffff;
-            text-shadow: none;
-        }
-        
-        ::-moz-selection {
-            background: rgba(99, 102, 241, 0.4);
-            color: #ffffff;
-            text-shadow: none;
-        }
-        
-        /* ============================================ */
-        /* PLACEHOLDER СТИЛИ                             */
-        /* ============================================ */
-        
-        ::placeholder {
-            color: #475569;
-            opacity: 0.7;
-            font-size: 0.95em;
-        }
-        
-        :-ms-input-placeholder {
-            color: #475569;
-        }
-        
-        /* ============================================ */
-        /* АВТОЗАПОЛНЕНИЕ                               */
-        /* ============================================ */
-        
-        input:-webkit-autofill,
-        input:-webkit-autofill:hover,
-        input:-webkit-autofill:focus,
-        input:-webkit-autofill:active {
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: #ffffff;
-            transition: background-color 5000s ease-in-out 0s;
-            box-shadow: inset 0 0 20px 20px rgba(0, 0, 0, 0.3);
-            border-color: #6366f1;
-        }
-        
-        /* ============================================ */
-        /* LOADING SPINNER                              */
-        /* ============================================ */
-        
-        .loading-spinner {
-            display: inline-block;
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(99, 102, 241, 0.2);
-            border-radius: 50%;
-            border-top-color: #6366f1;
-            animation: spin 0.8s linear infinite;
-        }
-        
-        .loading-spinner-sm {
-            width: 20px;
-            height: 20px;
-            border-width: 2px;
-        }
-        
-        .loading-spinner-lg {
-            width: 60px;
-            height: 60px;
-            border-width: 4px;
-        }
-        
-        /* ============================================ */
-        /* PULSE DOT (индикатор активности)              */
-        /* ============================================ */
-        
-        .pulse-dot {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #10b981;
-            position: relative;
-        }
-        
-        .pulse-dot::after {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: -4px;
-            right: -4px;
-            bottom: -4px;
-            border-radius: 50%;
-            background: #10b981;
-            opacity: 0.5;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-        
-        .pulse-dot.warning {
-            background: #f59e0b;
-        }
-        
-        .pulse-dot.warning::after {
-            background: #f59e0b;
-        }
-        
-        .pulse-dot.danger {
-            background: #ef4444;
-        }
-        
-        .pulse-dot.danger::after {
-            background: #ef4444;
-        }
-        
-        /* ============================================ */
-        /* BADGE STYLES                                 */
-        /* ============================================ */
-        
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 2px 8px;
-            border-radius: 20px;
-            font-size: 10px;
-            font-weight: 600;
-            line-height: 1.4;
-            white-space: nowrap;
-        }
-        
-        .badge-primary {
-            background: rgba(99, 102, 241, 0.15);
-            color: #a78bfa;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-        }
-        
-        .badge-success {
-            background: rgba(16, 185, 129, 0.15);
-            color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.3);
-        }
-        
-        .badge-warning {
-            background: rgba(245, 158, 11, 0.15);
-            color: #f59e0b;
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-        
-        .badge-danger {
-            background: rgba(239, 68, 68, 0.15);
-            color: #ef4444;
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-        
-        .badge-info {
-            background: rgba(6, 182, 212, 0.15);
-            color: #06b6d4;
-            border: 1px solid rgba(6, 182, 212, 0.3);
-        }
-        
-        .badge-new {
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            color: white;
-            animation: pulse 2s infinite;
-        }
-        
-        /* ============================================ */
-        /* EMPTY STATE                                  */
-        /* ============================================ */
-        
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: #64748b;
-        }
-        
-        .empty-state-icon {
-            font-size: 64px;
-            margin-bottom: 16px;
-            opacity: 0.5;
-        }
-        
-        .empty-state h3 {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #e2e8f0;
-        }
-        
-        .empty-state p {
-            font-size: 14px;
-            color: #94a3b8;
-            max-width: 400px;
-            margin: 0 auto;
-        }
-        
-        .empty-state button {
-            margin-top: 24px;
-        }
-        
-        /* ============================================ */
-        /* TOOLTIP (продолжение)                        */
-        /* ============================================ */
-        
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-        
-        .tooltip .tooltip-text {
-            visibility: hidden;
-            opacity: 0;
-            position: absolute;
-            bottom: 125%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #1a1f2e;
-            color: #e2e8f0;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-size: 11px;
-            white-space: nowrap;
-            transition: opacity 0.2s;
-            pointer-events: none;
-            z-index: 1000;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-        
-        .tooltip .tooltip-text::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            border: 5px solid transparent;
-            border-top-color: #1a1f2e;
-        }
-        
-        .tooltip:hover .tooltip-text {
-            visibility: visible;
-            opacity: 1;
-        }
-        
-        /* ============================================ */
-        /* RIPPLE EFFECT (для кнопок)                   */
-        /* ============================================ */
-        
-        .ripple {
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .ripple-effect {
-            position: absolute;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(0);
-            animation: ripple-animation 0.6s ease-out;
-            pointer-events: none;
-        }
-        
-        @keyframes ripple-animation {
-            to {
-                transform: scale(4);
-                opacity: 0;
-            }
-        }
-        
-        /* ============================================ */
-        /* GLASS MORPHISM ЭФФЕКТЫ                       */
-        /* ============================================ */
-        
-        .glass {
-            background: rgba(20, 25, 50, 0.6);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(99, 102, 241, 0.2);
-        }
-        
-        .glass-light {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .glass-heavy {
-            background: rgba(10, 12, 18, 0.8);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(99, 102, 241, 0.3);
-        }
-        
-        /* ============================================ */
-        /* GRADIENT BORDERS                             */
-        /* ============================================ */
-        
-        .border-gradient {
-            position: relative;
-            border: none;
-        }
-        
-        .border-gradient::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            border-radius: inherit;
-            padding: 1px;
-            background: linear-gradient(135deg, #6366f1, #ec4899);
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            pointer-events: none;
-        }
-        
-        /* ============================================ */
-        /* SHIMMER EFFECT (загрузка)                    */
-        /* ============================================ */
-        
-        .shimmer {
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(255, 255, 255, 0.05),
-                transparent
-            );
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-        }
-        
-        @keyframes shimmer {
-            0% { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-        
-        /* ============================================ */
-        /* HOVER GLOW                                   */
-        /* ============================================ */
-        
-        .hover-glow {
-            transition: all 0.3s ease;
-        }
-        
-        .hover-glow:hover {
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
-            transform: translateY(-2px);
-        }
-        
-        /* ============================================ */
-        /* NEON TEXT                                    */
-        /* ============================================ */
-        
-        .neon-text {
-            text-shadow: 0 0 5px #6366f1, 0 0 10px #6366f1, 0 0 20px #8b5cf6;
-        }
-        
-        .neon-text-pink {
-            text-shadow: 0 0 5px #ec4899, 0 0 10px #ec4899, 0 0 20px #f472b6;
-        }
-        
-        /* ============================================ */
-        /* FLOATING ANIMATION                           */
-        /* ============================================ */
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-5px); }
-        }
-        
-        .float {
-            animation: float 3s ease-in-out infinite;
-        }
-        
-        .float-slow {
-            animation: float 5s ease-in-out infinite;
-        }
-        
-        /* ============================================ */
-        /* GLOW EFFECT                                  */
-        /* ============================================ */
-        
-        @keyframes glow {
-            0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0.3); }
-            50% { box-shadow: 0 0 20px rgba(99, 102, 241, 0.6); }
-        }
-        
-        .glow {
-            animation: glow 2s ease-in-out infinite;
-        }
-        
-        /* ============================================ */
-        /* SLIDE IN                                     */
-        /* ============================================ */
-        
-        @keyframes slideInLeft {
-            from {
-                opacity: 0;
-                transform: translateX(-20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-        
-        @keyframes slideInRight {
-            from {
-                opacity: 0;
-                transform: translateX(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(0);
-            }
-        }
-        
-        @keyframes slideInUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .animate-slide-left {
-            animation: slideInLeft 0.3s ease-out;
-        }
-        
-        .animate-slide-right {
-            animation: slideInRight 0.3s ease-out;
-        }
-        
-        .animate-slide-up {
-            animation: slideInUp 0.3s ease-out;
-        }
-        
-        /* ============================================ */
-        /* FADE IN                                      */
-        /* ============================================ */
-        
-        @keyframes fadeInScale {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-        
-        .animate-fade-scale {
-            animation: fadeInScale 0.2s ease-out;
-        }
-        
-        /* ============================================ */
-        /* STATUS COLORS                                */
-        /* ============================================ */
-        
-        .text-success { color: #10b981 !important; }
-        .text-warning { color: #f59e0b !important; }
-        .text-danger { color: #ef4444 !important; }
-        .text-info { color: #06b6d4 !important; }
-        .text-primary { color: #6366f1 !important; }
-        .text-secondary { color: #8b5cf6 !important; }
-        .text-gold { color: #fbbf24 !important; }
-        .text-muted { color: #64748b !important; }
-        
-        .bg-success { background: rgba(16, 185, 129, 0.15) !important; }
-        .bg-warning { background: rgba(245, 158, 11, 0.15) !important; }
-        .bg-danger { background: rgba(239, 68, 68, 0.15) !important; }
-        .bg-info { background: rgba(6, 182, 212, 0.15) !important; }
-        .bg-primary { background: rgba(99, 102, 241, 0.15) !important; }
-        .bg-gold { background: rgba(251, 191, 36, 0.15) !important; }
-        
-        .border-success { border-color: #10b981 !important; }
-        .border-warning { border-color: #f59e0b !important; }
-        .border-danger { border-color: #ef4444 !important; }
-        .border-info { border-color: #06b6d4 !important; }
-        .border-primary { border-color: #6366f1 !important; }
-        .border-gold { border-color: #fbbf24 !important; }
-        
-        /* ============================================ */
-        /* SPACING UTILITIES                            */
-        /* ============================================ */
-        
-        .m-0 { margin: 0 !important; }
-        .mt-1 { margin-top: 4px !important; }
-        .mt-2 { margin-top: 8px !important; }
-        .mt-3 { margin-top: 12px !important; }
-        .mt-4 { margin-top: 16px !important; }
-        .mt-5 { margin-top: 24px !important; }
-        .mb-1 { margin-bottom: 4px !important; }
-        .mb-2 { margin-bottom: 8px !important; }
-        .mb-3 { margin-bottom: 12px !important; }
-        .mb-4 { margin-bottom: 16px !important; }
-        .mb-5 { margin-bottom: 24px !important; }
-        .ml-auto { margin-left: auto !important; }
-        .mr-auto { margin-right: auto !important; }
-        .mx-auto { margin-left: auto !important; margin-right: auto !important; }
-        
-        .p-1 { padding: 4px !important; }
-        .p-2 { padding: 8px !important; }
-        .p-3 { padding: 12px !important; }
-        .p-4 { padding: 16px !important; }
-        .p-5 { padding: 24px !important; }
-        
-        /* ============================================ */
-        /* FLEX UTILITIES                               */
-        /* ============================================ */
-        
-        .d-flex { display: flex !important; }
-        .d-inline-flex { display: inline-flex !important; }
-        .d-block { display: block !important; }
-        .d-inline-block { display: inline-block !important; }
-        .d-none { display: none !important; }
-        
-        .flex-row { flex-direction: row !important; }
-        .flex-column { flex-direction: column !important; }
-        .flex-wrap { flex-wrap: wrap !important; }
-        .flex-nowrap { flex-wrap: nowrap !important; }
-        
-        .justify-start { justify-content: flex-start !important; }
-        .justify-end { justify-content: flex-end !important; }
-        .justify-center { justify-content: center !important; }
-        .justify-between { justify-content: space-between !important; }
-        .justify-around { justify-content: space-around !important; }
-        
-        .align-start { align-items: flex-start !important; }
-        .align-end { align-items: flex-end !important; }
-        .align-center { align-items: center !important; }
-        .align-stretch { align-items: stretch !important; }
-        .align-baseline { align-items: baseline !important; }
-        
-        .flex-1 { flex: 1 !important; }
-        .flex-grow-0 { flex-grow: 0 !important; }
-        .flex-grow-1 { flex-grow: 1 !important; }
-        .flex-shrink-0 { flex-shrink: 0 !important; }
-        
-        .gap-1 { gap: 4px !important; }
-        .gap-2 { gap: 8px !important; }
-        .gap-3 { gap: 12px !important; }
-        .gap-4 { gap: 16px !important; }
-        .gap-5 { gap: 24px !important; }
-        
-        /* ============================================ */
-        /* TEXT UTILITIES                               */
-        /* ============================================ */
-        
-        .text-left { text-align: left !important; }
-        .text-center { text-align: center !important; }
-        .text-right { text-align: right !important; }
-        
-        .text-truncate {
-            overflow: hidden !important;
-            text-overflow: ellipsis !important;
-            white-space: nowrap !important;
-        }
-        
-        .text-break {
-            word-break: break-word !important;
-            overflow-wrap: break-word !important;
-        }
-        
-        .font-bold { font-weight: 700 !important; }
-        .font-semibold { font-weight: 600 !important; }
-        .font-medium { font-weight: 500 !important; }
-        .font-normal { font-weight: 400 !important; }
-        
-        .text-xs { font-size: 10px !important; }
-        .text-sm { font-size: 12px !important; }
-        .text-base { font-size: 14px !important; }
-        .text-lg { font-size: 16px !important; }
-        .text-xl { font-size: 18px !important; }
-        .text-2xl { font-size: 24px !important; }
-        .text-3xl { font-size: 32px !important; }
-        
-        /* ============================================ */
-        /* CURSOR UTILITIES                             */
-        /* ============================================ */
-        
-        .cursor-pointer { cursor: pointer !important; }
-        .cursor-default { cursor: default !important; }
-        .cursor-not-allowed { cursor: not-allowed !important; }
-        .cursor-help { cursor: help !important; }
-        .cursor-grab { cursor: grab !important; }
-        .cursor-grabbing { cursor: grabbing !important; }
-        
-        /* ============================================ */
-        /* OPACITY UTILITIES                            */
-        /* ============================================ */
-        
-        .opacity-0 { opacity: 0 !important; }
-        .opacity-25 { opacity: 0.25 !important; }
-        .opacity-50 { opacity: 0.5 !important; }
-        .opacity-75 { opacity: 0.75 !important; }
-        .opacity-100 { opacity: 1 !important; }
-        
-        /* ============================================ */
-        /* Z-INDEX UTILITIES                            */
-        /* ============================================ */
-        
-        .z-0 { z-index: 0 !important; }
-        .z-10 { z-index: 10 !important; }
-        .z-20 { z-index: 20 !important; }
-        .z-30 { z-index: 30 !important; }
-        .z-40 { z-index: 40 !important; }
-        .z-50 { z-index: 50 !important; }
-        .z-auto { z-index: auto !important; }
-        
-        /* ============================================ */
-        /* POSITION UTILITIES                           */
-        /* ============================================ */
-        
-        .position-relative { position: relative !important; }
-        .position-absolute { position: absolute !important; }
-        .position-fixed { position: fixed !important; }
-        .position-sticky { position: sticky !important; }
-        
-        .top-0 { top: 0 !important; }
-        .bottom-0 { bottom: 0 !important; }
-        .left-0 { left: 0 !important; }
-        .right-0 { right: 0 !important; }
-        
-        /* ============================================ */
-        /* WIDTH & HEIGHT UTILITIES                     */
-        /* ============================================ */
-        
-        .w-100 { width: 100% !important; }
-        .w-75 { width: 75% !important; }
-        .w-50 { width: 50% !important; }
-        .w-25 { width: 25% !important; }
-        .w-auto { width: auto !important; }
-        
-        .h-100 { height: 100% !important; }
-        .h-75 { height: 75% !important; }
-        .h-50 { height: 50% !important; }
-        .h-25 { height: 25% !important; }
-        .h-auto { height: auto !important; }
-        
-        .min-h-100 { min-height: 100% !important; }
-        .min-vh-100 { min-height: 100vh !important; }
-        
-        /* ============================================ */
-        /* OVERFLOW UTILITIES                           */
-        /* ============================================ */
-        
-        .overflow-auto { overflow: auto !important; }
-        .overflow-hidden { overflow: hidden !important; }
-        .overflow-visible { overflow: visible !important; }
-        .overflow-scroll { overflow: scroll !important; }
-        
-        .overflow-x-auto { overflow-x: auto !important; }
-        .overflow-x-hidden { overflow-x: hidden !important; }
-        .overflow-y-auto { overflow-y: auto !important; }
-        .overflow-y-hidden { overflow-y: hidden !important; }
-        
-        /* ============================================ */
-        /* BORDER UTILITIES                             */
-        /* ============================================ */
-        
-        .border { border: 1px solid rgba(99, 102, 241, 0.2) !important; }
-        .border-0 { border: 0 !important; }
-        .border-top { border-top: 1px solid rgba(99, 102, 241, 0.2) !important; }
-        .border-bottom { border-bottom: 1px solid rgba(99, 102, 241, 0.2) !important; }
-        .border-left { border-left: 1px solid rgba(99, 102, 241, 0.2) !important; }
-        .border-right { border-right: 1px solid rgba(99, 102, 241, 0.2) !important; }
-        
-        .rounded { border-radius: 8px !important; }
-        .rounded-lg { border-radius: 16px !important; }
-        .rounded-xl { border-radius: 24px !important; }
-        .rounded-2xl { border-radius: 32px !important; }
-        .rounded-full { border-radius: 9999px !important; }
-        .rounded-none { border-radius: 0 !important; }
-        
-        /* ============================================ */
-        /* SHADOW UTILITIES                             */
-        /* ============================================ */
-        
-        .shadow-sm { box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important; }
-        .shadow { box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important; }
-        .shadow-md { box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15) !important; }
-        .shadow-lg { box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2) !important; }
-        .shadow-xl { box-shadow: 0 20px 25px rgba(0, 0, 0, 0.25) !important; }
-        .shadow-2xl { box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3) !important; }
-        .shadow-none { box-shadow: none !important; }
-        
-        .shadow-glow { box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important; }
-        .shadow-glow-lg { box-shadow: 0 0 40px rgba(99, 102, 241, 0.4) !important; }
-        
-        /* ============================================ */
-        /* TRANSITION UTILITIES                         */
-        /* ============================================ */
-        
-        .transition { transition: all 0.2s ease !important; }
-        .transition-slow { transition: all 0.3s ease !important; }
-        .transition-fast { transition: all 0.1s ease !important; }
-        .transition-none { transition: none !important; }
-        
-        /* ============================================ */
-        /* TRANSFORM UTILITIES                          */
-        /* ============================================ */
-        
-        .transform { transform: translateZ(0) !important; }
-        .scale-95 { transform: scale(0.95) !important; }
-        .scale-100 { transform: scale(1) !important; }
-        .scale-105 { transform: scale(1.05) !important; }
-        .scale-110 { transform: scale(1.1) !important; }
-        
-        .hover-scale:hover { transform: scale(1.02) !important; }
-        .hover-scale-lg:hover { transform: scale(1.05) !important; }
-        
-        /* ============================================ */
-        /* VISIBILITY UTILITIES                         */
-        /* ============================================ */
-        
-        .visible { visibility: visible !important; }
-        .invisible { visibility: hidden !important; }
-        
-        /* ============================================ */
-        /* POINTER EVENTS                               */
-        /* ============================================ */
-        
-        .pointer-events-none { pointer-events: none !important; }
-        .pointer-events-auto { pointer-events: auto !important; }
-        
-        /* ============================================ */
-        /* USER SELECT                                  */
-        /* ============================================ */
-        
-        .select-none { user-select: none !important; }
-        .select-text { user-select: text !important; }
-        .select-all { user-select: all !important; }
-        
-        /* ============================================ */
-        /* WHITESPACE                                   */
-        /* ============================================ */
-        
-        .whitespace-normal { white-space: normal !important; }
-        .whitespace-nowrap { white-space: nowrap !important; }
-        .whitespace-pre { white-space: pre !important; }
-        .whitespace-pre-line { white-space: pre-line !important; }
-        .whitespace-pre-wrap { white-space: pre-wrap !important; }
-    </style>
 </body>
 </html>
