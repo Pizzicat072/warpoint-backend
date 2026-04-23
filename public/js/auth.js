@@ -361,45 +361,58 @@
     // ВЫХОД
     // ============================================
     
-    async function logout(options = {}) {
-        const { silent = false, keepUI = false } = options;
-        
-        if (STATE.isLoggingOut) return { success: false };
-        STATE.isLoggingOut = true;
-        
-        const token = getToken();
-        const username = window.app?.currentUser;
-        
-        if (token) {
-            try { await apiRequest('/auth/logout', { method: 'POST' }); } catch (e) {}
+    async function logout(options) {
+    if (options === undefined) options = {};
+    var silent = options.silent || false;
+    var keepUI = options.keepUI || false;
+    
+    if (STATE.isLoggingOut) return { success: false };
+    STATE.isLoggingOut = true;
+    
+    var token = getToken();
+    var username = window.app?.currentUser;
+    
+    if (token) {
+        try {
+            await apiRequest('/auth/logout', { method: 'POST' });
+        } catch (e) {
+            // Игнорируем ошибки при логауте
         }
-        
-        clearTokens();
-        clearUser();
-        
-        window.app = {
-            currentUser: null, currentUserRole: null,
-            employees: [], profiles: {}, tasks: [], fines: [], schedule: {}
-        };
-        
-        stopHeartbeat();
-        stopTokenChecker();
-        stopPusher();
-        cleanupActivityTracker();
-        
-        STATE.isAuthenticated = false;
-        
-        if (!keepUI) showLoginModal();
-        
-        if (!silent && username) {
-            showNotification(`👋 ${username}, вы вышли`, 'info');
-        }
-        
-        emitEvent('logout', { username });
-        
-        STATE.isLoggingOut = false;
-        return { success: true };
     }
+    
+    clearTokens();
+    clearUser();
+    
+    window.app = {
+        currentUser: null,
+        currentUserRole: null,
+        employees: [],
+        profiles: {},
+        tasks: [],
+        fines: [],
+        schedule: {}
+    };
+    
+    stopHeartbeat();
+    stopTokenChecker();
+    stopPusher();
+    cleanupActivityTracker();
+    
+    STATE.isAuthenticated = false;
+    
+    if (!keepUI) {
+        showLoginModal();
+    }
+    
+    if (!silent && username) {
+        showNotification('👋 ' + username + ', вы вышли', 'info');
+    }
+    
+    emitEvent('logout', { username: username });
+    
+    STATE.isLoggingOut = false;
+    return { success: true };
+}
 
     // ============================================
     // HEARTBEAT
@@ -460,39 +473,41 @@
     }
 
     async function checkToken() {
-        if (!STATE.isAuthenticated) return;
+    if (!STATE.isAuthenticated) return;
+    
+    var token = getToken();
+    if (!token) return;
+    
+    // Проверяем не истек ли токен
+    if (isTokenExpired()) {
+        logger.info('Токен истек, пробуем обновить...');
+        var refreshed = await refreshToken();
+        if (!refreshed) {
+            logger.warn('Не удалось обновить токен');
+            showNotification('Сессия истекла. Войдите снова.', 'warning');
+            // НЕ ВЫХОДИМ АВТОМАТИЧЕСКИ
+        }
+    }
+    
+    // Проверяем валидность токена на сервере
+    try {
+        var response = await fetch('/api/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
         
-        const token = getToken();
-        if (!token) return;
-        
-        // Проверяем не истек ли токен
-        if (isTokenExpired()) {
-            logger.info('Токен истек, пробуем обновить...');
-            const refreshed = await refreshToken();
-            if (!refreshed) {
-                logger.warn('Не удалось обновить токен');
-                showNotification('Сессия истекла. Войдите снова.', 'warning');
-                // НЕ ВЫХОДИМ АВТОМАТИЧЕСКИ
+        if (!response.ok) {
+            var refreshed2 = await refreshToken();
+            if (!refreshed2) {
+                logger.warn('Токен недействителен, но НЕ разлогиниваем');
+                // await logout({ silent: true }); — ЗАКОММЕНТИРОВАНО
+                // showNotification('Сессия истекла. Войдите снова.', 'warning');
             }
         }
-        
-        // Проверяем валидность токена на сервере
-        try {
-            const response = await fetch('/api/auth/me', {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (!response.ok) {
-                const refreshed = await refreshToken();
-                if (!refreshed) {
-                    await logout({ silent: true });
-                    showNotification('Сессия истекла. Войдите снова.', 'warning');
-                }
-            }
-        } catch (e) {
-    // Сеть недоступна - НЕ разлогиниваем
-    logger.warn('Сеть недоступна при проверке токена');
-}
+    } catch (e) {
+        // Сеть недоступна - НЕ разлогиниваем
+        logger.warn('Сеть недоступна при проверке токена');
     }
+}
 
     // ============================================
     // PUSHER
@@ -685,29 +700,29 @@
     
     logger.info('Initializing auth module v5.2');
     
-    const token = getToken();
-    const user = getStoredUser();
+    var token = getToken();
+    var user = getStoredUser();
     
     if (token && user) {
-    // ✅ НЕ вызываем logout!
-    STATE.isAuthenticated = true;
-    window.app = window.app || {};
-    window.app.currentUser = user.name;
-    window.app.currentUserRole = user.role;
-    hideLoginModal();
-    updateHeaderUser(user);
-    startHeartbeat();
-    startTokenChecker();
-    initActivityTracker();
-    
-    setTimeout(async function() {
-        await initPusher();
-    }, 1000);
-    
-    logger.info(`Session restored: ${user.name}`);
-} else {
-    showLoginModal();
-}
+        // ✅ НЕ вызываем logout!
+        STATE.isAuthenticated = true;
+        window.app = window.app || {};
+        window.app.currentUser = user.name;
+        window.app.currentUserRole = user.role;
+        hideLoginModal();
+        updateHeaderUser(user);
+        startHeartbeat();
+        startTokenChecker();
+        initActivityTracker();
+        
+        setTimeout(async function() {
+            await initPusher();
+        }, 1000);
+        
+        logger.info('Session restored: ' + user.name);
+    } else {
+        showLoginModal();
+    }
     
     setupLoginForm();
     setupNetworkListeners();

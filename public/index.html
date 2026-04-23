@@ -22,15 +22,34 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { font-size: 16px; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070f; color: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; line-height: 1.6; }
-        body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 40%, #0a0f1e 0%, #03050a 100%); z-index: -5; pointer-events: none; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #05070f;
+            color: #fff;
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(ellipse at 30% 40%, #0a0f1e 0%, #03050a 100%);
+            z-index: -5;
+            pointer-events: none;
+        }
 
-        /* ФОНОВОЕ ИЗОБРАЖЕНИЕ */
         body.bg-image-loaded::after {
             content: '';
             position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: url('/2026-04-02_03-45-56.png') center/cover no-repeat;
             filter: brightness(0.35) saturate(0.9);
             z-index: -4;
@@ -45,14 +64,24 @@
         @keyframes ringRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ringRotateReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
 
-        /* ПРЕЛОАДЕР */
         #globalLoader {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             background: radial-gradient(ellipse at 40% 50%, #0a0f1e 0%, #03050a 100%);
-            z-index: 99999; display: flex; align-items: center; justify-content: center;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: opacity 0.4s ease, visibility 0.4s ease;
         }
-        #globalLoader.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
+        #globalLoader.fade-out {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
 
         .loader-content {
             text-align: center;
@@ -62,7 +91,7 @@
             justify-content: center;
             gap: 24px;
         }
-        
+
         .loader-logo-wrapper {
             position: relative;
             width: 96px;
@@ -73,7 +102,10 @@
         }
         .loader-logo-ring {
             position: absolute;
-            top: -8px; left: -8px; right: -8px; bottom: -8px;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
             border-radius: 30px;
             border: 2px solid transparent;
             background: linear-gradient(135deg, #6366f1, #ec4899, #8b5cf6, #6366f1) border-box;
@@ -84,7 +116,10 @@
         }
         .loader-logo-ring-2 {
             position: absolute;
-            top: -16px; left: -16px; right: -16px; bottom: -16px;
+            top: -16px;
+            left: -16px;
+            right: -16px;
+            bottom: -16px;
             border-radius: 38px;
             border: 1px solid rgba(139, 92, 246, 0.3);
             animation: ringRotateReverse 6s linear infinite;
@@ -132,95 +167,441 @@
             font-size: 11px;
             color: #64748b;
         }
-
-        /* ОСНОВНОЙ КОНТЕЙНЕР */
-        #mainContainer { display: none; animation: fadeIn 0.4s ease; }
-
-        /* ХЕДЕР */
-        .header {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 12px 28px; background: rgba(8, 12, 20, 0.8); backdrop-filter: blur(12px);
-            border-bottom: 1px solid rgba(99, 102, 241, 0.12); position: sticky; top: 0; z-index: 1000;
-            flex-wrap: wrap; gap: 12px;
+        /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
+        #mainContainer {
+            display: none;
+            animation: fadeIn 0.4s ease;
         }
-        .logo-area { display: flex; align-items: center; gap: 12px; }
-        .logo-icon { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3); }
-        .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
-        .logo-text { font-size: 22px; font-weight: 700; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .logo-badge { background: linear-gradient(135deg, #6366f1, #ec4899); padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 6px; color: white; }
-        .about-link { color: #9ca3af; text-decoration: none; font-size: 12px; padding: 7px 12px; background: rgba(255,255,255,0.03); border-radius: 24px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
-        .about-link:hover { background: rgba(99,102,241,0.15); color: #a78bfa; }
-        .user-card { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.25); border-radius: 40px; padding: 4px 16px 4px 8px; border: 1px solid rgba(99,102,241,0.15); }
-        .user-avatar { width: 36px; height: 36px; background: linear-gradient(135deg, #2d3748, #1a1f2a); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; overflow: hidden; border: 1px solid rgba(99,102,241,0.4); }
-        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
-        .user-info { text-align: right; }
-        .user-name { font-weight: 600; font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .user-status { font-size: 10px; color: #9ca3af; }
-        .logout-btn { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); border-radius: 24px; padding: 6px 14px; color: #f87171; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; transition: all 0.2s; }
-        .logout-btn:hover { background: rgba(239,68,68,0.25); }
 
-        /* МЕНЮ */
-        .main-menu { background: rgba(8,12,20,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.1); position: sticky; top: 64px; z-index: 999; padding: 0 16px; overflow-x: auto; }
-        .menu-container { display: flex; align-items: center; gap: 4px; max-width: 1200px; margin: 0 auto; padding: 8px 0; }
-        .menu-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: none; border-radius: 12px; padding: 8px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; color: #9ca3af; }
-        .menu-item i { font-size: 18px; }
-        .menu-item .menu-tooltip { font-size: 10px; }
-        .menu-item:hover { background: rgba(99,102,241,0.1); color: #e2e8f0; }
-        .menu-item.active { background: rgba(99,102,241,0.15); color: #a78bfa; }
+        /* ===== ХЕДЕР ===== */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 28px;
+            background: rgba(8, 12, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.12);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
+        }
+        .logo-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .logo-text {
+            font-size: 22px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #a78bfa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .logo-badge {
+            background: linear-gradient(135deg, #6366f1, #ec4899);
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            margin-left: 6px;
+            color: white;
+        }
+        .about-link {
+            color: #9ca3af;
+            text-decoration: none;
+            font-size: 12px;
+            padding: 7px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: all 0.2s;
+        }
+        .about-link:hover {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a78bfa;
+            border-color: rgba(99, 102, 241, 0.2);
+        }
+        .user-card {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 40px;
+            padding: 4px 16px 4px 8px;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+        }
+        .user-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, #2d3748, #1a1f2a);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            cursor: pointer;
+            overflow: hidden;
+            border: 1px solid rgba(99, 102, 241, 0.4);
+        }
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .user-info {
+            text-align: right;
+        }
+        .user-name {
+            font-weight: 600;
+            font-size: 13px;
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .user-status {
+            font-size: 10px;
+            color: #9ca3af;
+        }
+        .logout-btn {
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 24px;
+            padding: 6px 14px;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
 
-        /* МОДАЛКА ВХОДА */
-        #loginModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; z-index: 100000; padding: 20px; background: rgba(5,7,15,0.95); backdrop-filter: blur(20px); }
-        #loginModal.visible { display: flex; }
-        .login-card { width: 400px; max-width: 100%; padding: 40px 35px; background: rgba(15,20,35,0.4); backdrop-filter: blur(25px); border-radius: 36px; border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 25px 50px rgba(0,0,0,0.5); text-align: center; animation: fadeInScale 0.4s ease; }
-        .login-logo { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 20px; object-fit: cover; }
-        .login-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .login-subtitle { font-size: 11px; color: #9ca3af; margin-bottom: 32px; text-transform: uppercase; letter-spacing: 3px; }
-        .login-field { position: relative; margin-bottom: 16px; }
-        .login-field i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 15px; }
-        .login-field .toggle-password { left: auto; right: 16px; cursor: pointer; }
-        .login-field input { width: 100%; padding: 14px 44px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; color: #fff; font-size: 14px; outline: none; transition: all 0.2s; }
-        .login-field input:focus { border-color: #6366f1; box-shadow: 0 0 20px rgba(99,102,241,0.15); }
-        .login-error { color: #ef4444; font-size: 12px; min-height: 18px; margin: 8px 0; }
-        .login-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 30px; color: white; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s; }
-        .login-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
-        .login-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        /* ===== МЕНЮ ===== */
+        .main-menu {
+            background: rgba(8, 12, 20, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+            position: sticky;
+            top: 64px;
+            z-index: 999;
+            padding: 0 16px;
+            overflow-x: auto;
+        }
+        .menu-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 8px 0;
+        }
+        .menu-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            background: transparent;
+            border: none;
+            border-radius: 12px;
+            padding: 8px 16px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.2s;
+            color: #9ca3af;
+        }
+        .menu-item i {
+            font-size: 18px;
+        }
+        .menu-item .menu-tooltip {
+            font-size: 10px;
+        }
+        .menu-item:hover {
+            background: rgba(99, 102, 241, 0.1);
+            color: #e2e8f0;
+        }
+        .menu-item.active {
+            background: rgba(99, 102, 241, 0.15);
+            color: #a78bfa;
+        }
+        /* ===== МОДАЛКА ВХОДА ===== */
+        #loginModal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 100000;
+            padding: 20px;
+            background: rgba(5, 7, 15, 0.95);
+            backdrop-filter: blur(20px);
+        }
+        #loginModal.visible {
+            display: flex;
+        }
+        .login-card {
+            width: 400px;
+            max-width: 100%;
+            padding: 40px 35px;
+            background: rgba(15, 20, 35, 0.4);
+            backdrop-filter: blur(25px);
+            border-radius: 36px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5);
+            text-align: center;
+            animation: fadeInScale 0.4s ease;
+        }
+        .login-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 24px;
+            border-radius: 20px;
+            object-fit: cover;
+        }
+        .login-title {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+            background: linear-gradient(135deg, #fff, #a78bfa);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .login-subtitle {
+            font-size: 11px;
+            color: #9ca3af;
+            margin-bottom: 32px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
 
-        /* СИНК ИНДИКАТОР */
-        #syncIndicator { position: fixed; bottom: 24px; left: 24px; width: 42px; height: 42px; background: rgba(10,15,30,0.85); backdrop-filter: blur(12px); border-radius: 14px; display: flex; align-items: center; justify-content: center; z-index: 9998; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        #syncIndicator i { font-size: 18px; color: #ef4444; }
-        #syncIndicator.online i { color: #10b981; }
-        #syncIndicator.connecting i { color: #f59e0b; animation: spin 1.5s linear infinite; }
+        .login-field {
+            position: relative;
+            margin-bottom: 16px;
+        }
+        .login-field i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #9ca3af;
+            font-size: 15px;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .login-field .toggle-password {
+            left: auto;
+            right: 16px;
+            cursor: pointer;
+            pointer-events: auto;
+            z-index: 3;
+        }
+        .login-field input {
+            width: 100%;
+            padding: 14px 44px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 16px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .login-field input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
+        }
+        .login-error {
+            color: #ef4444;
+            font-size: 12px;
+            min-height: 18px;
+            margin: 8px 0;
+        }
+        .login-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        .login-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+        }
+        .login-submit:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
 
-        /* НОТИФИКАЦИИ */
-        .notifications-icon { position: relative; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
-        .notifications-icon:hover { background: rgba(99,102,241,0.15); }
-        .notifications-icon .badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; font-size: 10px; min-width: 16px; height: 16px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
-        .notifications-dropdown { position: absolute; top: 55px; right: 20px; width: 360px; max-height: 420px; background: rgba(15,20,35,0.95); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5); z-index: 9999; overflow: hidden; display: none; }
-        .notifications-dropdown.show { display: block; animation: fadeInUp 0.2s ease; }
+        /* ===== СИНК ИНДИКАТОР ===== */
+        #syncIndicator {
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
+            width: 42px;
+            height: 42px;
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(12px);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9998;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        #syncIndicator i {
+            font-size: 18px;
+            color: #ef4444;
+        }
+        #syncIndicator.online i {
+            color: #10b981;
+        }
+        #syncIndicator.connecting i {
+            color: #f59e0b;
+            animation: spin 1.5s linear infinite;
+        }
 
-        /* FOOTER */
-        footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; border-top: 1px solid rgba(99,102,241,0.08); margin-top: 40px; }
+        /* ===== НОТИФИКАЦИИ ===== */
+        .notifications-icon {
+            position: relative;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            transition: all 0.2s;
+        }
+        .notifications-icon:hover {
+            background: rgba(99, 102, 241, 0.15);
+        }
+        .notifications-icon .badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: #ef4444;
+            color: white;
+            font-size: 10px;
+            min-width: 16px;
+            height: 16px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 4px;
+        }
+        .notifications-dropdown {
+            position: absolute;
+            top: 55px;
+            right: 20px;
+            width: 360px;
+            max-height: 420px;
+            background: rgba(15, 20, 35, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+            z-index: 9999;
+            overflow: hidden;
+            display: none;
+        }
+        .notifications-dropdown.show {
+            display: block;
+            animation: fadeInUp 0.2s ease;
+        }
 
-        /* ADAPTIVE */
+        /* ===== FOOTER ===== */
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #64748b;
+            font-size: 12px;
+            border-top: 1px solid rgba(99, 102, 241, 0.08);
+            margin-top: 40px;
+        }
+
+        /* ===== АДАПТИВ ===== */
         @media (max-width: 768px) {
-            .header { padding: 12px 16px; }
-            .logo-text { font-size: 18px; }
-            .user-info { display: none; }
-            .about-link span { display: none; }
-            .main-menu { top: 60px; }
-            .menu-item .menu-tooltip { display: none; }
-            .notifications-dropdown { width: calc(100% - 40px); }
-            .login-card { padding: 35px 25px; }
-            #syncIndicator { bottom: 16px; left: 16px; width: 38px; height: 38px; }
+            .header {
+                padding: 12px 16px;
+            }
+            .logo-text {
+                font-size: 18px;
+            }
+            .user-info {
+                display: none;
+            }
+            .about-link span {
+                display: none;
+            }
+            .main-menu {
+                top: 60px;
+            }
+            .menu-item .menu-tooltip {
+                display: none;
+            }
+            .notifications-dropdown {
+                width: calc(100% - 40px);
+            }
+            .login-card {
+                padding: 35px 25px;
+            }
+            #syncIndicator {
+                bottom: 16px;
+                left: 16px;
+                width: 38px;
+                height: 38px;
+            }
         }
         @media (max-width: 480px) {
-            .login-title { font-size: 24px; }
-            .loader-title { font-size: 26px; }
+            .login-title {
+                font-size: 24px;
+            }
+            .loader-title {
+                font-size: 26px;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- ПРЕЛОАДЕР -->
+
+    <!-- ===== ПРЕЛОАДЕР ===== -->
     <div id="globalLoader">
         <div class="loader-content">
             <div class="loader-logo-wrapper">
@@ -236,13 +617,13 @@
             <div class="loader-version">v1.3.3</div>
         </div>
     </div>
-    
-    <!-- ИНДИКАТОР СИНХРОНИЗАЦИИ -->
+
+    <!-- ===== ИНДИКАТОР СИНХРОНИЗАЦИИ ===== -->
     <div id="syncIndicator" title="Статус подключения">
         <i class="fas fa-broadcast-tower"></i>
     </div>
-    
-    <!-- МОДАЛКА ВХОДА -->
+
+    <!-- ===== МОДАЛКА ВХОДА ===== -->
     <div id="loginModal">
         <div class="login-card">
             <img class="login-logo" src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
@@ -271,8 +652,8 @@
             </div>
         </div>
     </div>
-    
-    <!-- ОСНОВНОЙ КОНТЕЙНЕР -->
+
+    <!-- ===== ОСНОВНОЙ КОНТЕЙНЕР ===== -->
     <div id="mainContainer">
         <header class="header">
             <div class="logo-area">
@@ -281,22 +662,25 @@
                 </div>
                 <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ</span></div>
             </div>
-            <div style="display:flex;align-items:center;gap:12px;">
-                <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i><span> О проекте</span></a>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <a href="/about.html" class="about-link">
+                    <i class="fas fa-info-circle"></i>
+                    <span> О проекте</span>
+                </a>
                 <div class="notifications-icon" id="notificationsIcon">
                     <i class="far fa-bell"></i>
-                    <span class="badge" id="notificationsBadge" style="display:none;">0</span>
+                    <span class="badge" id="notificationsBadge" style="display: none;">0</span>
                 </div>
                 <div class="notifications-dropdown" id="notificationsDropdown">
-                    <div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;">
-                        <h4 style="margin:0;font-size:13px;">🔔 Уведомления</h4>
-                        <div style="display:flex;gap:12px;">
-                            <button id="markAllReadBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button>
-                            <button id="clearAllNotifBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button>
+                    <div style="padding: 14px 18px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); display: flex; justify-content: space-between;">
+                        <h4 style="margin: 0; font-size: 13px;">🔔 Уведомления</h4>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="markAllReadBtn" style="background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 11px;">✓ Все</button>
+                            <button id="clearAllNotifBtn" style="background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 11px;">🗑️</button>
                         </div>
                     </div>
-                    <div id="notificationsList" style="max-height:360px;overflow-y:auto;">
-                        <div style="padding:40px;text-align:center;color:#9ca3af;">Загрузка...</div>
+                    <div id="notificationsList" style="max-height: 360px; overflow-y: auto;">
+                        <div style="padding: 40px; text-align: center; color: #9ca3af;">Загрузка...</div>
                     </div>
                 </div>
                 <div class="user-card">
@@ -305,26 +689,27 @@
                         <div class="user-name" id="headerName">Гость</div>
                         <div class="user-status" id="headerStatus"></div>
                     </div>
-                    <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+                    <button class="logout-btn" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </button>
                 </div>
             </div>
         </header>
-        
+
         <nav class="main-menu" id="mainMenu"></nav>
-        
+
         <main id="pageContainer">
-            <div style="padding:60px;text-align:center;color:#64748b;">
-                <i class="fas fa-spinner fa-spin" style="font-size:32px;"></i>
-                <p style="margin-top:16px;">Загрузка...</p>
+            <div style="padding: 60px; text-align: center; color: #64748b;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 32px;"></i>
+                <p style="margin-top: 16px;">Загрузка...</p>
             </div>
         </main>
-        
+
         <footer>
             <span>© WARPOINT 2026 — Корпоративный портал v1.3.3</span>
         </footer>
     </div>
-
-    <!-- СКРИПТЫ -->
+    <!-- ===== СКРИПТЫ ===== -->
     <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="/js/utils.js"></script>
@@ -346,256 +731,396 @@
     <script src="/js/salary.js"></script>
     <script src="/js/admin.js"></script>
     <script src="/js/reports.js"></script>
-    
+
     <script>
     (function() {
         'use strict';
-        
-        const CONFIG = { VERSION: '1.3.3', MAX_LOAD_DELAY: 8000 };
-        
+
+        var CONFIG = {
+            VERSION: '1.3.3',
+            MAX_LOAD_DELAY: 8000
+        };
+
+        // ===== ГЛОБАЛЬНОЕ СОСТОЯНИЕ =====
         window.app = window.app || {
-            currentUser: null, currentUserRole: null,
-            employees: [], profiles: {}, tasks: [], fines: [], schedule: {},
+            currentUser: null,
+            currentUserRole: null,
+            employees: [],
+            profiles: {},
+            tasks: [],
+            fines: [],
+            schedule: {},
             version: CONFIG.VERSION
         };
-        
+
         // ===== ПРЕЛОАДЕР =====
-        let modulesLoaded = 0;
-        const totalModules = 19;
-        
+        var modulesLoaded = 0;
+        var totalModules = 19;
+
         window.updateLoaderProgress = function(moduleName) {
             modulesLoaded++;
-            const percent = Math.min(100, Math.round((modulesLoaded / totalModules) * 100));
-            const fill = document.getElementById('loaderProgressFill');
-            if (fill) fill.style.width = percent + '%';
+            var percent = Math.min(100, Math.round((modulesLoaded / totalModules) * 100));
+            var fill = document.getElementById('loaderProgressFill');
+            if (fill) {
+                fill.style.width = percent + '%';
+            }
         };
-        
+
         function hideLoader() {
-            const loader = document.getElementById('globalLoader');
-            const mainContainer = document.getElementById('mainContainer');
-            
+            var loader = document.getElementById('globalLoader');
+            var mainContainer = document.getElementById('mainContainer');
+
             if (loader) {
                 loader.classList.add('fade-out');
-                setTimeout(() => { if (loader) loader.style.display = 'none'; }, 500);
+                setTimeout(function() {
+                    if (loader && loader.classList.contains('fade-out')) {
+                        loader.style.display = 'none';
+                    }
+                }, 500);
             }
-            
+
             if (mainContainer) {
                 mainContainer.style.display = 'block';
             }
-            
+
             console.log('✅ Прелоадер скрыт, контейнер показан');
         }
-        
+
         // Отслеживаем загрузку скриптов
-        document.querySelectorAll('script[src*="/js/"]').forEach(script => {
-            script.addEventListener('load', () => {
-                window.updateLoaderProgress(script.src.split('/').pop());
+        document.querySelectorAll('script[src*="/js/"]').forEach(function(script) {
+            script.addEventListener('load', function() {
+                var filename = script.src.split('/').pop();
+                window.updateLoaderProgress(filename);
             });
         });
-        
-        // Фоллбэк через N секунд
-        setTimeout(() => {
+
+        // Фоллбэк — скрываем прелоадер через N секунд в любом случае
+        setTimeout(function() {
             if (modulesLoaded < totalModules) {
+                console.warn('⚠️ Не все модули загружены, принудительный показ');
                 modulesLoaded = totalModules;
                 window.updateLoaderProgress('forced');
             }
             hideLoader();
         }, CONFIG.MAX_LOAD_DELAY);
-        
-        // ===== ФОРМА ВХОДА =====
-        document.getElementById('togglePassword')?.addEventListener('click', function() {
-            const input = document.getElementById('loginPassword');
-            if (input) {
-                input.type = input.type === 'password' ? 'text' : 'password';
-                this.className = input.type === 'password' ? 'fas fa-eye toggle-password' : 'fas fa-eye-slash toggle-password';
-            }
-        });
-        
-        document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
-            const el = document.getElementById('loginErrorMessage');
-            if (e.getModifierState && e.getModifierState('CapsLock')) {
-                if (el) el.textContent = '⚠️ Caps Lock включён';
-            } else {
-                if (el) el.textContent = '';
-            }
-        });
-        
-        const savedLogin = localStorage.getItem('savedLogin');
-        if (savedLogin) {
-            const li = document.getElementById('loginName');
-            const rc = document.getElementById('rememberMe');
-            if (li) li.value = savedLogin;
-            if (rc) rc.checked = true;
+
+        // ===== ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ =====
+        var togglePassword = document.getElementById('togglePassword');
+        if (togglePassword) {
+            togglePassword.addEventListener('click', function() {
+                var input = document.getElementById('loginPassword');
+                if (input) {
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        this.className = 'fas fa-eye-slash toggle-password';
+                    } else {
+                        input.type = 'password';
+                        this.className = 'fas fa-eye toggle-password';
+                    }
+                }
+            });
         }
-        
-        // Обработчик входа
-        document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const username = document.getElementById('loginName')?.value?.trim();
-            const password = document.getElementById('loginPassword')?.value;
-            const rememberMe = document.getElementById('rememberMe')?.checked;
-            const errorEl = document.getElementById('loginErrorMessage');
-            const submitBtn = document.getElementById('loginSubmitBtn');
-            
-            if (!username || !password) {
-                if (errorEl) errorEl.textContent = 'Введите логин и пароль';
-                return;
-            }
-            
-            if (submitBtn) {
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-                submitBtn.disabled = true;
-            }
-            
-            try {
-                const response = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    if (rememberMe) localStorage.setItem('savedLogin', username);
-                    
-                    localStorage.setItem('warpoint_token', data.token);
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('warpoint_user', JSON.stringify(data.user));
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    
-                    window.app.currentUser = data.user.name;
-                    window.app.currentUserRole = data.user.role;
-                    
-                    document.getElementById('loginModal').style.display = 'none';
-                    document.getElementById('mainContainer').style.display = 'block';
-                    
-                    document.getElementById('headerName').textContent = data.user.name;
-                    
-                    const ha = document.getElementById('headerAvatar');
-                    if (ha) {
-                        ha.innerHTML = data.user.avatar_url 
-                            ? `<img src="${data.user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">` 
-                            : (data.user.avatar || '👤');
-                    }
-                    
-                    if (typeof window.renderMainMenu === 'function') {
-                        setTimeout(() => window.renderMainMenu(), 100);
-                    }
+
+        // ===== CAPS LOCK =====
+        var passwordInput = document.getElementById('loginPassword');
+        if (passwordInput) {
+            passwordInput.addEventListener('keyup', function(e) {
+                var warning = document.getElementById('loginErrorMessage');
+                if (e.getModifierState && e.getModifierState('CapsLock')) {
+                    if (warning) warning.textContent = '⚠️ Caps Lock включён';
                 } else {
-                    if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
+                    if (warning) warning.textContent = '';
+                }
+            });
+        }
+
+        // ===== СОХРАНЁННЫЙ ЛОГИН =====
+        var savedLogin = localStorage.getItem('savedLogin');
+        if (savedLogin) {
+            var loginInput = document.getElementById('loginName');
+            var rememberCheck = document.getElementById('rememberMe');
+            if (loginInput) loginInput.value = savedLogin;
+            if (rememberCheck) rememberCheck.checked = true;
+        }
+
+        // ===== ОБРАБОТЧИК ФОРМЫ ВХОДА =====
+        var loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                var username = document.getElementById('loginName')?.value?.trim();
+                var password = document.getElementById('loginPassword')?.value;
+                var rememberMe = document.getElementById('rememberMe')?.checked;
+                var errorEl = document.getElementById('loginErrorMessage');
+                var submitBtn = document.getElementById('loginSubmitBtn');
+
+                if (!username || !password) {
+                    if (errorEl) errorEl.textContent = 'Введите логин и пароль';
+                    return;
+                }
+
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+                    submitBtn.disabled = true;
+                }
+
+                try {
+                    var response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: username, password: password })
+                    });
+
+                    var data = await response.json();
+
+                    if (data.success) {
+                        if (rememberMe) {
+                            localStorage.setItem('savedLogin', username);
+                        } else {
+                            localStorage.removeItem('savedLogin');
+                        }
+
+                        localStorage.setItem('warpoint_token', data.token);
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('warpoint_user', JSON.stringify(data.user));
+                        localStorage.setItem('currentUser', JSON.stringify(data.user));
+
+                        window.app.currentUser = data.user.name;
+                        window.app.currentUserRole = data.user.role;
+
+                        // Скрываем модалку входа, показываем контейнер
+                        document.getElementById('loginModal').style.display = 'none';
+                        document.getElementById('mainContainer').style.display = 'block';
+
+                        document.getElementById('headerName').textContent = data.user.name;
+
+                        var headerAvatar = document.getElementById('headerAvatar');
+                        if (data.user.avatar_url) {
+                            headerAvatar.innerHTML = '<img src="' + data.user.avatar_url + '" style="width:100%;height:100%;object-fit:cover;">';
+                        } else {
+                            headerAvatar.innerHTML = data.user.avatar || '👤';
+                        }
+
+                        if (typeof window.renderMainMenu === 'function') {
+                            setTimeout(function() {
+                                window.renderMainMenu();
+                            }, 100);
+                        }
+
+                        // Показываем новые достижения
+                        if (data.newAchievements && data.newAchievements.length > 0) {
+                            setTimeout(function() {
+                                data.newAchievements.forEach(function(ach) {
+                                    if (typeof window.showSystemNotification === 'function') {
+                                        window.showSystemNotification('🏆 ' + ach.name + ' (+' + ach.coins + ' WP)', 'success');
+                                    }
+                                });
+                            }, 1000);
+                        }
+                    } else {
+                        if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
+                        if (submitBtn) {
+                            submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
+                            submitBtn.disabled = false;
+                        }
+                    }
+                } catch (err) {
+                    console.error('Ошибка входа:', err);
+                    if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
                     if (submitBtn) {
                         submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
                         submitBtn.disabled = false;
                     }
                 }
-            } catch (err) {
-                console.error('Ошибка входа:', err);
-                if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
-                    submitBtn.disabled = false;
-                }
-            }
-        });
-        
-        // ===== ЗАКРЫТИЕ ДРОПДАУНА =====
+            });
+        }
+        // ===== ЗАКРЫТИЕ ДРОПДАУНА УВЕДОМЛЕНИЙ =====
         document.addEventListener('click', function(e) {
-            const dd = document.getElementById('notificationsDropdown');
-            const ic = document.getElementById('notificationsIcon');
-            if (dd && ic && !dd.contains(e.target) && !ic.contains(e.target)) {
-                dd.classList.remove('show');
+            var dropdown = document.getElementById('notificationsDropdown');
+            var icon = document.getElementById('notificationsIcon');
+            if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
+                dropdown.classList.remove('show');
             }
         });
-        
+
+        // ===== ПЕРЕКЛЮЧЕНИЕ ДРОПДАУНА =====
         window.toggleNotificationsDropdown = function() {
-            const dd = document.getElementById('notificationsDropdown');
-            if (dd) {
-                dd.classList.toggle('show');
-                if (dd.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
+            var dropdown = document.getElementById('notificationsDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+                if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
                     window.renderNotificationsDropdown();
                 }
             }
         };
-        
-        // ===== СЛУШАТЕЛИ =====
-        document.getElementById('logoutBtn')?.addEventListener('click', () => {
-            if (typeof window.authLogout === 'function') window.authLogout();
-        });
-        document.getElementById('markAllReadBtn')?.addEventListener('click', () => {
-            if (typeof window.markAllNotificationsRead === 'function') window.markAllNotificationsRead();
-        });
-        document.getElementById('clearAllNotifBtn')?.addEventListener('click', () => {
-            if (typeof window.clearAllNotifications === 'function') window.clearAllNotifications();
-        });
-        document.getElementById('headerAvatar')?.addEventListener('click', () => {
-            if (window.app?.currentUser && typeof window.openProfile === 'function') {
-                window.openProfile(window.app.currentUser);
+
+        // ===== ИНИЦИАЛИЗАЦИЯ СЛУШАТЕЛЕЙ =====
+        function initEventListeners() {
+            // Кнопка выхода
+            var logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', function() {
+                    if (typeof window.authLogout === 'function') {
+                        window.authLogout();
+                    }
+                });
             }
-        });
-        document.getElementById('notificationsIcon')?.addEventListener('click', () => {
-            window.toggleNotificationsDropdown();
-        });
-        
+
+            // Кнопка "прочитать все"
+            var markAllBtn = document.getElementById('markAllReadBtn');
+            if (markAllBtn) {
+                markAllBtn.addEventListener('click', function() {
+                    if (typeof window.markAllNotificationsRead === 'function') {
+                        window.markAllNotificationsRead();
+                    }
+                });
+            }
+
+            // Кнопка "очистить все"
+            var clearAllBtn = document.getElementById('clearAllNotifBtn');
+            if (clearAllBtn) {
+                clearAllBtn.addEventListener('click', function() {
+                    if (typeof window.clearAllNotifications === 'function') {
+                        window.clearAllNotifications();
+                    }
+                });
+            }
+
+            // Аватар в хедере
+            var headerAvatar = document.getElementById('headerAvatar');
+            if (headerAvatar) {
+                headerAvatar.addEventListener('click', function() {
+                    if (window.app && window.app.currentUser && typeof window.openProfile === 'function') {
+                        window.openProfile(window.app.currentUser);
+                    }
+                });
+            }
+
+            // Индикатор синхронизации
+            var syncIndicator = document.getElementById('syncIndicator');
+            if (syncIndicator) {
+                syncIndicator.addEventListener('click', function() {
+                    if (typeof window.auth !== 'undefined' && typeof window.auth.reconnectPusher === 'function') {
+                        window.auth.reconnectPusher();
+                    }
+                });
+            }
+
+            // Иконка уведомлений
+            var notifIcon = document.getElementById('notificationsIcon');
+            if (notifIcon) {
+                notifIcon.addEventListener('click', function() {
+                    window.toggleNotificationsDropdown();
+                });
+            }
+        }
+
         // ===== ПРОВЕРКА СЕССИИ =====
         function checkExistingSession() {
-            const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
+            var token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
+
             if (token) {
-                const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
+                var savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
                 if (savedUser) {
                     try {
-                        const user = JSON.parse(savedUser);
+                        var user = JSON.parse(savedUser);
                         window.app.currentUser = user.name || user;
                         window.app.currentUserRole = user.role || 'operator';
-                        document.getElementById('headerName').textContent = window.app.currentUser;
-                        if (typeof window.renderMainMenu === 'function') {
-                            setTimeout(() => window.renderMainMenu(), 100);
+
+                        // Показываем контейнер
+                        var mainContainer = document.getElementById('mainContainer');
+                        if (mainContainer) {
+                            mainContainer.style.display = 'block';
                         }
+
+                        document.getElementById('headerName').textContent = window.app.currentUser;
+
+                        if (typeof window.renderMainMenu === 'function') {
+                            setTimeout(function() {
+                                window.renderMainMenu();
+                            }, 100);
+                        }
+
                         return true;
                     } catch (e) {
                         console.error('Ошибка восстановления сессии:', e);
                     }
                 }
             }
+
+            // Если нет токена — скрываем прелоадер и показываем модалку входа
+            var loader = document.getElementById('globalLoader');
+            if (loader) {
+                loader.style.display = 'none';
+            }
+            var loginModal = document.getElementById('loginModal');
+            if (loginModal) {
+                loginModal.style.display = 'flex';
+            }
             return false;
         }
-        
+
         // ===== ФОНОВОЕ ИЗОБРАЖЕНИЕ =====
         function loadBackgroundImage() {
-            const img = new Image();
-            img.onload = () => document.body.classList.add('bg-image-loaded');
-            img.onerror = () => console.log('⚠️ Фоновое изображение не загружено');
+            var img = new Image();
+            img.onload = function() {
+                document.body.classList.add('bg-image-loaded');
+            };
+            img.onerror = function() {
+                console.log('⚠️ Фоновое изображение не загружено');
+            };
             img.src = '/2026-04-02_03-45-56.png';
         }
         loadBackgroundImage();
-        
+
         // ===== ЗАПУСК =====
-        const hasSession = checkExistingSession();
-        
+        initEventListeners();
+
+        var hasSession = checkExistingSession();
+
         if (hasSession) {
+            // Есть сессия — скрываем прелоадер и модалку
             document.getElementById('loginModal').style.display = 'none';
             hideLoader();
         } else {
+            // Нет сессии — скрываем прелоадер, показываем модалку
             hideLoader();
             document.getElementById('loginModal').style.display = 'flex';
         }
-        
-        window.addEventListener('online', () => {
-            const si = document.getElementById('syncIndicator');
-            if (si) { si.classList.add('online'); si.classList.remove('offline', 'connecting'); }
+
+        // Онлайн/офлайн статус
+        window.addEventListener('online', function() {
+            var syncIndicator = document.getElementById('syncIndicator');
+            if (syncIndicator) {
+                syncIndicator.classList.add('online');
+                syncIndicator.classList.remove('offline');
+                syncIndicator.classList.remove('connecting');
+            }
         });
-        window.addEventListener('offline', () => {
-            const si = document.getElementById('syncIndicator');
-            if (si) { si.classList.add('offline'); si.classList.remove('online', 'connecting'); }
+
+        window.addEventListener('offline', function() {
+            var syncIndicator = document.getElementById('syncIndicator');
+            if (syncIndicator) {
+                syncIndicator.classList.add('offline');
+                syncIndicator.classList.remove('online');
+                syncIndicator.classList.remove('connecting');
+            }
         });
-        
+
+        // Установить начальный статус
         if (navigator.onLine) {
-            document.getElementById('syncIndicator')?.classList.add('online');
+            var syncIndicator = document.getElementById('syncIndicator');
+            if (syncIndicator) {
+                syncIndicator.classList.add('online');
+            }
         } else {
-            document.getElementById('syncIndicator')?.classList.add('offline');
+            var syncIndicator = document.getElementById('syncIndicator');
+            if (syncIndicator) {
+                syncIndicator.classList.add('offline');
+            }
         }
-        
+
         console.log('✅ WARPOINT HUB v' + CONFIG.VERSION + ' — ядро загружено');
     })();
     </script>
