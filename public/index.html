@@ -27,7 +27,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* ===== WARPOINT HUB v1.3.3 ===== */
+        /* ===== WARPOINT HUB v1.3.3 — CLEAN EDITION ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html { font-size: 16px; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070f; color: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; line-height: 1.6; }
@@ -38,34 +38,20 @@
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 20px rgba(99,102,241,0.3); } 50% { box-shadow: 0 0 30px rgba(139,92,246,0.5); } }
         @keyframes skeletonLoading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.12; } 50% { transform: translate(40px,-30px) scale(1.15); opacity: 0.18; } }
+        @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.08; } 50% { transform: translate(40px,-30px) scale(1.15); opacity: 0.12; } }
         @keyframes ringRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ringRotateReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-        @keyframes logoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        @keyframes starFloat { 0% { transform: translateY(100vh) translateX(0); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(-100vh) translateX(60px); opacity: 0; } }
-        @keyframes particleFall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
-
-        /* ===== ЧАСТИЦЫ СВЕРХУ ВНИЗ (включаются директором) ===== */
-        .admin-particles-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9997; opacity: 0; transition: opacity 0.5s ease; }
-        body.admin-particles-active .admin-particles-layer { opacity: 1; }
-        .admin-particle { position: absolute; top: -20px; border-radius: 50%; background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 0 15px #fbbf24, 0 0 30px #f59e0b; animation: particleFall linear infinite; }
-        .admin-particle:nth-child(even) { background: linear-gradient(135deg, #a78bfa, #8b5cf6); box-shadow: 0 0 15px #a78bfa, 0 0 30px #8b5cf6; }
-        .admin-particle:nth-child(3n) { background: linear-gradient(135deg, #ec4899, #f472b6); box-shadow: 0 0 15px #ec4899, 0 0 30px #f472b6; }
+        @keyframes logoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
         /* ===== ПРЕЛОАДЕР ===== */
         #globalLoader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 40% 50%, #0a0f1e 0%, #03050a 100%); z-index: 99999; display: flex; align-items: center; justify-content: center; transition: opacity 0.6s ease, visibility 0.6s; overflow: hidden; }
         #globalLoader.fade-out { opacity: 0; visibility: hidden; }
         .loader-orb-bg { position: absolute; width: 100%; height: 100%; overflow: hidden; }
-        .loader-orb { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.12; animation: orbFloat 15s ease-in-out infinite; }
+        .loader-orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.08; animation: orbFloat 18s ease-in-out infinite; }
         .orb-1 { width: 600px; height: 600px; background: #6366f1; top: -200px; left: -200px; }
-        .orb-2 { width: 700px; height: 700px; background: #ec4899; bottom: -250px; right: -200px; animation-delay: 5s; }
+        .orb-2 { width: 700px; height: 700px; background: #ec4899; bottom: -250px; right: -200px; animation-delay: 6s; }
         .orb-3 { width: 500px; height: 500px; background: #8b5cf6; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: 3s; }
-        
-        .stars-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -3; pointer-events: none; }
-        .star { position: absolute; background: white; border-radius: 50%; animation: starFloat linear infinite; }
         
         .loader-content { position: relative; z-index: 10; text-align: center; max-width: 450px; width: 90%; padding: 50px 40px; background: transparent; border-radius: 48px; }
         
@@ -102,8 +88,8 @@
         .login-brand-name { font-size: 30px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(135deg,#fff,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .login-brand-sub { font-size: 12px; color: #9ca3af; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 3px; }
         .login-field { position: relative; margin-bottom: 18px; }
-        .login-field i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 16px; }
-        .login-field .toggle-password { left: auto; right: 16px; cursor: pointer; }
+        .login-field i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 16px; pointer-events: none; }
+        .login-field .toggle-password { left: auto; right: 16px; cursor: pointer; pointer-events: auto; }
         .login-field input { width: 100%; padding: 14px 46px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; color: #fff; font-size: 14px; outline: none; transition: all 0.2s; }
         .login-field input:focus { border-color: #6366f1; box-shadow: 0 0 20px rgba(99,102,241,0.2); }
         .capslock-warning { position: absolute; bottom: -20px; left: 0; font-size: 11px; color: #f59e0b; display: none; }
@@ -121,7 +107,7 @@
         #mainContainer { position: relative; z-index: 10; min-height: 100vh; display: none; animation: fadeIn 0.4s ease; }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 28px; background: rgba(8,12,20,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.12); position: sticky; top: 0; z-index: 1000; flex-wrap: wrap; gap: 12px; }
         .logo-area { display: flex; align-items: center; gap: 12px; }
-        .logo-icon { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(99,102,241,0.3); }
+        .logo-icon { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(99,102,241,0.3); background: transparent; }
         .logo-icon img { width: 100%; height: 100%; object-fit: cover; background: transparent; }
         .logo-text { font-size: 22px; font-weight: 700; background: linear-gradient(135deg,#fff,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
         .logo-badge { background: linear-gradient(135deg,#6366f1,#ec4899); padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 6px; color: white; }
@@ -164,18 +150,13 @@
     </style>
 </head>
 <body>
-    <!-- СЛОЙ АДМИН-ЧАСТИЦ (включается директором) -->
-    <div class="admin-particles-layer" id="adminParticlesLayer"></div>
-
+    <!-- ===== ПРЕЛОАДЕР ===== -->
     <div id="globalLoader">
         <div class="loader-orb-bg">
             <div class="loader-orb orb-1"></div>
             <div class="loader-orb orb-2"></div>
             <div class="loader-orb orb-3"></div>
         </div>
-        <div class="stars-layer" id="starsLayer1"></div>
-        <div class="stars-layer" id="starsLayer2"></div>
-        <div class="stars-layer" id="starsLayer3"></div>
         <div class="loader-content">
             <div class="loader-logo">
                 <div class="loader-logo-wrapper">
@@ -195,127 +176,572 @@
         </div>
     </div>
     
-    <div id="syncIndicator"><i class="fas fa-broadcast-tower"></i></div>
+    <!-- ===== ИНДИКАТОР СИНХРОНИЗАЦИИ ===== -->
+    <div id="syncIndicator" title="Статус подключения">
+        <i class="fas fa-broadcast-tower"></i>
+    </div>
     
+    <!-- ===== МОДАЛКА ВХОДА ===== -->
     <div id="loginModal">
         <div class="login-card">
-            <div class="login-logo-clean"><img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT"></div>
+            <div class="login-logo-clean">
+                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+            </div>
             <h1 class="login-brand-name">WARPOINT</h1>
             <p class="login-brand-sub">корпоративный портал</p>
             <form id="loginForm" onsubmit="return false;">
-                <div class="login-field"><i class="fas fa-user"></i><input type="text" id="loginName" placeholder="Логин" autocomplete="username" required></div>
-                <div class="login-field"><i class="fas fa-lock"></i><input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required><i class="fas fa-eye toggle-password" id="togglePassword"></i><div class="capslock-warning" id="capslockWarning"><i class="fas fa-exclamation-triangle"></i> Caps Lock</div></div>
+                <div class="login-field">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="loginName" placeholder="Логин" autocomplete="username" required>
+                </div>
+                <div class="login-field">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required>
+                    <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль"></i>
+                    <div class="capslock-warning" id="capslockWarning">
+                        <i class="fas fa-exclamation-triangle"></i> Caps Lock
+                    </div>
+                </div>
                 <div class="login-error-message" id="loginErrorMessage"></div>
-                <div class="login-options"><label class="remember-me"><input type="checkbox" id="rememberMe"> Запомнить меня</label></div>
-                <button type="submit" class="login-submit-btn" id="loginSubmitBtn"><span>Войти</span><i class="fas fa-arrow-right"></i></button>
+                <div class="login-options">
+                    <label class="remember-me">
+                        <input type="checkbox" id="rememberMe"> Запомнить меня
+                    </label>
+                </div>
+                <button type="submit" class="login-submit-btn" id="loginSubmitBtn">
+                    <span>Войти</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
             </form>
-            <div class="login-footer-note"><i class="fas fa-shield-alt"></i><span>только для сотрудников</span></div>
+            <div class="login-footer-note">
+                <i class="fas fa-shield-alt"></i>
+                <span>только для сотрудников</span>
+            </div>
         </div>
     </div>
     
+    <!-- ===== ОСНОВНОЙ КОНТЕЙНЕР ===== -->
     <div id="mainContainer">
         <header class="header">
-            <div class="logo-area"><div class="logo-icon"><img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT"></div><div class="logo-text">WARPOINT <span class="logo-badge">ХАБ</span></div></div>
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+                </div>
+                <div class="logo-text">WARPOINT <span class="logo-badge">ХАБ</span></div>
+            </div>
             <div style="display:flex;align-items:center;gap:12px;">
                 <a href="/about.html" class="about-link"><i class="fas fa-info-circle"></i><span> О проекте</span></a>
-                <div class="notifications-icon" id="notificationsIcon"><i class="far fa-bell"></i><span class="badge" id="notificationsBadge" style="display:none;">0</span></div>
-                <div class="notifications-dropdown" id="notificationsDropdown"><div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;"><h4 style="margin:0;font-size:13px;"><i class="far fa-bell"></i> Уведомления</h4><div style="display:flex;gap:12px;"><button id="markAllReadBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button><button id="clearAllNotifBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button></div></div><div id="notificationsList" style="max-height:360px;overflow-y:auto;"><div style="padding:40px;text-align:center;color:#9ca3af;">Загрузка...</div></div></div>
-                <div class="user-card"><div class="user-avatar" id="headerAvatar">👤</div><div class="user-info"><div class="user-name" id="headerName">Гость</div><div class="user-status" id="headerStatus"></div></div><button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Выйти</button></div>
+                <div class="notifications-icon" id="notificationsIcon">
+                    <i class="far fa-bell"></i>
+                    <span class="badge" id="notificationsBadge" style="display:none;">0</span>
+                </div>
+                <div class="notifications-dropdown" id="notificationsDropdown">
+                    <div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;">
+                        <h4 style="margin:0;font-size:13px;"><i class="far fa-bell"></i> Уведомления</h4>
+                        <div style="display:flex;gap:12px;">
+                            <button id="markAllReadBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button>
+                            <button id="clearAllNotifBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button>
+                        </div>
+                    </div>
+                    <div id="notificationsList" style="max-height:360px;overflow-y:auto;">
+                        <div style="padding:40px;text-align:center;color:#9ca3af;">Загрузка...</div>
+                    </div>
+                </div>
+                <div class="user-card">
+                    <div class="user-avatar" id="headerAvatar">👤</div>
+                    <div class="user-info">
+                        <div class="user-name" id="headerName">Гость</div>
+                        <div class="user-status" id="headerStatus"></div>
+                    </div>
+                    <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Выйти</button>
+                </div>
             </div>
         </header>
+        
         <nav class="main-menu" id="mainMenu"></nav>
-        <main id="pageContainer"><div class="page-skeleton" id="pageSkeleton"><div class="skeleton-header"></div><div class="skeleton-grid"><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div><div class="skeleton-card"></div></div></div></main>
-        <footer><span>© WARPOINT 2026 — Корпоративный портал v1.3.3</span><span style="margin:0 10px;">•</span><span id="appVersion">Загрузка...</span></footer>
+        
+        <main id="pageContainer">
+            <div class="page-skeleton" id="pageSkeleton">
+                <div class="skeleton-header"></div>
+                <div class="skeleton-grid">
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                    <div class="skeleton-card"></div>
+                </div>
+            </div>
+        </main>
+        
+        <footer>
+            <span>© WARPOINT 2026 — Корпоративный портал v1.3.3</span>
+            <span style="margin:0 10px;">•</span>
+            <span id="appVersion">Загрузка...</span>
+        </footer>
     </div>
-    
+    <!-- ===== СКРИПТЫ ===== -->
     <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script src="/js/utils.js"></script><script src="/js/api.js"></script><script src="/js/achievements.js"></script><script src="/js/auth.js"></script><script src="/js/router.js"></script><script src="/js/dashboard.js"></script><script src="/js/employees.js"></script><script src="/js/schedule.js"></script><script src="/js/tasks.js"></script><script src="/js/shop.js"></script><script src="/js/rating.js"></script><script src="/js/notifications.js"></script><script src="/js/fines.js"></script><script src="/js/chat.js"></script><script src="/js/knowledge.js"></script><script src="/js/vp.js"></script><script src="/js/salary.js"></script><script src="/js/admin.js"></script><script src="/js/reports.js"></script>
+    <script src="/js/utils.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/achievements.js"></script>
+    <script src="/js/auth.js"></script>
+    <script src="/js/router.js"></script>
+    <script src="/js/dashboard.js"></script>
+    <script src="/js/employees.js"></script>
+    <script src="/js/schedule.js"></script>
+    <script src="/js/tasks.js"></script>
+    <script src="/js/shop.js"></script>
+    <script src="/js/rating.js"></script>
+    <script src="/js/notifications.js"></script>
+    <script src="/js/fines.js"></script>
+    <script src="/js/chat.js"></script>
+    <script src="/js/knowledge.js"></script>
+    <script src="/js/vp.js"></script>
+    <script src="/js/salary.js"></script>
+    <script src="/js/admin.js"></script>
+    <script src="/js/reports.js"></script>
     
     <script>
-        (function(){
-            const CONFIG={VERSION:'1.3.3',MAX_LOADER_DISPLAY_MS:8000};
-            window.app=window.app||{currentUser:null,currentUserRole:null,employees:[],profiles:{},tasks:[],fines:[],schedule:{},version:CONFIG.VERSION};
-            const requiredModules=['utils.js','api.js','achievements.js','auth.js','router.js','dashboard.js','employees.js','schedule.js','tasks.js','shop.js','rating.js','notifications.js','fines.js','chat.js','knowledge.js','vp.js','salary.js','admin.js','reports.js'];
-            const loaderTips=[{icon:'👑',text:'WARPOINT HUB — система нового поколения'},{icon:'🎮',text:'Управляйте VR-клубом как профессионал'},{icon:'📊',text:'Аналитика, задачи, график — всё в одном месте'},{icon:'💎',text:'Зарабатывайте достижения и повышайте рейтинг'},{icon:'🚀',text:'Будущее управления уже здесь'}];
-            let loadedModules=0,tipIndex=0,allModulesLoaded=false;
-            const loaderProgressFill=document.getElementById('loaderProgressFill'),loaderPercent=document.getElementById('loaderPercent'),loaderStatusText=document.getElementById('loaderStatusText'),loaderTipSpan=document.querySelector('#loaderTip span'),loaderTipIcon=document.querySelector('#loaderTip i');
+        (function() {
+            'use strict';
             
-            // Создание админ-частиц (включается при входе директора)
-            window.toggleAdminParticles = function(enable) {
-                document.body.classList.toggle('admin-particles-active', enable);
-                if (enable && !window.adminParticlesCreated) {
-                    const layer = document.getElementById('adminParticlesLayer');
-                    if (layer) {
-                        layer.innerHTML = '';
-                        for (let i = 0; i < 50; i++) {
-                            const p = document.createElement('div');
-                            p.className = 'admin-particle';
-                            const size = Math.random() * 8 + 4;
-                            p.style.width = size + 'px';
-                            p.style.height = size + 'px';
-                            p.style.left = Math.random() * 100 + '%';
-                            p.style.animationDuration = (Math.random() * 5 + 4) + 's';
-                            p.style.animationDelay = (Math.random() * 3) + 's';
-                            layer.appendChild(p);
+            // ===== КОНФИГУРАЦИЯ =====
+            const CONFIG = {
+                VERSION: '1.3.3',
+                MAX_LOADER_DISPLAY_MS: 8000
+            };
+            
+            // ===== ГЛОБАЛЬНОЕ СОСТОЯНИЕ =====
+            window.app = window.app || {
+                currentUser: null,
+                currentUserRole: null,
+                employees: [],
+                profiles: {},
+                tasks: [],
+                fines: [],
+                schedule: {},
+                version: CONFIG.VERSION
+            };
+            
+            // ===== СПИСОК МОДУЛЕЙ =====
+            const requiredModules = [
+                'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
+                'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
+                'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
+                'vp.js', 'salary.js', 'admin.js', 'reports.js'
+            ];
+            
+            // ===== ПОДСКАЗКИ ПРЕЛОАДЕРА =====
+            const loaderTips = [
+                { icon: '👑', text: 'WARPOINT HUB — система нового поколения' },
+                { icon: '🎮', text: 'Управляйте VR-клубом как профессионал' },
+                { icon: '📊', text: 'Аналитика, задачи, график — всё в одном месте' },
+                { icon: '💎', text: 'Зарабатывайте достижения и повышайте рейтинг' },
+                { icon: '🚀', text: 'Будущее управления уже здесь' }
+            ];
+            
+            let loadedModules = 0;
+            let tipIndex = 0;
+            let allModulesLoaded = false;
+            
+            const globalLoader = document.getElementById('globalLoader');
+            const loaderProgressFill = document.getElementById('loaderProgressFill');
+            const loaderPercent = document.getElementById('loaderPercent');
+            const loaderStatusText = document.getElementById('loaderStatusText');
+            const loaderTipSpan = document.querySelector('#loaderTip span');
+            const loaderTipIcon = document.querySelector('#loaderTip i');
+            
+            // ===== РОТАЦИЯ ПОДСКАЗОК =====
+            function rotateTip() {
+                tipIndex = (tipIndex + 1) % loaderTips.length;
+                const tip = loaderTips[tipIndex];
+                if (loaderTipIcon) {
+                    const iconMap = { '👑': 'crown', '🎮': 'gamepad', '📊': 'chart-line', '💎': 'gem', '🚀': 'rocket' };
+                    loaderTipIcon.className = 'fas fa-' + iconMap[tip.icon];
+                }
+                if (loaderTipSpan) loaderTipSpan.textContent = tip.text;
+            }
+            
+            // ===== ОБНОВЛЕНИЕ ПРОГРЕССА =====
+            window.updateLoaderProgress = function(moduleName) {
+                loadedModules++;
+                const percent = Math.min(100, Math.round((loadedModules / requiredModules.length) * 100));
+                
+                if (loaderProgressFill) loaderProgressFill.style.width = percent + '%';
+                if (loaderPercent) loaderPercent.textContent = percent + '%';
+                if (loaderStatusText) {
+                    if (percent < 30) loaderStatusText.textContent = '⚡ Инициализация ядра...';
+                    else if (percent < 60) loaderStatusText.textContent = '📦 Загрузка модулей...';
+                    else if (percent < 90) loaderStatusText.textContent = '🔧 Настройка...';
+                    else loaderStatusText.textContent = '🚀 Запуск...';
+                }
+                
+                if (loadedModules >= requiredModules.length) {
+                    allModulesLoaded = true;
+                    setTimeout(hideGlobalLoader, 500);
+                }
+            };
+            
+            // ===== СКРЫТЬ ПРЕЛОАДЕР =====
+            function hideGlobalLoader() {
+                const loader = document.getElementById('globalLoader');
+                const skeleton = document.getElementById('pageSkeleton');
+                
+                if (loader) {
+                    loader.classList.add('fade-out');
+                    setTimeout(() => {
+                        if (loader && loader.classList.contains('fade-out')) {
+                            loader.style.display = 'none';
                         }
-                        window.adminParticlesCreated = true;
+                    }, 600);
+                }
+                
+                if (skeleton) skeleton.style.display = 'none';
+            }
+            
+            // ===== ОТСЛЕЖИВАНИЕ ЗАГРУЗКИ СКРИПТОВ =====
+            document.querySelectorAll('script[src*="/js/"]').forEach(script => {
+                script.addEventListener('load', () => {
+                    const filename = script.src.split('/').pop();
+                    window.updateLoaderProgress(filename);
+                });
+                
+                script.addEventListener('error', () => {
+                    console.warn('⚠️ Ошибка загрузки:', script.src);
+                    window.updateLoaderProgress('пропущен');
+                });
+            });
+            
+            // ===== ЗАПУСК АНИМАЦИЙ =====
+            setInterval(rotateTip, 3500);
+            
+            // ===== ФОЛЛБЭК =====
+            setTimeout(() => {
+                if (!allModulesLoaded) {
+                    loadedModules = requiredModules.length;
+                    window.updateLoaderProgress('готово');
+                }
+            }, CONFIG.MAX_LOADER_DISPLAY_MS);
+            
+            // ===== ФОНОВОЕ ИЗОБРАЖЕНИЕ =====
+            function loadBackgroundImage() {
+                const img = new Image();
+                img.onload = () => document.body.classList.add('bg-image-loaded');
+                img.src = '/2026-04-02_03-45-56.png';
+            }
+            loadBackgroundImage();
+            
+            // ===== ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ =====
+            const togglePassword = document.getElementById('togglePassword');
+            if (togglePassword) {
+                togglePassword.addEventListener('click', function() {
+                    const input = document.getElementById('loginPassword');
+                    if (input) {
+                        input.type = input.type === 'password' ? 'text' : 'password';
+                        this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+                    }
+                });
+            }
+            
+            // ===== CAPS LOCK =====
+            const passwordInput = document.getElementById('loginPassword');
+            if (passwordInput) {
+                passwordInput.addEventListener('keyup', function(e) {
+                    const warning = document.getElementById('capslockWarning');
+                    if (e.getModifierState && e.getModifierState('CapsLock')) {
+                        warning?.classList.add('show');
+                    } else {
+                        warning?.classList.remove('show');
+                    }
+                });
+            }
+            
+            // ===== СОХРАНЁННЫЙ ЛОГИН =====
+            const savedLogin = localStorage.getItem('savedLogin');
+            if (savedLogin) {
+                const loginInput = document.getElementById('loginName');
+                const rememberCheck = document.getElementById('rememberMe');
+                if (loginInput) loginInput.value = savedLogin;
+                if (rememberCheck) rememberCheck.checked = true;
+            }
+            
+            // ===== ЗАКРЫТИЕ ДРОПДАУНА =====
+            document.addEventListener('click', function(e) {
+                const dropdown = document.getElementById('notificationsDropdown');
+                const icon = document.getElementById('notificationsIcon');
+                if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
+                    dropdown.classList.remove('show');
+                }
+            });
+            
+            // ===== ПОКАЗАТЬ МОДАЛКУ ВХОДА =====
+            window.showLoginModal = function() {
+                const modal = document.getElementById('loginModal');
+                const container = document.getElementById('mainContainer');
+                if (modal) modal.style.display = 'flex';
+                if (container) container.style.display = 'none';
+            };
+            
+            // ===== СКРЫТЬ МОДАЛКУ ВХОДА =====
+            window.hideLoginModal = function() {
+                const modal = document.getElementById('loginModal');
+                const container = document.getElementById('mainContainer');
+                if (modal) modal.style.display = 'none';
+                if (container) container.style.display = 'block';
+            };
+            
+            // ===== ПЕРЕКЛЮЧЕНИЕ ДРОПДАУНА УВЕДОМЛЕНИЙ =====
+            window.toggleNotificationsDropdown = function() {
+                const dropdown = document.getElementById('notificationsDropdown');
+                if (dropdown) {
+                    dropdown.classList.toggle('show');
+                    if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
+                        window.renderNotificationsDropdown();
                     }
                 }
             };
             
-            function createStars(){for(let l=1;l<=3;l++){let c=document.createElement('div');c.className='stars-layer';c.id='starsLayer'+l;document.body.appendChild(c);let n=l===1?60:l===2?80:100;for(let i=0;i<n;i++){let s=document.createElement('div');s.className='star';let size=l===1?Math.random()*2+1.5:l===2?Math.random()*1.5+1:Math.random()*1+0.5;s.style.width=size+'px';s.style.height=size+'px';s.style.left=Math.random()*100+'%';s.style.animationDuration=(l===1?Math.random()*8+10:l===2?Math.random()*10+12:Math.random()*12+15)+'s';s.style.animationDelay=Math.random()*10+'s';s.style.opacity=l===1?0.7:l===2?0.5:0.3;c.appendChild(s);}}}
-            function rotateTip(){tipIndex=(tipIndex+1)%loaderTips.length;let t=loaderTips[tipIndex];if(loaderTipIcon)loaderTipIcon.className='fas fa-'+(t.icon==='👑'?'crown':t.icon==='🎮'?'gamepad':t.icon==='📊'?'chart-line':t.icon==='💎'?'gem':'rocket');if(loaderTipSpan)loaderTipSpan.textContent=t.text;}
-            window.updateLoaderProgress=function(m){loadedModules++;let p=Math.min(100,Math.round((loadedModules/requiredModules.length)*100));if(loaderProgressFill)loaderProgressFill.style.width=p+'%';if(loaderPercent)loaderPercent.textContent=p+'%';if(loaderStatusText){if(p<30)loaderStatusText.textContent='⚡ Инициализация ядра...';else if(p<60)loaderStatusText.textContent='📦 Загрузка модулей...';else if(p<90)loaderStatusText.textContent='🔧 Настройка...';else loaderStatusText.textContent='🚀 Запуск...';}if(loadedModules>=requiredModules.length){allModulesLoaded=true;setTimeout(hideGlobalLoader,500);}};
-            function hideGlobalLoader(){let l=document.getElementById('globalLoader');if(!l)return;l.classList.add('fade-out');setTimeout(()=>{if(l.classList.contains('fade-out'))l.style.display='none';document.getElementById('pageSkeleton').style.display='none';},600);}
-            document.querySelectorAll('script[src*="/js/"]').forEach(s=>s.addEventListener('load',()=>window.updateLoaderProgress(s.src.split('/').pop())));
-            createStars();setInterval(rotateTip,3500);
-            setTimeout(()=>{if(!allModulesLoaded){loadedModules=requiredModules.length;window.updateLoaderProgress('готово');}},CONFIG.MAX_LOADER_DISPLAY_MS);
-            function loadBgImage(){let i=new Image();i.onload=()=>document.body.classList.add('bg-image-loaded');i.src='/2026-04-02_03-45-56.png';}loadBgImage();
-            document.getElementById('togglePassword')?.addEventListener('click',function(){let i=document.getElementById('loginPassword');if(i){i.type=i.type==='password'?'text':'password';this.className=i.type==='password'?'fas fa-eye':'fas fa-eye-slash';}});
-            document.getElementById('loginPassword')?.addEventListener('keyup',function(e){let w=document.getElementById('capslockWarning');if(e.getModifierState&&e.getModifierState('CapsLock'))w?.classList.add('show');else w?.classList.remove('show');});
-            let savedLogin=localStorage.getItem('savedLogin');if(savedLogin){document.getElementById('loginName').value=savedLogin;document.getElementById('rememberMe').checked=true;}
-            document.addEventListener('click',e=>{let d=document.getElementById('notificationsDropdown'),i=document.getElementById('notificationsIcon');if(d&&i&&!d.contains(e.target)&&!i.contains(e.target))d.classList.remove('show');});
-            window.showLoginModal=()=>{document.getElementById('loginModal').style.display='flex';document.getElementById('mainContainer').style.display='none';};
-            window.hideLoginModal=()=>{document.getElementById('loginModal').style.display='none';document.getElementById('mainContainer').style.display='block';};
-            window.toggleNotificationsDropdown=()=>{let d=document.getElementById('notificationsDropdown');if(d){d.classList.toggle('show');if(d.classList.contains('show')&&typeof window.renderNotificationsDropdown==='function')window.renderNotificationsDropdown();}};
-            window.openMyProfile=()=>{if(window.app?.currentUser&&typeof window.openProfile==='function')window.openProfile(window.app.currentUser);};
-            
-            function initListeners(){
-                document.getElementById('logoutBtn')?.addEventListener('click',()=>{if(typeof window.authLogout==='function')window.authLogout();});
-                document.getElementById('markAllReadBtn')?.addEventListener('click',()=>{if(typeof window.markAllNotificationsRead==='function')window.markAllNotificationsRead();});
-                document.getElementById('clearAllNotifBtn')?.addEventListener('click',()=>{if(typeof window.clearAllNotifications==='function')window.clearAllNotifications();});
-                document.getElementById('headerAvatar')?.addEventListener('click',()=>window.openMyProfile());
-                document.getElementById('syncIndicator')?.addEventListener('click',()=>{if(typeof window.auth?.reconnectPusher==='function')window.auth.reconnectPusher();});
-                document.getElementById('notificationsIcon')?.addEventListener('click',()=>window.toggleNotificationsDropdown());
+            // ===== ОТКРЫТЬ СВОЙ ПРОФИЛЬ =====
+            window.openMyProfile = function() {
+                if (window.app?.currentUser && typeof window.openProfile === 'function') {
+                    window.openProfile(window.app.currentUser);
+                }
+            };
+            // ===== ИНИЦИАЛИЗАЦИЯ СЛУШАТЕЛЕЙ =====
+            function initEventListeners() {
+                // Кнопка выхода
+                const logoutBtn = document.getElementById('logoutBtn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', function() {
+                        if (typeof window.authLogout === 'function') {
+                            window.authLogout();
+                        }
+                    });
+                }
+                
+                // Кнопка "прочитать все"
+                const markAllBtn = document.getElementById('markAllReadBtn');
+                if (markAllBtn) {
+                    markAllBtn.addEventListener('click', function() {
+                        if (typeof window.markAllNotificationsRead === 'function') {
+                            window.markAllNotificationsRead();
+                        }
+                    });
+                }
+                
+                // Кнопка "очистить все"
+                const clearAllBtn = document.getElementById('clearAllNotifBtn');
+                if (clearAllBtn) {
+                    clearAllBtn.addEventListener('click', function() {
+                        if (typeof window.clearAllNotifications === 'function') {
+                            window.clearAllNotifications();
+                        }
+                    });
+                }
+                
+                // Аватар в хедере
+                const headerAvatar = document.getElementById('headerAvatar');
+                if (headerAvatar) {
+                    headerAvatar.addEventListener('click', function() {
+                        window.openMyProfile();
+                    });
+                }
+                
+                // Индикатор синхронизации
+                const syncIndicator = document.getElementById('syncIndicator');
+                if (syncIndicator) {
+                    syncIndicator.addEventListener('click', function() {
+                        if (typeof window.auth?.reconnectPusher === 'function') {
+                            window.auth.reconnectPusher();
+                        }
+                    });
+                }
+                
+                // Иконка уведомлений
+                const notifIcon = document.getElementById('notificationsIcon');
+                if (notifIcon) {
+                    notifIcon.addEventListener('click', function() {
+                        window.toggleNotificationsDropdown();
+                    });
+                }
             }
             
-            function checkSession(){
-                let t=localStorage.getItem('warpoint_token')||localStorage.getItem('token');
-                if(t){let u=localStorage.getItem('warpoint_user')||localStorage.getItem('currentUser');if(u){try{let user=JSON.parse(u);window.app.currentUser=user.name||user;window.app.currentUserRole=user.role||'operator';
-                    // Включаем админ-частицы если директор
-                    if (user.role === 'director') window.toggleAdminParticles(true);
-                    hideLoginModal();document.getElementById('headerName').textContent=window.app.currentUser;if(typeof window.renderMainMenu==='function')window.renderMainMenu();return true;}catch(e){}}}showLoginModal();return false;
+            // ===== ПРОВЕРКА СУЩЕСТВУЮЩЕЙ СЕССИИ =====
+            function checkExistingSession() {
+                const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
+                
+                if (token) {
+                    const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
+                    if (savedUser) {
+                        try {
+                            const user = JSON.parse(savedUser);
+                            window.app.currentUser = user.name || user;
+                            window.app.currentUserRole = user.role || 'operator';
+                            
+                            hideLoginModal();
+                            
+                            const headerName = document.getElementById('headerName');
+                            if (headerName) headerName.textContent = window.app.currentUser;
+                            
+                            const headerStatus = document.getElementById('headerStatus');
+                            if (headerStatus && user.status) headerStatus.textContent = user.status;
+                            
+                            const headerAvatar = document.getElementById('headerAvatar');
+                            if (headerAvatar) {
+                                if (user.avatar_url) {
+                                    headerAvatar.innerHTML = `<img src="${user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
+                                } else {
+                                    headerAvatar.innerHTML = user.avatar || '👤';
+                                }
+                            }
+                            
+                            if (typeof window.renderMainMenu === 'function') {
+                                setTimeout(() => window.renderMainMenu(), 100);
+                            }
+                            
+                            return true;
+                        } catch (e) {
+                            console.error('Ошибка восстановления сессии:', e);
+                        }
+                    }
+                }
+                
+                showLoginModal();
+                return false;
             }
             
-            document.getElementById('loginForm')?.addEventListener('submit',async e=>{
-                e.preventDefault();
-                let u=document.getElementById('loginName')?.value?.trim(),p=document.getElementById('loginPassword')?.value,rm=document.getElementById('rememberMe')?.checked,err=document.getElementById('loginErrorMessage'),btn=document.getElementById('loginSubmitBtn');
-                if(!u||!p){if(err)err.textContent='Введите логин и пароль';return;}
-                if(btn){btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Вход...';btn.disabled=true;}
-                try{let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});let d=await r.json();
-                    if(d.success){if(rm)localStorage.setItem('savedLogin',u);else localStorage.removeItem('savedLogin');localStorage.setItem('warpoint_token',d.token);localStorage.setItem('token',d.token);localStorage.setItem('warpoint_user',JSON.stringify(d.user));localStorage.setItem('currentUser',JSON.stringify(d.user));window.app.currentUser=d.user.name;window.app.currentUserRole=d.user.role;
-                    // Включаем админ-частицы если директор
-                    if (d.user.role === 'director') window.toggleAdminParticles(true);
-                    hideLoginModal();document.getElementById('headerName').textContent=d.user.name;if(typeof window.renderMainMenu==='function')window.renderMainMenu();}
-                    else{if(err)err.textContent=d.error||'Ошибка входа';if(btn){btn.innerHTML='<span>Войти</span><i class="fas fa-arrow-right"></i>';btn.disabled=false;}}
-                }catch(x){if(err)err.textContent='Ошибка соединения';if(btn){btn.innerHTML='<span>Войти</span><i class="fas fa-arrow-right"></i>';btn.disabled=false;}}
+            // ===== ОБРАБОТЧИК ФОРМЫ ВХОДА =====
+            const loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('loginName')?.value?.trim();
+                    const password = document.getElementById('loginPassword')?.value;
+                    const rememberMe = document.getElementById('rememberMe')?.checked;
+                    const errorEl = document.getElementById('loginErrorMessage');
+                    const submitBtn = document.getElementById('loginSubmitBtn');
+                    
+                    if (!username || !password) {
+                        if (errorEl) errorEl.textContent = 'Введите логин и пароль';
+                        return;
+                    }
+                    
+                    if (submitBtn) {
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+                        submitBtn.disabled = true;
+                    }
+                    
+                    try {
+                        const response = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ username, password })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            if (rememberMe) {
+                                localStorage.setItem('savedLogin', username);
+                            } else {
+                                localStorage.removeItem('savedLogin');
+                            }
+                            
+                            localStorage.setItem('warpoint_token', data.token);
+                            localStorage.setItem('token', data.token);
+                            localStorage.setItem('warpoint_user', JSON.stringify(data.user));
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            
+                            window.app.currentUser = data.user.name;
+                            window.app.currentUserRole = data.user.role;
+                            
+                            hideLoginModal();
+                            
+                            document.getElementById('headerName').textContent = data.user.name;
+                            if (data.user.status) {
+                                document.getElementById('headerStatus').textContent = data.user.status;
+                            }
+                            
+                            const headerAvatar = document.getElementById('headerAvatar');
+                            if (data.user.avatar_url) {
+                                headerAvatar.innerHTML = `<img src="${data.user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
+                            } else {
+                                headerAvatar.innerHTML = data.user.avatar || '👤';
+                            }
+                            
+                            if (typeof window.renderMainMenu === 'function') {
+                                window.renderMainMenu();
+                            }
+                            
+                            if (data.newAchievements && data.newAchievements.length > 0) {
+                                setTimeout(() => {
+                                    if (typeof window.showSystemNotification === 'function') {
+                                        data.newAchievements.forEach(ach => {
+                                            window.showSystemNotification(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success');
+                                        });
+                                    }
+                                }, 1000);
+                            }
+                        } else {
+                            if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
+                            if (submitBtn) {
+                                submitBtn.innerHTML = '<span>Войти</span><i class="fas fa-arrow-right"></i>';
+                                submitBtn.disabled = false;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Ошибка входа:', err);
+                        if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
+                        if (submitBtn) {
+                            submitBtn.innerHTML = '<span>Войти</span><i class="fas fa-arrow-right"></i>';
+                            submitBtn.disabled = false;
+                        }
+                    }
+                });
+            }
+            
+            // ===== УСТАНОВКА ВЕРСИИ =====
+            const versionEl = document.getElementById('appVersion');
+            if (versionEl) versionEl.textContent = 'v' + CONFIG.VERSION;
+            
+            // ===== ЗАПУСК =====
+            initEventListeners();
+            
+            // Онлайн/офлайн статус
+            window.addEventListener('online', function() {
+                const syncIndicator = document.getElementById('syncIndicator');
+                if (syncIndicator) {
+                    syncIndicator.classList.add('online');
+                    syncIndicator.classList.remove('offline');
+                }
             });
             
-            initListeners();
-            document.getElementById('appVersion').textContent='v'+CONFIG.VERSION;
-            setTimeout(checkSession,200);
-            console.log('✅ WARPOINT HUB v'+CONFIG.VERSION+' загружен');
+            window.addEventListener('offline', function() {
+                const syncIndicator = document.getElementById('syncIndicator');
+                if (syncIndicator) {
+                    syncIndicator.classList.add('offline');
+                    syncIndicator.classList.remove('online');
+                }
+            });
+            
+            // Установить начальный статус
+            if (navigator.onLine) {
+                document.getElementById('syncIndicator')?.classList.add('online');
+            } else {
+                document.getElementById('syncIndicator')?.classList.add('offline');
+            }
+            
+            // Проверяем сессию после загрузки auth.js
+            setTimeout(() => {
+                if (typeof window.auth?.isAuthenticated === 'function' && window.auth.isAuthenticated()) {
+                    // auth.js уже обработал
+                } else {
+                    checkExistingSession();
+                }
+            }, 200);
+            
+            console.log('✅ WARPOINT HUB v' + CONFIG.VERSION + ' — ядро загружено');
         })();
     </script>
 </body>
