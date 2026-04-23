@@ -1,8 +1,7 @@
-<!-- public/pages/employees.html -->
-
+<!-- public/pages/employees.html — ПОЛНАЯ ВЕРСИЯ v3.0 -->
 <div class="employees-modern-container">
 
-    <!-- ХЕДЕР С КНОПКОЙ -->
+    <!-- ===== ХЕДЕР ===== -->
     <div class="emp-header">
         <div class="emp-header-left">
             <div class="emp-header-icon">
@@ -13,78 +12,94 @@
                 <p>Сотрудники клуба</p>
             </div>
         </div>
-        <button id="createEmployeeBtn" class="emp-create-btn" onclick="openCreateEmployeeModal()" style="display: none;">
+        <button id="createEmployeeBtn" class="emp-create-btn" style="display: none;">
             <i class="fas fa-user-plus"></i>
             <span>Добавить сотрудника</span>
         </button>
     </div>
 
-    <!-- СЕТКА КАРТОЧЕК -->
+    <!-- ===== СЕТКА КАРТОЧЕК ===== -->
     <div id="employeesGrid" class="emp-grid">
-        <!-- Карточки рендерятся через JS -->
+        <div class="emp-empty-state">
+            <div class="emp-empty-icon">👥</div>
+            <h3>Загрузка сотрудников...</h3>
+            <p>Пожалуйста, подождите</p>
+        </div>
     </div>
 
 </div>
 
-<!-- МОДАЛКА ПРОФИЛЯ -->
-<div id="profileModal" class="emp-modal">
-    <div class="emp-modal-window" style="max-width: 650px;">
+<!-- ============================================ -->
+<!-- МОДАЛКА ПРОФИЛЯ СОТРУДНИКА -->
+<!-- ============================================ -->
+<div id="profileModal" class="emp-modal" style="display: none;">
+    <div class="emp-modal-window" style="max-width: 650px; max-height: 85vh; overflow-y: auto;">
         <div id="profileModalContent"></div>
     </div>
 </div>
 
+<!-- ============================================ -->
 <!-- МОДАЛКА СОЗДАНИЯ СОТРУДНИКА -->
-<div id="createEmployeeModal" class="emp-modal">
-    <div class="emp-modal-window">
+<!-- ============================================ -->
+<div id="createEmployeeModal" class="emp-modal" style="display: none;">
+    <div class="emp-modal-window" style="max-width: 500px;">
+        
+        <!-- Заголовок модалки -->
         <div class="emp-modal-header">
             <div class="emp-modal-icon">
                 <i class="fas fa-user-plus"></i>
             </div>
             <div class="emp-modal-title">
                 <h3>Новый сотрудник</h3>
-                <p>Заполните данные</p>
+                <p>Заполните данные для регистрации</p>
             </div>
-            <button class="emp-modal-close" onclick="closeCreateEmployeeModal()">&times;</button>
+            <button class="emp-modal-close" id="closeCreateModalBtn">&times;</button>
         </div>
         
+        <!-- Тело модалки -->
         <div class="emp-modal-body">
+            
+            <!-- Имя -->
             <div class="emp-form-group">
-                <label><i class="fas fa-user"></i> Имя</label>
-                <input type="text" id="newEmpName" placeholder="Введите имя" autocomplete="off">
+                <label><i class="fas fa-user"></i> Имя сотрудника <span style="color: #ef4444;">*</span></label>
+                <input type="text" id="newEmpName" class="emp-form-input" placeholder="Введите имя" autocomplete="off" required maxlength="50">
             </div>
             
+            <!-- Пароль -->
             <div class="emp-form-group">
-                <label><i class="fas fa-lock"></i> Пароль</label>
-                <input type="password" id="newEmpPassword" placeholder="Придумайте пароль" autocomplete="new-password">
+                <label><i class="fas fa-lock"></i> Пароль <span style="color: #ef4444;">*</span></label>
+                <input type="password" id="newEmpPassword" class="emp-form-input" placeholder="Минимум 3 символа" autocomplete="new-password" required minlength="3">
+                <div class="emp-form-hint">Пароль должен быть не менее 3 символов</div>
             </div>
             
+            <!-- Должность -->
             <div class="emp-form-group">
                 <label><i class="fas fa-briefcase"></i> Должность</label>
                 <div class="emp-role-selector">
-                    <label class="emp-role-option active" onclick="selectRole('operator')">
+                    <label class="emp-role-option active" data-role="operator">
                         <input type="radio" name="roleSelect" value="operator" checked>
                         <span class="emp-role-icon">👤</span>
                         <span class="emp-role-info">
                             <span class="emp-role-name">Оператор</span>
-                            <span class="emp-role-desc">Базовый доступ</span>
+                            <span class="emp-role-desc">Базовый доступ к системе</span>
                         </span>
                         <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
                     </label>
-                    <label class="emp-role-option" onclick="selectRole('admin')">
+                    <label class="emp-role-option" data-role="admin">
                         <input type="radio" name="roleSelect" value="admin">
                         <span class="emp-role-icon">⚙️</span>
                         <span class="emp-role-info">
                             <span class="emp-role-name">Администратор</span>
-                            <span class="emp-role-desc">Управление ВП</span>
+                            <span class="emp-role-desc">Управление мероприятиями (ВП)</span>
                         </span>
                         <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
                     </label>
-                    <label class="emp-role-option" onclick="selectRole('manager')">
+                    <label class="emp-role-option" data-role="manager">
                         <input type="radio" name="roleSelect" value="manager">
                         <span class="emp-role-icon">📋</span>
                         <span class="emp-role-info">
                             <span class="emp-role-name">Управляющий</span>
-                            <span class="emp-role-desc">Полный доступ</span>
+                            <span class="emp-role-desc">Расширенный доступ</span>
                         </span>
                         <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
                     </label>
@@ -92,146 +107,840 @@
                 <input type="hidden" id="newEmpRole" value="operator">
             </div>
             
+            <!-- Дата рождения и телефон -->
             <div class="emp-form-row-2">
                 <div class="emp-form-group">
                     <label><i class="fas fa-calendar"></i> Дата рождения</label>
-                    <input type="date" id="newEmpBirthday">
+                    <input type="date" id="newEmpBirthday" class="emp-form-input" max="">
                 </div>
                 <div class="emp-form-group">
                     <label><i class="fas fa-phone"></i> Телефон</label>
-                    <input type="tel" id="newEmpPhone" placeholder="+7 (___) ___-__-__">
+                    <input type="tel" id="newEmpPhone" class="emp-form-input" placeholder="+7 (___) ___-__-__">
                 </div>
             </div>
+            
         </div>
         
+        <!-- Футер модалки -->
         <div class="emp-modal-footer">
-            <button class="emp-btn-secondary" onclick="closeCreateEmployeeModal()">Отмена</button>
-            <button class="emp-btn-primary" onclick="createEmployee()">
-                <i class="fas fa-check"></i> Создать
+            <button class="emp-btn-secondary" id="cancelCreateBtn">
+                <i class="fas fa-times"></i> Отмена
+            </button>
+            <button class="emp-btn-primary" id="saveCreateBtn">
+                <i class="fas fa-check"></i> Создать сотрудника
             </button>
         </div>
+        
     </div>
 </div>
-
-<!-- МОДАЛКА ВЫБОРА АВАТАРА -->
-<div id="avatarModal" class="emp-modal">
-    <div class="emp-modal-window" style="max-width: 450px;">
+<!-- ============================================ -->
+<!-- МОДАЛКА ВЫБОРА АВАТАРА (ЭМОДЗИ) -->
+<!-- ============================================ -->
+<div id="avatarModal" class="emp-modal" style="display: none;">
+    <div class="emp-modal-window" style="max-width: 480px;">
+        
         <div class="emp-modal-header">
             <div class="emp-modal-icon">
                 <i class="fas fa-smile"></i>
             </div>
             <div class="emp-modal-title">
                 <h3>Выберите аватар</h3>
-                <p>Эмодзи для профиля</p>
+                <p>Эмодзи или загрузите своё фото</p>
             </div>
-            <button class="emp-modal-close" onclick="closeAvatarModal()">&times;</button>
+            <button class="emp-modal-close" id="closeAvatarModalBtn">&times;</button>
         </div>
         
         <div class="emp-modal-body">
-            <div id="avatarGrid" class="emp-avatar-grid"></div>
+            <div id="avatarGrid" class="emp-avatar-grid">
+                <!-- Заполняется через JS -->
+            </div>
         </div>
         
         <div class="emp-modal-footer">
-            <button class="emp-btn-primary" onclick="openAvatarUploadModal()">
+            <button class="emp-btn-secondary" id="cancelAvatarBtn">
+                <i class="fas fa-times"></i> Отмена
+            </button>
+            <button class="emp-btn-primary" id="uploadAvatarBtn">
                 <i class="fas fa-upload"></i> Загрузить фото
             </button>
         </div>
+        
     </div>
 </div>
 
-<!-- МОДАЛКА ПРЕДПРОСМОТРА -->
-<div id="avatarPreviewModal" class="emp-modal">
+<!-- ============================================ -->
+<!-- МОДАЛКА ПРЕДПРОСМОТРА ФОТО -->
+<!-- ============================================ -->
+<div id="avatarPreviewModal" class="emp-modal" style="display: none;">
     <div class="emp-modal-window" style="max-width: 450px;">
+        
         <div class="emp-modal-header">
             <div class="emp-modal-icon">
                 <i class="fas fa-camera"></i>
             </div>
             <div class="emp-modal-title">
-                <h3>Предпросмотр</h3>
-                <p>Ваше фото</p>
+                <h3>Предпросмотр фото</h3>
+                <p>Проверьте изображение перед сохранением</p>
             </div>
-            <button class="emp-modal-close" onclick="closeAvatarPreviewModal()">&times;</button>
+            <button class="emp-modal-close" id="closePreviewModalBtn">&times;</button>
         </div>
         
         <div class="emp-modal-body">
             <div class="emp-preview-container">
-                <img id="avatarPreviewImg" src="" alt="Предпросмотр">
+                <img id="avatarPreviewImg" src="" alt="Предпросмотр" style="max-width:100%;max-height:300px;border-radius:20px;object-fit:cover;">
             </div>
         </div>
         
         <div class="emp-modal-footer">
-            <button class="emp-btn-secondary" onclick="closeAvatarPreviewModal()">Отмена</button>
-            <button class="emp-btn-primary" onclick="confirmAvatarUpload()">Сохранить</button>
+            <button class="emp-btn-secondary" id="cancelPreviewBtn">
+                <i class="fas fa-times"></i> Отмена
+            </button>
+            <button class="emp-btn-primary" id="confirmAvatarBtn">
+                <i class="fas fa-check"></i> Сохранить фото
+            </button>
         </div>
+        
     </div>
 </div>
 
+<!-- ============================================ -->
+<!-- СТИЛИ ДЛЯ СТРАНИЦЫ СОТРУДНИКОВ -->
+<!-- ============================================ -->
+<style>
+    /* Контейнер */
+    .employees-modern-container {
+        padding: 24px 32px;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    /* Хедер */
+    .emp-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 28px;
+        flex-wrap: wrap;
+        gap: 20px;
+    }
+    .emp-header-left {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+    }
+    .emp-header-icon {
+        width: 56px;
+        height: 56px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 26px;
+        color: white;
+        box-shadow: 0 8px 20px rgba(99,102,241,0.3);
+    }
+    .emp-header-left h1 {
+        font-size: 26px;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+        color: #f1f5f9;
+    }
+    .emp-header-left p {
+        font-size: 13px;
+        color: #94a3b8;
+        margin: 0;
+    }
+    .emp-create-btn {
+        padding: 12px 24px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        border-radius: 40px;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+        transition: all 0.2s;
+    }
+    .emp-create-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(99,102,241,0.4);
+    }
+    
+    /* Сетка карточек */
+    .emp-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 22px;
+    }
+    
+    /* Карточка сотрудника */
+    .emp-card {
+        padding: 20px;
+        background: rgba(20,25,50,0.6);
+        backdrop-filter: blur(16px);
+        border-radius: 24px;
+        border: 1px solid rgba(99,102,241,0.2);
+        cursor: pointer;
+        position: relative;
+        transition: all 0.25s ease;
+    }
+    .emp-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(99,102,241,0.5);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+    }
+    .emp-card.current-user {
+        border: 2px solid #fbbf24;
+        box-shadow: 0 0 15px rgba(251,191,36,0.15);
+        order: -1;
+    }
+    
+    /* Рейтинг в углу */
+    .emp-rating-corner {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        padding: 6px 12px;
+        border-radius: 30px;
+        font-size: 14px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(0,0,0,0.4);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+    .emp-rating-corner.good { color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .emp-rating-corner.bad { color: #ef4444; border-color: rgba(239,68,68,0.3); }
+    
+    /* Верх карточки */
+    .emp-card-top {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 16px;
+    }
+    .emp-avatar {
+        width: 70px;
+        height: 70px;
+        min-width: 70px;
+        background: linear-gradient(135deg, #6366f1, #ec4899);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 34px;
+        overflow: hidden;
+        border: 2px solid rgba(255,255,255,0.15);
+    }
+    .emp-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .emp-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .emp-name {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 4px;
+    }
+    .emp-name h3 {
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0;
+        color: #f1f5f9;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .emp-you-badge {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #1a1f2e;
+    }
+    .emp-birthday-today {
+        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        color: #1a1f2e;
+        animation: pulse 1.5s infinite;
+    }
+    .emp-birthday-badge {
+        background: linear-gradient(135deg, #ec4899, #f472b6);
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 10px;
+        font-weight: 700;
+        color: white;
+    }
+    .emp-role {
+        font-size: 13px;
+        color: #a78bfa;
+        margin-bottom: 4px;
+    }
+    .emp-rating {
+        font-size: 14px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .emp-rating.good { color: #10b981; }
+    .emp-rating.bad { color: #ef4444; }
+    
+    /* Статусная строка */
+    .emp-status-row {
+        display: flex;
+        gap: 20px;
+        padding: 12px 0;
+        border-top: 1px solid rgba(255,255,255,0.06);
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        margin-bottom: 14px;
+    }
+    .emp-status {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 12px;
+        color: #cbd5e1;
+    }
+    .emp-status-dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+    }
+    .emp-status-dot.online { background: #10b981; box-shadow: 0 0 10px #10b981; }
+    .emp-status-dot.offline { background: #64748b; }
+    .emp-status-dot.onshift { background: #f59e0b; box-shadow: 0 0 10px #f59e0b; }
+    .emp-status-dot.offshift { background: #64748b; }
+    .emp-status-dot.streak { background: #f97316; box-shadow: 0 0 8px #f97316; }
+    
+    /* Статистика */
+    .emp-stats {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+        margin-bottom: 14px;
+    }
+    .emp-stat-item {
+        text-align: center;
+        padding: 10px 4px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 12px;
+    }
+    .emp-stat-icon { font-size: 14px; margin-bottom: 4px; }
+    .emp-stat-value { font-size: 16px; font-weight: 700; color: #e2e8f0; }
+    .emp-stat-label { font-size: 9px; color: #64748b; text-transform: uppercase; }
+    
+    /* Футер карточки */
+    .emp-card-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .emp-active-status {
+        padding: 6px 14px;
+        background: rgba(99,102,241,0.15);
+        border: 1px solid rgba(99,102,241,0.3);
+        border-radius: 30px;
+        font-size: 11px;
+        color: #a78bfa;
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .emp-chat-btn {
+        width: 38px;
+        height: 38px;
+        background: rgba(99,102,241,0.15);
+        border: 1px solid rgba(99,102,241,0.3);
+        border-radius: 14px;
+        color: #a78bfa;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+    }
+    .emp-chat-btn:hover {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        transform: scale(1.05);
+    }
+    
+    /* Бейдж непрочитанных */
+    .emp-unread-badge {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        background: #ef4444;
+        color: white;
+        font-size: 11px;
+        font-weight: 700;
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 6px;
+        box-shadow: 0 2px 8px rgba(239,68,68,0.4);
+        z-index: 3;
+    }
+    
+    /* Пустое состояние */
+    .emp-empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 28px;
+        grid-column: 1 / -1;
+    }
+    .emp-empty-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.5; }
+    .emp-empty-state h3 { font-size: 20px; margin-bottom: 8px; color: #e2e8f0; }
+    .emp-empty-state p { color: #94a3b8; }
+    
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
+    
+    @media (max-width: 768px) {
+        .employees-modern-container { padding: 16px; }
+        .emp-grid { grid-template-columns: 1fr; gap: 16px; }
+        .emp-card { min-height: auto; }
+        .emp-avatar { width: 56px; height: 56px; min-width: 56px; }
+        .emp-name h3 { font-size: 16px; }
+        .emp-stats { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .emp-stat-value { font-size: 14px; }
+    }
+</style>
+<style>
+    /* ===== СТИЛИ МОДАЛОК ===== */
+    
+    /* Модалка */
+    .emp-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10,12,18,0.95);
+        backdrop-filter: blur(20px);
+        z-index: 10000;
+        align-items: center;
+        justify-content: center;
+    }
+    .emp-modal.active {
+        display: flex;
+    }
+    
+    /* Окно модалки */
+    .emp-modal-window {
+        background: linear-gradient(135deg, #1a1f2e, #0f1222);
+        border-radius: 28px;
+        padding: 0;
+        max-width: 600px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        border: 1px solid rgba(99,102,241,0.3);
+        box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+        animation: modalSlideIn 0.3s ease;
+    }
+    @keyframes modalSlideIn {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Заголовок модалки */
+    .emp-modal-header {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        padding: 20px 24px;
+        background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.05));
+        border-bottom: 1px solid rgba(99,102,241,0.15);
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #1a1f2e;
+    }
+    .emp-modal-icon {
+        width: 52px;
+        height: 52px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border-radius: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        box-shadow: 0 6px 15px rgba(99,102,241,0.3);
+    }
+    .emp-modal-title h3 {
+        margin: 0;
+        font-size: 20px;
+        font-weight: 700;
+        color: #f1f5f9;
+    }
+    .emp-modal-title p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: #94a3b8;
+    }
+    .emp-modal-close {
+        margin-left: auto;
+        width: 40px;
+        height: 40px;
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 14px;
+        color: #94a3b8;
+        font-size: 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        border: none;
+    }
+    .emp-modal-close:hover {
+        background: rgba(239,68,68,0.15);
+        border-color: rgba(239,68,68,0.3);
+        color: #f87171;
+        transform: scale(1.05);
+    }
+    
+    /* Тело модалки */
+    .emp-modal-body {
+        padding: 24px;
+    }
+    
+    /* Футер модалки */
+    .emp-modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 14px;
+        padding: 18px 24px;
+        background: rgba(0,0,0,0.2);
+        border-top: 1px solid rgba(99,102,241,0.1);
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        background: #1a1f2e;
+    }
+    
+    /* Формы */
+    .emp-form-group {
+        margin-bottom: 20px;
+    }
+    .emp-form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #94a3b8;
+    }
+    .emp-form-group label i {
+        margin-right: 8px;
+        color: #a78bfa;
+    }
+    .emp-form-input {
+        width: 100%;
+        padding: 12px 16px;
+        background: rgba(0,0,0,0.3);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 16px;
+        color: #e2e8f0;
+        font-size: 14px;
+        outline: none;
+        transition: all 0.2s;
+    }
+    .emp-form-input:focus {
+        border-color: #a78bfa;
+        box-shadow: 0 0 0 3px rgba(167,139,250,0.15);
+    }
+    .emp-form-hint {
+        font-size: 11px;
+        color: #64748b;
+        margin-top: 6px;
+    }
+    .emp-form-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+    }
+    
+    /* Селектор ролей */
+    .emp-role-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .emp-role-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        background: rgba(0,0,0,0.2);
+        border-radius: 14px;
+        border: 1px solid rgba(99,102,241,0.15);
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .emp-role-option:hover {
+        background: rgba(99,102,241,0.1);
+    }
+    .emp-role-option.active {
+        border-color: #a78bfa;
+        background: rgba(99,102,241,0.2);
+    }
+    .emp-role-option input {
+        display: none;
+    }
+    .emp-role-icon {
+        font-size: 24px;
+    }
+    .emp-role-info {
+        flex: 1;
+    }
+    .emp-role-name {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    .emp-role-desc {
+        font-size: 11px;
+        color: #94a3b8;
+    }
+    .emp-role-check {
+        color: #a78bfa;
+        opacity: 0;
+    }
+    .emp-role-option.active .emp-role-check {
+        opacity: 1;
+    }
+    
+    /* Кнопки */
+    .emp-btn-primary {
+        padding: 10px 24px;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        border: none;
+        border-radius: 40px;
+        color: white;
+        font-weight: 600;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+        transition: all 0.2s;
+    }
+    .emp-btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(99,102,241,0.4);
+    }
+    .emp-btn-secondary {
+        padding: 10px 24px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(99,102,241,0.2);
+        border-radius: 40px;
+        color: #94a3b8;
+        font-size: 14px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s;
+    }
+    .emp-btn-secondary:hover {
+        background: rgba(99,102,241,0.15);
+        color: #e2e8f0;
+    }
+    
+    /* Сетка аватаров */
+    .emp-avatar-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        padding: 8px;
+    }
+    .emp-avatar-item {
+        width: 100%;
+        aspect-ratio: 1;
+        background: rgba(0,0,0,0.3);
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        cursor: pointer;
+        transition: all 0.2s;
+        border: 1px solid rgba(99,102,241,0.2);
+    }
+    .emp-avatar-item:hover {
+        background: rgba(99,102,241,0.3);
+        transform: scale(1.05);
+        border-color: #a78bfa;
+    }
+    .emp-avatar-item.upload {
+        background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.1));
+        flex-direction: column;
+        font-size: 12px;
+        gap: 4px;
+    }
+    .emp-avatar-item.upload i {
+        font-size: 24px;
+    }
+    
+    /* Превью */
+    .emp-preview-container {
+        display: flex;
+        justify-content: center;
+        padding: 16px;
+    }
+    .emp-preview-container img {
+        max-width: 100%;
+        max-height: 300px;
+        border-radius: 20px;
+        object-fit: cover;
+    }
+    
+    /* Адаптив */
+    @media (max-width: 768px) {
+        .emp-modal-window {
+            width: 95%;
+            border-radius: 20px;
+        }
+        .emp-modal-header {
+            padding: 16px;
+        }
+        .emp-modal-body {
+            padding: 16px;
+        }
+        .emp-form-row-2 {
+            grid-template-columns: 1fr;
+        }
+        .emp-avatar-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    @media (max-width: 480px) {
+        .emp-avatar-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+</style>
+
+<!-- ============================================ -->
+<!-- СКРИПТЫ ДЛЯ МОДАЛОК -->
+<!-- ============================================ -->
 <script>
-    window.selectRole = function(role) {
-        document.getElementById('newEmpRole').value = role;
+(function() {
+    'use strict';
+    
+    // Ждём загрузки DOM
+    function init() {
+        // Кнопка создания сотрудника
+        const createBtn = document.getElementById('createEmployeeBtn');
+        if (createBtn) {
+            createBtn.addEventListener('click', function() {
+                if (typeof window.openCreateEmployeeModal === 'function') {
+                    window.openCreateEmployeeModal();
+                }
+            });
+        }
+        
+        // Кнопка закрытия модалки создания
+        const closeCreateBtn = document.getElementById('closeCreateModalBtn');
+        const cancelCreateBtn = document.getElementById('cancelCreateBtn');
+        if (closeCreateBtn) closeCreateBtn.addEventListener('click', function() { if (typeof window.closeCreateEmployeeModal === 'function') window.closeCreateEmployeeModal(); });
+        if (cancelCreateBtn) cancelCreateBtn.addEventListener('click', function() { if (typeof window.closeCreateEmployeeModal === 'function') window.closeCreateEmployeeModal(); });
+        
+        // Кнопка сохранения сотрудника
+        const saveCreateBtn = document.getElementById('saveCreateBtn');
+        if (saveCreateBtn) saveCreateBtn.addEventListener('click', function() { if (typeof window.createEmployee === 'function') window.createEmployee(); });
+        
+        // Кнопка закрытия модалки аватара
+        const closeAvatarBtn = document.getElementById('closeAvatarModalBtn');
+        const cancelAvatarBtn = document.getElementById('cancelAvatarBtn');
+        if (closeAvatarBtn) closeAvatarBtn.addEventListener('click', function() { if (typeof window.closeAvatarModal === 'function') window.closeAvatarModal(); });
+        if (cancelAvatarBtn) cancelAvatarBtn.addEventListener('click', function() { if (typeof window.closeAvatarModal === 'function') window.closeAvatarModal(); });
+        
+        // Кнопка загрузки аватара
+        const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
+        if (uploadAvatarBtn) uploadAvatarBtn.addEventListener('click', function() { if (typeof window.openAvatarUploadModal === 'function') window.openAvatarUploadModal(); });
+        
+        // Кнопки превью
+        const closePreviewBtn = document.getElementById('closePreviewModalBtn');
+        const cancelPreviewBtn = document.getElementById('cancelPreviewBtn');
+        if (closePreviewBtn) closePreviewBtn.addEventListener('click', function() { if (typeof window.closeAvatarPreviewModal === 'function') window.closeAvatarPreviewModal(); });
+        if (cancelPreviewBtn) cancelPreviewBtn.addEventListener('click', function() { if (typeof window.closeAvatarPreviewModal === 'function') window.closeAvatarPreviewModal(); });
+        
+        // Кнопка сохранения фото
+        const confirmAvatarBtn = document.getElementById('confirmAvatarBtn');
+        if (confirmAvatarBtn) confirmAvatarBtn.addEventListener('click', function() { if (typeof window.confirmAvatarUpload === 'function') window.confirmAvatarUpload(); });
+        
+        // Выбор роли
         document.querySelectorAll('.emp-role-option').forEach(opt => {
-            opt.classList.remove('active');
-            const radio = opt.querySelector('input[type="radio"]');
-            if (radio && radio.value === role) {
-                opt.classList.add('active');
-                radio.checked = true;
+            opt.addEventListener('click', function() {
+                const role = this.dataset.role;
+                if (role && typeof window.selectRole === 'function') {
+                    window.selectRole(role);
+                }
+            });
+        });
+        
+        // Закрытие модалок по Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (typeof window.closeProfileModal === 'function') window.closeProfileModal();
+                if (typeof window.closeCreateEmployeeModal === 'function') window.closeCreateEmployeeModal();
+                if (typeof window.closeAvatarModal === 'function') window.closeAvatarModal();
+                if (typeof window.closeAvatarPreviewModal === 'function') window.closeAvatarPreviewModal();
             }
         });
-    };
-    
-    window.openCreateEmployeeModal = function() {
-        document.getElementById('createEmployeeModal').classList.add('active');
-        window.selectRole('operator');
-    };
-    
-    window.closeCreateEmployeeModal = function() {
-        document.getElementById('createEmployeeModal').classList.remove('active');
-        document.getElementById('newEmpName').value = '';
-        document.getElementById('newEmpPassword').value = '';
-        document.getElementById('newEmpBirthday').value = '';
-        document.getElementById('newEmpPhone').value = '';
-    };
-    
-    window.closeAvatarModal = function() {
-        document.getElementById('avatarModal').classList.remove('active');
-    };
-    
-    window.closeAvatarPreviewModal = function() {
-        document.getElementById('avatarPreviewModal').classList.remove('active');
-    };
-    
-    window.closeProfileModal = function() {
-        document.getElementById('profileModal').classList.remove('active');
-    };
-    
-    window.openAvatarUploadModal = function() {
-        var input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/jpeg,image/png,image/gif,image/webp';
-        input.onchange = function(e) {
-            var file = e.target.files[0];
-            if (file) {
-                if (file.size > 2 * 1024 * 1024) {
-                    showNotif('Файл слишком большой (макс. 2MB)', 'error');
-                    return;
+        
+        // Закрытие модалок по клику на фон
+        document.querySelectorAll('.emp-modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    if (this.id === 'profileModal' && typeof window.closeProfileModal === 'function') window.closeProfileModal();
+                    if (this.id === 'createEmployeeModal' && typeof window.closeCreateEmployeeModal === 'function') window.closeCreateEmployeeModal();
+                    if (this.id === 'avatarModal' && typeof window.closeAvatarModal === 'function') window.closeAvatarModal();
+                    if (this.id === 'avatarPreviewModal' && typeof window.closeAvatarPreviewModal === 'function') window.closeAvatarPreviewModal();
                 }
-                var reader = new FileReader();
-                reader.onload = function(event) {
-                    document.getElementById('avatarPreviewImg').src = event.target.result;
-                    document.getElementById('avatarPreviewModal').classList.add('active');
-                    window.pendingAvatarBase64 = event.target.result;
-                };
-                reader.readAsDataURL(file);
-            }
-        };
-        input.click();
-    };
-    
-    // Показываем кнопку создания для директора
-    setTimeout(function() {
-        var btn = document.getElementById('createEmployeeBtn');
-        if (btn && window.app && window.app.currentUserRole === 'director') {
-            btn.style.display = 'inline-flex';
+            });
+        });
+        
+        // Показываем кнопку создания для директора
+        if (window.app?.currentUserRole === 'director') {
+            const btn = document.getElementById('createEmployeeBtn');
+            if (btn) btn.style.display = 'inline-flex';
         }
-    }, 200);
+        
+        console.log('✅ employees.html инициализирован');
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
 </script>
