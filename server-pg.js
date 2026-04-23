@@ -849,7 +849,27 @@ await addColumnIfNotExists('corporate_fund', 'comment', 'TEXT', null);
 await addColumnIfNotExists('corporate_fund', 'created_by', 'INTEGER', null);
 await addColumnIfNotExists('corporate_fund', 'created_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
     await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
+    // Исправление motivation_type — удаляем проблемный constraint
+try {
+    const constraints = await query(
+        `SELECT conname FROM pg_constraint 
+         WHERE conrelid = 'salary_daily'::regclass 
+         AND conname LIKE '%motivation_type%'`
+    );
     
+    for (const row of constraints.rows) {
+        await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
+        logger.info(`Удалён constraint: ${row.conname}`);
+    }
+} catch (e) {
+    logger.warn('Ошибка удаления constraint motivation_type:', e.message);
+}
+
+// Делаем колонку необязательной
+await query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type DROP NOT NULL`).catch(() => {});
+await query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type SET DEFAULT 'standard'`).catch(() => {});
+
+logger.info('Миграции выполнены');
     logger.info('Миграции выполнены');
 }
 
