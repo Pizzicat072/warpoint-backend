@@ -457,15 +457,19 @@
     async function checkToken() {
     if (!STATE.isAuthenticated) return;
     
-    // Пробуем обновить токен если истек
+    const token = getToken();
+    if (!token) return;
+    
+    // Проверяем не истек ли токен
     if (isTokenExpired()) {
+        logger.info('Токен истек, пробуем обновить...');
         const refreshed = await refreshToken();
         if (!refreshed) {
-            // НЕ ВЫХОДИМ автоматически, только показываем предупреждение
-            logger.warn('Токен истек, требуется перелогин');
+            logger.warn('Не удалось обновить токен');
+            // НЕ ВЫХОДИМ СРАЗУ, даём шанс пользователю
+            showNotification('Сессия истекла. Сохраните данные и войдите снова.', 'warning');
         }
     }
-}
     
     // Проверяем валидность токена на сервере
     try {
@@ -659,35 +663,40 @@
     // ============================================
     
     function initAuth() {
-        if (STATE.isInitialized) return;
+    if (STATE.isInitialized) return;
+    
+    logger.info('Initializing auth module v5.1');
+    
+    const token = getToken();
+    const user = getStoredUser();
+    
+    if (token && user) {
+        STATE.isAuthenticated = true;
+        window.app = window.app || {};
+        window.app.currentUser = user.name;
+        window.app.currentUserRole = user.role;
+        hideLoginModal();
+        updateHeaderUser(user);
+        startHeartbeat();
+        startTokenChecker();
+        initActivityTracker();
         
-        logger.info('Initializing auth module v5.1');
+        // ✅ ПРАВИЛЬНО: делаем функцию async
+        setTimeout(async function() {
+            await initPusher();
+        }, 1000);
         
-        const token = getToken();
-        const user = getStoredUser();
-        
-        if (token && user) {
-            STATE.isAuthenticated = true;
-            window.app = window.app || {};
-            window.app.currentUser = user.name;
-            window.app.currentUserRole = user.role;
-            hideLoginModal();
-            updateHeaderUser(user);
-            startHeartbeat();
-            startTokenChecker();
-            initActivityTracker();
-            setTimeout(initPusher, 1000);
-            logger.info(`Session restored: ${user.name}`);
-        } else {
-            showLoginModal();
-        }
-        
-        setupLoginForm();
-        setupNetworkListeners();
-        
-        STATE.isInitialized = true;
-        emitEvent('initialized');
+        logger.info(`Session restored: ${user.name}`);
+    } else {
+        showLoginModal();
     }
+    
+    setupLoginForm();
+    setupNetworkListeners();
+    
+    STATE.isInitialized = true;
+    emitEvent('initialized');
+}
 
     function setupLoginForm() {
         const form = document.getElementById('loginForm');
