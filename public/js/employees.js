@@ -454,11 +454,25 @@ function openProfile(employeeName) {
     const ratingColor = rating >= 0 ? '#10b981' : '#ef4444';
     
     const modalContent = document.getElementById('profileModalContent');
-    if (!modalContent) {
-        console.error('❌ profileModalContent не найден');
+if (!modalContent) {
+    console.error('❌ profileModalContent не найден, пробуем создать...');
+    // Если контейнера нет — создаём его внутри модалки
+    const modal = document.getElementById('profileModal');
+    if (modal) {
+        const content = modal.querySelector('.emp-modal-window');
+        if (content) {
+            const div = document.createElement('div');
+            div.id = 'profileModalContent';
+            content.appendChild(div);
+        }
+    }
+    // Проверяем ещё раз
+    if (!document.getElementById('profileModalContent')) {
+        console.error('❌ Не удалось создать profileModalContent');
         document.body.style.overflow = '';
         return;
     }
+}
     
     sessionStorage.setItem('lastProfileEmployee', employeeName);
     
@@ -615,14 +629,15 @@ function openProfile(employeeName) {
         </div>
     `;
     
-    // Показываем модалку
-    const modal = document.getElementById('profileModal');
-    if (modal) {
-        modal.classList.add('active');
-        console.log('✅ Модалка открыта для:', employeeName);
-    } else {
-        console.error('❌ profileModal не найден в DOM');
-    }
+   // Показываем модалку
+const modal = document.getElementById('profileModal');
+if (modal) {
+    modal.style.display = 'flex';  // ← ДОБАВИТЬ принудительно
+    modal.classList.add('active');
+    console.log('✅ Модалка открыта для:', employeeName);
+} else {
+    console.error('❌ profileModal не найден в DOM');
+}
 }
 
 function closeProfileModal() {
