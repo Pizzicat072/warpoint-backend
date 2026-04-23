@@ -629,24 +629,30 @@ if (!modalContent) {
         </div>
     `;
     
-   // Показываем модалку
-const modal = document.getElementById('profileModal');
-if (modal) {
-    modal.style.display = 'flex';  // ← ДОБАВИТЬ принудительно
-    modal.classList.add('active');
-    console.log('✅ Модалка открыта для:', employeeName);
-} else {
-    console.error('❌ profileModal не найден в DOM');
-}
+       // Показываем модалку
+    const modal = document.getElementById('profileModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.classList.add('active');
+        console.log('✅ Модалка открыта для:', employeeName);
+    } else {
+        console.error('❌ profileModal не найден в DOM');
+        // Пробуем найти через селектор
+        const modalByClass = document.querySelector('.emp-modal');
+        if (modalByClass) {
+            modalByClass.style.display = 'flex';
+            modalByClass.classList.add('active');
+            console.log('✅ Модалка открыта через селектор');
+        }
+    }
 }
 
 function closeProfileModal() {
     const modal = document.getElementById('profileModal');
-    if (modal) modal.classList.remove('active');
-    document.body.style.overflow = '';
-    currentProfileEmployee = null;
-    sessionStorage.removeItem('lastProfileEmployee');
-}
+    if (modal) {
+        modal.style.display = 'none';
+        modal.classList.remove('active');
+    }
 
 window.switchProfileTab = function(tabName) {
     document.querySelectorAll('.emp-profile-tab').forEach(btn => {
