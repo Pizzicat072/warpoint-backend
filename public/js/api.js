@@ -311,45 +311,38 @@ let isLoadingFines = false;
 let isLoadingSchedule = false;
 
 async function loadEmployees() {
-    if (isLoadingEmployees) {
-        console.log('⏳ Сотрудники уже загружаются');
-        return;
-    }
+    if (isLoadingEmployees) return;
     isLoadingEmployees = true;
     try {
         const data = await apiCall('/employees');
         if (data && data.success) {
             window.app = window.app || {};
-            // 🔥 ВАЖНО: employees — массив ИМЁН
             window.app.employees = data.employees.map(emp => emp.name);
             
-            // 🔥 ВАЖНО: profiles — объект с полными данными
             window.app.profiles = {};
             data.employees.forEach(emp => {
-                window.app.profiles[emp.name] = {
-                    id: emp.id,
-                    name: emp.name,
-                    avatar: emp.avatar,
-                    avatar_url: emp.avatar_url,
-                    status: emp.status,
-                    active_status: emp.active_status,
-                    coins: emp.coins,
-                    rating: emp.rating,
-                    role: emp.role,
-                    hours: emp.hours,
-                    birthday: emp.birthday,
-                    phone: emp.phone,
-                    dashboard_style: emp.dashboard_style,
-                    bought_styles: emp.bought_styles,
-                    can_edit_vp: emp.can_edit_vp,
-                    bonus_streak: emp.bonus_streak,
-                    total_shifts: emp.total_shifts,
-                    total_tasks_completed: emp.total_tasks_completed,
-                    total_gifts_sent: emp.total_gifts_sent,
-                    total_gifts_received: emp.total_gifts_received,
-                    is_active: emp.is_active
-                };
+                window.app.profiles[emp.name] = emp;
             });
+            
+            console.log(`👥 Загружено ${window.app.employees.length} сотрудников`);
+            
+            // 🔥 ВАЖНО: вызываем рендер после загрузки
+            if (typeof renderEmployees === 'function') {
+                renderEmployees();
+            }
+            if (typeof renderRatingTable === 'function') {
+                renderRatingTable();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        }
+    } catch (e) {
+        console.error('Ошибка загрузки сотрудников:', e);
+    } finally {
+        isLoadingEmployees = false;
+    }
+}
             
             console.log(`👥 Загружено ${window.app.employees.length} сотрудников`);
             showSystemNotification(`👥 Загружено ${window.app.employees.length} сотрудников`, 'info');

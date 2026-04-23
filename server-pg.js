@@ -692,7 +692,10 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
              LEFT JOIN user_achievements ua ON ua.user_id = e.id 
              WHERE e.deleted_at IS NULL 
              GROUP BY e.id, e.name`
-        ).catch(() => ({ rows: [] }));
+        ).catch((err) => {
+            logger.error('achievements-count query error:', err.message);
+            return { rows: [] };
+        });
         
         const counts = {};
         result.rows.forEach(r => counts[r.name] = parseInt(r.count) || 0);
