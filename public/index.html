@@ -10,169 +10,218 @@
     <meta name="application-name" content="WARPOINT HUB">
     <meta name="format-detection" content="telephone=no">
     <meta name="description" content="WARPOINT HUB — корпоративный портал для управления VR-клубом.">
-    <meta name="keywords" content="WARPOINT, VR, клуб, управление, сотрудники, график, задачи, KPI, зарплата, CRM">
-    <meta name="author" content="WARPOINT Team">
-    <meta name="robots" content="noindex, nofollow">
     <meta property="og:title" content="WARPOINT HUB — Корпоративный портал VR-клуба">
-    <meta property="og:description" content="Полнофункциональная система управления VR-клубом">
     <meta property="og:image" content="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
-    <meta property="og:url" content="https://warpoint-backend-7jfb.onrender.com">
-    <meta property="og:type" content="website">
     <title>WARPOINT HUB — Корпоративный портал</title>
     <link rel="icon" type="image/jpeg" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
-    <link rel="apple-touch-icon" href="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75">
     <link rel="preconnect" href="https://cdnjs.cloudflare.com">
     <link rel="preconnect" href="https://js.pusher.com">
     <link rel="preconnect" href="https://cdn.jsdelivr.net">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* ===== WARPOINT HUB v1.3.3 — CLEAN EDITION ===== */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html { font-size: 16px; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; scroll-behavior: smooth; }
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070f; color: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; position: relative; overflow-x: hidden; line-height: 1.6; }
+        html { font-size: 16px; -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070f; color: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; line-height: 1.6; }
         body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 40%, #0a0f1e 0%, #03050a 100%); z-index: -5; pointer-events: none; }
-        body.bg-image-loaded::after { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: url('/2026-04-02_03-45-56.png') center/cover no-repeat; filter: brightness(0.35) saturate(0.9); z-index: -4; pointer-events: none; opacity: 1; }
-        
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        @keyframes skeletonLoading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-        @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); opacity: 0.08; } 50% { transform: translate(40px,-30px) scale(1.15); opacity: 0.12; } }
         @keyframes ringRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ringRotateReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-        @keyframes logoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
         /* ===== ПРЕЛОАДЕР ===== */
-        #globalLoader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 40% 50%, #0a0f1e 0%, #03050a 100%); z-index: 99999; display: flex; align-items: center; justify-content: center; transition: opacity 0.6s ease, visibility 0.6s; overflow: hidden; }
-        #globalLoader.fade-out { opacity: 0; visibility: hidden; }
-        .loader-orb-bg { position: absolute; width: 100%; height: 100%; overflow: hidden; }
-        .loader-orb { position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.08; animation: orbFloat 18s ease-in-out infinite; }
-        .orb-1 { width: 600px; height: 600px; background: #6366f1; top: -200px; left: -200px; }
-        .orb-2 { width: 700px; height: 700px; background: #ec4899; bottom: -250px; right: -200px; animation-delay: 6s; }
-        .orb-3 { width: 500px; height: 500px; background: #8b5cf6; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-delay: 3s; }
-        
-        .loader-content { position: relative; z-index: 10; text-align: center; max-width: 450px; width: 90%; padding: 50px 40px; background: transparent; border-radius: 48px; }
-        
-        .loader-logo { margin-bottom: 35px; display: flex; justify-content: center; align-items: center; }
-        .loader-logo-wrapper { position: relative; width: 100px; height: 100px; margin: 0 auto; animation: logoFloat 3s ease-in-out infinite; }
-        .loader-logo-ring { position: absolute; top: -8px; left: -8px; right: -8px; bottom: -8px; border-radius: 30px; border: 2px solid transparent; background: linear-gradient(135deg,#6366f1,#ec4899,#8b5cf6,#6366f1) border-box; -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ringRotate 4s linear infinite; }
-        .loader-logo-ring-2 { position: absolute; top: -16px; left: -16px; right: -16px; bottom: -16px; border-radius: 38px; border: 1px solid rgba(139,92,246,0.3); animation: ringRotateReverse 6s linear infinite; }
-        .loader-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 24px; box-shadow: 0 0 30px rgba(99,102,241,0.5); background: transparent; }
-        
-        .loader-title { font-size: 36px; font-weight: 800; letter-spacing: 4px; margin-bottom: 8px; background: linear-gradient(135deg,#fff,#a78bfa,#ec4899); -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: 0 0 40px rgba(139,92,246,0.3); }
-        .loader-subtitle { font-size: 11px; color: #94a3b8; letter-spacing: 4px; text-transform: uppercase; margin-bottom: 35px; }
-        .loader-progress-section { margin-bottom: 25px; }
-        .loader-progress-bar { width: 100%; height: 3px; background: rgba(99,102,241,0.15); border-radius: 3px; overflow: hidden; margin-bottom: 12px; }
-        .loader-progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg,#6366f1,#ec4899,#8b5cf6); border-radius: 3px; transition: width 0.3s ease-out; }
-        .loader-percent { font-size: 13px; font-weight: 600; color: #a78bfa; margin-bottom: 6px; }
-        .loader-status-text { font-size: 12px; color: #64748b; }
-        .loader-tip { margin-top: 30px; padding: 12px 20px; background: rgba(99,102,241,0.06); border-radius: 50px; border: 1px solid rgba(99,102,241,0.12); font-size: 12px; color: #cbd5e1; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .loader-tip i { color: #fbbf24; }
-        .loader-module-name { margin-top: 8px; font-size: 11px; color: #6366f1; opacity: 0.8; }
+        #globalLoader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(ellipse at 40% 50%, #0a0f1e 0%, #03050a 100%);
+            z-index: 99999; display: flex; align-items: center; justify-content: center;
+            transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        #globalLoader.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
 
-        /* ===== СИНК ИНДИКАТОР ===== */
-        #syncIndicator { position: fixed; bottom: 24px; left: 24px; width: 46px; height: 46px; background: rgba(10,15,30,0.85); backdrop-filter: blur(12px); border-radius: 14px; display: flex; align-items: center; justify-content: center; z-index: 9998; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-        #syncIndicator:hover { transform: scale(1.05); border-color: rgba(99,102,241,0.4); }
-        #syncIndicator i { font-size: 20px; color: #ef4444; }
-        #syncIndicator.online i { color: #10b981; filter: drop-shadow(0 0 6px #10b981); }
-        #syncIndicator.connecting i { color: #f59e0b; animation: spin 1.5s linear infinite; }
+        .loader-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+        }
+        
+        .loader-logo-wrapper {
+            position: relative;
+            width: 96px;
+            height: 96px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .loader-logo-ring {
+            position: absolute;
+            top: -8px; left: -8px; right: -8px; bottom: -8px;
+            border-radius: 30px;
+            border: 2px solid transparent;
+            background: linear-gradient(135deg, #6366f1, #ec4899, #8b5cf6, #6366f1) border-box;
+            -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            animation: ringRotate 4s linear infinite;
+        }
+        .loader-logo-ring-2 {
+            position: absolute;
+            top: -16px; left: -16px; right: -16px; bottom: -16px;
+            border-radius: 38px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            animation: ringRotateReverse 6s linear infinite;
+        }
+        .loader-logo-img {
+            width: 80px;
+            height: 80px;
+            border-radius: 20px;
+            object-fit: cover;
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
+            position: relative;
+            z-index: 2;
+        }
 
-        /* ===== МОДАЛКА ВХОДА ===== */
-        #loginModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; z-index: 100000; padding: 20px; background: rgba(5,7,15,0.9); backdrop-filter: blur(20px); }
-        .login-card { width: 420px; max-width: 100%; padding: 45px 40px; background: rgba(15,20,35,0.4); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border-radius: 36px; border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 25px 50px rgba(0,0,0,0.5); text-align: center; animation: fadeInScale 0.4s ease; }
-        .login-logo-clean { width: 90px; height: 90px; margin: 0 auto 30px; cursor: pointer; transition: transform 0.2s; }
-        .login-logo-clean:hover { transform: scale(1.05); }
-        .login-logo-clean img { width: 100%; height: 100%; object-fit: cover; border-radius: 20px; background: transparent; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.3)); }
-        .login-brand-name { font-size: 30px; font-weight: 700; margin-bottom: 8px; background: linear-gradient(135deg,#fff,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .login-brand-sub { font-size: 12px; color: #9ca3af; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 3px; }
-        .login-field { position: relative; margin-bottom: 18px; }
-        .login-field i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 16px; pointer-events: none; }
-        .login-field .toggle-password { left: auto; right: 16px; cursor: pointer; pointer-events: auto; }
-        .login-field input { width: 100%; padding: 14px 46px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 18px; color: #fff; font-size: 14px; outline: none; transition: all 0.2s; }
-        .login-field input:focus { border-color: #6366f1; box-shadow: 0 0 20px rgba(99,102,241,0.2); }
-        .capslock-warning { position: absolute; bottom: -20px; left: 0; font-size: 11px; color: #f59e0b; display: none; }
-        .capslock-warning.show { display: block; }
-        .login-error-message { color: #ef4444; font-size: 12px; margin: 10px 0; min-height: 18px; }
-        .login-options { display: flex; align-items: center; margin: 12px 0; }
-        .remember-me { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #9ca3af; }
-        .remember-me input { width: 16px; height: 16px; accent-color: #6366f1; }
-        .login-submit-btn { width: 100%; padding: 14px 20px; margin-top: 24px; background: linear-gradient(135deg,#6366f1,#8b5cf6); border: none; border-radius: 30px; color: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s; box-shadow: 0 4px 15px rgba(99,102,241,0.3); }
-        .login-submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(99,102,241,0.4); }
-        .login-footer-note { margin-top: 30px; font-size: 11px; color: #9ca3af; display: flex; align-items: center; justify-content: center; gap: 6px; }
-        .login-footer-note i { color: #10b981; }
+        .loader-title {
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, #fff, #a78bfa, #ec4899);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .loader-subtitle {
+            font-size: 11px;
+            color: #94a3b8;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+        .loader-progress-bar {
+            width: 200px;
+            height: 3px;
+            background: rgba(99, 102, 241, 0.15);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .loader-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #6366f1, #ec4899, #8b5cf6);
+            border-radius: 3px;
+            transition: width 0.3s ease-out;
+        }
+        .loader-version {
+            font-size: 11px;
+            color: #64748b;
+        }
 
         /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
-        #mainContainer { position: relative; z-index: 10; min-height: 100vh; display: none; animation: fadeIn 0.4s ease; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 12px 28px; background: rgba(8,12,20,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.12); position: sticky; top: 0; z-index: 1000; flex-wrap: wrap; gap: 12px; }
+        #mainContainer { display: none; animation: fadeIn 0.4s ease; }
+        #mainContainer.visible { display: block; }
+
+        /* ===== ХЕДЕР ===== */
+        .header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 28px; background: rgba(8, 12, 20, 0.8); backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(99, 102, 241, 0.12); position: sticky; top: 0; z-index: 1000;
+            flex-wrap: wrap; gap: 12px;
+        }
         .logo-area { display: flex; align-items: center; gap: 12px; }
-        .logo-icon { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(99,102,241,0.3); background: transparent; }
-        .logo-icon img { width: 100%; height: 100%; object-fit: cover; background: transparent; }
-        .logo-text { font-size: 22px; font-weight: 700; background: linear-gradient(135deg,#fff,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .logo-badge { background: linear-gradient(135deg,#6366f1,#ec4899); padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 6px; color: white; }
+        .logo-icon { width: 40px; height: 40px; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3); }
+        .logo-icon img { width: 100%; height: 100%; object-fit: cover; }
+        .logo-text { font-size: 22px; font-weight: 700; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .logo-badge { background: linear-gradient(135deg, #6366f1, #ec4899); padding: 2px 8px; border-radius: 20px; font-size: 10px; margin-left: 6px; color: white; }
         .about-link { color: #9ca3af; text-decoration: none; font-size: 12px; padding: 7px 12px; background: rgba(255,255,255,0.03); border-radius: 24px; display: flex; align-items: center; gap: 6px; border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
-        .about-link:hover { background: rgba(99,102,241,0.15); color: #a78bfa; border-color: rgba(99,102,241,0.2); }
-        .notifications-icon { position: relative; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
-        .notifications-icon:hover { background: rgba(99,102,241,0.15); }
-        .notifications-icon .badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; font-size: 10px; min-width: 16px; height: 16px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
-        .notifications-dropdown { position: absolute; top: 55px; right: 20px; width: 360px; max-height: 420px; background: rgba(15,20,35,0.95); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5); z-index: 9999; overflow: hidden; display: none; }
-        .notifications-dropdown.show { display: block; animation: fadeInUp 0.2s ease; }
+        .about-link:hover { background: rgba(99,102,241,0.15); color: #a78bfa; }
         .user-card { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.25); border-radius: 40px; padding: 4px 16px 4px 8px; border: 1px solid rgba(99,102,241,0.15); }
-        .user-avatar { width: 36px; height: 36px; background: linear-gradient(135deg,#2d3748,#1a1f2a); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; overflow: hidden; border: 1px solid rgba(99,102,241,0.4); transition: all 0.2s; }
-        .user-avatar:hover { transform: scale(1.05); border-color: #a78bfa; }
-        .user-avatar img { width: 100%; height: 100%; object-fit: cover; background: transparent; }
+        .user-avatar { width: 36px; height: 36px; background: linear-gradient(135deg, #2d3748, #1a1f2a); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; cursor: pointer; overflow: hidden; border: 1px solid rgba(99,102,241,0.4); }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
         .user-info { text-align: right; }
         .user-name { font-weight: 600; font-size: 13px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .user-status { font-size: 10px; color: #9ca3af; }
         .logout-btn { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); border-radius: 24px; padding: 6px 14px; color: #f87171; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; transition: all 0.2s; }
         .logout-btn:hover { background: rgba(239,68,68,0.25); }
-        
+
+        /* ===== МЕНЮ ===== */
         .main-menu { background: rgba(8,12,20,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.1); position: sticky; top: 64px; z-index: 999; padding: 0 16px; overflow-x: auto; }
         .menu-container { display: flex; align-items: center; gap: 4px; max-width: 1200px; margin: 0 auto; padding: 8px 0; }
-        .menu-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: none; border-radius: 12px; padding: 8px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
-        .menu-item i { font-size: 18px; color: #9ca3af; }
-        .menu-item .menu-tooltip { font-size: 10px; color: #9ca3af; }
-        .menu-item:hover { background: rgba(99,102,241,0.1); }
-        .menu-item.active { background: rgba(99,102,241,0.15); }
-        .menu-item.active i, .menu-item.active .menu-tooltip { color: #a78bfa; }
-        .menu-item.active::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 30px; height: 2px; background: #a78bfa; border-radius: 2px; }
+        .menu-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: none; border-radius: 12px; padding: 8px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; color: #9ca3af; }
+        .menu-item i { font-size: 18px; }
+        .menu-item .menu-tooltip { font-size: 10px; }
+        .menu-item:hover { background: rgba(99,102,241,0.1); color: #e2e8f0; }
+        .menu-item.active { background: rgba(99,102,241,0.15); color: #a78bfa; }
 
-        .page-skeleton { padding: 24px 32px; max-width: 1300px; margin: 0 auto; }
-        .skeleton-header { height: 60px; background: linear-gradient(90deg,#1e2430 25%,#2a3240 50%,#1e2430 75%); background-size: 200% 100%; border-radius: 16px; animation: skeletonLoading 1.5s infinite; margin-bottom: 24px; }
-        .skeleton-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 20px; }
-        .skeleton-card { height: 200px; background: linear-gradient(90deg,#1e2430 25%,#2a3240 50%,#1e2430 75%); background-size: 200% 100%; border-radius: 20px; animation: skeletonLoading 1.5s infinite; }
+        /* ===== МОДАЛКА ВХОДА ===== */
+        #loginModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; z-index: 100000; padding: 20px; background: rgba(5,7,15,0.95); backdrop-filter: blur(20px); }
+        #loginModal.visible { display: flex; }
+        .login-card { width: 400px; max-width: 100%; padding: 40px 35px; background: rgba(15,20,35,0.4); backdrop-filter: blur(25px); border-radius: 36px; border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 25px 50px rgba(0,0,0,0.5); text-align: center; animation: fadeInScale 0.4s ease; }
+        .login-logo { width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 20px; object-fit: cover; }
+        .login-title { font-size: 28px; font-weight: 700; margin-bottom: 4px; background: linear-gradient(135deg, #fff, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .login-subtitle { font-size: 11px; color: #9ca3af; margin-bottom: 32px; text-transform: uppercase; letter-spacing: 3px; }
+        .login-field { position: relative; margin-bottom: 16px; }
+        .login-field i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #9ca3af; font-size: 15px; }
+        .login-field .toggle-password { left: auto; right: 16px; cursor: pointer; }
+        .login-field input { width: 100%; padding: 14px 44px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px; color: #fff; font-size: 14px; outline: none; transition: all 0.2s; }
+        .login-field input:focus { border-color: #6366f1; box-shadow: 0 0 20px rgba(99,102,241,0.15); }
+        .login-error { color: #ef4444; font-size: 12px; min-height: 18px; margin: 8px 0; }
+        .login-submit { width: 100%; padding: 14px; background: linear-gradient(135deg, #6366f1, #8b5cf6); border: none; border-radius: 30px; color: white; font-weight: 600; cursor: pointer; font-size: 15px; transition: all 0.2s; }
+        .login-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
+        .login-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
+        /* ===== СИНК ИНДИКАТОР ===== */
+        #syncIndicator { position: fixed; bottom: 24px; left: 24px; width: 42px; height: 42px; background: rgba(10,15,30,0.85); backdrop-filter: blur(12px); border-radius: 14px; display: flex; align-items: center; justify-content: center; z-index: 9998; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
+        #syncIndicator i { font-size: 18px; color: #ef4444; }
+        #syncIndicator.online i { color: #10b981; }
+        #syncIndicator.connecting i { color: #f59e0b; animation: spin 1.5s linear infinite; }
+
+        /* ===== НОТИФИКАЦИИ ===== */
+        .notifications-icon { position: relative; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
+        .notifications-icon:hover { background: rgba(99,102,241,0.15); }
+        .notifications-icon .badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; font-size: 10px; min-width: 16px; height: 16px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
+        .notifications-dropdown { position: absolute; top: 55px; right: 20px; width: 360px; max-height: 420px; background: rgba(15,20,35,0.95); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5); z-index: 9999; overflow: hidden; display: none; }
+        .notifications-dropdown.show { display: block; animation: fadeInUp 0.2s ease; }
+
+        /* ===== FOOTER ===== */
         footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; border-top: 1px solid rgba(99,102,241,0.08); margin-top: 40px; }
 
-        @media (max-width:768px){ .header{padding:12px 16px;} .logo-text{font-size:18px;} .user-info{display:none;} .about-link span{display:none;} .main-menu{top:60px;} .menu-item .menu-tooltip{display:none;} .notifications-dropdown{width:calc(100% - 40px);} .login-card{padding:35px 25px;} .skeleton-grid{grid-template-columns:repeat(2,1fr);} #syncIndicator{bottom:16px;left:16px;width:40px;height:40px;} }
-        @media (max-width:480px){ .login-brand-name{font-size:24px;} .skeleton-grid{grid-template-columns:1fr;} .loader-title{font-size:28px;} }
+        /* ===== ADAPTIVE ===== */
+        @media (max-width: 768px) {
+            .header { padding: 12px 16px; }
+            .logo-text { font-size: 18px; }
+            .user-info { display: none; }
+            .about-link span { display: none; }
+            .main-menu { top: 60px; }
+            .menu-item .menu-tooltip { display: none; }
+            .notifications-dropdown { width: calc(100% - 40px); }
+            .login-card { padding: 35px 25px; }
+            #syncIndicator { bottom: 16px; left: 16px; width: 38px; height: 38px; }
+        }
+        @media (max-width: 480px) {
+            .login-title { font-size: 24px; }
+            .loader-title { font-size: 26px; }
+        }
     </style>
 </head>
 <body>
     <!-- ===== ПРЕЛОАДЕР ===== -->
     <div id="globalLoader">
-        <div class="loader-orb-bg">
-            <div class="loader-orb orb-1"></div>
-            <div class="loader-orb orb-2"></div>
-            <div class="loader-orb orb-3"></div>
-        </div>
         <div class="loader-content">
-            <div class="loader-logo">
-                <div class="loader-logo-wrapper">
-                    <div class="loader-logo-ring"></div>
-                    <div class="loader-logo-ring-2"></div>
-                    <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
-                </div>
+            <div class="loader-logo-wrapper">
+                <div class="loader-logo-ring"></div>
+                <div class="loader-logo-ring-2"></div>
+                <img class="loader-logo-img" src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
             </div>
             <div class="loader-title">WARPOINT</div>
-            <div class="loader-subtitle">КОРПОРАТИВНЫЙ ПОРТАЛ</div>
-            <div class="loader-progress-section">
-                <div class="loader-progress-bar"><div class="loader-progress-fill" id="loaderProgressFill"></div></div>
-                <div class="loader-percent" id="loaderPercent">0%</div>
-                <div class="loader-status-text" id="loaderStatusText">Инициализация...</div>
+            <div class="loader-subtitle">Корпоративный портал</div>
+            <div class="loader-progress-bar">
+                <div class="loader-progress-fill" id="loaderProgressFill"></div>
             </div>
-            <div class="loader-tip" id="loaderTip"><i class="fas fa-crown"></i><span>WARPOINT HUB v1.3.3</span></div>
+            <div class="loader-version">v1.3.3</div>
         </div>
     </div>
     
@@ -184,11 +233,9 @@
     <!-- ===== МОДАЛКА ВХОДА ===== -->
     <div id="loginModal">
         <div class="login-card">
-            <div class="login-logo-clean">
-                <img src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
-            </div>
-            <h1 class="login-brand-name">WARPOINT</h1>
-            <p class="login-brand-sub">корпоративный портал</p>
+            <img class="login-logo" src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
+            <h1 class="login-title">WARPOINT</h1>
+            <p class="login-subtitle">корпоративный портал</p>
             <form id="loginForm" onsubmit="return false;">
                 <div class="login-field">
                     <i class="fas fa-user"></i>
@@ -198,24 +245,17 @@
                     <i class="fas fa-lock"></i>
                     <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password" required>
                     <i class="fas fa-eye toggle-password" id="togglePassword" title="Показать пароль"></i>
-                    <div class="capslock-warning" id="capslockWarning">
-                        <i class="fas fa-exclamation-triangle"></i> Caps Lock
-                    </div>
                 </div>
-                <div class="login-error-message" id="loginErrorMessage"></div>
-                <div class="login-options">
-                    <label class="remember-me">
-                        <input type="checkbox" id="rememberMe"> Запомнить меня
-                    </label>
-                </div>
-                <button type="submit" class="login-submit-btn" id="loginSubmitBtn">
-                    <span>Войти</span>
-                    <i class="fas fa-arrow-right"></i>
+                <div class="login-error" id="loginErrorMessage"></div>
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; color: #9ca3af; margin-bottom: 20px;">
+                    <input type="checkbox" id="rememberMe"> Запомнить меня
+                </label>
+                <button type="submit" class="login-submit" id="loginSubmitBtn">
+                    <span>Войти</span> <i class="fas fa-arrow-right"></i>
                 </button>
             </form>
-            <div class="login-footer-note">
-                <i class="fas fa-shield-alt"></i>
-                <span>только для сотрудников</span>
+            <div style="margin-top: 24px; font-size: 11px; color: #9ca3af;">
+                <i class="fas fa-shield-alt"></i> только для сотрудников
             </div>
         </div>
     </div>
@@ -237,7 +277,7 @@
                 </div>
                 <div class="notifications-dropdown" id="notificationsDropdown">
                     <div style="padding:14px 18px;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;justify-content:space-between;">
-                        <h4 style="margin:0;font-size:13px;"><i class="far fa-bell"></i> Уведомления</h4>
+                        <h4 style="margin:0;font-size:13px;">🔔 Уведомления</h4>
                         <div style="display:flex;gap:12px;">
                             <button id="markAllReadBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">✓ Все</button>
                             <button id="clearAllNotifBtn" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:11px;">🗑️</button>
@@ -261,23 +301,17 @@
         <nav class="main-menu" id="mainMenu"></nav>
         
         <main id="pageContainer">
-            <div class="page-skeleton" id="pageSkeleton">
-                <div class="skeleton-header"></div>
-                <div class="skeleton-grid">
-                    <div class="skeleton-card"></div>
-                    <div class="skeleton-card"></div>
-                    <div class="skeleton-card"></div>
-                    <div class="skeleton-card"></div>
-                </div>
+            <div style="padding:60px;text-align:center;color:#64748b;">
+                <i class="fas fa-spinner fa-spin" style="font-size:32px;"></i>
+                <p style="margin-top:16px;">Загрузка...</p>
             </div>
         </main>
         
         <footer>
             <span>© WARPOINT 2026 — Корпоративный портал v1.3.3</span>
-            <span style="margin:0 10px;">•</span>
-            <span id="appVersion">Загрузка...</span>
         </footer>
     </div>
+
     <!-- ===== СКРИПТЫ ===== -->
     <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -302,450 +336,286 @@
     <script src="/js/reports.js"></script>
     
     <script>
-        (function() {
-            'use strict';
+    (function() {
+        'use strict';
+        
+        const CONFIG = { VERSION: '1.3.3', MAX_LOAD_DELAY: 8000 };
+        
+        // Инициализация глобального состояния
+        window.app = window.app || {
+            currentUser: null,
+            currentUserRole: null,
+            employees: [],
+            profiles: {},
+            tasks: [],
+            fines: [],
+            schedule: {},
+            version: CONFIG.VERSION
+        };
+        
+        // ===== ПРЕЛОАДЕР =====
+        let modulesLoaded = 0;
+        const totalModules = 19;
+        
+        window.updateLoaderProgress = function(moduleName) {
+            modulesLoaded++;
+            const percent = Math.min(100, Math.round((modulesLoaded / totalModules) * 100));
+            const fill = document.getElementById('loaderProgressFill');
+            if (fill) fill.style.width = percent + '%';
+        };
+        
+        function hideLoader() {
+            const loader = document.getElementById('globalLoader');
+            const mainContainer = document.getElementById('mainContainer');
             
-            // ===== КОНФИГУРАЦИЯ =====
-            const CONFIG = {
-                VERSION: '1.3.3',
-                MAX_LOADER_DISPLAY_MS: 8000
-            };
-            
-            // ===== ГЛОБАЛЬНОЕ СОСТОЯНИЕ =====
-            window.app = window.app || {
-                currentUser: null,
-                currentUserRole: null,
-                employees: [],
-                profiles: {},
-                tasks: [],
-                fines: [],
-                schedule: {},
-                version: CONFIG.VERSION
-            };
-            
-            // ===== СПИСОК МОДУЛЕЙ =====
-            const requiredModules = [
-                'utils.js', 'api.js', 'achievements.js', 'auth.js', 'router.js',
-                'dashboard.js', 'employees.js', 'schedule.js', 'tasks.js', 'shop.js',
-                'rating.js', 'notifications.js', 'fines.js', 'chat.js', 'knowledge.js',
-                'vp.js', 'salary.js', 'admin.js', 'reports.js'
-            ];
-            
-            // ===== ПОДСКАЗКИ ПРЕЛОАДЕРА =====
-            const loaderTips = [
-                { icon: '👑', text: 'WARPOINT HUB — система нового поколения' },
-                { icon: '🎮', text: 'Управляйте VR-клубом как профессионал' },
-                { icon: '📊', text: 'Аналитика, задачи, график — всё в одном месте' },
-                { icon: '💎', text: 'Зарабатывайте достижения и повышайте рейтинг' },
-                { icon: '🚀', text: 'Будущее управления уже здесь' }
-            ];
-            
-            let loadedModules = 0;
-            let tipIndex = 0;
-            let allModulesLoaded = false;
-            
-            const globalLoader = document.getElementById('globalLoader');
-            const loaderProgressFill = document.getElementById('loaderProgressFill');
-            const loaderPercent = document.getElementById('loaderPercent');
-            const loaderStatusText = document.getElementById('loaderStatusText');
-            const loaderTipSpan = document.querySelector('#loaderTip span');
-            const loaderTipIcon = document.querySelector('#loaderTip i');
-            
-            // ===== РОТАЦИЯ ПОДСКАЗОК =====
-            function rotateTip() {
-                tipIndex = (tipIndex + 1) % loaderTips.length;
-                const tip = loaderTips[tipIndex];
-                if (loaderTipIcon) {
-                    const iconMap = { '👑': 'crown', '🎮': 'gamepad', '📊': 'chart-line', '💎': 'gem', '🚀': 'rocket' };
-                    loaderTipIcon.className = 'fas fa-' + iconMap[tip.icon];
-                }
-                if (loaderTipSpan) loaderTipSpan.textContent = tip.text;
+            if (loader) {
+                loader.classList.add('fade-out');
+                setTimeout(() => { if (loader) loader.style.display = 'none'; }, 500);
             }
             
-            // ===== ОБНОВЛЕНИЕ ПРОГРЕССА =====
-            window.updateLoaderProgress = function(moduleName) {
-                loadedModules++;
-                const percent = Math.min(100, Math.round((loadedModules / requiredModules.length) * 100));
-                
-                if (loaderProgressFill) loaderProgressFill.style.width = percent + '%';
-                if (loaderPercent) loaderPercent.textContent = percent + '%';
-                if (loaderStatusText) {
-                    if (percent < 30) loaderStatusText.textContent = '⚡ Инициализация ядра...';
-                    else if (percent < 60) loaderStatusText.textContent = '📦 Загрузка модулей...';
-                    else if (percent < 90) loaderStatusText.textContent = '🔧 Настройка...';
-                    else loaderStatusText.textContent = '🚀 Запуск...';
-                }
-                
-                if (loadedModules >= requiredModules.length) {
-                    allModulesLoaded = true;
-                    setTimeout(hideGlobalLoader, 500);
-                }
-            };
-            
-            // ===== СКРЫТЬ ПРЕЛОАДЕР =====
-            function hideGlobalLoader() {
-    const loader = document.getElementById('globalLoader');
-    const mainContainer = document.getElementById('mainContainer');
-    
-    if (loader) {
-        loader.classList.add('fade-out');
-        setTimeout(() => {
-            if (loader && loader.classList.contains('fade-out')) {
-                loader.style.display = 'none';
-            }
-        }, 600);
-    }
-    
-    // ✅ ПОКАЗЫВАЕМ ОСНОВНОЙ КОНТЕЙНЕР
-    if (mainContainer) {
-        mainContainer.style.display = 'block';
-    }
-    
-    // ✅ СКРЫВАЕМ СКЕЛЕТОН
-    const skeleton = document.getElementById('pageSkeleton');
-    if (skeleton) {
-        skeleton.style.display = 'none';
-    }
-}
-            
-            // ===== ОТСЛЕЖИВАНИЕ ЗАГРУЗКИ СКРИПТОВ =====
-            document.querySelectorAll('script[src*="/js/"]').forEach(script => {
-                script.addEventListener('load', () => {
-                    const filename = script.src.split('/').pop();
-                    window.updateLoaderProgress(filename);
-                });
-                
-                script.addEventListener('error', () => {
-                    console.warn('⚠️ Ошибка загрузки:', script.src);
-                    window.updateLoaderProgress('пропущен');
-                });
-            });
-            
-            // ===== ЗАПУСК АНИМАЦИЙ =====
-            setInterval(rotateTip, 3500);
-            
-            // ===== ФОЛЛБЭК =====
-            setTimeout(() => {
-                if (!allModulesLoaded) {
-                    loadedModules = requiredModules.length;
-                    window.updateLoaderProgress('готово');
-                }
-            }, CONFIG.MAX_LOADER_DISPLAY_MS);
-            
-            // ===== ФОНОВОЕ ИЗОБРАЖЕНИЕ =====
-            function loadBackgroundImage() {
-                const img = new Image();
-                img.onload = () => document.body.classList.add('bg-image-loaded');
-                img.src = '/2026-04-02_03-45-56.png';
-            }
-            loadBackgroundImage();
-            
-            // ===== ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ =====
-            const togglePassword = document.getElementById('togglePassword');
-            if (togglePassword) {
-                togglePassword.addEventListener('click', function() {
-                    const input = document.getElementById('loginPassword');
-                    if (input) {
-                        input.type = input.type === 'password' ? 'text' : 'password';
-                        this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
-                    }
-                });
+            // ✅ ПОКАЗЫВАЕМ ОСНОВНОЙ КОНТЕЙНЕР
+            if (mainContainer) {
+                mainContainer.style.display = 'block';
             }
             
-            // ===== CAPS LOCK =====
-            const passwordInput = document.getElementById('loginPassword');
-            if (passwordInput) {
-                passwordInput.addEventListener('keyup', function(e) {
-                    const warning = document.getElementById('capslockWarning');
-                    if (e.getModifierState && e.getModifierState('CapsLock')) {
-                        warning?.classList.add('show');
-                    } else {
-                        warning?.classList.remove('show');
-                    }
-                });
-            }
-            
-            // ===== СОХРАНЁННЫЙ ЛОГИН =====
-            const savedLogin = localStorage.getItem('savedLogin');
-            if (savedLogin) {
-                const loginInput = document.getElementById('loginName');
-                const rememberCheck = document.getElementById('rememberMe');
-                if (loginInput) loginInput.value = savedLogin;
-                if (rememberCheck) rememberCheck.checked = true;
-            }
-            
-            // ===== ЗАКРЫТИЕ ДРОПДАУНА =====
-            document.addEventListener('click', function(e) {
-                const dropdown = document.getElementById('notificationsDropdown');
-                const icon = document.getElementById('notificationsIcon');
-                if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
-                    dropdown.classList.remove('show');
-                }
-            });
-            
-            // ===== ПОКАЗАТЬ МОДАЛКУ ВХОДА =====
-            window.showLoginModal = function() {
-                const modal = document.getElementById('loginModal');
-                const container = document.getElementById('mainContainer');
-                if (modal) modal.style.display = 'flex';
-                if (container) container.style.display = 'none';
-            };
-            
-            // ===== СКРЫТЬ МОДАЛКУ ВХОДА =====
-            window.hideLoginModal = function() {
-                const modal = document.getElementById('loginModal');
-                const container = document.getElementById('mainContainer');
-                if (modal) modal.style.display = 'none';
-                if (container) container.style.display = 'block';
-            };
-            
-            // ===== ПЕРЕКЛЮЧЕНИЕ ДРОПДАУНА УВЕДОМЛЕНИЙ =====
-            window.toggleNotificationsDropdown = function() {
-                const dropdown = document.getElementById('notificationsDropdown');
-                if (dropdown) {
-                    dropdown.classList.toggle('show');
-                    if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
-                        window.renderNotificationsDropdown();
-                    }
-                }
-            };
-            
-            // ===== ОТКРЫТЬ СВОЙ ПРОФИЛЬ =====
-            window.openMyProfile = function() {
-                if (window.app?.currentUser && typeof window.openProfile === 'function') {
-                    window.openProfile(window.app.currentUser);
-                }
-            };
-            // ===== ИНИЦИАЛИЗАЦИЯ СЛУШАТЕЛЕЙ =====
-            function initEventListeners() {
-                // Кнопка выхода
-                const logoutBtn = document.getElementById('logoutBtn');
-                if (logoutBtn) {
-                    logoutBtn.addEventListener('click', function() {
-                        if (typeof window.authLogout === 'function') {
-                            window.authLogout();
-                        }
-                    });
-                }
-                
-                // Кнопка "прочитать все"
-                const markAllBtn = document.getElementById('markAllReadBtn');
-                if (markAllBtn) {
-                    markAllBtn.addEventListener('click', function() {
-                        if (typeof window.markAllNotificationsRead === 'function') {
-                            window.markAllNotificationsRead();
-                        }
-                    });
-                }
-                
-                // Кнопка "очистить все"
-                const clearAllBtn = document.getElementById('clearAllNotifBtn');
-                if (clearAllBtn) {
-                    clearAllBtn.addEventListener('click', function() {
-                        if (typeof window.clearAllNotifications === 'function') {
-                            window.clearAllNotifications();
-                        }
-                    });
-                }
-                
-                // Аватар в хедере
-                const headerAvatar = document.getElementById('headerAvatar');
-                if (headerAvatar) {
-                    headerAvatar.addEventListener('click', function() {
-                        window.openMyProfile();
-                    });
-                }
-                
-                // Индикатор синхронизации
-                const syncIndicator = document.getElementById('syncIndicator');
-                if (syncIndicator) {
-                    syncIndicator.addEventListener('click', function() {
-                        if (typeof window.auth?.reconnectPusher === 'function') {
-                            window.auth.reconnectPusher();
-                        }
-                    });
-                }
-                
-                // Иконка уведомлений
-                const notifIcon = document.getElementById('notificationsIcon');
-                if (notifIcon) {
-                    notifIcon.addEventListener('click', function() {
-                        window.toggleNotificationsDropdown();
-                    });
-                }
-            }
-            
-            function checkExistingSession() {
-    const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
-    
-    if (token) {
-        const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
-        if (savedUser) {
-            try {
-                const user = JSON.parse(savedUser);
-                window.app.currentUser = user.name || user;
-                window.app.currentUserRole = user.role || 'operator';
-                
-                // ✅ ПОКАЗЫВАЕМ КОНТЕЙНЕР
-                const mainContainer = document.getElementById('mainContainer');
-                if (mainContainer) mainContainer.style.display = 'block';
-                
-                document.getElementById('headerName').textContent = window.app.currentUser;
-                
-                if (typeof window.renderMainMenu === 'function') {
-                    setTimeout(() => window.renderMainMenu(), 100);
-                }
-                
-                return true;
-            } catch (e) {
-                console.error('Ошибка восстановления сессии:', e);
-            }
+            console.log('✅ Прелоадер скрыт, контейнер показан');
         }
-    }
-    
-    // Если нет токена — показываем модалку входа
-    // но сначала скрываем прелоадер
-    const loader = document.getElementById('globalLoader');
-    if (loader) {
-        loader.style.display = 'none';
-    }
-    showLoginModal();
-    return false;
-}
-            
-            // ===== ОБРАБОТЧИК ФОРМЫ ВХОДА =====
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
+        
+        // Отслеживаем загрузку скриптов
+        document.querySelectorAll('script[src*="/js/"]').forEach(script => {
+            script.addEventListener('load', () => {
+                const filename = script.src.split('/').pop();
+                window.updateLoaderProgress(filename);
+            });
+        });
+        
+        // Фоллбэк — скрываем прелоадер через N секунд в любом случае
+        setTimeout(() => {
+            if (modulesLoaded < totalModules) {
+                console.warn('⚠️ Не все модули загружены, принудительный показ');
+                modulesLoaded = totalModules;
+                window.updateLoaderProgress('forced');
+            }
+            hideLoader();
+        }, CONFIG.MAX_LOAD_DELAY);
+        
+        // ===== ФОРМА ВХОДА =====
+        const togglePassword = document.getElementById('togglePassword');
+        if (togglePassword) {
+            togglePassword.addEventListener('click', function() {
+                const input = document.getElementById('loginPassword');
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                    this.className = input.type === 'password' ? 'fas fa-eye toggle-password' : 'fas fa-eye-slash toggle-password';
+                }
+            });
+        }
+        
+        // ===== CAPS LOCK =====
+        const passwordInput = document.getElementById('loginPassword');
+        if (passwordInput) {
+            passwordInput.addEventListener('keyup', function(e) {
+                if (e.getModifierState && e.getModifierState('CapsLock')) {
+                    document.getElementById('loginErrorMessage').textContent = '⚠️ Caps Lock включён';
+                } else {
+                    document.getElementById('loginErrorMessage').textContent = '';
+                }
+            });
+        }
+        
+        // ===== СОХРАНЁННЫЙ ЛОГИН =====
+        const savedLogin = localStorage.getItem('savedLogin');
+        if (savedLogin) {
+            const loginInput = document.getElementById('loginName');
+            const rememberCheck = document.getElementById('rememberMe');
+            if (loginInput) loginInput.value = savedLogin;
+            if (rememberCheck) rememberCheck.checked = true;
+        }
+        
+        // ===== ОБРАБОТЧИК ВХОДА =====
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('loginName')?.value?.trim();
+                const password = document.getElementById('loginPassword')?.value;
+                const rememberMe = document.getElementById('rememberMe')?.checked;
+                const errorEl = document.getElementById('loginErrorMessage');
+                const submitBtn = document.getElementById('loginSubmitBtn');
+                
+                if (!username || !password) {
+                    if (errorEl) errorEl.textContent = 'Введите логин и пароль';
+                    return;
+                }
+                
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+                    submitBtn.disabled = true;
+                }
+                
+                try {
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username, password })
+                    });
                     
-                    const username = document.getElementById('loginName')?.value?.trim();
-                    const password = document.getElementById('loginPassword')?.value;
-                    const rememberMe = document.getElementById('rememberMe')?.checked;
-                    const errorEl = document.getElementById('loginErrorMessage');
-                    const submitBtn = document.getElementById('loginSubmitBtn');
+                    const data = await response.json();
                     
-                    if (!username || !password) {
-                        if (errorEl) errorEl.textContent = 'Введите логин и пароль';
-                        return;
-                    }
-                    
-                    if (submitBtn) {
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-                        submitBtn.disabled = true;
-                    }
-                    
-                    try {
-                        const response = await fetch('/api/auth/login', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username, password })
-                        });
-                        
-                        const data = await response.json();
-                        
-                        if (data.success) {
-                            if (rememberMe) {
-                                localStorage.setItem('savedLogin', username);
-                            } else {
-                                localStorage.removeItem('savedLogin');
-                            }
-                            
-                            localStorage.setItem('warpoint_token', data.token);
-                            localStorage.setItem('token', data.token);
-                            localStorage.setItem('warpoint_user', JSON.stringify(data.user));
-                            localStorage.setItem('currentUser', JSON.stringify(data.user));
-                            
-                            window.app.currentUser = data.user.name;
-                            window.app.currentUserRole = data.user.role;
-                            
-                            hideLoginModal();
-                            
-                            document.getElementById('headerName').textContent = data.user.name;
-                            if (data.user.status) {
-                                document.getElementById('headerStatus').textContent = data.user.status;
-                            }
-                            
-                            const headerAvatar = document.getElementById('headerAvatar');
-                            if (data.user.avatar_url) {
-                                headerAvatar.innerHTML = `<img src="${data.user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
-                            } else {
-                                headerAvatar.innerHTML = data.user.avatar || '👤';
-                            }
-                            
-                            if (typeof window.renderMainMenu === 'function') {
-                                window.renderMainMenu();
-                            }
-                            
-                            if (data.newAchievements && data.newAchievements.length > 0) {
-                                setTimeout(() => {
-                                    if (typeof window.showSystemNotification === 'function') {
-                                        data.newAchievements.forEach(ach => {
-                                            window.showSystemNotification(`🏆 ${ach.name} (+${ach.coins} WP)`, 'success');
-                                        });
-                                    }
-                                }, 1000);
-                            }
-                        } else {
-                            if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
-                            if (submitBtn) {
-                                submitBtn.innerHTML = '<span>Войти</span><i class="fas fa-arrow-right"></i>';
-                                submitBtn.disabled = false;
-                            }
+                    if (data.success) {
+                        if (rememberMe) {
+                            localStorage.setItem('savedLogin', username);
                         }
-                    } catch (err) {
-                        console.error('Ошибка входа:', err);
-                        if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
+                        
+                        localStorage.setItem('warpoint_token', data.token);
+                        localStorage.setItem('token', data.token);
+                        localStorage.setItem('warpoint_user', JSON.stringify(data.user));
+                        localStorage.setItem('currentUser', JSON.stringify(data.user));
+                        
+                        window.app.currentUser = data.user.name;
+                        window.app.currentUserRole = data.user.role;
+                        
+                        // ✅ Скрываем модалку, показываем контейнер
+                        document.getElementById('loginModal').style.display = 'none';
+                        document.getElementById('mainContainer').style.display = 'block';
+                        
+                        document.getElementById('headerName').textContent = data.user.name;
+                        
+                        const headerAvatar = document.getElementById('headerAvatar');
+                        if (data.user.avatar_url) {
+                            headerAvatar.innerHTML = `<img src="${data.user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
+                        } else {
+                            headerAvatar.innerHTML = data.user.avatar || '👤';
+                        }
+                        
+                        if (typeof window.renderMainMenu === 'function') {
+                            setTimeout(() => window.renderMainMenu(), 100);
+                        }
+                    } else {
+                        if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
                         if (submitBtn) {
-                            submitBtn.innerHTML = '<span>Войти</span><i class="fas fa-arrow-right"></i>';
+                            submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
                             submitBtn.disabled = false;
                         }
                     }
-                });
+                } catch (err) {
+                    console.error('Ошибка входа:', err);
+                    if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
+                    if (submitBtn) {
+                        submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
+                        submitBtn.disabled = false;
+                    }
+                }
+            });
+        }
+        
+        // ===== ЗАКРЫТИЕ ДРОПДАУНА =====
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('notificationsDropdown');
+            const icon = document.getElementById('notificationsIcon');
+            if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
+                dropdown.classList.remove('show');
             }
+        });
+        
+        // ===== ПЕРЕКЛЮЧЕНИЕ ДРОПДАУНА =====
+        window.toggleNotificationsDropdown = function() {
+            const dropdown = document.getElementById('notificationsDropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+                if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
+                    window.renderNotificationsDropdown();
+                }
+            }
+        };
+        
+        // ===== ИНИЦИАЛИЗАЦИЯ =====
+        function initEventListeners() {
+            document.getElementById('logoutBtn')?.addEventListener('click', function() {
+                if (typeof window.authLogout === 'function') window.authLogout();
+            });
             
-            // ===== УСТАНОВКА ВЕРСИИ =====
-            const versionEl = document.getElementById('appVersion');
-            if (versionEl) versionEl.textContent = 'v' + CONFIG.VERSION;
+            document.getElementById('markAllReadBtn')?.addEventListener('click', function() {
+                if (typeof window.markAllNotificationsRead === 'function') window.markAllNotificationsRead();
+            });
             
-            // ===== ЗАПУСК =====
-            initEventListeners();
+            document.getElementById('clearAllNotifBtn')?.addEventListener('click', function() {
+                if (typeof window.clearAllNotifications === 'function') window.clearAllNotifications();
+            });
             
-            // Онлайн/офлайн статус
-            window.addEventListener('online', function() {
-                const syncIndicator = document.getElementById('syncIndicator');
-                if (syncIndicator) {
-                    syncIndicator.classList.add('online');
-                    syncIndicator.classList.remove('offline');
+            document.getElementById('headerAvatar')?.addEventListener('click', function() {
+                if (window.app?.currentUser && typeof window.openProfile === 'function') {
+                    window.openProfile(window.app.currentUser);
                 }
             });
             
-            window.addEventListener('offline', function() {
-                const syncIndicator = document.getElementById('syncIndicator');
-                if (syncIndicator) {
-                    syncIndicator.classList.add('offline');
-                    syncIndicator.classList.remove('online');
-                }
+            document.getElementById('notificationsIcon')?.addEventListener('click', function() {
+                window.toggleNotificationsDropdown();
             });
+        }
+        
+        // ===== ПРОВЕРКА СЕССИИ =====
+        function checkExistingSession() {
+            const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
             
-            // Установить начальный статус
-            if (navigator.onLine) {
-                document.getElementById('syncIndicator')?.classList.add('online');
-            } else {
-                document.getElementById('syncIndicator')?.classList.add('offline');
-            }
-            
-            // Проверяем сессию после загрузки auth.js
-            setTimeout(() => {
-                if (typeof window.auth?.isAuthenticated === 'function' && window.auth.isAuthenticated()) {
-                    // auth.js уже обработал
-                } else {
-                    checkExistingSession();
+            if (token) {
+                const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
+                if (savedUser) {
+                    try {
+                        const user = JSON.parse(savedUser);
+                        window.app.currentUser = user.name || user;
+                        window.app.currentUserRole = user.role || 'operator';
+                        
+                        document.getElementById('headerName').textContent = window.app.currentUser;
+                        
+                        if (typeof window.renderMainMenu === 'function') {
+                            setTimeout(() => window.renderMainMenu(), 100);
+                        }
+                        
+                        return true;
+                    } catch (e) {
+                        console.error('Ошибка восстановления сессии:', e);
+                    }
                 }
-            }, 200);
-            
-            console.log('✅ WARPOINT HUB v' + CONFIG.VERSION + ' — ядро загружено');
-        })();
+            }
+            return false;
+        }
+        
+        // ===== ЗАПУСК =====
+        initEventListeners();
+        
+        const hasSession = checkExistingSession();
+        
+        if (hasSession) {
+            // Есть сессия — скрываем модалку и прелоадер
+            document.getElementById('loginModal').style.display = 'none';
+            hideLoader();
+        } else {
+            // Нет сессии — скрываем прелоадер, показываем модалку
+            hideLoader();
+            document.getElementById('loginModal').style.display = 'flex';
+        }
+        
+        // Онлайн/офлайн статус
+        window.addEventListener('online', function() {
+            document.getElementById('syncIndicator')?.classList.add('online');
+            document.getElementById('syncIndicator')?.classList.remove('offline', 'connecting');
+        });
+        
+        window.addEventListener('offline', function() {
+            document.getElementById('syncIndicator')?.classList.add('offline');
+            document.getElementById('syncIndicator')?.classList.remove('online', 'connecting');
+        });
+        
+        if (navigator.onLine) {
+            document.getElementById('syncIndicator')?.classList.add('online');
+        } else {
+            document.getElementById('syncIndicator')?.classList.add('offline');
+        }
+        
+        console.log('✅ WARPOINT HUB v' + CONFIG.VERSION + ' — ядро загружено');
+    })();
     </script>
 </body>
 </html>
