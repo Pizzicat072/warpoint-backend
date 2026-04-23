@@ -839,7 +839,20 @@ async function runMigrations() {
     
     logger.info('Миграции выполнены');
 }
+// Исправление corporate_fund
+await query(`CREATE TABLE IF NOT EXISTS corporate_fund (
+    id SERIAL PRIMARY KEY,
+    amount INTEGER DEFAULT 0,
+    operation_type VARCHAR(20),
+    comment TEXT,
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)`).catch(() => {});
 
+await addColumnIfNotExists('corporate_fund', 'operation_type', 'VARCHAR(20)', null);
+await addColumnIfNotExists('corporate_fund', 'comment', 'TEXT', null);
+await addColumnIfNotExists('corporate_fund', 'created_by', 'INTEGER', null);
+await addColumnIfNotExists('corporate_fund', 'created_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
 console.log('✅ ЧАСТЬ 3/12 загружена (функции миграций)');
 // ============================================
 // 5. ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ НАСТРОЕК
