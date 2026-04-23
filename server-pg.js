@@ -868,8 +868,38 @@ try {
 // Делаем колонку необязательной
 await query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type DROP NOT NULL`).catch(() => {});
 await query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type SET DEFAULT 'standard'`).catch(() => {});
+// Исправление foreign key для salary_daily
+try {
+    const fkConstraints = await query(
+        `SELECT conname FROM pg_constraint 
+         WHERE conrelid = 'salary_daily'::regclass AND contype = 'f'`
+    );
+    
+    for (const row of fkConstraints.rows) {
+        await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
+        logger.info(`Удалён foreign key: ${row.conname}`);
+    }
+} catch (e) {
+    logger.warn('Ошибка удаления foreign key:', e.message);
+}
 
-logger.info('Миграции выполнены');
+// Создаём правильный foreign key с CASCADE
+await query(`
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint 
+            WHERE conrelid = 'salary_daily'::regclass 
+            AND conname = 'salary_daily_employee_id_fkey'
+        ) THEN
+            ALTER TABLE salary_daily 
+            ADD CONSTRAINT salary_daily_employee_id_fkey 
+            FOREIGN KEY (employee_id) 
+            REFERENCES employees(id) 
+            ON DELETE CASCADE;
+        END IF;
+    END $$;
+`).catch((e) => logger.warn('Ошибка создания foreign key:', e.message));
     logger.info('Миграции выполнены');
 }
 
@@ -2341,11 +2371,14 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
         
-        // 🔥 ПРОВЕРКА ЧТО СОТРУДНИК СУЩЕСТВУЕТ
-        const empCheck = await query("SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL", [employee_id]);
+         // 🔥 ПРОВЕРКА ЧТО СОТРУДНИК СУЩЕСТВУЕТ
+        const empCheck = await query(
+            "SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL AND is_active = TRUE",
+            [employee_id]
+        );
         if (empCheck.rows.length === 0) {
+            logger.warn(`Попытка сохранить з/п для несуществующего сотрудника: ${employee_id}`);
             return res.status(400).json({ success: false, error: 'Сотрудник не найден или уволен' });
-        }
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
@@ -2406,9 +2439,8 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         const operators = await query("SELECT id FROM employees WHERE role = 'operator' AND is_active = TRUE AND deleted_at IS NULL");
         
-        // 🔥 ПРОВЕРКА ЧТО ЕСТЬ ОПЕРАТОРЫ
         if (operators.rows.length === 0) {
-            return res.status(400).json({ success: false, error: 'Нет активных операторов' });
+            return res.status(400).json({ success: false, error: 'Нет активных операторов для применения' });
         }
         
         for (const op of operators.rows) {
