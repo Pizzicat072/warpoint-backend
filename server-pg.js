@@ -632,6 +632,9 @@ app.post('/api/auth/refresh', async (req, res) => {
 
 app.get('/api/employees', authMiddleware, async (req, res) => {
     try {
+        const cached = cache.get('employees_list');
+        if (cached) return res.json({ success: true, employees: cached });
+        
         const result = await query(
             `SELECT id, name, avatar, avatar_url, status, active_status, coins, rating, role, hours, 
                     birthday, phone, last_active, dashboard_style, bought_styles, can_edit_vp, 
@@ -641,39 +644,62 @@ app.get('/api/employees', authMiddleware, async (req, res) => {
              WHERE deleted_at IS NULL 
              ORDER BY rating DESC, name ASC`
         );
+        
+        cache.set('employees_list', result.rows, 60);
         res.json({ success: true, employees: result.rows });
     } catch (err) { 
+        logger.error('/api/employees error:', err.message);
         res.status(500).json({ success: false, error: err.message }); 
     }
 });
 
 app.get('/api/employees/:id', authMiddleware, async (req, res) => {
     try {
-        const result = await query(`SELECT * FROM employees WHERE id = $1 AND deleted_at IS NULL`, [req.params.id]);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid ID' });
+        }
+        
+        const result = await query(
+            `SELECT * FROM employees WHERE id = $1 AND deleted_at IS NULL`,
+            [id]
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        }
         res.json({ success: true, employee: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/employees/:id error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
+        // Создаём таблицу если её нет
+        await query(`CREATE TABLE IF NOT EXISTS user_achievements (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
+            claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, achievement_id)
+        )`).catch(() => {});
+        
         const result = await query(
             `SELECT e.name, COUNT(ua.achievement_id) as count 
              FROM employees e 
              LEFT JOIN user_achievements ua ON ua.user_id = e.id 
              WHERE e.deleted_at IS NULL 
              GROUP BY e.id, e.name`
-        ).catch(err => {
-            logger.error('achievements-count query error:', err.message);
-            return { rows: [] };
-        });
+        ).catch(() => ({ rows: [] }));
         
         const counts = {};
         result.rows.forEach(r => counts[r.name] = parseInt(r.count) || 0);
         res.json({ success: true, counts });
     } catch (err) {
         logger.error('/employees/achievements-count error:', err.message);
-        res.json({ success: true, counts: {} }); // Возвращаем пустой объект вместо 500
+        res.json({ success: true, counts: {} });
     }
 });
 
@@ -691,20 +717,17 @@ app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
             return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 3 символов' });
         }
         
-        // Проверяем существование
         const existing = await query("SELECT id FROM employees WHERE name = $1", [name]);
         if (existing.rows.length > 0) {
             return res.status(400).json({ success: false, error: 'Сотрудник уже существует' });
         }
         
-        // Создаём сотрудника
         const result = await query(
             `INSERT INTO employees (name, role, birthday, phone, is_active, created_at, updated_at) 
              VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW()) RETURNING *`,
             [name, role || 'operator', birthday || null, phone || null]
         );
         
-        // Создаём пароль
         const hashedPassword = await hashPassword(password);
         await query(
             "INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET password_hash = $2",
@@ -723,12 +746,23 @@ app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
 });
 
 app.put('/api/employees/:id', authMiddleware, async (req, res) => {
-    const { id } = req.params;
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+        return res.status(400).json({ success: false, error: 'Invalid ID' });
+    }
+    
     const updates = req.body;
-    if (req.user.role !== 'director' && req.user.id != id) return res.status(403).json({ success: false, error: 'Нет прав на редактирование' });
+    
+    if (req.user.role !== 'director' && req.user.id != id) {
+        return res.status(403).json({ success: false, error: 'Нет прав на редактирование' });
+    }
+    
     try {
         const allowedFields = ['avatar', 'avatar_url', 'status', 'active_status', 'phone', 'birthday', 'dashboard_style'];
-        if (req.user.role === 'director') allowedFields.push('name', 'role', 'coins', 'rating', 'can_edit_vp', 'bought_styles');
+        if (req.user.role === 'director') {
+            allowedFields.push('name', 'role', 'coins', 'rating', 'can_edit_vp', 'bought_styles');
+        }
+        
         const fields = [], values = [];
         let idx = 1;
         for (const field of allowedFields) {
@@ -737,28 +771,55 @@ app.put('/api/employees/:id', authMiddleware, async (req, res) => {
                 values.push(updates[field]);
             }
         }
-        if (fields.length === 0) return res.json({ success: true, message: 'Нет полей для обновления' });
+        
+        if (fields.length === 0) {
+            return res.json({ success: true, message: 'Нет полей для обновления' });
+        }
+        
         fields.push(`updated_at = NOW()`);
         values.push(id);
-        const result = await query(`UPDATE employees SET ${fields.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL RETURNING *`, values);
-        if (result.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        
+        const result = await query(
+            `UPDATE employees SET ${fields.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL RETURNING *`,
+            values
+        );
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        }
+        
         cache.del('employees_list');
-        if (updates.avatar || updates.avatar_url) await checkAndAwardAchievements(id, 'special');
         res.json({ success: true, employee: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/employees/:id PUT error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.delete('/api/employees/:id', authMiddleware, directorOnly, async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+            return res.status(400).json({ success: false, error: 'Invalid ID' });
+        }
+        
         const emp = await query("SELECT role, name FROM employees WHERE id = $1", [id]);
-        if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
-        if (emp.rows[0].role === 'director') return res.status(403).json({ success: false, error: 'Нельзя удалить директора' });
+        if (emp.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        }
+        if (emp.rows[0].role === 'director') {
+            return res.status(403).json({ success: false, error: 'Нельзя удалить директора' });
+        }
+        
         await query("UPDATE employees SET deleted_at = NOW(), is_active = FALSE WHERE id = $1", [id]);
         cache.del('employees_list');
+        
         logger.info(`Сотрудник уволен: ${emp.rows[0].name}`);
         res.json({ success: true, message: 'Сотрудник уволен' });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/employees/:id DELETE error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.put('/api/employees/:id/password', authMiddleware, directorOnly, async (req, res) => {
@@ -1336,25 +1397,30 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
-        // 🔥 Проверяем существование таблицы
-        const tableCheck = await query(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'salary_daily')`);
-        if (!tableCheck.rows[0].exists) {
-            // Создаём таблицу если нет
-            await query(`CREATE TABLE IF NOT EXISTS salary_daily (
-                id SERIAL PRIMARY KEY,
-                employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-                day_number INTEGER NOT NULL,
-                month_year VARCHAR(7) NOT NULL,
-                oklad INTEGER DEFAULT 0,
-                event INTEGER DEFAULT 0,
-                turnover INTEGER DEFAULT 0,
-                bonus35 INTEGER DEFAULT 0,
-                video INTEGER DEFAULT 0,
-                extra_motivation INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(employee_id, day_number, month_year)
-            )`);
+        // Создаём таблицу если её нет
+        await query(`CREATE TABLE IF NOT EXISTS salary_daily (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            day_number INTEGER NOT NULL,
+            month_year VARCHAR(7) NOT NULL,
+            oklad INTEGER DEFAULT 0,
+            event INTEGER DEFAULT 0,
+            turnover INTEGER DEFAULT 0,
+            bonus35 INTEGER DEFAULT 0,
+            video INTEGER DEFAULT 0,
+            extra_motivation INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(employee_id, day_number, month_year)
+        )`);
+        
+        // Проверяем и исправляем тип колонки month_year
+        const columnCheck = await query(
+            `SELECT data_type FROM information_schema.columns 
+             WHERE table_name = 'salary_daily' AND column_name = 'month_year'`
+        );
+        if (columnCheck.rows.length > 0 && columnCheck.rows[0].data_type !== 'character varying') {
+            await query(`ALTER TABLE salary_daily ALTER COLUMN month_year TYPE VARCHAR(7)`);
         }
         
         const employees = await query(
@@ -1373,23 +1439,57 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
 app.get('/api/salary/day', authMiddleware, async (req, res) => {
     try {
         const { employee_id, day, month, year } = req.query;
-        if (!employee_id || !day || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        if (!employee_id || !day || !month || !year) {
+            return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        }
+        
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        const result = await query(`SELECT oklad, event, turnover, bonus35, video, extra_motivation FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`, [employee_id, day, monthYear]);
-        res.json({ success: true, ...(result.rows[0] || { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 }) });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+        
+        const result = await query(
+            `SELECT oklad, event, turnover, bonus35, video, extra_motivation 
+             FROM salary_daily 
+             WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`,
+            [employee_id, day, monthYear]
+        );
+        
+        res.json({ 
+            success: true, 
+            ...(result.rows[0] || { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 }) 
+        });
+    } catch (err) {
+        logger.error('/api/salary/day error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { employee_id, day_number, month, year, oklad, event, turnover, bonus35, video, extra_motivation } = req.body;
-        if (!employee_id || !day_number || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        if (!employee_id || !day_number || !month || !year) {
+            return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        }
+        
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        await query(`INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (employee_id, day_number, month_year) DO UPDATE SET oklad = EXCLUDED.oklad, event = EXCLUDED.event, turnover = EXCLUDED.turnover, bonus35 = EXCLUDED.bonus35, video = EXCLUDED.video, extra_motivation = EXCLUDED.extra_motivation, updated_at = NOW()`, [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]);
-        const emp = await query("SELECT name FROM employees WHERE id = $1", [employee_id]);
-        if (emp.rows.length > 0) await addNotification(emp.rows[0].name, 'salary_updated', { date: `${day_number}.${month}.${year}` });
+        
+        await query(
+            `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+             ON CONFLICT (employee_id, day_number, month_year) DO UPDATE SET 
+                oklad = EXCLUDED.oklad, 
+                event = EXCLUDED.event, 
+                turnover = EXCLUDED.turnover, 
+                bonus35 = EXCLUDED.bonus35, 
+                video = EXCLUDED.video, 
+                extra_motivation = EXCLUDED.extra_motivation, 
+                updated_at = NOW()`,
+            [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]
+        );
+        
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/salary/day/save error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res) => {
@@ -1405,9 +1505,15 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
 
 app.get('/api/fund', authMiddleware, async (req, res) => {
     try {
+        // Создаём индекс для ускорения
+        await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
+        
         const result = await query("SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1");
         res.json({ success: true, amount: result.rows[0]?.amount || 0 });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/fund error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.post('/api/fund/update', authMiddleware, directorOnly, async (req, res) => {
