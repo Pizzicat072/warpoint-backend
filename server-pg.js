@@ -1170,12 +1170,47 @@ app.get('/api/fines', authMiddleware, async (req, res) => {
 app.post('/api/fines', authMiddleware, adminOrAbove, async (req, res) => {
     try {
         const { fine } = req.body;
-        if (!fine || !fine.employee) return res.status(400).json({ success: false, error: 'Сотрудник обязателен' });
-        const result = await query(`INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING *`, [fine.date || getTobolskDate(), fine.employee, fine.type || 'other', fine.amount || 0, fine.coins || 0, fine.rating || 0, fine.description || null, req.user.username]);
-        await addNotification(fine.employee, 'fine_created', { fineId: result.rows[0].id, reason: fine.description || 'Нарушение' });
-        if (req.user.role === 'director' || req.user.role === 'manager') for (const emp of ['Денис']) await addNotification(emp, 'fine_created', { fineId: result.rows[0].id, employee: fine.employee, reason: fine.description || 'Нарушение' });
+        
+        // Проверка обязательных полей
+        if (!fine || !fine.employee) {
+            return res.status(400).json({ success: false, error: 'Сотрудник обязателен' });
+        }
+        
+        // Создаём таблицу если нет
+        await query(`CREATE TABLE IF NOT EXISTS fines (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL,
+            employee VARCHAR(100) NOT NULL,
+            type VARCHAR(50) DEFAULT 'other',
+            amount INTEGER DEFAULT 0,
+            coins INTEGER DEFAULT 0,
+            rating INTEGER DEFAULT 0,
+            description TEXT,
+            status VARCHAR(30) DEFAULT 'pending',
+            created_by VARCHAR(100),
+            director_comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`).catch(() => {});
+        
+        const result = await query(
+            `INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) 
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING *`,
+            [fine.date || getTobolskDate(), fine.employee, fine.type || 'other', 
+             fine.amount || 0, fine.coins || 0, fine.rating || 0, 
+             fine.description || null, req.user.username]
+        );
+        
+        await addNotification(fine.employee, 'fine_created', { 
+            fineId: result.rows[0].id, 
+            reason: fine.description || 'Нарушение' 
+        });
+        
         res.json({ success: true, fine: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/fines POST error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.put('/api/fines/:id', authMiddleware, managerOrDirector, async (req, res) => {
@@ -1444,22 +1479,49 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
 app.get('/api/salary/day', authMiddleware, async (req, res) => {
     try {
         const { employee_id, day, month, year } = req.query;
+        
+        // Проверка параметров
         if (!employee_id || !day || !month || !year) {
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
+        // Создаём таблицу если нет
+        await query(`CREATE TABLE IF NOT EXISTS salary_daily (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            day_number INTEGER NOT NULL,
+            month_year VARCHAR(7) NOT NULL,
+            oklad INTEGER DEFAULT 0,
+            event INTEGER DEFAULT 0,
+            turnover INTEGER DEFAULT 0,
+            bonus35 INTEGER DEFAULT 0,
+            video INTEGER DEFAULT 0,
+            extra_motivation INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(employee_id, day_number, month_year)
+        )`).catch(() => {});
+        
         const result = await query(
             `SELECT oklad, event, turnover, bonus35, video, extra_motivation 
              FROM salary_daily 
              WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`,
             [employee_id, day, monthYear]
-        );
+        ).catch((err) => {
+            logger.error('salary/day query error:', err.message);
+            return { rows: [] };
+        });
         
         res.json({ 
             success: true, 
-            ...(result.rows[0] || { oklad: 0, event: 0, turnover: 0, bonus35: 0, video: 0, extra_motivation: 0 }) 
+            oklad: result.rows[0]?.oklad || 0,
+            event: result.rows[0]?.event || 0,
+            turnover: result.rows[0]?.turnover || 0,
+            bonus35: result.rows[0]?.bonus35 || 0,
+            video: result.rows[0]?.video || 0,
+            extra_motivation: result.rows[0]?.extra_motivation || 0
         });
     } catch (err) {
         logger.error('/api/salary/day error:', err.message);
@@ -1646,33 +1708,51 @@ app.get('/api/gifts', authMiddleware, (req, res) => {
 app.post('/api/gifts', authMiddleware, async (req, res) => {
     try {
         const { recipient, giftId, price, ratingChange, quantity, isAnonymous } = req.body;
-        if (!recipient || !giftId) return res.status(400).json({ success: false, error: 'Получатель и подарок обязательны' });
+        
+        if (!recipient || !giftId) {
+            return res.status(400).json({ success: false, error: 'Получатель и подарок обязательны' });
+        }
+        
+        // Создаём таблицу если нет
+        await query(`CREATE TABLE IF NOT EXISTS stickers (
+            id SERIAL PRIMARY KEY,
+            sender VARCHAR(100),
+            employee VARCHAR(100) NOT NULL,
+            gift_id VARCHAR(50) NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            is_anonymous BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`).catch(() => {});
+        
         const sender = isAnonymous ? '🕵️ Аноним' : req.user.username;
         const qty = quantity || 1;
         const total = price * qty;
+        
         await transaction(async (client) => {
             if (!isAnonymous) {
                 const user = await client.query("SELECT coins FROM employees WHERE name = $1 FOR UPDATE", [req.user.username]);
                 if (user.rows[0].coins < total) throw new Error('Недостаточно WP');
                 await client.query("UPDATE employees SET coins = coins - $1, total_gifts_sent = total_gifts_sent + $2 WHERE name = $3", [total, qty, req.user.username]);
-                await client.query("INSERT INTO transactions (user_id, type, amount, balance_after, comment) SELECT id, 'gift_send', $1, coins, $2 FROM employees WHERE name = $3", [-total, `Подарок для ${recipient}`, req.user.username]);
             }
-            await client.query(`INSERT INTO stickers (sender, employee, gift_id, quantity, is_anonymous) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (employee, gift_id, sender, DATE(created_at)) DO UPDATE SET quantity = stickers.quantity + $4`, [sender, recipient, giftId, qty, isAnonymous || false]);
+            
+            await client.query(
+                `INSERT INTO stickers (sender, employee, gift_id, quantity, is_anonymous) 
+                 VALUES ($1, $2, $3, $4, $5)`,
+                [sender, recipient, giftId, qty, isAnonymous || false]
+            );
+            
             if (ratingChange) {
                 await client.query("UPDATE employees SET rating = rating + $1, total_gifts_received = total_gifts_received + $2 WHERE name = $3", [ratingChange * qty, qty, recipient]);
-                if (ratingChange > 0) {
-                    const rec = await client.query("SELECT id FROM employees WHERE name = $1", [recipient]);
-                    if (rec.rows.length > 0) await checkAndAwardAchievements(rec.rows[0].id, 'gifts');
-                }
             }
         });
-        await addNotification(recipient, 'gift_received', { sender, giftId, giftName: giftId, anonymous: isAnonymous, quantity: qty });
-        if (!isAnonymous) {
-            await addNotification(req.user.username, 'gift_sent', { recipient, giftId, quantity: qty });
-            await checkAndAwardAchievements(req.user.id, 'gifts');
-        }
+        
+        await addNotification(recipient, 'gift_received', { sender, giftId, quantity: qty, anonymous: isAnonymous });
+        
         res.json({ success: true });
-    } catch (err) { res.status(400).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/gifts error:', err.message);
+        res.status(400).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/user/statuses', authMiddleware, async (req, res) => {

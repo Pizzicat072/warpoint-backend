@@ -683,8 +683,8 @@
         
         // ✅ ПРАВИЛЬНО: делаем функцию async
         setTimeout(async function() {
-            await initPusher();
-        }, 1000);
+    await initPusher();
+}, 1000);
         
         logger.info(`Session restored: ${user.name}`);
     } else {

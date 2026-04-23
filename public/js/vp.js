@@ -14,7 +14,6 @@ let vpNotificationInterval = null;
 let originalVpData = null;
 let searchDebounceTimer = null;
 let vpInitialized = false;
-let abortController = null;
 
 let vpStatusFilter = 'all';
 let vpAdminFilter = 'all';
