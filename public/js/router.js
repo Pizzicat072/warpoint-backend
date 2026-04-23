@@ -196,12 +196,27 @@ function initializePage(pageId) {
         'reports': 'initReports'
     };
 
-    var funcName = initFunctions[pageId];
-    if (funcName && typeof window[funcName] === 'function') {
-        console.log('🚀 Инициализация: ' + funcName + '()');
-        window[funcName]();
+    // ✅ Сначала грузим сотрудников если ещё не загружены
+    var employees = window.app?.employees || [];
+    if (employees.length === 0 && typeof window.loadEmployees === 'function') {
+        console.log('👥 Автозагрузка сотрудников...');
+        window.loadEmployees().then(function() {
+            // После загрузки — инициализируем страницу
+            var funcName = initFunctions[pageId];
+            if (funcName && typeof window[funcName] === 'function') {
+                console.log('🚀 Инициализация: ' + funcName + '()');
+                window[funcName]();
+            }
+        });
     } else {
-        console.warn('⚠️ Функция ' + funcName + ' не найдена');
+        // Сотрудники уже есть — просто инициализируем
+        var funcName = initFunctions[pageId];
+        if (funcName && typeof window[funcName] === 'function') {
+            console.log('🚀 Инициализация: ' + funcName + '()');
+            window[funcName]();
+        } else {
+            console.warn('⚠️ Функция ' + funcName + ' не найдена');
+        }
     }
 }
 
