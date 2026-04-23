@@ -578,6 +578,14 @@
     window.insertEmoji = insertEmoji;
     window.clearFormatting = clearFormatting;
     window.initEditor = initEditor;
-
+// В конец knowledge.js перед console.log
+window.openCreateArticleModal = openCreateArticleModal;
+window.openEditArticleModal = openEditArticleModal;
+window.deleteArticle = deleteArticle;
+window.deleteArticleConfirm = deleteArticleConfirm;
+window.toggleCategory = toggleCategory;
+window.openArticle = openArticle;
+window.closeArticleModal = closeArticleModal;
+window.saveArticle = saveArticle;
     console.log('✅ knowledge.js загружен (v1.1 — с уведомлениями)');
 })();

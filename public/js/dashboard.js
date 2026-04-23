@@ -63,7 +63,23 @@
         const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
         return String(str).replace(/[&<>"']/g, m => map[m]);
     }
-
+function hideGlobalLoader() {
+    const loader = document.getElementById('globalLoader');
+    const skeleton = document.getElementById('pageSkeleton');
+    
+    if (loader) {
+        loader.classList.add('fade-out');
+        setTimeout(() => {
+            if (loader && loader.classList.contains('fade-out')) {
+                loader.style.display = 'none';
+            }
+        }, 600);
+    }
+    
+    if (skeleton) {
+        skeleton.style.display = 'none';
+    }
+}
     function formatDateSimple(dateStr) {
         if (!dateStr) return '—';
         const parts = dateStr.split('-');

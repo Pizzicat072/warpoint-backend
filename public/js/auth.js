@@ -457,19 +457,15 @@
     async function checkToken() {
     if (!STATE.isAuthenticated) return;
     
-    const token = getToken();
-    if (!token) return;
-    
-    // Проверяем не истек ли токен
+    // Пробуем обновить токен если истек
     if (isTokenExpired()) {
-        logger.info('Токен истек, пробуем обновить...');
         const refreshed = await refreshToken();
         if (!refreshed) {
-            logger.warn('Не удалось обновить токен');
-            // НЕ ВЫХОДИМ СРАЗУ, даём шанс пользователю
-            showNotification('Сессия истекла. Сохраните данные и войдите снова.', 'warning');
+            // НЕ ВЫХОДИМ автоматически, только показываем предупреждение
+            logger.warn('Токен истек, требуется перелогин');
         }
     }
+}
     
     // Проверяем валидность токена на сервере
     try {

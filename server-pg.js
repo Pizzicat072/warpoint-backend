@@ -650,11 +650,24 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
-        const result = await query(`SELECT e.name, COUNT(ua.achievement_id) as count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id WHERE e.deleted_at IS NULL GROUP BY e.id, e.name`);
+        const result = await query(
+            `SELECT e.name, COUNT(ua.achievement_id) as count 
+             FROM employees e 
+             LEFT JOIN user_achievements ua ON ua.user_id = e.id 
+             WHERE e.deleted_at IS NULL 
+             GROUP BY e.id, e.name`
+        ).catch(err => {
+            logger.error('achievements-count query error:', err.message);
+            return { rows: [] };
+        });
+        
         const counts = {};
-        result.rows.forEach(r => counts[r.name] = parseInt(r.count));
+        result.rows.forEach(r => counts[r.name] = parseInt(r.count) || 0);
         res.json({ success: true, counts });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/employees/achievements-count error:', err.message);
+        res.json({ success: true, counts: {} }); // Возвращаем пустой объект вместо 500
+    }
 });
 
 app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
