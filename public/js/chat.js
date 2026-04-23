@@ -102,16 +102,28 @@ async function apiCall(endpoint, method = 'GET', body = null) {
 }
 
 function formatTimeAgo(timestamp) {
-    if (typeof window.formatTimeAgo === 'function' && window.formatTimeAgo !== formatTimeAgo) {
-        return window.formatTimeAgo(timestamp);
+    if (!timestamp) return '—';
+    
+    // Приводим к числу
+    var timeValue = timestamp;
+    if (typeof timeValue === 'string') {
+        timeValue = parseInt(timeValue);
     }
-    var diff = Date.now() - timestamp;
+    
+    if (isNaN(timeValue) || timeValue <= 0) {
+        return '—';
+    }
+    
+    var diff = Date.now() - timeValue;
     if (diff < 60000) return 'только что';
     if (diff < 3600000) return Math.floor(diff / 60000) + ' мин назад';
     if (diff < 86400000) return Math.floor(diff / 3600000) + ' ч назад';
-    return new Date(timestamp).toLocaleDateString('ru-RU');
+    
+    var date = new Date(timeValue);
+    if (isNaN(date.getTime())) return '—';
+    
+    return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
 }
-
 function openProfile(employeeName) {
     if (typeof window.openProfile === 'function' && window.openProfile !== openProfile) {
         window.openProfile(employeeName);
@@ -549,7 +561,10 @@ function renderChatMessages() {
     for (let i = 0; i < unique.length; i++) {
         const msg = unique[i];
         
-        const msgDate = new Date(msg.time).toDateString();
+        let msgTimeForDate = msg.time;
+        if (typeof msgTimeForDate === 'string') msgTimeForDate = parseInt(msgTimeForDate);
+        if (isNaN(msgTimeForDate) || msgTimeForDate <= 0) msgTimeForDate = Date.now();
+        const msgDate = new Date(msgTimeForDate).toDateString();
         if (msgDate !== lastDate) {
             lastDate = msgDate;
             html += `<div class="date-separator">${formatDateHeader(msg.time)}</div>`;
@@ -573,8 +588,9 @@ function renderChatMessages() {
         
         const isOwn = (msg.sender === window.app?.currentUser);
         
-        let timeValue = msg.time;
+               let timeValue = msg.time;
         if (typeof timeValue === 'string') timeValue = parseInt(timeValue);
+        if (isNaN(timeValue) || timeValue <= 0) timeValue = Date.now();
         const date = new Date(timeValue);
         const time = isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         
@@ -620,16 +636,31 @@ function renderChatMessages() {
 }
 
 function formatDateHeader(timestamp) {
-    const date = new Date(timestamp);
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    if (!timestamp) return '—';
     
+    // Приводим к числу
+    var timeValue = timestamp;
+    if (typeof timeValue === 'string') {
+        timeValue = parseInt(timeValue);
+    }
+    
+    if (isNaN(timeValue) || timeValue <= 0) {
+        return '—';
+    }
+    
+    var date = new Date(timeValue);
+    if (isNaN(date.getTime())) return '—';
+    
+    var today = new Date();
+    var yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
     if (date.toDateString() === today.toDateString()) {
         return 'Сегодня';
     } else if (date.toDateString() === yesterday.toDateString()) {
         return 'Вчера';
     }
+    
     return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
@@ -652,8 +683,9 @@ function renderExchangeRequestMessage(msg) {
     if (!data || typeof data !== 'object') return '';
     if (!data.from_date || !data.to_date) return '';
     
-    let timeValue = msg.time;
+       let timeValue = msg.time;
     if (typeof timeValue === 'string') timeValue = parseInt(timeValue);
+    if (isNaN(timeValue) || timeValue <= 0) timeValue = Date.now();
     const date = new Date(timeValue);
     const time = isNaN(date.getTime()) ? '--:--' : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
@@ -697,7 +729,10 @@ function renderAnnouncement(announcement) {
     }
     
     const styleClass = 'announcement-' + announcement.style;
-    const time = new Date(announcement.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let aTime = announcement.time;
+    if (typeof aTime === 'string') aTime = parseInt(aTime);
+    if (isNaN(aTime) || aTime <= 0) aTime = Date.now();
+    const time = new Date(aTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
     const displayText = announcement.text.length > 1000 
         ? escapeHtml(announcement.text.substring(0, 1000)) + '...' 
