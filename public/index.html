@@ -46,6 +46,14 @@
         @keyframes ringRotateReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
         @keyframes logoFloat { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
         @keyframes starFloat { 0% { transform: translateY(100vh) translateX(0); opacity: 0; } 10% { opacity: 0.8; } 90% { opacity: 0.8; } 100% { transform: translateY(-100vh) translateX(60px); opacity: 0; } }
+        @keyframes particleFall { 0% { transform: translateY(-10vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(110vh) rotate(360deg); opacity: 0; } }
+
+        /* ===== ЧАСТИЦЫ СВЕРХУ ВНИЗ (включаются директором) ===== */
+        .admin-particles-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9997; opacity: 0; transition: opacity 0.5s ease; }
+        body.admin-particles-active .admin-particles-layer { opacity: 1; }
+        .admin-particle { position: absolute; top: -20px; border-radius: 50%; background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 0 15px #fbbf24, 0 0 30px #f59e0b; animation: particleFall linear infinite; }
+        .admin-particle:nth-child(even) { background: linear-gradient(135deg, #a78bfa, #8b5cf6); box-shadow: 0 0 15px #a78bfa, 0 0 30px #8b5cf6; }
+        .admin-particle:nth-child(3n) { background: linear-gradient(135deg, #ec4899, #f472b6); box-shadow: 0 0 15px #ec4899, 0 0 30px #f472b6; }
 
         /* ===== ПРЕЛОАДЕР ===== */
         #globalLoader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 40% 50%, #0a0f1e 0%, #03050a 100%); z-index: 99999; display: flex; align-items: center; justify-content: center; transition: opacity 0.6s ease, visibility 0.6s; overflow: hidden; }
@@ -59,10 +67,10 @@
         .stars-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -3; pointer-events: none; }
         .star { position: absolute; background: white; border-radius: 50%; animation: starFloat linear infinite; }
         
-        .loader-content { position: relative; z-index: 10; text-align: center; max-width: 450px; width: 90%; padding: 50px 40px; background: rgba(10,15,30,0.3); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-radius: 48px; border: 1px solid rgba(99,102,241,0.25); box-shadow: 0 25px 50px rgba(0,0,0,0.4); }
+        .loader-content { position: relative; z-index: 10; text-align: center; max-width: 450px; width: 90%; padding: 50px 40px; background: transparent; border-radius: 48px; }
         
-        .loader-logo { margin-bottom: 35px; position: relative; display: flex; justify-content: center; }
-        .loader-logo-wrapper { position: relative; width: 100px; height: 100px; animation: logoFloat 3s ease-in-out infinite; }
+        .loader-logo { margin-bottom: 35px; display: flex; justify-content: center; align-items: center; }
+        .loader-logo-wrapper { position: relative; width: 100px; height: 100px; margin: 0 auto; animation: logoFloat 3s ease-in-out infinite; }
         .loader-logo-ring { position: absolute; top: -8px; left: -8px; right: -8px; bottom: -8px; border-radius: 30px; border: 2px solid transparent; background: linear-gradient(135deg,#6366f1,#ec4899,#8b5cf6,#6366f1) border-box; -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: ringRotate 4s linear infinite; }
         .loader-logo-ring-2 { position: absolute; top: -16px; left: -16px; right: -16px; bottom: -16px; border-radius: 38px; border: 1px solid rgba(139,92,246,0.3); animation: ringRotateReverse 6s linear infinite; }
         .loader-logo img { width: 100%; height: 100%; object-fit: cover; border-radius: 24px; box-shadow: 0 0 30px rgba(99,102,241,0.5); background: transparent; }
@@ -156,6 +164,9 @@
     </style>
 </head>
 <body>
+    <!-- СЛОЙ АДМИН-ЧАСТИЦ (включается директором) -->
+    <div class="admin-particles-layer" id="adminParticlesLayer"></div>
+
     <div id="globalLoader">
         <div class="loader-orb-bg">
             <div class="loader-orb orb-1"></div>
@@ -230,6 +241,29 @@
             let loadedModules=0,tipIndex=0,allModulesLoaded=false;
             const loaderProgressFill=document.getElementById('loaderProgressFill'),loaderPercent=document.getElementById('loaderPercent'),loaderStatusText=document.getElementById('loaderStatusText'),loaderTipSpan=document.querySelector('#loaderTip span'),loaderTipIcon=document.querySelector('#loaderTip i');
             
+            // Создание админ-частиц (включается при входе директора)
+            window.toggleAdminParticles = function(enable) {
+                document.body.classList.toggle('admin-particles-active', enable);
+                if (enable && !window.adminParticlesCreated) {
+                    const layer = document.getElementById('adminParticlesLayer');
+                    if (layer) {
+                        layer.innerHTML = '';
+                        for (let i = 0; i < 50; i++) {
+                            const p = document.createElement('div');
+                            p.className = 'admin-particle';
+                            const size = Math.random() * 8 + 4;
+                            p.style.width = size + 'px';
+                            p.style.height = size + 'px';
+                            p.style.left = Math.random() * 100 + '%';
+                            p.style.animationDuration = (Math.random() * 5 + 4) + 's';
+                            p.style.animationDelay = (Math.random() * 3) + 's';
+                            layer.appendChild(p);
+                        }
+                        window.adminParticlesCreated = true;
+                    }
+                }
+            };
+            
             function createStars(){for(let l=1;l<=3;l++){let c=document.createElement('div');c.className='stars-layer';c.id='starsLayer'+l;document.body.appendChild(c);let n=l===1?60:l===2?80:100;for(let i=0;i<n;i++){let s=document.createElement('div');s.className='star';let size=l===1?Math.random()*2+1.5:l===2?Math.random()*1.5+1:Math.random()*1+0.5;s.style.width=size+'px';s.style.height=size+'px';s.style.left=Math.random()*100+'%';s.style.animationDuration=(l===1?Math.random()*8+10:l===2?Math.random()*10+12:Math.random()*12+15)+'s';s.style.animationDelay=Math.random()*10+'s';s.style.opacity=l===1?0.7:l===2?0.5:0.3;c.appendChild(s);}}}
             function rotateTip(){tipIndex=(tipIndex+1)%loaderTips.length;let t=loaderTips[tipIndex];if(loaderTipIcon)loaderTipIcon.className='fas fa-'+(t.icon==='👑'?'crown':t.icon==='🎮'?'gamepad':t.icon==='📊'?'chart-line':t.icon==='💎'?'gem':'rocket');if(loaderTipSpan)loaderTipSpan.textContent=t.text;}
             window.updateLoaderProgress=function(m){loadedModules++;let p=Math.min(100,Math.round((loadedModules/requiredModules.length)*100));if(loaderProgressFill)loaderProgressFill.style.width=p+'%';if(loaderPercent)loaderPercent.textContent=p+'%';if(loaderStatusText){if(p<30)loaderStatusText.textContent='⚡ Инициализация ядра...';else if(p<60)loaderStatusText.textContent='📦 Загрузка модулей...';else if(p<90)loaderStatusText.textContent='🔧 Настройка...';else loaderStatusText.textContent='🚀 Запуск...';}if(loadedModules>=requiredModules.length){allModulesLoaded=true;setTimeout(hideGlobalLoader,500);}};
@@ -258,7 +292,10 @@
             
             function checkSession(){
                 let t=localStorage.getItem('warpoint_token')||localStorage.getItem('token');
-                if(t){let u=localStorage.getItem('warpoint_user')||localStorage.getItem('currentUser');if(u){try{let user=JSON.parse(u);window.app.currentUser=user.name||user;window.app.currentUserRole=user.role||'operator';hideLoginModal();document.getElementById('headerName').textContent=window.app.currentUser;if(typeof window.renderMainMenu==='function')window.renderMainMenu();return true;}catch(e){}}}showLoginModal();return false;
+                if(t){let u=localStorage.getItem('warpoint_user')||localStorage.getItem('currentUser');if(u){try{let user=JSON.parse(u);window.app.currentUser=user.name||user;window.app.currentUserRole=user.role||'operator';
+                    // Включаем админ-частицы если директор
+                    if (user.role === 'director') window.toggleAdminParticles(true);
+                    hideLoginModal();document.getElementById('headerName').textContent=window.app.currentUser;if(typeof window.renderMainMenu==='function')window.renderMainMenu();return true;}catch(e){}}}showLoginModal();return false;
             }
             
             document.getElementById('loginForm')?.addEventListener('submit',async e=>{
@@ -267,7 +304,10 @@
                 if(!u||!p){if(err)err.textContent='Введите логин и пароль';return;}
                 if(btn){btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> Вход...';btn.disabled=true;}
                 try{let r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});let d=await r.json();
-                    if(d.success){if(rm)localStorage.setItem('savedLogin',u);else localStorage.removeItem('savedLogin');localStorage.setItem('warpoint_token',d.token);localStorage.setItem('token',d.token);localStorage.setItem('warpoint_user',JSON.stringify(d.user));localStorage.setItem('currentUser',JSON.stringify(d.user));window.app.currentUser=d.user.name;window.app.currentUserRole=d.user.role;hideLoginModal();document.getElementById('headerName').textContent=d.user.name;if(typeof window.renderMainMenu==='function')window.renderMainMenu();}
+                    if(d.success){if(rm)localStorage.setItem('savedLogin',u);else localStorage.removeItem('savedLogin');localStorage.setItem('warpoint_token',d.token);localStorage.setItem('token',d.token);localStorage.setItem('warpoint_user',JSON.stringify(d.user));localStorage.setItem('currentUser',JSON.stringify(d.user));window.app.currentUser=d.user.name;window.app.currentUserRole=d.user.role;
+                    // Включаем админ-частицы если директор
+                    if (d.user.role === 'director') window.toggleAdminParticles(true);
+                    hideLoginModal();document.getElementById('headerName').textContent=d.user.name;if(typeof window.renderMainMenu==='function')window.renderMainMenu();}
                     else{if(err)err.textContent=d.error||'Ошибка входа';if(btn){btn.innerHTML='<span>Войти</span><i class="fas fa-arrow-right"></i>';btn.disabled=false;}}
                 }catch(x){if(err)err.textContent='Ошибка соединения';if(btn){btn.innerHTML='<span>Войти</span><i class="fas fa-arrow-right"></i>';btn.disabled=false;}}
             });
