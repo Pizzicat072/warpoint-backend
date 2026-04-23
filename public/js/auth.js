@@ -1,6 +1,6 @@
 // ============================================
-// WARPOINT HUB — AUTHENTICATION MODULE v5.1
-// ULTRA MEGA EDITION — ПОЛНОСТЬЮ ИСПРАВЛЕНО
+// WARPOINT HUB — AUTHENTICATION MODULE v5.2
+// ПОЛНОСТЬЮ ИСПРАВЛЕНО — ВСЕ ASYNC/AWAIT ОШИБКИ
 // ============================================
 
 (function() {
@@ -17,7 +17,7 @@
         TOKEN_EXPIRY_KEY: 'warpoint_token_expiry',
         TOKEN_EXPIRY_DAYS: 7,
         HEARTBEAT_INTERVAL_MS: 60000,
-        TOKEN_CHECK_INTERVAL_MS: 300000,
+        TOKEN_CHECK_INTERVAL_MS: 900000, // 15 минут
         ACTIVITY_DEBOUNCE_MS: 5000,
         MAX_LOGIN_ATTEMPTS: 5,
         LOGIN_TIMEOUT_MS: 30000,
@@ -225,7 +225,6 @@
         
         throw lastError;
     }
-
     // ============================================
     // ОБНОВЛЕНИЕ ТОКЕНА
     // ============================================
@@ -233,8 +232,8 @@
     async function refreshToken() {
         if (STATE.isRefreshing) return false;
         
-        const refreshToken = getRefreshToken();
-        if (!refreshToken) return false;
+        const refreshTokenValue = getRefreshToken();
+        if (!refreshTokenValue) return false;
         
         STATE.isRefreshing = true;
         
@@ -242,7 +241,7 @@
             const response = await fetch('/api/auth/refresh', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ refreshToken })
+                body: JSON.stringify({ refreshToken: refreshTokenValue })
             });
             
             const data = await response.json();
@@ -254,7 +253,8 @@
             }
             
             return false;
-        } catch {
+        } catch (err) {
+            logger.error('Refresh token error:', err.message);
             return false;
         } finally {
             STATE.isRefreshing = false;
@@ -324,7 +324,9 @@
             startHeartbeat();
             startTokenChecker();
             initActivityTracker();
-            initPusher();
+            
+            // ✅ ИСПРАВЛЕНО: initPusher вызывается асинхронно, но не ждём
+            initPusher().catch(e => logger.warn('Pusher init delayed:', e.message));
             
             hideLoginModal();
             updateHeaderUser(response.user);
@@ -406,7 +408,9 @@
     function startHeartbeat() {
         stopHeartbeat();
         sendHeartbeat();
-        STATE.heartbeatTimer = setInterval(sendHeartbeat, CONFIG.HEARTBEAT_INTERVAL_MS);
+        STATE.heartbeatTimer = setInterval(() => {
+            sendHeartbeat().catch(e => logger.warn('Heartbeat failed:', e.message));
+        }, CONFIG.HEARTBEAT_INTERVAL_MS);
     }
 
     function stopHeartbeat() {
@@ -442,10 +446,11 @@
     // ============================================
     
     function startTokenChecker() {
-    stopTokenChecker();
-    // Проверяем раз в 30 минут вместо 5
-    STATE.tokenCheckTimer = setInterval(checkToken, 30 * 60 * 1000);
-}
+        stopTokenChecker();
+        STATE.tokenCheckTimer = setInterval(() => {
+            checkToken().catch(e => logger.warn('Token check failed:', e.message));
+        }, CONFIG.TOKEN_CHECK_INTERVAL_MS);
+    }
 
     function stopTokenChecker() {
         if (STATE.tokenCheckTimer) {
@@ -455,46 +460,50 @@
     }
 
     async function checkToken() {
-    if (!STATE.isAuthenticated) return;
-    
-    const token = getToken();
-    if (!token) return;
-    
-    // Проверяем не истек ли токен
-    if (isTokenExpired()) {
-        logger.info('Токен истек, пробуем обновить...');
-        const refreshed = await refreshToken();
-        if (!refreshed) {
-            logger.warn('Не удалось обновить токен');
-            // НЕ ВЫХОДИМ СРАЗУ, даём шанс пользователю
-            showNotification('Сессия истекла. Сохраните данные и войдите снова.', 'warning');
-        }
-    }
-    
-    // Проверяем валидность токена на сервере
-    try {
-        const response = await fetch('/api/auth/me', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!response.ok) {
+        if (!STATE.isAuthenticated) return;
+        
+        const token = getToken();
+        if (!token) return;
+        
+        // Проверяем не истек ли токен
+        if (isTokenExpired()) {
+            logger.info('Токен истек, пробуем обновить...');
             const refreshed = await refreshToken();
             if (!refreshed) {
-                await logout({ silent: true });
+                logger.warn('Не удалось обновить токен');
                 showNotification('Сессия истекла. Войдите снова.', 'warning');
+                // НЕ ВЫХОДИМ АВТОМАТИЧЕСКИ
             }
         }
-    } catch (e) {
-        // Сеть недоступна - не разлогиниваем
-        logger.warn('Сеть недоступна при проверке токена');
+        
+        // Проверяем валидность токена на сервере
+        try {
+            const response = await fetch('/api/auth/me', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                const refreshed = await refreshToken();
+                if (!refreshed) {
+                    await logout({ silent: true });
+                    showNotification('Сессия истекла. Войдите снова.', 'warning');
+                }
+            }
+        } catch (e) {
+            // Сеть недоступна - не разлогиниваем
+            logger.warn('Сеть недоступна при проверке токена');
+        }
     }
-}
+
     // ============================================
     // PUSHER
     // ============================================
     
-    function initPusher() {
+    async function initPusher() {
         if (!STATE.isAuthenticated || STATE.pusher) return;
-        if (typeof Pusher === 'undefined') return;
+        if (typeof Pusher === 'undefined') {
+            logger.warn('Pusher не загружен');
+            return;
+        }
         
         const token = getToken();
         if (!token) return;
@@ -511,19 +520,26 @@
                 STATE.pusherConnected = true;
                 STATE.pusherReconnectAttempts = 0;
                 setSyncStatus('online');
+                logger.info('🟢 Pusher подключён');
             });
             
             STATE.pusher.connection.bind('disconnected', () => {
                 STATE.pusherConnected = false;
                 setSyncStatus('offline');
                 schedulePusherReconnect();
+                logger.warn('🔴 Pusher отключён');
             });
             
-            STATE.pusher.connection.bind('connecting', () => setSyncStatus('connecting'));
+            STATE.pusher.connection.bind('connecting', () => {
+                setSyncStatus('connecting');
+            });
             
             STATE.pusher.connection.bind('error', (err) => {
                 STATE.pusherConnected = false;
-                if (err?.error?.data?.code === 401) refreshToken().then(() => reconnectPusher());
+                logger.error('Pusher error:', err);
+                if (err?.error?.data?.code === 401) {
+                    refreshToken().then(() => reconnectPusher());
+                }
             });
             
             STATE.channel = STATE.pusher.subscribe(CONFIG.PUSHER_CHANNEL);
@@ -553,7 +569,7 @@
 
     function reconnectPusher() {
         stopPusher();
-        initPusher();
+        initPusher().catch(e => logger.warn('Pusher reconnect failed:', e.message));
     }
 
     function schedulePusherReconnect() {
@@ -561,7 +577,7 @@
         STATE.pusherReconnectAttempts++;
         if (STATE.pusherReconnectAttempts <= STATE.maxPusherReconnectAttempts) {
             const delay = Math.min(30000, 1000 * Math.pow(2, STATE.pusherReconnectAttempts));
-            STATE.pusherReconnectTimer = setTimeout(reconnectPusher, delay);
+            STATE.pusherReconnectTimer = setTimeout(() => reconnectPusher(), delay);
         }
     }
 
@@ -575,7 +591,6 @@
             icon.style.color = status === 'online' ? '#10b981' : status === 'offline' ? '#ef4444' : '#f59e0b';
         }
     }
-
     // ============================================
     // ТРЕКЕР АКТИВНОСТИ
     // ============================================
@@ -603,7 +618,10 @@
         });
         
         const visibilityHandler = () => {
-            if (!document.hidden) { updateActivity(); sendHeartbeat(); }
+            if (!document.hidden) { 
+                updateActivity(); 
+                sendHeartbeat().catch(e => {});
+            }
         };
         document.addEventListener('visibilitychange', visibilityHandler);
         STATE.activityHandlers.push({ event: 'visibilitychange', handler: visibilityHandler });
@@ -663,40 +681,40 @@
     // ============================================
     
     function initAuth() {
-    if (STATE.isInitialized) return;
-    
-    logger.info('Initializing auth module v5.1');
-    
-    const token = getToken();
-    const user = getStoredUser();
-    
-    if (token && user) {
-        STATE.isAuthenticated = true;
-        window.app = window.app || {};
-        window.app.currentUser = user.name;
-        window.app.currentUserRole = user.role;
-        hideLoginModal();
-        updateHeaderUser(user);
-        startHeartbeat();
-        startTokenChecker();
-        initActivityTracker();
+        if (STATE.isInitialized) return;
         
-        // ✅ ПРАВИЛЬНО: делаем функцию async
-        setTimeout(async function() {
-    await initPusher();
-}, 1000);
+        logger.info('Initializing auth module v5.2');
         
-        logger.info(`Session restored: ${user.name}`);
-    } else {
-        showLoginModal();
+        const token = getToken();
+        const user = getStoredUser();
+        
+        if (token && user) {
+            STATE.isAuthenticated = true;
+            window.app = window.app || {};
+            window.app.currentUser = user.name;
+            window.app.currentUserRole = user.role;
+            hideLoginModal();
+            updateHeaderUser(user);
+            startHeartbeat();
+            startTokenChecker();
+            initActivityTracker();
+            
+            // ✅ ИСПРАВЛЕНО: добавлен async
+            setTimeout(async function() {
+                await initPusher();
+            }, 1000);
+            
+            logger.info(`Session restored: ${user.name}`);
+        } else {
+            showLoginModal();
+        }
+        
+        setupLoginForm();
+        setupNetworkListeners();
+        
+        STATE.isInitialized = true;
+        emitEvent('initialized');
     }
-    
-    setupLoginForm();
-    setupNetworkListeners();
-    
-    STATE.isInitialized = true;
-    emitEvent('initialized');
-}
 
     function setupLoginForm() {
         const form = document.getElementById('loginForm');
@@ -720,10 +738,36 @@
             try {
                 const result = await login(username, password, { rememberMe });
                 if (!result.success && btn) { btn.innerHTML = origText; btn.disabled = false; }
-            } catch {
+            } catch (err) {
+                logger.error('Login form error:', err);
                 if (btn) { btn.innerHTML = origText; btn.disabled = false; }
             }
         };
+        
+        // Обработчик показа/скрытия пароля
+        const toggleBtn = document.getElementById('togglePassword');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', function() {
+                const input = document.getElementById('loginPassword');
+                if (input) {
+                    input.type = input.type === 'password' ? 'text' : 'password';
+                    this.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+                }
+            });
+        }
+        
+        // Предупреждение о Caps Lock
+        const passwordInput = document.getElementById('loginPassword');
+        if (passwordInput) {
+            passwordInput.addEventListener('keyup', function(e) {
+                const warning = document.getElementById('capslockWarning');
+                if (e.getModifierState && e.getModifierState('CapsLock')) {
+                    warning?.classList.add('show');
+                } else {
+                    warning?.classList.remove('show');
+                }
+            });
+        }
     }
 
     function setupNetworkListeners() {
@@ -770,9 +814,8 @@
             showLoginModal();
         }
     };
-
     // ============================================
-    // ЭКСПОРТ
+    // ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ
     // ============================================
     
     window.auth = AuthAPI;
@@ -785,11 +828,15 @@
     window.hideLoginModal = hideLoginModal;
     window.updateHeaderUser = updateHeaderUser;
 
+    // ============================================
+    // АВТОМАТИЧЕСКИЙ ЗАПУСК
+    // ============================================
+    
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', initAuth);
     } else {
         setTimeout(initAuth, 100);
     }
 
-    console.log('✅ auth.js v5.1 ULTRA MEGA EDITION загружен');
+    console.log('✅ auth.js v5.2 загружен — все async/await исправлены');
 })();
