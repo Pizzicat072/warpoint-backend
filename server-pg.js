@@ -224,7 +224,9 @@ app.use(helmet({
         directives: {
             defaultSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
+            styleSrcAttr: ["'unsafe-inline'"],
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
+            scriptSrcAttr: ["'unsafe-inline'"],  // ← ДОБАВИТЬ ЭТУ СТРОКУ
             imgSrc: ["'self'", "data:", "https:"],
             fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
             connectSrc: ["'self'", "https://*.pusher.com", "wss://*.pusher.com", "https://api.pusherapp.com", "https://js.pusher.com", "https://cdn.jsdelivr.net"],
@@ -1471,6 +1473,18 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
+    try {
+        const user = await query("SELECT bonus_streak, last_bonus_claimed_at FROM employees WHERE id = $1", [req.user.id]);
+        if (user.rows.length === 0) return res.status(404).json({ success: false });
+        const streak = user.rows[0].bonus_streak || 1;
+        const lastClaim = user.rows[0].last_bonus_claimed_at ? new Date(user.rows[0].last_bonus_claimed_at).toISOString().split('T')[0] : null;
+        const today = getTobolskDate();
+        const hasClaimedToday = lastClaim === today;
+        const nextBonus = Math.min(streak * 5, 50);
+        res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: nextBonus });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+});
 
 app.post('/api/auth/refresh', async (req, res) => {
     try {
@@ -1549,20 +1563,15 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
              LEFT JOIN user_achievements ua ON ua.user_id = e.id 
              WHERE e.deleted_at IS NULL 
              GROUP BY e.id, e.name`
-        ).catch((err) => {
-            logger.error('achievements-count query error:', err.message);
-            return { rows: [] };
-        });
+        ).catch(() => ({ rows: [] }));
         
         const counts = {};
         result.rows.forEach(r => counts[r.name] = parseInt(r.count) || 0);
         res.json({ success: true, counts });
     } catch (err) {
-        logger.error('/employees/achievements-count error:', err.message);
         res.json({ success: true, counts: {} });
     }
 });
-
 app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { name, password, role, birthday, phone } = req.body;
