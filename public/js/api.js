@@ -1,5 +1,5 @@
-// public/js/api.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.1
-// Добавлены все уведомления
+// public/js/api.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.2
+// Исправлена загрузка сотрудников
 
 // ============================================
 // ЗАЩИТА ОТ БЕСКОНЕЧНЫХ ЗАПРОСОВ
@@ -146,7 +146,7 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
                     });
                 }
                 
-                if (endpoint === '/data' || endpoint.startsWith('/employees') || endpoint === '/tasks' || endpoint === '/schedule') {
+                if (endpoint === '/employees' || endpoint === '/tasks' || endpoint === '/schedule') {
                     saveToOfflineCache(endpoint, data);
                 }
             }
@@ -190,7 +190,6 @@ async function originalApiCall(endpoint, method = 'GET', body = null) {
     pendingRequests.set(requestKey, requestPromise);
     return requestPromise;
 }
-
 // ============================================
 // ОФЛАЙН-КЭШ
 // ============================================
@@ -310,18 +309,50 @@ let isLoadingTasks = false;
 let isLoadingFines = false;
 let isLoadingSchedule = false;
 
+// 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: loadEmployees
 async function loadEmployees() {
-    if (isLoadingEmployees) return;
+    if (isLoadingEmployees) {
+        console.log('⏳ Сотрудники уже загружаются');
+        return;
+    }
     isLoadingEmployees = true;
+    
     try {
         const data = await apiCall('/employees');
-        if (data && data.success) {
+        
+        if (data && data.success && data.employees) {
             window.app = window.app || {};
+            
+            // 🔥 employees — массив имён
             window.app.employees = data.employees.map(emp => emp.name);
             
+            // 🔥 profiles — объект с полными данными
             window.app.profiles = {};
             data.employees.forEach(emp => {
-                window.app.profiles[emp.name] = emp;
+                window.app.profiles[emp.name] = {
+                    id: emp.id,
+                    name: emp.name,
+                    avatar: emp.avatar || '👤',
+                    avatar_url: emp.avatar_url || null,
+                    status: emp.status || '💼 Работаю',
+                    active_status: emp.active_status || null,
+                    coins: emp.coins || 100,
+                    rating: emp.rating || 0,
+                    role: emp.role || 'operator',
+                    hours: emp.hours || 0,
+                    birthday: emp.birthday || null,
+                    phone: emp.phone || null,
+                    last_active: emp.last_active || null,
+                    dashboard_style: emp.dashboard_style || 'standart',
+                    bought_styles: emp.bought_styles || '["standart"]',
+                    can_edit_vp: emp.can_edit_vp || false,
+                    bonus_streak: emp.bonus_streak || 1,
+                    total_shifts: emp.total_shifts || 0,
+                    total_tasks_completed: emp.total_tasks_completed || 0,
+                    total_gifts_sent: emp.total_gifts_sent || 0,
+                    total_gifts_received: emp.total_gifts_received || 0,
+                    is_active: emp.is_active !== false
+                };
             });
             
             console.log(`👥 Загружено ${window.app.employees.length} сотрудников`);
@@ -336,28 +367,38 @@ async function loadEmployees() {
             if (typeof updateDashboardStats === 'function') {
                 updateDashboardStats();
             }
-        }
-    } catch (e) {
-        console.error('Ошибка загрузки сотрудников:', e);
-    } finally {
-        isLoadingEmployees = false;
-    }
-}
+            if (typeof refreshAllBalanceDisplays === 'function') {
+                refreshAllBalanceDisplays();
+            }
             
-            console.log(`👥 Загружено ${window.app.employees.length} сотрудников`);
             showSystemNotification(`👥 Загружено ${window.app.employees.length} сотрудников`, 'info');
             
-            // 🔥 Проверяем, что директор загружен
-            if (!window.app.employees.includes('Денис')) {
-                console.warn('⚠️ Директор не найден в списке сотрудников!');
-            } else {
-                console.log('✅ Директор загружен:', window.app.profiles['Денис']);
-            }
         } else {
-            console.error('❌ Ошибка загрузки сотрудников:', data);
+            console.error('❌ Ошибка загрузки сотрудников: неверный формат данных');
+            // Пробуем загрузить из офлайн-кэша
+            const offlineData = loadFromOfflineCache('/employees');
+            if (offlineData && offlineData.employees) {
+                window.app = window.app || {};
+                window.app.employees = offlineData.employees.map(emp => emp.name);
+                window.app.profiles = {};
+                offlineData.employees.forEach(emp => {
+                    window.app.profiles[emp.name] = emp;
+                });
+                showSystemNotification('📡 Загружены сохранённые данные', 'info');
+            }
         }
     } catch (e) {
         console.error('Ошибка загрузки сотрудников:', e);
+        const offlineData = loadFromOfflineCache('/employees');
+        if (offlineData && offlineData.employees) {
+            window.app = window.app || {};
+            window.app.employees = offlineData.employees.map(emp => emp.name);
+            window.app.profiles = {};
+            offlineData.employees.forEach(emp => {
+                window.app.profiles[emp.name] = emp;
+            });
+            showSystemNotification('📡 Загружены сохранённые данные', 'info');
+        }
     } finally {
         isLoadingEmployees = false;
     }
@@ -368,7 +409,7 @@ async function loadTasks() {
     isLoadingTasks = true;
     try {
         const data = await apiCall('/tasks');
-        if (data && !data.error) {
+        if (data && Array.isArray(data)) {
             window.app = window.app || {};
             window.app.tasks = data;
             saveToOfflineCache('/tasks', data);
@@ -385,7 +426,7 @@ async function loadFines() {
     isLoadingFines = true;
     try {
         const data = await apiCall('/fines');
-        if (data && !data.error) {
+        if (data && Array.isArray(data)) {
             window.app = window.app || {};
             window.app.fines = data;
         }
@@ -423,7 +464,6 @@ async function loadSchedule() {
         isLoadingSchedule = false;
     }
 }
-
 // ============================================
 // ОБНОВЛЕНИЕ ДАННЫХ
 // ============================================
@@ -432,7 +472,7 @@ async function updateEmployeeStatus(name, status) {
     const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { status });
     if (response && response.success) {
         if (window.app?.profiles?.[name]) window.app.profiles[name].status = status;
-        invalidateCache(['/employees', '/data']);
+        invalidateCache(['/employees']);
         return true;
     }
     return false;
@@ -445,7 +485,7 @@ async function updateEmployeeAvatar(name, avatar) {
             window.app.profiles[name].avatar = avatar;
             window.app.profiles[name].avatar_url = null;
         }
-        invalidateCache(['/employees', '/data']);
+        invalidateCache(['/employees']);
         clearOfflineCache();
         return true;
     }
@@ -463,11 +503,26 @@ async function updateEmployeeAvatarBase64(name, base64) {
         if (name === window.app?.currentUser && typeof window.updateHeaderAvatar === 'function') {
             window.updateHeaderAvatar(base64, null);
         }
-        invalidateCache(['/employees', '/data']);
+        invalidateCache(['/employees']);
         clearOfflineCache();
         return true;
     }
     return false;
+}
+
+// ============================================
+// ЗАГРУЗКА ВСЕХ ДАННЫХ
+// ============================================
+
+async function loadAllData() {
+    console.log('🔄 Загрузка всех данных...');
+    await Promise.all([
+        loadEmployees(),
+        loadTasks(),
+        loadFines(),
+        loadSchedule()
+    ]);
+    console.log('✅ Все данные загружены');
 }
 
 // ============================================
@@ -480,6 +535,7 @@ window.loadEmployees = loadEmployees;
 window.loadTasks = loadTasks;
 window.loadFines = loadFines;
 window.loadSchedule = loadSchedule;
+window.loadAllData = loadAllData;
 window.updateEmployeeStatus = updateEmployeeStatus;
 window.updateEmployeeAvatar = updateEmployeeAvatar;
 window.updateEmployeeAvatarBase64 = updateEmployeeAvatarBase64;
@@ -490,4 +546,4 @@ window.loadFromOfflineCache = loadFromOfflineCache;
 window.clearOfflineCache = clearOfflineCache;
 window.resetApiState = resetApiState;
 
-console.log('✅ api.js загружен (v2.1 — с уведомлениями)');
+console.log('✅ api.js загружен (v2.2 — исправлена загрузка сотрудников)');
