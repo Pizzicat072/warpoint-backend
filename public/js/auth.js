@@ -689,7 +689,7 @@
     const user = getStoredUser();
     
     if (token && user) {
-        // 🔥 НЕ вызываем logout, просто восстанавливаем сессию
+        // ✅ НЕ вызываем logout!
         STATE.isAuthenticated = true;
         window.app = window.app || {};
         window.app.currentUser = user.name;

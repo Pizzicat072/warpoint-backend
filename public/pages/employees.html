@@ -56,80 +56,86 @@
             <button class="emp-modal-close" id="closeCreateModalBtn">&times;</button>
         </div>
         
-        <!-- Тело модалки -->
-        <div class="emp-modal-body">
+        <!-- 🔥 ОБОРАЧИВАЕМ ВСЁ В FORM -->
+        <form id="createEmployeeForm" onsubmit="return false;" style="margin:0;padding:0;">
             
-            <!-- Имя -->
-            <div class="emp-form-group">
-                <label><i class="fas fa-user"></i> Имя сотрудника <span style="color: #ef4444;">*</span></label>
-                <input type="text" id="newEmpName" class="emp-form-input" placeholder="Введите имя" autocomplete="off" required maxlength="50">
-            </div>
-            
-            <!-- Пароль -->
-            <div class="emp-form-group">
-                <label><i class="fas fa-lock"></i> Пароль <span style="color: #ef4444;">*</span></label>
-                <input type="password" id="newEmpPassword" class="emp-form-input" placeholder="Минимум 3 символа" autocomplete="new-password" required minlength="3">
-                <div class="emp-form-hint">Пароль должен быть не менее 3 символов</div>
-            </div>
-            
-            <!-- Должность -->
-            <div class="emp-form-group">
-                <label><i class="fas fa-briefcase"></i> Должность</label>
-                <div class="emp-role-selector">
-                    <label class="emp-role-option active" data-role="operator">
-                        <input type="radio" name="roleSelect" value="operator" checked>
-                        <span class="emp-role-icon">👤</span>
-                        <span class="emp-role-info">
-                            <span class="emp-role-name">Оператор</span>
-                            <span class="emp-role-desc">Базовый доступ к системе</span>
-                        </span>
-                        <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
-                    </label>
-                    <label class="emp-role-option" data-role="admin">
-                        <input type="radio" name="roleSelect" value="admin">
-                        <span class="emp-role-icon">⚙️</span>
-                        <span class="emp-role-info">
-                            <span class="emp-role-name">Администратор</span>
-                            <span class="emp-role-desc">Управление мероприятиями (ВП)</span>
-                        </span>
-                        <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
-                    </label>
-                    <label class="emp-role-option" data-role="manager">
-                        <input type="radio" name="roleSelect" value="manager">
-                        <span class="emp-role-icon">📋</span>
-                        <span class="emp-role-info">
-                            <span class="emp-role-name">Управляющий</span>
-                            <span class="emp-role-desc">Расширенный доступ</span>
-                        </span>
-                        <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
-                    </label>
-                </div>
-                <input type="hidden" id="newEmpRole" value="operator">
-            </div>
-            
-            <!-- Дата рождения и телефон -->
-            <div class="emp-form-row-2">
+            <!-- Тело модалки -->
+            <div class="emp-modal-body">
+                
+                <!-- Имя -->
                 <div class="emp-form-group">
-                    <label><i class="fas fa-calendar"></i> Дата рождения</label>
-                    <input type="date" id="newEmpBirthday" class="emp-form-input" max="">
+                    <label><i class="fas fa-user"></i> Имя сотрудника <span style="color: #ef4444;">*</span></label>
+                    <input type="text" id="newEmpName" class="emp-form-input" placeholder="Введите имя" autocomplete="off" required maxlength="50">
                 </div>
+                
+                <!-- Пароль -->
                 <div class="emp-form-group">
-                    <label><i class="fas fa-phone"></i> Телефон</label>
-                    <input type="tel" id="newEmpPhone" class="emp-form-input" placeholder="+7 (___) ___-__-__">
+                    <label><i class="fas fa-lock"></i> Пароль <span style="color: #ef4444;">*</span></label>
+                    <input type="password" id="newEmpPassword" class="emp-form-input" placeholder="Минимум 3 символа" autocomplete="new-password" required minlength="3">
+                    <div class="emp-form-hint">Пароль должен быть не менее 3 символов</div>
                 </div>
+                
+                <!-- Должность -->
+                <div class="emp-form-group">
+                    <label><i class="fas fa-briefcase"></i> Должность</label>
+                    <div class="emp-role-selector">
+                        <label class="emp-role-option active" data-role="operator">
+                            <input type="radio" name="roleSelect" value="operator" checked>
+                            <span class="emp-role-icon">👤</span>
+                            <span class="emp-role-info">
+                                <span class="emp-role-name">Оператор</span>
+                                <span class="emp-role-desc">Базовый доступ к системе</span>
+                            </span>
+                            <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
+                        </label>
+                        <label class="emp-role-option" data-role="admin">
+                            <input type="radio" name="roleSelect" value="admin">
+                            <span class="emp-role-icon">⚙️</span>
+                            <span class="emp-role-info">
+                                <span class="emp-role-name">Администратор</span>
+                                <span class="emp-role-desc">Управление мероприятиями (ВП)</span>
+                            </span>
+                            <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
+                        </label>
+                        <label class="emp-role-option" data-role="manager">
+                            <input type="radio" name="roleSelect" value="manager">
+                            <span class="emp-role-icon">📋</span>
+                            <span class="emp-role-info">
+                                <span class="emp-role-name">Управляющий</span>
+                                <span class="emp-role-desc">Расширенный доступ</span>
+                            </span>
+                            <span class="emp-role-check"><i class="fas fa-check-circle"></i></span>
+                        </label>
+                    </div>
+                    <input type="hidden" id="newEmpRole" value="operator">
+                </div>
+                
+                <!-- Дата рождения и телефон -->
+                <div class="emp-form-row-2">
+                    <div class="emp-form-group">
+                        <label><i class="fas fa-calendar"></i> Дата рождения</label>
+                        <input type="date" id="newEmpBirthday" class="emp-form-input" max="">
+                    </div>
+                    <div class="emp-form-group">
+                        <label><i class="fas fa-phone"></i> Телефон</label>
+                        <input type="tel" id="newEmpPhone" class="emp-form-input" placeholder="+7 (___) ___-__-__">
+                    </div>
+                </div>
+                
             </div>
             
-        </div>
-        
-        <!-- Футер модалки -->
-        <div class="emp-modal-footer">
-            <button class="emp-btn-secondary" id="cancelCreateBtn">
-                <i class="fas fa-times"></i> Отмена
-            </button>
-            <button class="emp-btn-primary" id="saveCreateBtn">
-                <i class="fas fa-check"></i> Создать сотрудника
-            </button>
-        </div>
+            <!-- Футер модалки -->
+            <div class="emp-modal-footer">
+                <button type="button" class="emp-btn-secondary" id="cancelCreateBtn">
+                    <i class="fas fa-times"></i> Отмена
+                </button>
+                <button type="submit" class="emp-btn-primary" id="saveCreateBtn">
+                    <i class="fas fa-check"></i> Создать сотрудника
+                </button>
+            </div>
+            
+        </form>
+        <!-- 🔥 КОНЕЦ FORM -->
         
     </div>
 </div>
