@@ -1473,6 +1473,14 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+app.post('/api/heartbeat', authMiddleware, async (req, res) => {
+    try {
+        await query("UPDATE employees SET last_active = NOW() WHERE id = $1", [req.user.id]);
+        res.json({ success: true, timestamp: getTobolskDateTime() });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
     try {
         const user = await query("SELECT bonus_streak, last_bonus_claimed_at FROM employees WHERE id = $1", [req.user.id]);
