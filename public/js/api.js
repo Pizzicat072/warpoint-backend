@@ -317,53 +317,54 @@ async function loadEmployees() {
     }
     isLoadingEmployees = true;
     try {
-        const data = await apiCall('/data');
-        if (data && !data.error) {
+        const data = await apiCall('/employees');
+        if (data && data.success) {
             window.app = window.app || {};
-            window.app.employees = data.employees || [];
-            window.app.profiles = data.profiles || {};
-            window.app.schedule = data.schedule || {};
-            window.app.tasks = data.tasks || [];
-            window.app.fines = data.fines || [];
-            window.app.userAchievements = data.userAchievements || {};
+            // 🔥 ВАЖНО: employees — массив ИМЁН
+            window.app.employees = data.employees.map(emp => emp.name);
             
-            for (let emp of window.app.employees) {
-                if (!window.app.profiles[emp]) {
-                    window.app.profiles[emp] = { 
-                        avatar: '👤', name: emp, coins: 100, 
-                        rating: 0, role: 'operator', hours: 0,
-                        status: '💼 Работаю'
-                    };
-                }
-            }
+            // 🔥 ВАЖНО: profiles — объект с полными данными
+            window.app.profiles = {};
+            data.employees.forEach(emp => {
+                window.app.profiles[emp.name] = {
+                    id: emp.id,
+                    name: emp.name,
+                    avatar: emp.avatar,
+                    avatar_url: emp.avatar_url,
+                    status: emp.status,
+                    active_status: emp.active_status,
+                    coins: emp.coins,
+                    rating: emp.rating,
+                    role: emp.role,
+                    hours: emp.hours,
+                    birthday: emp.birthday,
+                    phone: emp.phone,
+                    dashboard_style: emp.dashboard_style,
+                    bought_styles: emp.bought_styles,
+                    can_edit_vp: emp.can_edit_vp,
+                    bonus_streak: emp.bonus_streak,
+                    total_shifts: emp.total_shifts,
+                    total_tasks_completed: emp.total_tasks_completed,
+                    total_gifts_sent: emp.total_gifts_sent,
+                    total_gifts_received: emp.total_gifts_received,
+                    is_active: emp.is_active
+                };
+            });
             
-            saveToOfflineCache('/data', data);
+            console.log(`👥 Загружено ${window.app.employees.length} сотрудников`);
             showSystemNotification(`👥 Загружено ${window.app.employees.length} сотрудников`, 'info');
-        } else {
-            const offlineData = loadFromOfflineCache('/data');
-            if (offlineData) {
-                window.app = window.app || {};
-                window.app.employees = offlineData.employees || [];
-                window.app.profiles = offlineData.profiles || {};
-                window.app.schedule = offlineData.schedule || {};
-                window.app.tasks = offlineData.tasks || [];
-                window.app.fines = offlineData.fines || [];
-                window.app.userAchievements = offlineData.userAchievements || {};
-                showSystemNotification('📡 Загружены сохранённые данные', 'info');
+            
+            // 🔥 Проверяем, что директор загружен
+            if (!window.app.employees.includes('Денис')) {
+                console.warn('⚠️ Директор не найден в списке сотрудников!');
+            } else {
+                console.log('✅ Директор загружен:', window.app.profiles['Денис']);
             }
+        } else {
+            console.error('❌ Ошибка загрузки сотрудников:', data);
         }
     } catch (e) {
         console.error('Ошибка загрузки сотрудников:', e);
-        const offlineData = loadFromOfflineCache('/data');
-        if (offlineData) {
-            window.app = window.app || {};
-            window.app.employees = offlineData.employees || [];
-            window.app.profiles = offlineData.profiles || {};
-            window.app.schedule = offlineData.schedule || {};
-            window.app.tasks = offlineData.tasks || [];
-            window.app.fines = offlineData.fines || [];
-            window.app.userAchievements = offlineData.userAchievements || {};
-        }
     } finally {
         isLoadingEmployees = false;
     }

@@ -632,12 +632,19 @@ app.post('/api/auth/refresh', async (req, res) => {
 
 app.get('/api/employees', authMiddleware, async (req, res) => {
     try {
-        const cached = cache.get('employees_list');
-        if (cached) return res.json({ success: true, employees: cached });
-        const result = await query(`SELECT id, name, avatar, avatar_url, status, active_status, coins, rating, role, hours, birthday, phone, last_active, dashboard_style, bought_styles, can_edit_vp, bonus_streak, total_shifts, total_tasks_completed, total_gifts_sent, total_gifts_received, is_active FROM employees WHERE deleted_at IS NULL ORDER BY rating DESC, name ASC`);
-        cache.set('employees_list', result.rows, 60);
+        const result = await query(
+            `SELECT id, name, avatar, avatar_url, status, active_status, coins, rating, role, hours, 
+                    birthday, phone, last_active, dashboard_style, bought_styles, can_edit_vp, 
+                    bonus_streak, total_shifts, total_tasks_completed, total_gifts_sent, 
+                    total_gifts_received, is_active 
+             FROM employees 
+             WHERE deleted_at IS NULL 
+             ORDER BY rating DESC, name ASC`
+        );
         res.json({ success: true, employees: result.rows });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) { 
+        res.status(500).json({ success: false, error: err.message }); 
+    }
 });
 
 app.get('/api/employees/:id', authMiddleware, async (req, res) => {
