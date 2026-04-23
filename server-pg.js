@@ -1590,16 +1590,22 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
-        await query(`CREATE TABLE IF NOT EXISTS user_achievements (
-            id SERIAL PRIMARY KEY,
-            user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-            achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
-            claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, achievement_id)
-        )`).catch(() => {});
+        const tableCheck = await query(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements')"
+        ).catch(() => ({ rows: [{ exists: false }] }));
+        
+        if (!tableCheck.rows[0].exists) {
+            await query(`CREATE TABLE IF NOT EXISTS user_achievements (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+                achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
+                claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, achievement_id)
+            )`).catch(() => {});
+        }
         
         const result = await query(
-            `SELECT e.name, COUNT(ua.achievement_id) as count 
+            `SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count 
              FROM employees e 
              LEFT JOIN user_achievements ua ON ua.user_id = e.id 
              WHERE e.deleted_at IS NULL 
@@ -1607,9 +1613,15 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
         ).catch(() => ({ rows: [] }));
         
         const counts = {};
-        result.rows.forEach(r => counts[r.name] = parseInt(r.count) || 0);
-        res.json({ success: true, counts });
+        if (result && result.rows) {
+            result.rows.forEach(function(r) {
+                counts[r.name] = parseInt(r.count) || 0;
+            });
+        }
+        
+        res.json({ success: true, counts: counts });
     } catch (err) {
+        console.error('achievements-count error:', err.message);
         res.json({ success: true, counts: {} });
     }
 });
