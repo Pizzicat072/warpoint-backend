@@ -1016,56 +1016,44 @@
             }
         }
 
-        // ===== ПРОВЕРКА СЕССИИ =====
-     function checkExistingSession() {
-    var token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
+              // ===== ПРОВЕРКА СЕССИИ =====
+        function checkExistingSession() {
+            var token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
 
-    if (token) {
-        var savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
-        if (savedUser) {
-            try {
-                var user = JSON.parse(savedUser);
-                window.app.currentUser = user.name || user;
-                window.app.currentUserRole = user.role || 'operator';
+            if (token) {
+                var savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
+                if (savedUser) {
+                    try {
+                        var user = JSON.parse(savedUser);
+                        window.app.currentUser = user.name || user;
+                        window.app.currentUserRole = user.role || 'operator';
 
-                var mainContainer = document.getElementById('mainContainer');
-                if (mainContainer) mainContainer.style.display = 'block';
+                        var mainContainer = document.getElementById('mainContainer');
+                        if (mainContainer) mainContainer.style.display = 'block';
 
-                document.getElementById('headerName').textContent = window.app.currentUser;
+                        document.getElementById('headerName').textContent = window.app.currentUser;
 
-                if (typeof window.renderMainMenu === 'function') {
-                    setTimeout(function() { window.renderMainMenu(); }, 100);
-                }
+                        if (typeof window.renderMainMenu === 'function') {
+                            setTimeout(function() { window.renderMainMenu(); }, 100);
+                        }
 
-                // ✅ Автозагрузка сотрудников при входе
-                setTimeout(function() {
-                    if (typeof window.loadEmployees === 'function') {
-                        console.log('👥 Автозагрузка сотрудников при старте...');
-                        window.loadEmployees().then(function() {
-                            console.log('✅ Сотрудники загружены при старте');
-                        }).catch(function(err) {
-                            console.error('Ошибка загрузки сотрудников:', err);
-                        });
+                        // ✅ Автозагрузка сотрудников при входе
+                        setTimeout(function() {
+                            if (typeof window.loadEmployees === 'function') {
+                                console.log('👥 Автозагрузка сотрудников при старте...');
+                                window.loadEmployees().then(function() {
+                                    console.log('✅ Сотрудники загружены при старте');
+                                }).catch(function(err) {
+                                    console.error('Ошибка загрузки сотрудников:', err);
+                                });
+                            }
+                        }, 500);
+
+                        return true;
+                    } catch (e) {
+                        console.error('Ошибка восстановления сессии:', e);
                     }
-                }, 500);
-
-                return true;
-            } catch (e) {
-                console.error('Ошибка восстановления сессии:', e);
-            }
-        }
-    }
-    return false;
-}
-
-            // Если нет токена — скрываем прелоадер и показываем модалку входа
-            var loader = document.getElementById('globalLoader');
-            if (loader) {
-                loader.style.display = 'none';
-            }
-            var loginModal = document.getElementById('loginModal');
-            if (loginModal) {
-                loginModal.style.display = 'flex';
+                }
             }
             return false;
         }
