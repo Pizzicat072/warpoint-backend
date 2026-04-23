@@ -680,18 +680,46 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
 app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { name, password, role, birthday, phone } = req.body;
-        if (!name || !password) return res.status(400).json({ success: false, error: 'Имя и пароль обязательны' });
-        if (password.length < 3) return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 3 символов' });
+        
+        logger.info(`Создание сотрудника: ${name}, роль: ${role}`);
+        
+        if (!name || !password) {
+            return res.status(400).json({ success: false, error: 'Имя и пароль обязательны' });
+        }
+        
+        if (password.length < 3) {
+            return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 3 символов' });
+        }
+        
+        // Проверяем существование
         const existing = await query("SELECT id FROM employees WHERE name = $1", [name]);
-        if (existing.rows.length > 0) return res.status(400).json({ success: false, error: 'Сотрудник уже существует' });
-        const result = await query(`INSERT INTO employees (name, role, birthday, phone, is_active) VALUES ($1, $2, $3, $4, TRUE) RETURNING *`, [name, role || 'operator', birthday || null, phone || null]);
+        if (existing.rows.length > 0) {
+            return res.status(400).json({ success: false, error: 'Сотрудник уже существует' });
+        }
+        
+        // Создаём сотрудника
+        const result = await query(
+            `INSERT INTO employees (name, role, birthday, phone, is_active, created_at, updated_at) 
+             VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW()) RETURNING *`,
+            [name, role || 'operator', birthday || null, phone || null]
+        );
+        
+        // Создаём пароль
         const hashedPassword = await hashPassword(password);
-        await query("INSERT INTO passwords (username, password_hash) VALUES ($1, $2)", [name, hashedPassword]);
+        await query(
+            "INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET password_hash = $2",
+            [name, hashedPassword]
+        );
+        
         cache.del('employees_list');
-        await addNotification('Денис', 'new_employee', { name, role: role || 'operator' });
-        logger.info(`Создан сотрудник: ${name}`);
+        
+        logger.info(`✅ Сотрудник создан: ${name}`);
         res.json({ success: true, employee: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+        
+    } catch (err) {
+        logger.error('Ошибка создания сотрудника:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.put('/api/employees/:id', authMiddleware, async (req, res) => {
