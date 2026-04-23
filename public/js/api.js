@@ -43,119 +43,147 @@ function showSystemNotification(message, type) {
     console.log(`[${type}] ${message}`);
 }
 
-async function originalApiCall(endpoint, method = 'GET', body = null) {
-    const token = localStorage.getItem('token');
-    
+async function originalApiCall(endpoint, method, body) {
+    if (method === undefined) method = 'GET';
+    if (body === undefined) body = null;
+
+    var token = localStorage.getItem('token');
+
+    // Если нет основного токена — пробуем warpoint_token
+    if (!token) {
+        token = localStorage.getItem('warpoint_token');
+        if (token) {
+            localStorage.setItem('token', token);
+        }
+    }
+
     if (!token && !endpoint.includes('/auth/')) {
         console.log('🔐 Нет токена, требуется авторизация');
         if (typeof window.authLogout === 'function') window.authLogout();
         return { success: false, error: 'Требуется авторизация' };
     }
-    
-    const requestKey = `${method}:${endpoint}:${JSON.stringify(body)}`;
+
+    var requestKey = method + ':' + endpoint + ':' + JSON.stringify(body);
     if (pendingRequests.has(requestKey)) {
-        console.log(`⏳ Запрос уже выполняется: ${requestKey}`);
+        console.log('⏳ Запрос уже выполняется: ' + requestKey);
         return pendingRequests.get(requestKey);
     }
-    
+
     if (method === 'GET') {
-        const cacheKey = endpoint.split('?')[0];
-        const ttl = CACHE_TTL[cacheKey];
+        var cacheKey = endpoint.split('?')[0];
+        var ttl = CACHE_TTL[cacheKey];
         if (ttl) {
-            const cached = apiCache.get(endpoint);
+            var cached = apiCache.get(endpoint);
             if (cached && Date.now() - cached.timestamp < ttl) {
-                console.log(`📦 Кэш: ${endpoint}`);
+                console.log('📦 Кэш: ' + endpoint);
                 return cached.data;
             }
         }
     }
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT);
-    
-    const options = { 
-        method, 
+
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() { controller.abort(); }, API_TIMEOUT);
+
+    var options = {
+        method: method,
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal
     };
-    
-    if (token) options.headers['Authorization'] = `Bearer ${token}`;
+
+    if (token) options.headers['Authorization'] = 'Bearer ' + token;
     if (body) options.body = JSON.stringify(body);
-    
-    console.log(`📡 API Call: ${method} ${endpoint}`);
-    
-    const requestPromise = (async () => {
+
+    console.log('📡 API Call: ' + method + ' ' + endpoint);
+
+    var requestPromise = (async function() {
         try {
-            const response = await fetch(`/api${endpoint}`, options);
+            var response = await fetch('/api' + endpoint, options);
             clearTimeout(timeoutId);
-            
+
             if (response.status === 401) {
                 console.log('🔐 Токен истёк');
+                // Пробуем обновить токен
+                var refreshTokenValue = localStorage.getItem('warpoint_refresh_token');
+                if (refreshTokenValue && typeof window.auth !== 'undefined' && window.auth.refreshToken) {
+                    var refreshed = await window.auth.refreshToken();
+                    if (refreshed) {
+                        // Повторяем запрос с новым токеном
+                        var newToken = localStorage.getItem('token') || localStorage.getItem('warpoint_token');
+                        if (newToken) {
+                            options.headers['Authorization'] = 'Bearer ' + newToken;
+                            var retryResponse = await fetch('/api' + endpoint, options);
+                            if (retryResponse.ok) {
+                                var retryData = await retryResponse.json();
+                                return retryData;
+                            }
+                        }
+                    }
+                }
                 if (typeof window.authLogout === 'function') window.authLogout();
                 return { success: false, error: 'Сессия истекла' };
             }
-            
+
             if (!response.ok) {
-                console.error(`❌ API error: ${response.status} ${response.statusText}`);
+                console.error('❌ API error: ' + response.status + ' ' + response.statusText);
                 if (method === 'GET') {
-                    const offlineData = loadFromOfflineCache(endpoint);
+                    var offlineData = loadFromOfflineCache(endpoint);
                     if (offlineData) {
-                        console.log(`📡 Работаем офлайн: ${endpoint}`);
+                        console.log('📡 Работаем офлайн: ' + endpoint);
                         showSystemNotification('📡 Работаем офлайн. Данные могут быть устаревшими.', 'warning');
                         return offlineData;
                     }
                 }
-                return { success: false, error: `Ошибка сервера: ${response.status}` };
+                return { success: false, error: 'Ошибка сервера: ' + response.status };
             }
-            
-            const data = await response.json();
-            
+
+            var data = await response.json();
+
             if (method === 'GET') {
-                const cacheKey = endpoint.split('?')[0];
-                if (CACHE_TTL[cacheKey]) {
+                var cacheKeyForSave = endpoint.split('?')[0];
+                if (CACHE_TTL[cacheKeyForSave]) {
                     apiCache.set(endpoint, { data: data, timestamp: Date.now() });
                 }
                 if (endpoint === '/employees' || endpoint === '/tasks' || endpoint === '/schedule') {
                     saveToOfflineCache(endpoint, data);
                 }
             }
-            
+
             retryCount = 0;
             return data;
-            
+
         } catch (e) {
             clearTimeout(timeoutId);
-            
+
             if (e.name === 'AbortError') {
-                console.error('❌ API timeout:', endpoint);
+                console.error('❌ API timeout: ' + endpoint);
                 return { success: false, error: 'Таймаут запроса' };
             }
-            
-            console.error('❌ API error:', e.message);
-            
+
+            console.error('❌ API error: ' + e.message);
+
             if (method === 'GET') {
-                const offlineData = loadFromOfflineCache(endpoint);
+                var offlineData = loadFromOfflineCache(endpoint);
                 if (offlineData) {
-                    console.log(`📡 Работаем офлайн (сеть недоступна): ${endpoint}`);
+                    console.log('📡 Работаем офлайн (сеть недоступна): ' + endpoint);
                     showSystemNotification('📡 Нет соединения. Работаем офлайн.', 'warning');
                     return offlineData;
                 }
             }
-            
+
             retryCount++;
             if (retryCount <= MAX_RETRIES && method === 'GET') {
-                const delay = 1000 * Math.pow(2, retryCount);
-                console.log(`🔄 Повторная попытка через ${delay}ms (${retryCount}/${MAX_RETRIES})`);
-                await new Promise(r => setTimeout(r, delay));
+                var delay = 1000 * Math.pow(2, retryCount);
+                console.log('🔄 Повторная попытка через ' + delay + 'ms (' + retryCount + '/' + MAX_RETRIES + ')');
+                await new Promise(function(r) { setTimeout(r, delay); });
                 return originalApiCall(endpoint, method, body);
             }
-            
+
             return { success: false, error: 'Ошибка соединения' };
         } finally {
             pendingRequests.delete(requestKey);
         }
     })();
-    
+
     pendingRequests.set(requestKey, requestPromise);
     return requestPromise;
 }
