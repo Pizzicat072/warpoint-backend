@@ -681,40 +681,40 @@
     // ============================================
     
     function initAuth() {
-        if (STATE.isInitialized) return;
+    if (STATE.isInitialized) return;
+    
+    logger.info('Initializing auth module v5.2');
+    
+    const token = getToken();
+    const user = getStoredUser();
+    
+    if (token && user) {
+        // 🔥 НЕ вызываем logout, просто восстанавливаем сессию
+        STATE.isAuthenticated = true;
+        window.app = window.app || {};
+        window.app.currentUser = user.name;
+        window.app.currentUserRole = user.role;
+        hideLoginModal();
+        updateHeaderUser(user);
+        startHeartbeat();
+        startTokenChecker();
+        initActivityTracker();
         
-        logger.info('Initializing auth module v5.2');
+        setTimeout(async function() {
+            await initPusher();
+        }, 1000);
         
-        const token = getToken();
-        const user = getStoredUser();
-        
-        if (token && user) {
-            STATE.isAuthenticated = true;
-            window.app = window.app || {};
-            window.app.currentUser = user.name;
-            window.app.currentUserRole = user.role;
-            hideLoginModal();
-            updateHeaderUser(user);
-            startHeartbeat();
-            startTokenChecker();
-            initActivityTracker();
-            
-            // ✅ ИСПРАВЛЕНО: добавлен async
-            setTimeout(async function() {
-                await initPusher();
-            }, 1000);
-            
-            logger.info(`Session restored: ${user.name}`);
-        } else {
-            showLoginModal();
-        }
-        
-        setupLoginForm();
-        setupNetworkListeners();
-        
-        STATE.isInitialized = true;
-        emitEvent('initialized');
+        logger.info(`Session restored: ${user.name}`);
+    } else {
+        showLoginModal();
     }
+    
+    setupLoginForm();
+    setupNetworkListeners();
+    
+    STATE.isInitialized = true;
+    emitEvent('initialized');
+}
 
     function setupLoginForm() {
         const form = document.getElementById('loginForm');

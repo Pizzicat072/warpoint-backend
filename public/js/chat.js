@@ -113,11 +113,22 @@ function formatTimeAgo(timestamp) {
 }
 
 function openProfile(employeeName) {
+    // Пробуем найти функцию в глобальной области
     if (typeof window.openProfile === 'function' && window.openProfile !== openProfile) {
         window.openProfile(employeeName);
         return;
     }
-    console.log('openProfile не найден');
+    // Если не нашли — пробуем перейти на страницу команды
+    if (typeof window.loadPage === 'function') {
+        window.loadPage('employees');
+        setTimeout(() => {
+            if (typeof window.openProfile === 'function') {
+                window.openProfile(employeeName);
+            }
+        }, 500);
+        return;
+    }
+    console.warn('openProfile не найден в глобальной области');
 }
 
 // ============================================
