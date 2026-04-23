@@ -1171,27 +1171,17 @@ app.post('/api/fines', authMiddleware, adminOrAbove, async (req, res) => {
     try {
         const { fine } = req.body;
         
-        // Проверка обязательных полей
         if (!fine || !fine.employee) {
             return res.status(400).json({ success: false, error: 'Сотрудник обязателен' });
         }
         
-        // Создаём таблицу если нет
-        await query(`CREATE TABLE IF NOT EXISTS fines (
-            id SERIAL PRIMARY KEY,
-            date DATE NOT NULL,
-            employee VARCHAR(100) NOT NULL,
-            type VARCHAR(50) DEFAULT 'other',
-            amount INTEGER DEFAULT 0,
-            coins INTEGER DEFAULT 0,
-            rating INTEGER DEFAULT 0,
-            description TEXT,
-            status VARCHAR(30) DEFAULT 'pending',
-            created_by VARCHAR(100),
-            director_comment TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )`).catch(() => {});
+        // Проверяем существование колонок
+        await addColumnIfNotExists('fines', 'type', 'VARCHAR(50)', "'other'");
+        await addColumnIfNotExists('fines', 'amount', 'INTEGER', '0');
+        await addColumnIfNotExists('fines', 'coins', 'INTEGER', '0');
+        await addColumnIfNotExists('fines', 'rating', 'INTEGER', '0');
+        await addColumnIfNotExists('fines', 'description', 'TEXT', null);
+        await addColumnIfNotExists('fines', 'created_by', 'VARCHAR(100)', null);
         
         const result = await query(
             `INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) 
@@ -1437,22 +1427,51 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
-        // Создаём таблицу если её нет
-        await query(`CREATE TABLE IF NOT EXISTS salary_daily (
-            id SERIAL PRIMARY KEY,
-            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-            day_number INTEGER NOT NULL,
-            month_year VARCHAR(7) NOT NULL,
-            oklad INTEGER DEFAULT 0,
-            event INTEGER DEFAULT 0,
-            turnover INTEGER DEFAULT 0,
-            bonus35 INTEGER DEFAULT 0,
-            video INTEGER DEFAULT 0,
-            extra_motivation INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(employee_id, day_number, month_year)
-        )`);
+        // Проверяем существование колонок
+        await addColumnIfNotExists('salary_daily', 'oklad', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'event', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'turnover', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
+        
+        const employees = await query(
+            "SELECT id, name, role, avatar, avatar_url FROM employees WHERE role != 'director' AND is_active = TRUE AND deleted_at IS NULL ORDER BY name"
+        );
+        
+        const dailyData = await query("SELECT * FROM salary_daily WHERE month_year = $1", [monthYear]);
+        
+        res.json({ success: true, employees: employees.rows, dailyData: dailyData.rows });
+    } catch (err) {
+        logger.error('/api/salary error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+await query(`CREATE TABLE IF NOT EXISTS salary_daily (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+    day_number INTEGER NOT NULL,
+    month_year VARCHAR(7) NOT NULL,
+    oklad INTEGER DEFAULT 0,
+    event INTEGER DEFAULT 0,
+    turnover INTEGER DEFAULT 0,
+    bonus35 INTEGER DEFAULT 0,
+    video INTEGER DEFAULT 0,
+    extra_motivation INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(employee_id, day_number, month_year)
+)`).catch(() => {});
+
+// Добавляем недостающие колонки в salary_daily
+await addColumnIfNotExists('salary_daily', 'oklad', 'INTEGER', '0');
+await addColumnIfNotExists('salary_daily', 'event', 'INTEGER', '0');
+await addColumnIfNotExists('salary_daily', 'turnover', 'INTEGER', '0');
+await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0');
+await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0');
+await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
+await addColumnIfNotExists('salary_daily', 'created_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
+await addColumnIfNotExists('salary_daily', 'updated_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
         
         // Проверяем и исправляем тип колонки month_year
         const columnCheck = await query(
@@ -1480,29 +1499,19 @@ app.get('/api/salary/day', authMiddleware, async (req, res) => {
     try {
         const { employee_id, day, month, year } = req.query;
         
-        // Проверка параметров
         if (!employee_id || !day || !month || !year) {
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
-        // Создаём таблицу если нет
-        await query(`CREATE TABLE IF NOT EXISTS salary_daily (
-            id SERIAL PRIMARY KEY,
-            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-            day_number INTEGER NOT NULL,
-            month_year VARCHAR(7) NOT NULL,
-            oklad INTEGER DEFAULT 0,
-            event INTEGER DEFAULT 0,
-            turnover INTEGER DEFAULT 0,
-            bonus35 INTEGER DEFAULT 0,
-            video INTEGER DEFAULT 0,
-            extra_motivation INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(employee_id, day_number, month_year)
-        )`).catch(() => {});
+        // Проверяем существование колонок и добавляем если нет
+        await addColumnIfNotExists('salary_daily', 'oklad', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'event', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'turnover', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0');
+        await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
         
         const result = await query(
             `SELECT oklad, event, turnover, bonus35, video, extra_motivation 
