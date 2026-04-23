@@ -779,7 +779,7 @@ async function runMigrations() {
     await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0');
     await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0');
     await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
-    
+    await addColumnIfNotExists('salary_daily', 'motivation_type', 'VARCHAR(50)', null);
     // Таблица fines
     await query(`CREATE TABLE IF NOT EXISTS fines (
         id SERIAL PRIMARY KEY,
@@ -2334,16 +2334,20 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
         );
         
         if (existing.rows.length > 0) {
+            // ОБНОВЛЯЕМ существующую запись
             await query(
-                `UPDATE salary_daily SET oklad = $1, event = $2, turnover = $3, bonus35 = $4, video = $5, extra_motivation = $6, updated_at = NOW() 
-                 WHERE employee_id = $7 AND day_number = $8 AND month_year = $9`,
-                [oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, employee_id, day_number, monthYear]
+                `UPDATE salary_daily 
+                 SET oklad = $1, event = $2, turnover = $3, bonus35 = $4, video = $5, 
+                     extra_motivation = $6, motivation_type = $7, updated_at = NOW() 
+                 WHERE employee_id = $8 AND day_number = $9 AND month_year = $10`,
+                [oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, 'standard', employee_id, day_number, monthYear]
             );
         } else {
+            // ВСТАВЛЯЕМ новую запись
             await query(
-                `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]
+                `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation, motivation_type) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+                [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, 'standard']
             );
         }
         
@@ -2360,7 +2364,23 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
         if (!day_number || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         const operators = await query("SELECT id FROM employees WHERE role = 'operator' AND is_active = TRUE AND deleted_at IS NULL");
-        for (const op of operators.rows) await query(`INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (employee_id, day_number, month_year) DO UPDATE SET oklad = EXCLUDED.oklad, event = EXCLUDED.event, turnover = EXCLUDED.turnover, bonus35 = EXCLUDED.bonus35, video = EXCLUDED.video, extra_motivation = EXCLUDED.extra_motivation, updated_at = NOW()`, [op.id, day_number, monthYear, fields.oklad || 0, fields.event || 0, fields.turnover || 0, fields.bonus35 || 0, fields.video || 0, fields.extra_motivation || 0]);
+        for (const op of operators.rows) {
+            await query(
+                `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation, motivation_type) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) 
+                 ON CONFLICT (employee_id, day_number, month_year) 
+                 DO UPDATE SET 
+                     oklad = EXCLUDED.oklad, 
+                     event = EXCLUDED.event, 
+                     turnover = EXCLUDED.turnover, 
+                     bonus35 = EXCLUDED.bonus35, 
+                     video = EXCLUDED.video, 
+                     extra_motivation = EXCLUDED.extra_motivation, 
+                     motivation_type = EXCLUDED.motivation_type,
+                     updated_at = NOW()`,
+                [op.id, day_number, monthYear, fields.oklad || 0, fields.event || 0, fields.turnover || 0, fields.bonus35 || 0, fields.video || 0, fields.extra_motivation || 0, 'standard']
+            );
+        }
         res.json({ success: true, updated: operators.rows.length });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
