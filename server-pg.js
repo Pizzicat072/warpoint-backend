@@ -2292,12 +2292,53 @@ app.get('/api/salary/day', authMiddleware, async (req, res) => {
 app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { employee_id, day_number, month, year, oklad, event, turnover, bonus35, video, extra_motivation } = req.body;
-        if (!employee_id || !day_number || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        if (!employee_id || !day_number || !month || !year) {
+            return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        }
+        
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        await query(`INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (employee_id, day_number, month_year) DO UPDATE SET oklad = EXCLUDED.oklad, event = EXCLUDED.event, turnover = EXCLUDED.turnover, bonus35 = EXCLUDED.bonus35, video = EXCLUDED.video, extra_motivation = EXCLUDED.extra_motivation, updated_at = NOW()`, [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]);
-        const emp = await query("SELECT name FROM employees WHERE id = $1", [employee_id]); if (emp.rows.length > 0) await addNotification(emp.rows[0].name, 'salary_updated', { date: `${day_number}.${month}.${year}` });
+        
+        // 🔥 Проверяем и создаём constraint если его нет
+        const constraintCheck = await query(
+            `SELECT conname FROM pg_constraint 
+             WHERE conrelid = 'salary_daily'::regclass AND contype = 'u'`
+        ).catch(() => ({ rows: [] }));
+        
+        if (constraintCheck.rows.length === 0) {
+            // Удаляем дубликаты если есть
+            await query(`DELETE FROM salary_daily a USING salary_daily b 
+                         WHERE a.id > b.id AND a.employee_id = b.employee_id 
+                         AND a.day_number = b.day_number AND a.month_year = b.month_year`);
+            // Создаём constraint
+            await query(`ALTER TABLE salary_daily ADD CONSTRAINT salary_daily_unique 
+                         UNIQUE (employee_id, day_number, month_year)`).catch(() => {});
+        }
+        
+        // Пробуем вставить
+        const existing = await query(
+            "SELECT id FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3",
+            [employee_id, day_number, monthYear]
+        );
+        
+        if (existing.rows.length > 0) {
+            await query(
+                `UPDATE salary_daily SET oklad = $1, event = $2, turnover = $3, bonus35 = $4, video = $5, extra_motivation = $6, updated_at = NOW() 
+                 WHERE employee_id = $7 AND day_number = $8 AND month_year = $9`,
+                [oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, employee_id, day_number, monthYear]
+            );
+        } else {
+            await query(
+                `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0]
+            );
+        }
+        
         res.json({ success: true });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/salary/day/save error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res) => {
