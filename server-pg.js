@@ -2371,7 +2371,7 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
         
-         // 🔥 ПРОВЕРКА ЧТО СОТРУДНИК СУЩЕСТВУЕТ
+                // 🔥 ПРОВЕРКА ЧТО СОТРУДНИК СУЩЕСТВУЕТ
         const empCheck = await query(
             "SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL AND is_active = TRUE",
             [employee_id]
@@ -2379,6 +2379,7 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
         if (empCheck.rows.length === 0) {
             logger.warn(`Попытка сохранить з/п для несуществующего сотрудника: ${employee_id}`);
             return res.status(400).json({ success: false, error: 'Сотрудник не найден или уволен' });
+        }   // ← ДОБАВЬ ЭТУ СКОБКУ
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
@@ -2414,7 +2415,8 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
                 [oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, 'standard', employee_id, day_number, monthYear]
             );
         } else {
-            // ВСТАВЛЯЕМ новую запись
+            
+                        // ВСТАВЛЯЕМ новую запись
             await query(
                 `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation, motivation_type) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
