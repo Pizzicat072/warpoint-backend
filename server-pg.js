@@ -1302,12 +1302,44 @@ app.delete('/api/vp/:id', authMiddleware, directorOnly, async (req, res) => {
 app.get('/api/salary', authMiddleware, async (req, res) => {
     try {
         const { month, year } = req.query;
-        if (!month || !year) return res.status(400).json({ success: false, error: 'Месяц и год обязательны' });
+        if (!month || !year) {
+            return res.status(400).json({ success: false, error: 'Месяц и год обязательны' });
+        }
+        
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        const employees = await query("SELECT id, name, role, avatar, avatar_url FROM employees WHERE role != 'director' AND is_active = TRUE AND deleted_at IS NULL ORDER BY name");
+        
+        // 🔥 Проверяем существование таблицы
+        const tableCheck = await query(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'salary_daily')`);
+        if (!tableCheck.rows[0].exists) {
+            // Создаём таблицу если нет
+            await query(`CREATE TABLE IF NOT EXISTS salary_daily (
+                id SERIAL PRIMARY KEY,
+                employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+                day_number INTEGER NOT NULL,
+                month_year VARCHAR(7) NOT NULL,
+                oklad INTEGER DEFAULT 0,
+                event INTEGER DEFAULT 0,
+                turnover INTEGER DEFAULT 0,
+                bonus35 INTEGER DEFAULT 0,
+                video INTEGER DEFAULT 0,
+                extra_motivation INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(employee_id, day_number, month_year)
+            )`);
+        }
+        
+        const employees = await query(
+            "SELECT id, name, role, avatar, avatar_url FROM employees WHERE role != 'director' AND is_active = TRUE AND deleted_at IS NULL ORDER BY name"
+        );
+        
         const dailyData = await query("SELECT * FROM salary_daily WHERE month_year = $1", [monthYear]);
+        
         res.json({ success: true, employees: employees.rows, dailyData: dailyData.rows });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/salary error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 app.get('/api/salary/day', authMiddleware, async (req, res) => {

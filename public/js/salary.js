@@ -596,14 +596,22 @@ async function loadSalaryData() {
         const data = await apiCall(`/salary?month=${currentMonth}&year=${currentYear}`);
         if (data && data.employees) {
             employeesList = data.employees.filter(emp => emp.role !== 'director');
-            renderTable(data);
-            showSystemNotification(`📊 Загружены данные за ${MONTHS[currentMonth-1]} ${currentYear}`, 'info');
+            
+            // 🔥 ПРОВЕРКА КОНТЕЙНЕРА ПЕРЕД РЕНДЕРОМ
+            if (container) {
+                renderTable(data);
+                showSystemNotification(`📊 Загружены данные за ${MONTHS[currentMonth-1]} ${currentYear}`, 'info');
+            }
         } else {
-            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>Нет данных</h3><p>${data?.error || 'Попробуйте позже'}</p></div>`;
+            if (container) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">💰</div><h3>Нет данных</h3><p>${data?.error || 'Попробуйте позже'}</p></div>`;
+            }
             showSystemNotification('❌ Не удалось загрузить данные зарплаты', 'error');
         }
     } catch (err) {
-        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Ошибка</h3><p>${err.message}</p><button class="btn-primary" onclick="loadSalaryData()">🔄 Повторить</button></div>`;
+        if (container) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">❌</div><h3>Ошибка</h3><p>${err.message}</p><button class="btn-primary" onclick="loadSalaryData()">🔄 Повторить</button></div>`;
+        }
         showSystemNotification('❌ Ошибка загрузки данных', 'error');
     } finally {
         salaryIsLoading = false;
