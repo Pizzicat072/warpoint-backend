@@ -807,4 +807,5 @@
     window.deleteEmployee = deleteEmployee;
 
     console.log('✅ employees.js v3.0 загружен (полный)');
+}
 })();
