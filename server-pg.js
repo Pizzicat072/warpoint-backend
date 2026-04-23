@@ -2329,6 +2329,12 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
         
+        // 🔥 ПРОВЕРКА ЧТО СОТРУДНИК СУЩЕСТВУЕТ
+        const empCheck = await query("SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL", [employee_id]);
+        if (empCheck.rows.length === 0) {
+            return res.status(400).json({ success: false, error: 'Сотрудник не найден или уволен' });
+        }
+        
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
         // 🔥 Проверяем и создаём constraint если его нет
@@ -2347,7 +2353,7 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
                          UNIQUE (employee_id, day_number, month_year)`).catch(() => {});
         }
         
-        // Пробуем вставить
+        // Проверяем есть ли уже запись
         const existing = await query(
             "SELECT id FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3",
             [employee_id, day_number, monthYear]
@@ -2381,9 +2387,18 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
 app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { day_number, month, year, ...fields } = req.body;
-        if (!day_number || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        if (!day_number || !month || !year) {
+            return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
+        }
+        
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         const operators = await query("SELECT id FROM employees WHERE role = 'operator' AND is_active = TRUE AND deleted_at IS NULL");
+        
+        // 🔥 ПРОВЕРКА ЧТО ЕСТЬ ОПЕРАТОРЫ
+        if (operators.rows.length === 0) {
+            return res.status(400).json({ success: false, error: 'Нет активных операторов' });
+        }
+        
         for (const op of operators.rows) {
             await query(
                 `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation, motivation_type) 
@@ -2401,8 +2416,12 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
                 [op.id, day_number, monthYear, fields.oklad || 0, fields.event || 0, fields.turnover || 0, fields.bonus35 || 0, fields.video || 0, fields.extra_motivation || 0, 'standard']
             );
         }
+        
         res.json({ success: true, updated: operators.rows.length });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) {
+        logger.error('/api/salary/apply-all error:', err.message);
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 // ============================================
