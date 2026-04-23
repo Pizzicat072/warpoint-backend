@@ -834,12 +834,7 @@ async function runMigrations() {
         file_data TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`).catch(() => {});
-    
-    await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
-    
-    logger.info('Миграции выполнены');
-}
-// Исправление corporate_fund
+    // Исправление corporate_fund
 await query(`CREATE TABLE IF NOT EXISTS corporate_fund (
     id SERIAL PRIMARY KEY,
     amount INTEGER DEFAULT 0,
@@ -853,6 +848,11 @@ await addColumnIfNotExists('corporate_fund', 'operation_type', 'VARCHAR(20)', nu
 await addColumnIfNotExists('corporate_fund', 'comment', 'TEXT', null);
 await addColumnIfNotExists('corporate_fund', 'created_by', 'INTEGER', null);
 await addColumnIfNotExists('corporate_fund', 'created_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
+    await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
+    
+    logger.info('Миграции выполнены');
+}
+
 console.log('✅ ЧАСТЬ 3/12 загружена (функции миграций)');
 // ============================================
 // 5. ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ НАСТРОЕК
