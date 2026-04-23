@@ -385,7 +385,7 @@
             // ===== СКРЫТЬ ПРЕЛОАДЕР =====
             function hideGlobalLoader() {
     const loader = document.getElementById('globalLoader');
-    const skeleton = document.getElementById('pageSkeleton');
+    const mainContainer = document.getElementById('mainContainer');
     
     if (loader) {
         loader.classList.add('fade-out');
@@ -396,12 +396,15 @@
         }, 600);
     }
     
-    if (skeleton) skeleton.style.display = 'none';
-    
-    // 🔥 ВАЖНО: показываем основной контейнер
-    const mainContainer = document.getElementById('mainContainer');
+    // ✅ ПОКАЗЫВАЕМ ОСНОВНОЙ КОНТЕЙНЕР
     if (mainContainer) {
         mainContainer.style.display = 'block';
+    }
+    
+    // ✅ СКРЫВАЕМ СКЕЛЕТОН
+    const skeleton = document.getElementById('pageSkeleton');
+    if (skeleton) {
+        skeleton.style.display = 'none';
     }
 }
             
@@ -583,7 +586,9 @@
                 window.app.currentUser = user.name || user;
                 window.app.currentUserRole = user.role || 'operator';
                 
-                hideLoginModal(); // 🔥 Скрываем модалку входа
+                // ✅ ПОКАЗЫВАЕМ КОНТЕЙНЕР
+                const mainContainer = document.getElementById('mainContainer');
+                if (mainContainer) mainContainer.style.display = 'block';
                 
                 document.getElementById('headerName').textContent = window.app.currentUser;
                 
@@ -598,6 +603,12 @@
         }
     }
     
+    // Если нет токена — показываем модалку входа
+    // но сначала скрываем прелоадер
+    const loader = document.getElementById('globalLoader');
+    if (loader) {
+        loader.style.display = 'none';
+    }
     showLoginModal();
     return false;
 }

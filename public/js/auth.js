@@ -489,9 +489,9 @@
                 }
             }
         } catch (e) {
-            // Сеть недоступна - не разлогиниваем
-            logger.warn('Сеть недоступна при проверке токена');
-        }
+    // Сеть недоступна - НЕ разлогиниваем
+    logger.warn('Сеть недоступна при проверке токена');
+}
     }
 
     // ============================================
@@ -689,25 +689,25 @@
     const user = getStoredUser();
     
     if (token && user) {
-        // ✅ НЕ вызываем logout!
-        STATE.isAuthenticated = true;
-        window.app = window.app || {};
-        window.app.currentUser = user.name;
-        window.app.currentUserRole = user.role;
-        hideLoginModal();
-        updateHeaderUser(user);
-        startHeartbeat();
-        startTokenChecker();
-        initActivityTracker();
-        
-        setTimeout(async function() {
-            await initPusher();
-        }, 1000);
-        
-        logger.info(`Session restored: ${user.name}`);
-    } else {
-        showLoginModal();
-    }
+    // ✅ НЕ вызываем logout!
+    STATE.isAuthenticated = true;
+    window.app = window.app || {};
+    window.app.currentUser = user.name;
+    window.app.currentUserRole = user.role;
+    hideLoginModal();
+    updateHeaderUser(user);
+    startHeartbeat();
+    startTokenChecker();
+    initActivityTracker();
+    
+    setTimeout(async function() {
+        await initPusher();
+    }, 1000);
+    
+    logger.info(`Session restored: ${user.name}`);
+} else {
+    showLoginModal();
+}
     
     setupLoginForm();
     setupNetworkListeners();
