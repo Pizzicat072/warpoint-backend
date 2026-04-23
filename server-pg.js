@@ -360,7 +360,9 @@ async function initSystemSettings() {
     for (const s of settings) {
         try {
             await query(`INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = NOW()`, [s.key, s.val]);
-        } catch (e) { logger.warn(`Не удалось вставить ${s.key}:`, e.message); }
+        } catch (e) { 
+            logger.warn(`Не удалось вставить ${s.key}:`, e.message); 
+        }
     }
     logger.info('Системные настройки инициализированы');
 }
@@ -1912,18 +1914,24 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
 
 app.get('/api/admin/theme', authMiddleware, async (req, res) => {
     try {
-        const result = await query("SELECT value FROM system_settings WHERE key = 'global_theme'");
-        res.json({ success: true, theme: result.rows[0]?.value || 'vr-portal' });
-    } catch (err) { res.json({ success: true, theme: 'vr-portal' }); }
+        const result = await query("SELECT val FROM system_settings WHERE key = 'global_theme'");
+        res.json({ success: true, theme: result.rows[0]?.val || 'vr-portal' });
+    } catch (err) { 
+        logger.error('/api/admin/theme error:', err.message);
+        res.json({ success: true, theme: 'vr-portal' }); 
+    }
 });
 
 app.post('/api/admin/theme', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { theme } = req.body;
         if (!theme) return res.status(400).json({ success: false, error: 'Тема не указана' });
-        await query("INSERT INTO system_settings (key, value) VALUES ('global_theme', $1) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()", [theme]);
+        await query("INSERT INTO system_settings (key, val) VALUES ('global_theme', $1) ON CONFLICT (key) DO UPDATE SET val = $1, updated_at = NOW()", [theme]);
         res.json({ success: true, theme });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) { 
+        logger.error('/api/admin/theme POST error:', err.message);
+        res.status(500).json({ success: false, error: err.message }); 
+    }
 });
 
 app.post('/api/admin/bonus/employee', authMiddleware, directorOnly, async (req, res) => {
@@ -2148,10 +2156,10 @@ async function startServer() {
         setTimeout(async () => {
             try {
                 const parserData = await query("SELECT val FROM system_settings WHERE key = 'auto_parse_enabled'");
-                if (parserData.rows[0]?.val === 'true') { 
-                    logger.info('Запуск авто-парсинга...'); 
-                    bookingParser.parseAvailability().catch(e => logger.error('Ошибка авто-парсинга:', e.message)); 
-                }
+if (parserData.rows[0]?.val === 'true') { 
+    logger.info('Запуск авто-парсинга...'); 
+    bookingParser.parseAvailability().catch(e => logger.error('Ошибка авто-парсинга:', e.message)); 
+}
             } catch (e) {}
         }, 10000);
         
