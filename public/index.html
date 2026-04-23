@@ -25,6 +25,19 @@
         body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #05070f; color: #fff; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; line-height: 1.6; }
         body::before { content: ''; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at 30% 40%, #0a0f1e 0%, #03050a 100%); z-index: -5; pointer-events: none; }
 
+        /* ФОНОВОЕ ИЗОБРАЖЕНИЕ */
+        body.bg-image-loaded::after {
+            content: '';
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: url('/2026-04-02_03-45-56.png') center/cover no-repeat;
+            filter: brightness(0.35) saturate(0.9);
+            z-index: -4;
+            pointer-events: none;
+            opacity: 1;
+        }
+
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
@@ -32,7 +45,7 @@
         @keyframes ringRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes ringRotateReverse { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
 
-        /* ===== ПРЕЛОАДЕР ===== */
+        /* ПРЕЛОАДЕР */
         #globalLoader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: radial-gradient(ellipse at 40% 50%, #0a0f1e 0%, #03050a 100%);
@@ -120,11 +133,10 @@
             color: #64748b;
         }
 
-        /* ===== ОСНОВНОЙ КОНТЕЙНЕР ===== */
+        /* ОСНОВНОЙ КОНТЕЙНЕР */
         #mainContainer { display: none; animation: fadeIn 0.4s ease; }
-        #mainContainer.visible { display: block; }
 
-        /* ===== ХЕДЕР ===== */
+        /* ХЕДЕР */
         .header {
             display: flex; justify-content: space-between; align-items: center;
             padding: 12px 28px; background: rgba(8, 12, 20, 0.8); backdrop-filter: blur(12px);
@@ -147,7 +159,7 @@
         .logout-btn { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); border-radius: 24px; padding: 6px 14px; color: #f87171; cursor: pointer; font-size: 11px; display: flex; align-items: center; gap: 5px; transition: all 0.2s; }
         .logout-btn:hover { background: rgba(239,68,68,0.25); }
 
-        /* ===== МЕНЮ ===== */
+        /* МЕНЮ */
         .main-menu { background: rgba(8,12,20,0.8); backdrop-filter: blur(12px); border-bottom: 1px solid rgba(99,102,241,0.1); position: sticky; top: 64px; z-index: 999; padding: 0 16px; overflow-x: auto; }
         .menu-container { display: flex; align-items: center; gap: 4px; max-width: 1200px; margin: 0 auto; padding: 8px 0; }
         .menu-item { display: flex; flex-direction: column; align-items: center; gap: 4px; background: transparent; border: none; border-radius: 12px; padding: 8px 16px; cursor: pointer; white-space: nowrap; transition: all 0.2s; color: #9ca3af; }
@@ -156,7 +168,7 @@
         .menu-item:hover { background: rgba(99,102,241,0.1); color: #e2e8f0; }
         .menu-item.active { background: rgba(99,102,241,0.15); color: #a78bfa; }
 
-        /* ===== МОДАЛКА ВХОДА ===== */
+        /* МОДАЛКА ВХОДА */
         #loginModal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; z-index: 100000; padding: 20px; background: rgba(5,7,15,0.95); backdrop-filter: blur(20px); }
         #loginModal.visible { display: flex; }
         .login-card { width: 400px; max-width: 100%; padding: 40px 35px; background: rgba(15,20,35,0.4); backdrop-filter: blur(25px); border-radius: 36px; border: 1px solid rgba(255,255,255,0.06); box-shadow: 0 25px 50px rgba(0,0,0,0.5); text-align: center; animation: fadeInScale 0.4s ease; }
@@ -173,23 +185,23 @@
         .login-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.4); }
         .login-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
 
-        /* ===== СИНК ИНДИКАТОР ===== */
+        /* СИНК ИНДИКАТОР */
         #syncIndicator { position: fixed; bottom: 24px; left: 24px; width: 42px; height: 42px; background: rgba(10,15,30,0.85); backdrop-filter: blur(12px); border-radius: 14px; display: flex; align-items: center; justify-content: center; z-index: 9998; border: 1px solid rgba(255,255,255,0.08); cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
         #syncIndicator i { font-size: 18px; color: #ef4444; }
         #syncIndicator.online i { color: #10b981; }
         #syncIndicator.connecting i { color: #f59e0b; animation: spin 1.5s linear infinite; }
 
-        /* ===== НОТИФИКАЦИИ ===== */
+        /* НОТИФИКАЦИИ */
         .notifications-icon { position: relative; cursor: pointer; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.04); transition: all 0.2s; }
         .notifications-icon:hover { background: rgba(99,102,241,0.15); }
         .notifications-icon .badge { position: absolute; top: -4px; right: -4px; background: #ef4444; color: white; font-size: 10px; min-width: 16px; height: 16px; border-radius: 10px; display: flex; align-items: center; justify-content: center; padding: 0 4px; }
         .notifications-dropdown { position: absolute; top: 55px; right: 20px; width: 360px; max-height: 420px; background: rgba(15,20,35,0.95); backdrop-filter: blur(20px); border-radius: 20px; border: 1px solid rgba(99,102,241,0.15); box-shadow: 0 20px 40px rgba(0,0,0,0.5); z-index: 9999; overflow: hidden; display: none; }
         .notifications-dropdown.show { display: block; animation: fadeInUp 0.2s ease; }
 
-        /* ===== FOOTER ===== */
+        /* FOOTER */
         footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; border-top: 1px solid rgba(99,102,241,0.08); margin-top: 40px; }
 
-        /* ===== ADAPTIVE ===== */
+        /* ADAPTIVE */
         @media (max-width: 768px) {
             .header { padding: 12px 16px; }
             .logo-text { font-size: 18px; }
@@ -208,7 +220,7 @@
     </style>
 </head>
 <body>
-    <!-- ===== ПРЕЛОАДЕР ===== -->
+    <!-- ПРЕЛОАДЕР -->
     <div id="globalLoader">
         <div class="loader-content">
             <div class="loader-logo-wrapper">
@@ -225,12 +237,12 @@
         </div>
     </div>
     
-    <!-- ===== ИНДИКАТОР СИНХРОНИЗАЦИИ ===== -->
+    <!-- ИНДИКАТОР СИНХРОНИЗАЦИИ -->
     <div id="syncIndicator" title="Статус подключения">
         <i class="fas fa-broadcast-tower"></i>
     </div>
     
-    <!-- ===== МОДАЛКА ВХОДА ===== -->
+    <!-- МОДАЛКА ВХОДА -->
     <div id="loginModal">
         <div class="login-card">
             <img class="login-logo" src="https://h.careers/_next/image?url=https%3A%2F%2Fimg.hhcdn.ru%2Femployer-logo-original-round%2F6361685.jpeg&w=1920&q=75" alt="WARPOINT">
@@ -260,7 +272,7 @@
         </div>
     </div>
     
-    <!-- ===== ОСНОВНОЙ КОНТЕЙНЕР ===== -->
+    <!-- ОСНОВНОЙ КОНТЕЙНЕР -->
     <div id="mainContainer">
         <header class="header">
             <div class="logo-area">
@@ -312,7 +324,7 @@
         </footer>
     </div>
 
-    <!-- ===== СКРИПТЫ ===== -->
+    <!-- СКРИПТЫ -->
     <script src="https://js.pusher.com/8.3.0/pusher.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="/js/utils.js"></script>
@@ -341,15 +353,9 @@
         
         const CONFIG = { VERSION: '1.3.3', MAX_LOAD_DELAY: 8000 };
         
-        // Инициализация глобального состояния
         window.app = window.app || {
-            currentUser: null,
-            currentUserRole: null,
-            employees: [],
-            profiles: {},
-            tasks: [],
-            fines: [],
-            schedule: {},
+            currentUser: null, currentUserRole: null,
+            employees: [], profiles: {}, tasks: [], fines: [], schedule: {},
             version: CONFIG.VERSION
         };
         
@@ -373,7 +379,6 @@
                 setTimeout(() => { if (loader) loader.style.display = 'none'; }, 500);
             }
             
-            // ✅ ПОКАЗЫВАЕМ ОСНОВНОЙ КОНТЕЙНЕР
             if (mainContainer) {
                 mainContainer.style.display = 'block';
             }
@@ -384,15 +389,13 @@
         // Отслеживаем загрузку скриптов
         document.querySelectorAll('script[src*="/js/"]').forEach(script => {
             script.addEventListener('load', () => {
-                const filename = script.src.split('/').pop();
-                window.updateLoaderProgress(filename);
+                window.updateLoaderProgress(script.src.split('/').pop());
             });
         });
         
-        // Фоллбэк — скрываем прелоадер через N секунд в любом случае
+        // Фоллбэк через N секунд
         setTimeout(() => {
             if (modulesLoaded < totalModules) {
-                console.warn('⚠️ Не все модули загружены, принудительный показ');
                 modulesLoaded = totalModules;
                 window.updateLoaderProgress('forced');
             }
@@ -400,165 +403,144 @@
         }, CONFIG.MAX_LOAD_DELAY);
         
         // ===== ФОРМА ВХОДА =====
-        const togglePassword = document.getElementById('togglePassword');
-        if (togglePassword) {
-            togglePassword.addEventListener('click', function() {
-                const input = document.getElementById('loginPassword');
-                if (input) {
-                    input.type = input.type === 'password' ? 'text' : 'password';
-                    this.className = input.type === 'password' ? 'fas fa-eye toggle-password' : 'fas fa-eye-slash toggle-password';
-                }
-            });
-        }
+        document.getElementById('togglePassword')?.addEventListener('click', function() {
+            const input = document.getElementById('loginPassword');
+            if (input) {
+                input.type = input.type === 'password' ? 'text' : 'password';
+                this.className = input.type === 'password' ? 'fas fa-eye toggle-password' : 'fas fa-eye-slash toggle-password';
+            }
+        });
         
-        // ===== CAPS LOCK =====
-        const passwordInput = document.getElementById('loginPassword');
-        if (passwordInput) {
-            passwordInput.addEventListener('keyup', function(e) {
-                if (e.getModifierState && e.getModifierState('CapsLock')) {
-                    document.getElementById('loginErrorMessage').textContent = '⚠️ Caps Lock включён';
-                } else {
-                    document.getElementById('loginErrorMessage').textContent = '';
-                }
-            });
-        }
+        document.getElementById('loginPassword')?.addEventListener('keyup', function(e) {
+            const el = document.getElementById('loginErrorMessage');
+            if (e.getModifierState && e.getModifierState('CapsLock')) {
+                if (el) el.textContent = '⚠️ Caps Lock включён';
+            } else {
+                if (el) el.textContent = '';
+            }
+        });
         
-        // ===== СОХРАНЁННЫЙ ЛОГИН =====
         const savedLogin = localStorage.getItem('savedLogin');
         if (savedLogin) {
-            const loginInput = document.getElementById('loginName');
-            const rememberCheck = document.getElementById('rememberMe');
-            if (loginInput) loginInput.value = savedLogin;
-            if (rememberCheck) rememberCheck.checked = true;
+            const li = document.getElementById('loginName');
+            const rc = document.getElementById('rememberMe');
+            if (li) li.value = savedLogin;
+            if (rc) rc.checked = true;
         }
         
-        // ===== ОБРАБОТЧИК ВХОДА =====
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
+        // Обработчик входа
+        document.getElementById('loginForm')?.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('loginName')?.value?.trim();
+            const password = document.getElementById('loginPassword')?.value;
+            const rememberMe = document.getElementById('rememberMe')?.checked;
+            const errorEl = document.getElementById('loginErrorMessage');
+            const submitBtn = document.getElementById('loginSubmitBtn');
+            
+            if (!username || !password) {
+                if (errorEl) errorEl.textContent = 'Введите логин и пароль';
+                return;
+            }
+            
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+                submitBtn.disabled = true;
+            }
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
                 
-                const username = document.getElementById('loginName')?.value?.trim();
-                const password = document.getElementById('loginPassword')?.value;
-                const rememberMe = document.getElementById('rememberMe')?.checked;
-                const errorEl = document.getElementById('loginErrorMessage');
-                const submitBtn = document.getElementById('loginSubmitBtn');
+                const data = await response.json();
                 
-                if (!username || !password) {
-                    if (errorEl) errorEl.textContent = 'Введите логин и пароль';
-                    return;
-                }
-                
-                if (submitBtn) {
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
-                    submitBtn.disabled = true;
-                }
-                
-                try {
-                    const response = await fetch('/api/auth/login', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
+                if (data.success) {
+                    if (rememberMe) localStorage.setItem('savedLogin', username);
                     
-                    const data = await response.json();
+                    localStorage.setItem('warpoint_token', data.token);
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('warpoint_user', JSON.stringify(data.user));
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
                     
-                    if (data.success) {
-                        if (rememberMe) {
-                            localStorage.setItem('savedLogin', username);
-                        }
-                        
-                        localStorage.setItem('warpoint_token', data.token);
-                        localStorage.setItem('token', data.token);
-                        localStorage.setItem('warpoint_user', JSON.stringify(data.user));
-                        localStorage.setItem('currentUser', JSON.stringify(data.user));
-                        
-                        window.app.currentUser = data.user.name;
-                        window.app.currentUserRole = data.user.role;
-                        
-                        // ✅ Скрываем модалку, показываем контейнер
-                        document.getElementById('loginModal').style.display = 'none';
-                        document.getElementById('mainContainer').style.display = 'block';
-                        
-                        document.getElementById('headerName').textContent = data.user.name;
-                        
-                        const headerAvatar = document.getElementById('headerAvatar');
-                        if (data.user.avatar_url) {
-                            headerAvatar.innerHTML = `<img src="${data.user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">`;
-                        } else {
-                            headerAvatar.innerHTML = data.user.avatar || '👤';
-                        }
-                        
-                        if (typeof window.renderMainMenu === 'function') {
-                            setTimeout(() => window.renderMainMenu(), 100);
-                        }
-                    } else {
-                        if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
-                        if (submitBtn) {
-                            submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
-                            submitBtn.disabled = false;
-                        }
+                    window.app.currentUser = data.user.name;
+                    window.app.currentUserRole = data.user.role;
+                    
+                    document.getElementById('loginModal').style.display = 'none';
+                    document.getElementById('mainContainer').style.display = 'block';
+                    
+                    document.getElementById('headerName').textContent = data.user.name;
+                    
+                    const ha = document.getElementById('headerAvatar');
+                    if (ha) {
+                        ha.innerHTML = data.user.avatar_url 
+                            ? `<img src="${data.user.avatar_url}" style="width:100%;height:100%;object-fit:cover;">` 
+                            : (data.user.avatar || '👤');
                     }
-                } catch (err) {
-                    console.error('Ошибка входа:', err);
-                    if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
+                    
+                    if (typeof window.renderMainMenu === 'function') {
+                        setTimeout(() => window.renderMainMenu(), 100);
+                    }
+                } else {
+                    if (errorEl) errorEl.textContent = data.error || 'Ошибка входа';
                     if (submitBtn) {
                         submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
                         submitBtn.disabled = false;
                     }
                 }
-            });
-        }
-        
-        // ===== ЗАКРЫТИЕ ДРОПДАУНА =====
-        document.addEventListener('click', function(e) {
-            const dropdown = document.getElementById('notificationsDropdown');
-            const icon = document.getElementById('notificationsIcon');
-            if (dropdown && icon && !dropdown.contains(e.target) && !icon.contains(e.target)) {
-                dropdown.classList.remove('show');
+            } catch (err) {
+                console.error('Ошибка входа:', err);
+                if (errorEl) errorEl.textContent = 'Ошибка соединения с сервером';
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<span>Войти</span> <i class="fas fa-arrow-right"></i>';
+                    submitBtn.disabled = false;
+                }
             }
         });
         
-        // ===== ПЕРЕКЛЮЧЕНИЕ ДРОПДАУНА =====
+        // ===== ЗАКРЫТИЕ ДРОПДАУНА =====
+        document.addEventListener('click', function(e) {
+            const dd = document.getElementById('notificationsDropdown');
+            const ic = document.getElementById('notificationsIcon');
+            if (dd && ic && !dd.contains(e.target) && !ic.contains(e.target)) {
+                dd.classList.remove('show');
+            }
+        });
+        
         window.toggleNotificationsDropdown = function() {
-            const dropdown = document.getElementById('notificationsDropdown');
-            if (dropdown) {
-                dropdown.classList.toggle('show');
-                if (dropdown.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
+            const dd = document.getElementById('notificationsDropdown');
+            if (dd) {
+                dd.classList.toggle('show');
+                if (dd.classList.contains('show') && typeof window.renderNotificationsDropdown === 'function') {
                     window.renderNotificationsDropdown();
                 }
             }
         };
         
-        // ===== ИНИЦИАЛИЗАЦИЯ =====
-        function initEventListeners() {
-            document.getElementById('logoutBtn')?.addEventListener('click', function() {
-                if (typeof window.authLogout === 'function') window.authLogout();
-            });
-            
-            document.getElementById('markAllReadBtn')?.addEventListener('click', function() {
-                if (typeof window.markAllNotificationsRead === 'function') window.markAllNotificationsRead();
-            });
-            
-            document.getElementById('clearAllNotifBtn')?.addEventListener('click', function() {
-                if (typeof window.clearAllNotifications === 'function') window.clearAllNotifications();
-            });
-            
-            document.getElementById('headerAvatar')?.addEventListener('click', function() {
-                if (window.app?.currentUser && typeof window.openProfile === 'function') {
-                    window.openProfile(window.app.currentUser);
-                }
-            });
-            
-            document.getElementById('notificationsIcon')?.addEventListener('click', function() {
-                window.toggleNotificationsDropdown();
-            });
-        }
+        // ===== СЛУШАТЕЛИ =====
+        document.getElementById('logoutBtn')?.addEventListener('click', () => {
+            if (typeof window.authLogout === 'function') window.authLogout();
+        });
+        document.getElementById('markAllReadBtn')?.addEventListener('click', () => {
+            if (typeof window.markAllNotificationsRead === 'function') window.markAllNotificationsRead();
+        });
+        document.getElementById('clearAllNotifBtn')?.addEventListener('click', () => {
+            if (typeof window.clearAllNotifications === 'function') window.clearAllNotifications();
+        });
+        document.getElementById('headerAvatar')?.addEventListener('click', () => {
+            if (window.app?.currentUser && typeof window.openProfile === 'function') {
+                window.openProfile(window.app.currentUser);
+            }
+        });
+        document.getElementById('notificationsIcon')?.addEventListener('click', () => {
+            window.toggleNotificationsDropdown();
+        });
         
         // ===== ПРОВЕРКА СЕССИИ =====
         function checkExistingSession() {
             const token = localStorage.getItem('warpoint_token') || localStorage.getItem('token');
-            
             if (token) {
                 const savedUser = localStorage.getItem('warpoint_user') || localStorage.getItem('currentUser');
                 if (savedUser) {
@@ -566,13 +548,10 @@
                         const user = JSON.parse(savedUser);
                         window.app.currentUser = user.name || user;
                         window.app.currentUserRole = user.role || 'operator';
-                        
                         document.getElementById('headerName').textContent = window.app.currentUser;
-                        
                         if (typeof window.renderMainMenu === 'function') {
                             setTimeout(() => window.renderMainMenu(), 100);
                         }
-                        
                         return true;
                     } catch (e) {
                         console.error('Ошибка восстановления сессии:', e);
@@ -582,30 +561,33 @@
             return false;
         }
         
-        // ===== ЗАПУСК =====
-        initEventListeners();
+        // ===== ФОНОВОЕ ИЗОБРАЖЕНИЕ =====
+        function loadBackgroundImage() {
+            const img = new Image();
+            img.onload = () => document.body.classList.add('bg-image-loaded');
+            img.onerror = () => console.log('⚠️ Фоновое изображение не загружено');
+            img.src = '/2026-04-02_03-45-56.png';
+        }
+        loadBackgroundImage();
         
+        // ===== ЗАПУСК =====
         const hasSession = checkExistingSession();
         
         if (hasSession) {
-            // Есть сессия — скрываем модалку и прелоадер
             document.getElementById('loginModal').style.display = 'none';
             hideLoader();
         } else {
-            // Нет сессии — скрываем прелоадер, показываем модалку
             hideLoader();
             document.getElementById('loginModal').style.display = 'flex';
         }
         
-        // Онлайн/офлайн статус
-        window.addEventListener('online', function() {
-            document.getElementById('syncIndicator')?.classList.add('online');
-            document.getElementById('syncIndicator')?.classList.remove('offline', 'connecting');
+        window.addEventListener('online', () => {
+            const si = document.getElementById('syncIndicator');
+            if (si) { si.classList.add('online'); si.classList.remove('offline', 'connecting'); }
         });
-        
-        window.addEventListener('offline', function() {
-            document.getElementById('syncIndicator')?.classList.add('offline');
-            document.getElementById('syncIndicator')?.classList.remove('online', 'connecting');
+        window.addEventListener('offline', () => {
+            const si = document.getElementById('syncIndicator');
+            if (si) { si.classList.add('offline'); si.classList.remove('online', 'connecting'); }
         });
         
         if (navigator.onLine) {
