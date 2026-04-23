@@ -2709,7 +2709,7 @@ app.post('/api/admin/reset-all', authMiddleware, directorOnly, async (req, res) 
         await query("TRUNCATE tasks, subtasks, task_attachments, fines, schedule, schedule_special_cases, exchange_requests, vp_bookings, salary_daily, messages, stickers, user_statuses, user_achievements, pending_achievements, transactions CASCADE");
         cache.flushAll();
         res.json({ success: true, message: 'Данные сброшены' });
-    } catch (330) { res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/admin/equal-start', authMiddleware, directorOnly, async (req, res) => {
