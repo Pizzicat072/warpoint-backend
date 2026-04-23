@@ -1,5 +1,5 @@
-// public/js/employees.js — ИСПРАВЛЕННАЯ ВЕРСИЯ v2.2
-// Исправлена инициализация и рендер
+// public/js/employees.js — ПОЛНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ v3.0
+// Исправлены модалки, загрузка профилей, рендер
 
 (function() {
     'use strict';
@@ -59,12 +59,8 @@
     }
 
     async function apiCall(endpoint, method = 'GET', body = null) {
-        if (typeof window.originalApiCall === 'function') {
-            return window.originalApiCall(endpoint, method, body);
-        }
-        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) {
-            return window.apiCall(endpoint, method, body);
-        }
+        if (typeof window.originalApiCall === 'function') return window.originalApiCall(endpoint, method, body);
+        if (typeof window.apiCall === 'function' && window.apiCall !== apiCall) return window.apiCall(endpoint, method, body);
         const token = localStorage.getItem('token');
         const options = { method, headers: { 'Content-Type': 'application/json' } };
         if (token) options.headers['Authorization'] = `Bearer ${token}`;
@@ -90,30 +86,23 @@
     function getChatUnread() { return window.chatUnread || {}; }
     
     // ============================================
-    // СТАТУСЫ "НА СМЕНЕ" И "В СЕТИ"
+    // СТАТУСЫ
     // ============================================
     function isOnShiftNow(emp) {
         const today = getTobolskNow().toISOString().split('T')[0];
         const schedule = getSchedule();
         const shift = schedule[today]?.[emp];
         const profile = getProfiles()[emp];
-        
         if (profile?.role === 'director' || profile?.role === 'manager') return false;
         if (!shift || !shift.time) return false;
         if (shift.status && shift.status !== 'working') return false;
-        
         const now = getTobolskNow();
         const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
         const shiftStartMinutes = (parseInt(shift.time.split(':')[0]) || 10) * 60;
-        
         let shiftEndMinutes = 22 * 60;
-        if (shift.is_special && shift.special_end_time) {
-            if (!shift.special_end_time.startsWith('exchange_')) {
-                const endHour = parseInt(shift.special_end_time.split(':')[0]) || 22;
-                shiftEndMinutes = endHour * 60;
-            }
+        if (shift.is_special && shift.special_end_time && !shift.special_end_time.startsWith('exchange_')) {
+            shiftEndMinutes = (parseInt(shift.special_end_time.split(':')[0]) || 22) * 60;
         }
-        
         return currentTimeMinutes >= shiftStartMinutes && currentTimeMinutes < shiftEndMinutes;
     }
     
@@ -121,12 +110,9 @@
         const lastActivity = getLastActivity();
         const last = lastActivity[emp];
         if (!last) return false;
-        
         const now = getTobolskNow();
         const lastTime = new Date(last);
-        const diffMs = now.getTime() - lastTime.getTime();
-        const diffMinutes = diffMs / (1000 * 60);
-        
+        const diffMinutes = (now.getTime() - lastTime.getTime()) / (1000 * 60);
         return diffMinutes < 5;
     }
     
@@ -137,30 +123,18 @@
         for (const [date, shifts] of Object.entries(schedule)) {
             const shiftDate = new Date(date);
             shiftDate.setHours(23, 59, 59);
-            if (shiftDate < now && shifts[emp]?.time && (!shifts[emp]?.status || shifts[emp]?.status === 'working')) {
-                count++;
-            }
+            if (shiftDate < now && shifts[emp]?.time && (!shifts[emp]?.status || shifts[emp]?.status === 'working')) count++;
         }
         return count;
     }
     
     function getRoleName(role) {
-        const names = { 
-            director: '👑 Директор', 
-            manager: '📋 Управляющий', 
-            admin: '⚙️ Администратор', 
-            operator: '👤 Оператор' 
-        };
+        const names = { director: '👑 Директор', manager: '📋 Управляющий', admin: '⚙️ Администратор', operator: '👤 Оператор' };
         return names[role] || '👤 Оператор';
     }
     
     function getRoleShortName(role) {
-        const names = { 
-            director: 'Директор', 
-            manager: 'Управляющий', 
-            admin: 'Админ', 
-            operator: 'Оператор' 
-        };
+        const names = { director: 'Директор', manager: 'Управляющий', admin: 'Админ', operator: 'Оператор' };
         return names[role] || 'Оператор';
     }
     
@@ -184,21 +158,12 @@
     }
     
     function getGiftIcon(giftId) {
-        const icons = { 
-            flower: '🌸', chocolate: '🍫', star: '⭐', trophy: '🏆', honey: '🍯',
-            pizza: '🍕', crown: '👑', trash: '🗑️', socks: '🧦', brick: '🧱',
-            abibas: '👟', poop: '💩'
-        };
+        const icons = { flower: '🌸', star: '⭐', trophy: '🏆', pizza: '🍕', crown: '👑', trash: '🗑️', socks: '🧦', brick: '🧱', abibas: '👟', poop: '💩' };
         return icons[giftId] || '🎁';
     }
     
     function getGiftName(giftId) {
-        const names = { 
-            flower: 'Букет цветов', chocolate: 'Шоколад', star: 'Золотая звезда', 
-            trophy: 'Трофей', honey: 'Мёд', pizza: 'Пицца', crown: 'Корона',
-            trash: 'Мешок мусора', socks: 'Носки с дыркой', brick: 'Кирпич',
-            abibas: 'Кеды Abibas', poop: 'Шоколадный сюрприз'
-        };
+        const names = { flower: 'Букет цветов', star: 'Золотая звезда', trophy: 'Трофей', pizza: 'Пицца', crown: 'Корона', trash: 'Мешок мусора', socks: 'Носки с дыркой', brick: 'Кирпич', abibas: 'Кеды Abibas', poop: 'Шоколадный сюрприз' };
         return names[giftId] || giftId;
     }
     
@@ -209,21 +174,17 @@
             setTimeout(() => safeRenderEmployees(), RENDER_DEBOUNCE);
             return;
         }
-        
         isRendering = true;
         lastRenderTime = now;
-        
         requestAnimationFrame(() => {
-            try {
-                renderEmployees();
-            } finally {
-                isRendering = false;
-            }
+            try { renderEmployees(); } finally { isRendering = false; }
         });
     }
 
+    console.log('✅ employees.js ЧАСТЬ 1/4 загружена');
+})();
     // ============================================
-    // РЕНДЕР КАРТОЧЕК
+    // РЕНДЕР КАРТОЧЕК СОТРУДНИКОВ
     // ============================================
     function renderEmployees() {
         const grid = document.getElementById('employeesGrid');
@@ -241,7 +202,7 @@
         const userAchievements = getUserAchievements();
         const chatUnread = getChatUnread();
         
-        console.log(`👥 Рендер сотрудников: ${employees.length} чел.`);
+        console.log(`👥 Рендер: ${employees.length} сотрудников, профилей: ${Object.keys(profiles).length}`);
         
         if (!employees.length) {
             grid.innerHTML = `
@@ -275,7 +236,7 @@
             
             const giftCounts = {};
             Object.values(stickers).forEach(s => {
-                if (s.employee === emp) {
+                if (s && s.employee === emp) {
                     giftCounts[s.gift_id] = (giftCounts[s.gift_id] || 0) + (s.quantity || 0);
                 }
             });
@@ -284,8 +245,8 @@
             const onShift = isOnShiftNow(emp);
             const online = isOnlineNow(emp);
             const activeStatus = p.active_status || p.status || '💼 Работаю';
-            const hasBirthdaySoon = isBirthdaySoon(p.birthday);
             const hasBirthdayToday = isBirthdayToday(p.birthday);
+            const hasBirthdaySoon = isBirthdaySoon(p.birthday);
             const streak = p.bonus_streak || 1;
             const achievementsCount = userAchievements[emp]?.length || 0;
             const completedShifts = getCompletedShifts(emp);
@@ -295,6 +256,7 @@
                 ? `<span class="emp-unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` 
                 : '';
             
+            // Аватар
             let avatarHtml = '';
             if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
                 avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" alt="${escapeHtml(emp)}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">`;
@@ -308,6 +270,7 @@
             const ratingClass = rating >= 0 ? 'good' : 'bad';
             const ratingPrefix = rating >= 0 ? '+' : '';
             
+            // Бейджи дня рождения
             let birthdayBadge = '';
             if (hasBirthdayToday) {
                 birthdayBadge = '<span class="emp-birthday-today" title="День рождения сегодня!">🎂 СЕГОДНЯ</span>';
@@ -316,8 +279,7 @@
             }
             
             return `
-                <div class="emp-card ${isCurrent ? 'current-user' : ''}" onclick="openProfile('${escapeHtml(emp)}')">
-                    <div class="emp-card-glow"></div>
+                <div class="emp-card ${isCurrent ? 'current-user' : ''}" onclick="openProfile('${escapeHtml(emp)}')" style="cursor:pointer;">
                     ${unreadBadge}
                     
                     <div class="emp-rating-corner ${ratingClass}">
@@ -328,7 +290,6 @@
                     <div class="emp-card-top">
                         <div class="emp-avatar">
                             ${avatarHtml}
-                            <div class="emp-avatar-ring"></div>
                         </div>
                         <div class="emp-info">
                             <div class="emp-name">
@@ -403,31 +364,43 @@
                     
                     <div class="emp-card-footer">
                         <span class="emp-active-status" title="${escapeHtml(activeStatus)}">
-                            <i class="fas fa-circle" style="font-size: 6px; margin-right: 6px; color: #a78bfa;"></i>
+                            <i class="fas fa-circle" style="font-size:6px;margin-right:6px;color:#a78bfa;"></i>
                             ${escapeHtml(activeStatus)}
                         </span>
-                        <button class="emp-chat-btn" onclick="event.stopPropagation(); openChatWithEmployee('${escapeHtml(emp)}')" title="Написать в чат">
+                        <button class="emp-chat-btn" onclick="event.stopPropagation();openChatWithEmployee('${escapeHtml(emp)}')" title="Написать в чат">
                             <i class="fas fa-comment-dots"></i>
                         </button>
                     </div>
                 </div>
             `;
         }).join('');
+        
+        console.log('✅ Рендер завершён');
     }
+
+    console.log('✅ employees.js ЧАСТЬ 2/4 загружена');
     // ============================================
     // МОДАЛКА ПРОФИЛЯ
     // ============================================
     function openProfile(employeeName) {
-        if (isOpeningProfile) return;
+        if (isOpeningProfile) {
+            console.log('⚠️ Профиль уже открывается');
+            return;
+        }
         isOpeningProfile = true;
         setTimeout(() => isOpeningProfile = false, 300);
         
         document.body.style.overflow = 'hidden';
-        
         currentProfileEmployee = employeeName;
-        const p = getProfiles()[employeeName];
+        
+        // 🔥 Получаем профиль из глобального объекта
+        const p = window.app?.profiles?.[employeeName];
+        
         if (!p) {
+            console.error('❌ Профиль не найден для:', employeeName);
+            console.log('Доступные профили:', Object.keys(window.app?.profiles || {}));
             document.body.style.overflow = '';
+            showSystemNotification('❌ Профиль не найден', 'error');
             return;
         }
         
@@ -456,7 +429,7 @@
         
         const giftCounts = {};
         Object.values(stickers).forEach(s => {
-            if (s.employee === employeeName) {
+            if (s && s.employee === employeeName) {
                 giftCounts[s.gift_id] = (giftCounts[s.gift_id] || 0) + (s.quantity || 0);
             }
         });
@@ -467,6 +440,7 @@
         const activeStatus = p.active_status || p.status || '💼 Работаю';
         const streak = p.bonus_streak || 1;
         
+        // Аватар для модалки
         let avatarHtml = '';
         if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
             avatarHtml = `<img src="${escapeHtml(p.avatar_url)}" style="width:100%;height:100%;object-fit:cover;">`;
@@ -480,10 +454,9 @@
         const ratingPrefix = rating >= 0 ? '+' : '';
         const ratingColor = rating >= 0 ? '#10b981' : '#ef4444';
         
-        const boughtStatuses = p.bought_statuses || [];
-        
         const modalContent = document.getElementById('profileModalContent');
         if (!modalContent) {
+            console.error('❌ profileModalContent не найден');
             document.body.style.overflow = '';
             return;
         }
@@ -492,7 +465,7 @@
         
         modalContent.innerHTML = `
             <div class="emp-modal-header">
-                <div class="emp-modal-avatar" onclick="${canEdit ? 'openAvatarModal()' : ''}" style="cursor: ${canEdit ? 'pointer' : 'default'};">
+                <div class="emp-modal-avatar" onclick="${canEdit ? 'openAvatarModal()' : ''}" style="cursor:${canEdit ? 'pointer' : 'default'};">
                     ${avatarHtml}
                 </div>
                 <div class="emp-modal-title">
@@ -524,6 +497,7 @@
             </div>
             
             <div class="emp-modal-body">
+                <!-- Вкладка Основное -->
                 <div id="profileTabMain" class="emp-profile-tab-content active">
                     <div class="emp-info-grid">
                         ${p.phone ? `<div class="emp-info-card"><i class="fas fa-phone"></i><span>${escapeHtml(p.phone)}</span></div>` : ''}
@@ -532,7 +506,7 @@
                     
                     <div class="emp-stats-grid">
                         <div class="emp-stat-card"><div class="emp-stat-icon">💰</div><div class="emp-stat-value">${p.coins || 0}</div><div class="emp-stat-label">WP</div></div>
-                        <div class="emp-stat-card"><div class="emp-stat-icon">⭐</div><div class="emp-stat-value" style="color: ${ratingColor};">${ratingPrefix}${rating}</div><div class="emp-stat-label">Рейтинг</div></div>
+                        <div class="emp-stat-card"><div class="emp-stat-icon">⭐</div><div class="emp-stat-value" style="color:${ratingColor};">${ratingPrefix}${rating}</div><div class="emp-stat-label">Рейтинг</div></div>
                         <div class="emp-stat-card"><div class="emp-stat-icon">🔥</div><div class="emp-stat-value">${streak}</div><div class="emp-stat-label">Стрик</div></div>
                         <div class="emp-stat-card"><div class="emp-stat-icon">🏆</div><div class="emp-stat-value">${achievements.length}</div><div class="emp-stat-label">Достиж.</div></div>
                     </div>
@@ -542,14 +516,9 @@
                         <div class="emp-status-card ${online ? 'active' : ''}"><span class="emp-status-dot ${online ? 'online' : 'offline'}"></span><span>${online ? 'В сети' : 'Не в сети'}</span></div>
                         <div class="emp-status-card active"><i class="fas fa-tag"></i><span>${escapeHtml(activeStatus)}</span></div>
                     </div>
-                    
-                    ${canEdit ? `
-                        <div class="emp-action-buttons">
-                            <button class="emp-btn-secondary" onclick="toggleProfileEdit()"><i class="fas fa-edit"></i> Редактировать</button>
-                        </div>
-                    ` : ''}
                 </div>
                 
+                <!-- Вкладка Статистика -->
                 <div id="profileTabStats" class="emp-profile-tab-content">
                     <div class="emp-section">
                         <h4><i class="fas fa-tasks"></i> Задачи</h4>
@@ -573,19 +542,20 @@
                         <div class="emp-section">
                             <h4><i class="fas fa-clock"></i> Смены и часы</h4>
                             <div class="emp-stats-row">
-                                <div class="emp-stat-item-detailed"><span class="label">Отработано смен</span><span class="value">${completedShifts}</span></div>
-                                <div class="emp-stat-item-detailed"><span class="label">Отработано часов</span><span class="value">${p.hours || 0} ч</span></div>
+                                <div class="emp-stat-item-detailed"><span class="label">Смен</span><span class="value">${completedShifts}</span></div>
+                                <div class="emp-stat-item-detailed"><span class="label">Часов</span><span class="value">${p.hours || 0} ч</span></div>
                             </div>
                         </div>
                     ` : ''}
                 </div>
                 
+                <!-- Вкладка Достижения -->
                 <div id="profileTabAchievements" class="emp-profile-tab-content">
                     <div class="emp-section-header"><h4>🏆 Достижения (${achievements.length})</h4></div>
                     ${achievements.length > 0 ? `
                         <div class="emp-achievements-list">
                             ${achievements.map(a => `
-                                <div class="emp-achievement-item" style="border-left-color: ${a.color || '#fbbf24'};">
+                                <div class="emp-achievement-item" style="border-left-color:${a.color || '#fbbf24'};">
                                     <span class="emp-achievement-icon">${escapeHtml(a.icon || '🏆')}</span>
                                     <div class="emp-achievement-info">
                                         <div class="emp-achievement-name">${escapeHtml(a.name)}</div>
@@ -597,6 +567,7 @@
                     ` : `<div class="emp-empty-section"><i class="fas fa-trophy"></i><p>Пока нет достижений</p></div>`}
                 </div>
                 
+                <!-- Вкладка Подарки -->
                 <div id="profileTabGifts" class="emp-profile-tab-content">
                     <div class="emp-section-header"><h4>🎁 Полученные подарки (${giftsReceived})</h4></div>
                     ${Object.keys(giftCounts).length > 0 ? `
@@ -612,6 +583,7 @@
                     ` : `<div class="emp-empty-section"><i class="fas fa-gift"></i><p>Пока нет подарков</p></div>`}
                 </div>
                 
+                <!-- Вкладка Действия (для директора) -->
                 ${currentUserRole === 'director' && !isDirector ? `
                     <div id="profileTabActions" class="emp-profile-tab-content">
                         <div class="emp-section">
@@ -627,7 +599,7 @@
                                 <option value="admin" ${p.role === 'admin' ? 'selected' : ''}>⚙️ Администратор</option>
                                 <option value="manager" ${p.role === 'manager' ? 'selected' : ''}>📋 Управляющий</option>
                             </select>
-                            <button class="emp-btn-primary" onclick="changeRole('${escapeHtml(employeeName)}')" style="margin-top: 12px;">Сменить</button>
+                            <button class="emp-btn-primary" onclick="changeRole('${escapeHtml(employeeName)}')" style="margin-top:12px;">Сменить</button>
                         </div>
                         <div class="emp-section danger">
                             <h4><i class="fas fa-key"></i> Сбросить пароль</h4>
@@ -636,7 +608,7 @@
                         </div>
                         <div class="emp-section danger">
                             <h4><i class="fas fa-trash-alt"></i> Уволить</h4>
-                            <p style="font-size: 12px; color: #94a3b8; margin-bottom: 12px;">Это действие необратимо</p>
+                            <p style="font-size:12px;color:#94a3b8;margin-bottom:12px;">Это действие необратимо</p>
                             <button class="emp-btn-danger" onclick="deleteEmployee('${escapeHtml(employeeName)}')">Уволить сотрудника</button>
                         </div>
                     </div>
@@ -644,13 +616,22 @@
             </div>
         `;
         
-        document.getElementById('profileModal').classList.add('active');
+        // Показываем модалку
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            modal.classList.add('active');
+            console.log('✅ Модалка открыта для:', employeeName);
+        } else {
+            console.error('❌ profileModal не найден в DOM');
+        }
     }
-
+    
     function closeProfileModal() {
-        document.getElementById('profileModal').classList.remove('active');
+        const modal = document.getElementById('profileModal');
+        if (modal) modal.classList.remove('active');
         document.body.style.overflow = '';
         currentProfileEmployee = null;
+        sessionStorage.removeItem('lastProfileEmployee');
     }
     
     window.switchProfileTab = function(tabName) {
@@ -662,51 +643,145 @@
             content.classList.remove('active');
         });
         const activeContent = document.getElementById(`profileTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
-        if (activeContent) {
-            activeContent.classList.add('active');
-        }
+        if (activeContent) activeContent.classList.add('active');
     };
+
+    console.log('✅ employees.js ЧАСТЬ 3/4 загружена');
+    // ============================================
+    // АВАТАРЫ
+    // ============================================
+    function openAvatarModal() {
+        const modal = document.getElementById('avatarModal');
+        if (!modal) return;
+        const grid = document.getElementById('avatarGrid');
+        if (!grid) return;
+        const avatars = ['👤','😎','🔥','⚡','🎯','🏆','🦸','👑','🐱','🐶','🦊','🐼','🐨','🐸','🐙','🦄','🤖','👻'];
+        grid.innerHTML = `<div class="emp-avatar-item upload" onclick="openAvatarUploadModal()"><i class="fas fa-camera"></i><span>Загрузить</span></div>${avatars.map(a => `<div class="emp-avatar-item" onclick="selectAvatar('${a}')">${a}</div>`).join('')}`;
+        modal.classList.add('active');
+    }
+    function closeAvatarModal() { document.getElementById('avatarModal')?.classList.remove('active'); }
     
+    async function selectAvatar(avatar) {
+        if (!currentProfileEmployee || currentProfileEmployee !== getCurrentUser()) { showSystemNotification('❌ Можно менять только свой аватар', 'warning'); return; }
+        const success = await updateEmployeeAvatar(currentProfileEmployee, avatar);
+        if (success) { if (window.app.profiles[currentProfileEmployee]) { window.app.profiles[currentProfileEmployee].avatar = avatar; window.app.profiles[currentProfileEmployee].avatar_url = null; } showSystemNotification('✅ Аватар изменён', 'success'); safeRenderEmployees(); closeAvatarModal(); }
+        else showSystemNotification('❌ Ошибка при смене аватара', 'error');
+    }
+    
+    function openAvatarUploadModal() {
+        const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+        input.onchange = async (e) => { const file = e.target.files[0]; if (!file) return; if (file.size > 2*1024*1024) { showSystemNotification('❌ Файл слишком большой (макс. 2MB)', 'error'); return; } const reader = new FileReader(); reader.onload = (event) => { pendingAvatarBase64 = event.target.result; document.getElementById('avatarPreviewImg').src = pendingAvatarBase64; document.getElementById('avatarPreviewModal').classList.add('active'); closeAvatarModal(); }; reader.readAsDataURL(file); };
+        input.click();
+    }
+    function closeAvatarPreviewModal() { document.getElementById('avatarPreviewModal')?.classList.remove('active'); pendingAvatarBase64 = null; }
+    
+    async function confirmAvatarUpload() {
+        if (!pendingAvatarBase64) return;
+        const success = await updateEmployeeAvatarBase64(currentProfileEmployee, pendingAvatarBase64);
+        if (success) { if (window.app.profiles[currentProfileEmployee]) { window.app.profiles[currentProfileEmployee].avatar_url = pendingAvatarBase64; window.app.profiles[currentProfileEmployee].avatar = null; } showSystemNotification('✅ Аватар обновлён', 'success'); safeRenderEmployees(); closeAvatarPreviewModal(); }
+        else showSystemNotification('❌ Ошибка при загрузке', 'error');
+        pendingAvatarBase64 = null;
+    }
+    
+    async function updateEmployeeAvatar(name, avatar) {
+        const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar });
+        return response?.success;
+    }
+    async function updateEmployeeAvatarBase64(name, base64) {
+        const response = await apiCall(`/profiles/${encodeURIComponent(name)}`, 'PUT', { avatar_url: base64 });
+        return response?.success;
+    }
+
+    // ============================================
+    // ЧАТ С СОТРУДНИКОМ
+    // ============================================
+    function openChatWithEmployee(employeeName) {
+        if (typeof loadPage === 'function') {
+            loadPage('chat');
+            setTimeout(() => { if (typeof switchChat === 'function') switchChat(employeeName); }, 300);
+        }
+    }
+    function openMyProfile() { if (window.app?.currentUser) openProfile(window.app.currentUser); }
+
+    // ============================================
+    // СОЗДАНИЕ СОТРУДНИКА
+    // ============================================
+    function openCreateEmployeeModal() {
+        const modal = document.getElementById('createEmployeeModal');
+        if (!modal) return;
+        modal.classList.add('active');
+        selectRole('operator');
+    }
+    function closeCreateEmployeeModal() {
+        document.getElementById('createEmployeeModal')?.classList.remove('active');
+        ['newEmpName','newEmpPassword','newEmpBirthday','newEmpPhone'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    }
+    function selectRole(role) {
+        const roleInput = document.getElementById('newEmpRole');
+        if (roleInput) roleInput.value = role;
+        document.querySelectorAll('.emp-role-option').forEach(opt => { opt.classList.remove('active'); const radio = opt.querySelector('input'); if (radio && radio.value === role) { opt.classList.add('active'); radio.checked = true; } });
+    }
+    
+    async function createEmployee() {
+        const name = document.getElementById('newEmpName')?.value.trim();
+        const password = document.getElementById('newEmpPassword')?.value;
+        const role = document.getElementById('newEmpRole')?.value || 'operator';
+        const birthday = document.getElementById('newEmpBirthday')?.value;
+        const phone = document.getElementById('newEmpPhone')?.value;
+        if (!name || !password) { showSystemNotification('❌ Заполните имя и пароль', 'error'); return; }
+        const response = await apiCall('/employees', 'POST', { name, password, role, birthday, phone });
+        if (response?.success) { showSystemNotification(`✅ ${name} создан`, 'success'); closeCreateEmployeeModal(); await loadEmployees(); safeRenderEmployees(); }
+        else showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+    }
+
+    // ============================================
+    // БОНУСЫ, РОЛИ, ПАРОЛИ, УДАЛЕНИЕ
+    // ============================================
+    async function giveBonus(employeeName) {
+        const coins = parseInt(document.getElementById('bonusCoins')?.value) || 0;
+        const rating = parseInt(document.getElementById('bonusRating')?.value) || 0;
+        if (coins === 0 && rating === 0) { showSystemNotification('⚠️ Укажите сумму или рейтинг', 'warning'); return; }
+        const res = await apiCall('/admin/bonus/employee', 'POST', { name: employeeName, coins, rating });
+        if (res?.success) { showSystemNotification('✅ Бонус выдан', 'success'); closeProfileModal(); await loadEmployees(); safeRenderEmployees(); }
+        else showSystemNotification('❌ ' + (res?.error || 'Ошибка'), 'error');
+    }
+    async function changeRole(employeeName) {
+        const role = document.getElementById('newRole')?.value; if (!role) return;
+        const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/role`, 'PUT', { role });
+        if (res?.success) { showSystemNotification('✅ Роль изменена', 'success'); closeProfileModal(); await loadEmployees(); safeRenderEmployees(); }
+        else showSystemNotification('❌ ' + (res?.error || 'Ошибка'), 'error');
+    }
+    async function resetEmployeePassword(employeeName) {
+        const newPassword = document.getElementById('newPassword')?.value; if (!newPassword) { showSystemNotification('⚠️ Введите пароль', 'warning'); return; }
+        if (!confirm(`Сбросить пароль для ${employeeName}?`)) return;
+        const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}/password`, 'PUT', { password: newPassword });
+        if (res?.success) showSystemNotification('✅ Пароль изменён', 'success');
+        else showSystemNotification('❌ ' + (res?.error || 'Ошибка'), 'error');
+    }
+    async function deleteEmployee(employeeName) {
+        if (!confirm(`Уволить ${employeeName}?`)) return;
+        const res = await apiCall(`/employees/${encodeURIComponent(employeeName)}`, 'DELETE');
+        if (res?.success) { showSystemNotification(`✅ ${employeeName} уволен`, 'warning'); if (window.app) { window.app.employees = window.app.employees.filter(e => e !== employeeName); delete window.app.profiles[employeeName]; } closeProfileModal(); safeRenderEmployees(); }
+        else showSystemNotification('❌ ' + (res?.error || 'Ошибка'), 'error');
+    }
+
     // ============================================
     // ИНИЦИАЛИЗАЦИЯ
     // ============================================
     function initEmployees() {
-        if (employeesInitialized) {
-            console.log('👥 Сотрудники уже инициализированы');
-            const grid = document.getElementById('employeesGrid');
-            if (grid && grid.children.length === 0) {
-                safeRenderEmployees();
-            }
-            return;
-        }
-        
+        if (employeesInitialized) { console.log('👥 Уже инициализированы'); const grid = document.getElementById('employeesGrid'); if (grid && grid.children.length === 0) safeRenderEmployees(); return; }
         console.log('👥 Инициализация команды');
-        
         const grid = document.getElementById('employeesGrid');
-        if (!grid) {
-            setTimeout(initEmployees, 100);
-            return;
-        }
-        
-        // 🔥 ВАЖНО: загружаем данные перед рендером
-        if (typeof loadEmployees === 'function') {
-            loadEmployees().then(() => {
-                safeRenderEmployees();
-            });
-        } else {
-            safeRenderEmployees();
-        }
-        
+        if (!grid) { setTimeout(initEmployees, 100); return; }
+        if (typeof loadEmployees === 'function') { loadEmployees().then(() => { console.log('✅ Данные загружены'); safeRenderEmployees(); }); }
+        else safeRenderEmployees();
         const createBtn = document.getElementById('createEmployeeBtn');
-        if (createBtn) {
-            createBtn.style.display = window.app?.currentUserRole === 'director' ? 'inline-flex' : 'none';
-        }
-        
+        if (createBtn) createBtn.style.display = window.app?.currentUserRole === 'director' ? 'inline-flex' : 'none';
         employeesInitialized = true;
     }
-    
+
     // ============================================
-    // ЭКСПОРТ
+    // ЭКСПОРТ ВСЕХ ФУНКЦИЙ В WINDOW
     // ============================================
     window.initEmployees = initEmployees;
     window.resetEmployeesState = resetEmployeesState;
@@ -714,17 +789,23 @@
     window.safeRenderEmployees = safeRenderEmployees;
     window.openProfile = openProfile;
     window.closeProfileModal = closeProfileModal;
-    window.openMyProfile = function() {
-        if (window.app?.currentUser) openProfile(window.app.currentUser);
-    };
-    window.openChatWithEmployee = function(employeeName) {
-        if (typeof loadPage === 'function') {
-            loadPage('chat');
-            setTimeout(() => { 
-                if (typeof switchChat === 'function') switchChat(employeeName); 
-            }, 300);
-        }
-    };
+    window.switchProfileTab = switchProfileTab;
+    window.openAvatarModal = openAvatarModal;
+    window.closeAvatarModal = closeAvatarModal;
+    window.selectAvatar = selectAvatar;
+    window.openAvatarUploadModal = openAvatarUploadModal;
+    window.closeAvatarPreviewModal = closeAvatarPreviewModal;
+    window.confirmAvatarUpload = confirmAvatarUpload;
+    window.openChatWithEmployee = openChatWithEmployee;
+    window.openMyProfile = openMyProfile;
+    window.openCreateEmployeeModal = openCreateEmployeeModal;
+    window.closeCreateEmployeeModal = closeCreateEmployeeModal;
+    window.selectRole = selectRole;
+    window.createEmployee = createEmployee;
+    window.giveBonus = giveBonus;
+    window.changeRole = changeRole;
+    window.resetEmployeePassword = resetEmployeePassword;
+    window.deleteEmployee = deleteEmployee;
 
-    console.log('✅ employees.js загружен (v2.2)');
+    console.log('✅ employees.js v3.0 загружен (полный)');
 })();
