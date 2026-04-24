@@ -12,6 +12,7 @@ let isUpdatingScript = false;
 let vpFilters = { search: '', showArchived: false };
 let vpNotificationInterval = null;
 let originalVpData = null;
+let abortController = null;
 let searchDebounceTimer = null;
 let vpInitialized = false;
 
@@ -26,7 +27,7 @@ const VP_MONTHS = ['Январь', 'Февраль', 'Март', 'Апрель',
 const VP_SCRIPT_AVAILABLE_DAYS = 2;
 const MAX_VP_AMOUNT = 1000000;
 
-function resetVpState() { console.log('🧹 Сброс состояния ВП'); vpInitialized = false; if (vpNotificationInterval) { clearInterval(vpNotificationInterval); vpNotificationInterval = null; } if (abortController) { abortController.abort(); abortController = null; } }
+function resetVpState() { console.log('🧹 Сброс состояния ВП'); vpInitialized = false; if (vpNotificationInterval) { clearInterval(vpNotificationInterval); vpNotificationInterval = null; } if (typeof abortController !== 'undefined' && abortController) { abortController.abort(); abortController = null; } }
 
 function getTobolskNow() { if (typeof window.getTobolskNow === 'function') return window.getTobolskNow(); const now = new Date(); return new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Yekaterinburg' })); }
 
@@ -95,8 +96,8 @@ function updateVpInterface() {
 
 async function loadVpData() {
     if (isLoadingVp) return;
-    if (abortController) abortController.abort();
-    abortController = new AbortController();
+    if (typeof abortController !== 'undefined' && abortController) { abortController.abort(); }
+if (typeof abortController !== 'undefined') { abortController = new AbortController(); }
     isLoadingVp = true;
     const tbody = document.getElementById('vpTableBody');
     if (tbody) tbody.innerHTML = '<tr><td colspan="9" class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</td></tr>';
