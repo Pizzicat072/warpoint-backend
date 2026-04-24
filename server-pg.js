@@ -804,7 +804,10 @@ async function runMigrations() {
     await addColumnIfNotExists('fines', 'description', 'TEXT', null);
     await addColumnIfNotExists('fines', 'created_by', 'VARCHAR(100)', null);
     await addColumnIfNotExists('fines', 'director_comment', 'TEXT', null);
-    
+    await addColumnIfNotExists('fines', 'event', 'VARCHAR(50)', null);
+await query(`ALTER TABLE fines ALTER COLUMN event DROP NOT NULL`).catch(() => {});
+await query(`ALTER TABLE fines ALTER COLUMN event SET DEFAULT ''`).catch(() => {});
+
     // Таблица vp_bookings
     await addColumnIfNotExists('vp_bookings', 'duration', 'INTEGER', '1');
     
