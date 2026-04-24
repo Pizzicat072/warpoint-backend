@@ -1559,6 +1559,93 @@ async function deleteMessage(messageTime, room) {
         console.log('Времена в чате:', messages.map(function(m) { return m.time + ' (' + typeof m.time + ')'; }));
         return;
     }
+    
+    var isOwn = (messageToDelete.sender === window.app?.currentUser);
+    var isDirector = (window.app?.currentUserRole === 'director');
+    
+    if (!isOwn && !isDirector) {
+        showSystemNotification('❌ Можно удалять только свои сообщения', 'error');
+        return;
+    }
+    
+    var confirmMsg = isDirector && !isOwn 
+        ? 'Удалить сообщение от ' + messageToDelete.sender + '?' 
+        : 'Удалить это сообщение?';
+        
+    if (!confirm(confirmMsg)) return;
+    
+    var token = localStorage.getItem('token');
+    if (!token) {
+        showSystemNotification('❌ Ошибка: не авторизован', 'error');
+        return;
+    }
+    
+    try {
+        var messageEl = document.querySelector('.message[data-message-time="' + timeValue + '"]');
+        if (messageEl) {
+            messageEl.classList.add('deleting');
+        }
+        
+        var response = await fetch('/api/chat/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ room: room, messageTime: timeValue, sender: messageToDelete.sender })
+        });
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                showSystemNotification('ℹ️ Сообщение уже удалено', 'info');
+            } else {
+                throw new Error('HTTP ' + response.status);
+            }
+        }
+        
+        var data = await response.json();
+        
+        if (data.success) {
+            setTimeout(function() {
+                var index = chatMessages[room].findIndex(function(m) { return m.time === timeValue; });
+                if (index !== -1) {
+                    chatMessages[room].splice(index, 1);
+                    window.app.messages = chatMessages;
+                    renderChatMessages();
+                    renderChatContacts();
+                }
+            }, 300);
+            
+            if (room === 'general' && window.channel) {
+                window.channel.trigger('client-delete-message', { 
+                    room: room, 
+                    messageTime: timeValue, 
+                    sender: messageToDelete.sender 
+                });
+            } else if (window.privateChannel) {
+                window.privateChannel.trigger('client-delete-private', { 
+                    room: room, 
+                    messageTime: timeValue, 
+                    sender: messageToDelete.sender 
+                });
+            }
+            
+            showSystemNotification('🗑️ Сообщение удалено', 'info');
+        } else {
+            showSystemNotification('❌ ' + (data.error || 'Ошибка при удалении'), 'error');
+            if (messageEl) messageEl.classList.remove('deleting');
+        }
+    } catch (err) {
+        console.error('Ошибка:', err);
+        showSystemNotification('❌ Ошибка соединения', 'error');
+        var el = document.querySelector('.message[data-message-time="' + timeValue + '"]');
+        if (el) el.classList.remove('deleting');
+    }
+}
+
+// ============================================
+// НАСТРОЙКИ ЧАТА
+// ============================================
 // ============================================
 // НАСТРОЙКИ ЧАТА
 // ============================================
