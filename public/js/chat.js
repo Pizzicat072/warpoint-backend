@@ -1351,6 +1351,19 @@
             initChat();
         }
     }, 200);
-
+window.sendChatMessage = sendChatMessage;
+window.toggleChatSearch = function() {
+    var wrapper = document.getElementById('chatSearchWrapper');
+    var input = document.getElementById('chatSearchInput');
+    if (wrapper && input) {
+        if (wrapper.style.display === 'none' || !wrapper.style.display) {
+            wrapper.style.display = 'flex';
+            input.focus();
+        } else {
+            wrapper.style.display = 'none';
+            input.value = '';
+        }
+    }
+};
     console.log('✅ chat.js v5.0 PRO загружен');
 })();
