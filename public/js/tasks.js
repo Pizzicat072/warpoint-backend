@@ -484,6 +484,21 @@
                 }
                 subtasksHtml += '</div>';
             }
+// ✅ ДОБАВИТЬ — отображение вложений
+var attachmentsHtml = '';
+if (task.attachments && task.attachments.length > 0) {
+    attachmentsHtml = '<div class="task-attachments" style="margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,255,255,0.05);">';
+    attachmentsHtml += '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px;"><i class="fas fa-paperclip"></i> Вложения (' + task.attachments.length + ')</div>';
+    for (var a = 0; a < task.attachments.length; a++) {
+        var att = task.attachments[a];
+        attachmentsHtml += '<div class="attachment-item" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:rgba(0,0,0,0.2);border-radius:10px;margin-bottom:6px;font-size:12px;">';
+        attachmentsHtml += '<i class="fas fa-paperclip"></i>';
+        attachmentsHtml += '<span>' + escapeHtml(att.file_name || att.name || 'Файл') + '</span>';
+        if (att.file_size) attachmentsHtml += '<span style="color:#64748b;font-size:11px;">(' + Math.round(att.file_size / 1024) + ' KB)</span>';
+        attachmentsHtml += '</div>';
+    }
+    attachmentsHtml += '</div>';
+}
             
             html += `
                 <div class="task-card ${cardClass}" data-task-id="${task.id}">
@@ -515,8 +530,9 @@
                             <div class="task-info-item"><i class="fas fa-calendar-alt"></i> Дедлайн: ${task.deadline ? formatDate(task.deadline) : '—'}</div>
                             ${task.completed_at ? `<div class="task-info-item"><i class="fas fa-check-circle"></i> Выполнена: ${new Date(task.completed_at).toLocaleDateString('ru-RU')}</div>` : ''}
                         </div>
-                        ${task.comment ? `<div class="task-info-item"><i class="fas fa-comment"></i> Комментарий: ${escapeHtml(task.comment)}</div>` : ''}
-                        ${subtasksHtml}
+                        ${task.comment ? '<div class="task-info-item"><i class="fas fa-comment"></i> Комментарий: ' + escapeHtml(task.comment) + '</div>' : ''}
+${subtasksHtml}
+${attachmentsHtml}
                     </div>
                 </div>
             `;

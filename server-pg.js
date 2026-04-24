@@ -1325,7 +1325,6 @@ async function autoArchiveCompletedTasks() {
         logger.error('Ошибка автоархивации задач:', err.message);
     }
 }
-
 // ============================================
 // 17. ОБНОВЛЕНИЕ ПОГОДЫ
 // ============================================
@@ -1421,7 +1420,7 @@ function initCronJobs() {
     });
     
     cron.schedule('0 2 * * *', () => {
-        autoArchiveCompletedTasks().catch(e => logger.error('Cron archive tasks:', e.message));
+    autoArchiveCompletedTasks().catch(e => logger.error('Cron archive tasks:', e.message));
     });
     
     cron.schedule('0 */2 * * *', () => {
