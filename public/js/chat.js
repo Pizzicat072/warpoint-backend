@@ -1530,97 +1530,35 @@ async function deleteMessage(messageTime, room) {
         console.warn('⚠️ Попытка удалить сообщение из неактивного чата');
     }
     
-    const timeValue = typeof messageTime === 'string' ? parseInt(messageTime) : messageTime;
-    const messages = chatMessages[room] || [];
-    const messageToDelete = messages.find(m => m.time === timeValue);
+    // Приводим к числу
+    var timeValue = messageTime;
+    if (typeof timeValue === 'string') {
+        timeValue = parseInt(timeValue);
+    }
+    if (isNaN(timeValue)) {
+        showSystemNotification('❌ Некорректное время сообщения', 'error');
+        return;
+    }
+    
+    var messages = chatMessages[room] || [];
+    
+    // Ищем сообщение — сравниваем как числа
+    var messageToDelete = null;
+    for (var i = 0; i < messages.length; i++) {
+        var msgTime = messages[i].time;
+        if (typeof msgTime === 'string') msgTime = parseInt(msgTime);
+        if (msgTime === timeValue) {
+            messageToDelete = messages[i];
+            break;
+        }
+    }
     
     if (!messageToDelete) {
         showSystemNotification('❌ Сообщение не найдено', 'error');
+        console.log('Искали timeValue:', timeValue, 'тип:', typeof timeValue);
+        console.log('Времена в чате:', messages.map(function(m) { return m.time + ' (' + typeof m.time + ')'; }));
         return;
     }
-    
-    const isOwn = (messageToDelete.sender === window.app?.currentUser);
-    const isDirector = (window.app?.currentUserRole === 'director');
-    
-    if (!isOwn && !isDirector) {
-        showSystemNotification('❌ Можно удалять только свои сообщения', 'error');
-        return;
-    }
-    
-    const confirmMsg = isDirector && !isOwn 
-        ? `Удалить сообщение от ${messageToDelete.sender}?` 
-        : 'Удалить это сообщение?';
-        
-    if (!confirm(confirmMsg)) return;
-    
-    const token = localStorage.getItem('token');
-    if (!token) {
-        showSystemNotification('❌ Ошибка: не авторизован', 'error');
-        return;
-    }
-    
-    try {
-        const messageEl = document.querySelector(`.message[data-message-time="${timeValue}"]`);
-        if (messageEl) {
-            messageEl.classList.add('deleting');
-        }
-        
-        const response = await fetch('/api/chat/delete', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify({ room: room, messageTime: timeValue, sender: messageToDelete.sender })
-        });
-        
-        if (!response.ok) {
-            if (response.status === 404) {
-                showSystemNotification('ℹ️ Сообщение уже удалено', 'info');
-            } else {
-                throw new Error(`HTTP ${response.status}`);
-            }
-        }
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            setTimeout(() => {
-                const index = chatMessages[room].findIndex(m => m.time === timeValue);
-                if (index !== -1) {
-                    chatMessages[room].splice(index, 1);
-                    window.app.messages = chatMessages;
-                    renderChatMessages();
-                    renderChatContacts();
-                }
-            }, 300);
-            
-            if (room === 'general' && window.channel) {
-                window.channel.trigger('client-delete-message', { 
-                    room: room, 
-                    messageTime: timeValue, 
-                    sender: messageToDelete.sender 
-                });
-            } else if (window.privateChannel) {
-                window.privateChannel.trigger('client-delete-private', { 
-                    room: room, 
-                    messageTime: timeValue, 
-                    sender: messageToDelete.sender 
-                });
-            }
-            
-            showSystemNotification('🗑️ Сообщение удалено', 'info');
-        } else {
-            showSystemNotification('❌ ' + (data.error || 'Ошибка при удалении'), 'error');
-            messageEl?.classList.remove('deleting');
-        }
-    } catch (err) {
-        console.error('Ошибка:', err);
-        showSystemNotification('❌ Ошибка соединения', 'error');
-        document.querySelector(`.message[data-message-time="${timeValue}"]`)?.classList.remove('deleting');
-    }
-}
-
 // ============================================
 // НАСТРОЙКИ ЧАТА
 // ============================================
