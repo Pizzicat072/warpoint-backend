@@ -44,11 +44,42 @@ async function apiCall(endpoint, method = 'GET', body = null) { if (typeof windo
 function initVp() {
     if (vpInitialized) { console.log('🎮 ВП уже инициализирован'); return; }
     console.log('🎮 Инициализация ВП');
-    const monthDisplay = document.getElementById('vpMonthDisplay'), yearDisplay = document.getElementById('vpYearDisplay');
+    
+    const monthDisplay = document.getElementById('vpMonthDisplay');
+    const yearDisplay = document.getElementById('vpYearDisplay');
     if (!monthDisplay || !yearDisplay) { setTimeout(initVp, 100); return; }
+    
     const now = getTobolskNow();
     let todayYear = now.getFullYear(), todayMonth = now.getMonth() + 1;
-    if (todayYear < VP_START_YEAR || (todayYear === VP_START_YEAR && todayMonth < VP_START_MONTH)) { vpCurrentYear = VP_START_YEAR; vpCurrentMonth = VP_START_MONTH; }
+    if (todayYear < VP_START_YEAR || (todayYear === VP_START_YEAR && todayMonth < VP_START_MONTH)) { 
+        vpCurrentYear = VP_START_YEAR; 
+        vpCurrentMonth = VP_START_MONTH; 
+    } else { 
+        vpCurrentYear = todayYear; 
+        vpCurrentMonth = todayMonth; 
+    }
+    
+    const role = window.app?.currentUserRole || 'operator';
+    const profile = window.app?.profiles?.[window.app?.currentUser];
+    canEditVp = (role === 'director' || role === 'manager' || (role === 'admin' && profile?.can_edit_vp === true));
+    
+    updateVpInterface();
+    updateVpDisplay();
+    updateMonthButtons();
+    
+    setupEventListeners();
+    
+    loadVpData();
+    
+    document.title = 'WARPOINT — Учёт мероприятий';
+    
+    if (vpNotificationInterval) clearInterval(vpNotificationInterval);
+    vpNotificationInterval = setInterval(() => { 
+        if (document.visibilityState === 'visible') renderVpTable(); 
+    }, 60000);
+    
+    vpInitialized = true;
+}
     else { vpCurrentYear = todayYear; vpCurrentMonth = todayMonth; }
     const role = window.app?.currentUserRole || 'operator';
     const profile = window.app?.profiles?.[window.app?.currentUser];
@@ -62,11 +93,31 @@ function initVp() {
 }
 
 function setupEventListeners() {
-    const prevBtn = document.getElementById('vpPrevMonth'), nextBtn = document.getElementById('vpNextMonth'), addBtn = document.getElementById('vpAddBtn');
-    if (prevBtn) prevBtn.onclick = () => changeVpMonth(-1);
-    if (nextBtn) nextBtn.onclick = () => changeVpMonth(1);
-    if (addBtn) { addBtn.style.display = canEditVp ? 'flex' : 'none'; addBtn.onclick = () => openVpModal(); }
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeVpModal(); closeBookingDetailsModal(); } });
+    var prevBtn = document.getElementById('vpPrevMonth');
+    var nextBtn = document.getElementById('vpNextMonth');
+    var addBtn = document.getElementById('vpAddBtn');
+    
+    if (prevBtn) prevBtn.onclick = function() { changeVpMonth(-1); };
+    if (nextBtn) nextBtn.onclick = function() { changeVpMonth(1); };
+    
+    if (addBtn) {
+        // Всегда назначаем обработчик
+        addBtn.onclick = function() {
+            if (!canEditVp) {
+                showSystemNotification('❌ Нет прав для создания мероприятий', 'error');
+                return;
+            }
+            openVpModal();
+        };
+        addBtn.style.display = canEditVp ? 'flex' : 'none';
+    }
+    
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeVpModal();
+            closeBookingDetailsModal();
+        }
+    });
 }
 
 function updateMonthButtons() {
