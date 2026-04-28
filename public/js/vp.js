@@ -80,18 +80,6 @@ function initVp() {
     
     vpInitialized = true;
 }
-    else { vpCurrentYear = todayYear; vpCurrentMonth = todayMonth; }
-    const role = window.app?.currentUserRole || 'operator';
-    const profile = window.app?.profiles?.[window.app?.currentUser];
-    canEditVp = (role === 'director' || role === 'manager' || (role === 'admin' && profile?.can_edit_vp === true));
-    updateVpInterface(); updateVpDisplay(); updateMonthButtons(); loadVpData();
-    document.title = 'WARPOINT — Учёт мероприятий';
-    setupEventListeners();
-    if (vpNotificationInterval) clearInterval(vpNotificationInterval);
-    vpNotificationInterval = setInterval(() => { if (document.visibilityState === 'visible') renderVpTable(); }, 60000);
-    vpInitialized = true;
-}
-
 function setupEventListeners() {
     var prevBtn = document.getElementById('vpPrevMonth');
     var nextBtn = document.getElementById('vpNextMonth');
