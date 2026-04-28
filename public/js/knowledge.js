@@ -768,10 +768,18 @@
     }
 
     function kbEditArticle(articleId) {
-        editingArticleId = articleId;
-        var article = knowledgeArticles.find(function(a) { return a.id === articleId; });
-        if (article) openArticleModalInternal(article.category_id, article);
+    editingArticleId = articleId;
+    var article = knowledgeArticles.find(function(a) { return a.id === articleId; });
+    if (article) {
+        // 🔥 Очищаем контент перед загрузкой в редактор
+        var cleanContent = cleanHTML(article.content || '');
+        openArticleModalInternal(article.category_id, {
+            id: article.id,
+            title: article.title,
+            content: cleanContent
+        });
     }
+}
 
     function openArticleModalInternal(categoryId, article) {
         var modalHtml = '' +
@@ -814,26 +822,95 @@
     }
 
     async function kbSaveArticle(categoryId) {
-        var title = document.getElementById('articleTitle')?.value.trim();
-        var content = document.getElementById('kbEditorContent')?.innerHTML || '';
-        if (!title) {
-            showNotification('❌ Введите заголовок', 'error');
-            return;
-        }
-        var response;
-        if (editingArticleId) {
-            response = await apiCall('/knowledge/articles/' + editingArticleId, 'PUT', { title: title, content: content });
-        } else {
-            response = await apiCall('/knowledge/articles', 'POST', { category_id: categoryId, title: title, content: content });
-        }
-        if (response?.success) {
-            showNotification(editingArticleId ? '✅ Статья обновлена' : '✅ Статья создана', 'success');
-            kbCloseArticleEdit();
-            await loadKnowledgeData();
-        } else {
-            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
-        }
+    var title = document.getElementById('articleTitle')?.value.trim();
+    var content = document.getElementById('kbEditorContent')?.innerHTML || '';
+    
+    if (!title) {
+        showNotification('❌ Введите заголовок', 'error');
+        return;
     }
+    
+    // 🔥 ОЧИСТКА HTML перед сохранением
+    content = cleanHTML(content);
+    
+    var response;
+    if (editingArticleId) {
+        response = await apiCall('/knowledge/articles/' + editingArticleId, 'PUT', { title: title, content: content });
+    } else {
+        response = await apiCall('/knowledge/articles', 'POST', { category_id: categoryId, title: title, content: content });
+    }
+    
+    if (response?.success) {
+        showNotification(editingArticleId ? '✅ Статья обновлена' : '✅ Статья создана', 'success');
+        kbCloseArticleEdit();
+        await loadKnowledgeData();
+    } else {
+        showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+    }
+}
+
+// 🔥 НОВАЯ ФУНКЦИЯ: очистка HTML от мусора
+function cleanHTML(html) {
+    if (!html) return '';
+    
+    // Создаём временный DOM-элемент для парсинга
+    var div = document.createElement('div');
+    div.innerHTML = html;
+    
+    // Удаляем contenteditable атрибуты
+    div.querySelectorAll('[contenteditable]').forEach(function(el) {
+        el.removeAttribute('contenteditable');
+    });
+    
+    // Удаляем пустые span-ы
+    div.querySelectorAll('span').forEach(function(el) {
+        if (!el.textContent.trim() && !el.querySelector('img')) {
+            el.remove();
+        }
+    });
+    
+    // Удаляем пустые p и div
+    div.querySelectorAll('p, div').forEach(function(el) {
+        if (!el.textContent.trim() && !el.querySelector('img, iframe, table, pre, hr, br')) {
+            el.remove();
+        }
+    });
+    
+    // Убираем лишние пробелы в атрибутах style
+    div.querySelectorAll('[style]').forEach(function(el) {
+        var style = el.getAttribute('style');
+        if (style) {
+            // Убираем множественные пробелы
+            style = style.replace(/\s+/g, ' ').trim();
+            // Убираем пустой style
+            if (style === '' || style === ';') {
+                el.removeAttribute('style');
+            } else {
+                el.setAttribute('style', style);
+            }
+        }
+    });
+    
+    // Убираем span без стилей (остались от contenteditable)
+    div.querySelectorAll('span').forEach(function(el) {
+        if (!el.getAttribute('style') && !el.getAttribute('class') && !el.querySelector('img')) {
+            // Есть ли смысл в этом span?
+            var hasStyledChildren = false;
+            el.querySelectorAll('b, i, u, strong, em, a, code').forEach(function(child) {
+                hasStyledChildren = true;
+            });
+            if (!hasStyledChildren) {
+                // Заменяем span на его содержимое
+                while (el.firstChild) {
+                    el.parentNode.insertBefore(el.firstChild, el);
+                }
+                el.remove();
+            }
+        }
+    });
+    
+    return div.innerHTML;
+}
 
     async function kbDeleteArticle(articleId) {
         if (!canManageArticles()) {
@@ -1121,6 +1198,7 @@
     window.kbDeleteCategory = kbDeleteCategory;
     window.kbShowPresets = kbShowPresets;
     window.kbClosePresets = kbClosePresets;
+window.kbCleanHTML = cleanHTML;
     window.kbCreatePresetCategory = kbCreatePresetCategory;
     window.kbCreateAllPresets = kbCreateAllPresets;
     window.loadKnowledgeData = loadKnowledgeData;
