@@ -1622,11 +1622,13 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
+        // Проверяем существование таблицы
         const tableCheck = await query(
             "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements')"
         ).catch(() => ({ rows: [{ exists: false }] }));
-        
+
         if (!tableCheck.rows[0].exists) {
+            // Таблицы нет — создаём
             await query(`CREATE TABLE IF NOT EXISTS user_achievements (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -1635,22 +1637,35 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
                 UNIQUE(user_id, achievement_id)
             )`).catch(() => {});
         }
-        
+
+        // Проверяем существование таблицы employees
+        const empCheck = await query(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'employees')"
+        ).catch(() => ({ rows: [{ exists: false }] }));
+
+        if (!empCheck.rows[0].exists) {
+            return res.json({ success: true, counts: {} });
+        }
+
+        // Получаем подсчёт
         const result = await query(
             `SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count 
              FROM employees e 
              LEFT JOIN user_achievements ua ON ua.user_id = e.id 
              WHERE e.deleted_at IS NULL 
              GROUP BY e.id, e.name`
-        ).catch(() => ({ rows: [] }));
-        
+        ).catch((err) => {
+            console.error('achievements-count query error:', err.message);
+            return { rows: [] };
+        });
+
         const counts = {};
         if (result && result.rows) {
             result.rows.forEach(function(r) {
                 counts[r.name] = parseInt(r.count) || 0;
             });
         }
-        
+
         res.json({ success: true, counts: counts });
     } catch (err) {
         console.error('achievements-count error:', err.message);
