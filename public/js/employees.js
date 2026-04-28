@@ -770,9 +770,10 @@ async function createEmployee() {
     
     // Показываем кнопку создания для директора
     var createBtn = document.getElementById('createEmployeeBtn');
-    if (createBtn) {
-        createBtn.style.display = window.app && window.app.currentUserRole === 'director' ? 'inline-flex' : 'none';
-    }
+if (createBtn) {
+    createBtn.onclick = function() { openCreateEmployeeModal(); };
+    createBtn.style.display = (window.app && window.app.currentUserRole === 'director') ? 'inline-flex' : 'none';
+}
     
     employeesInitialized = true;
 }
