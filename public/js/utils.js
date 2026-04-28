@@ -314,9 +314,10 @@ function refreshAllBalanceDisplays() {
     const profileCoins = document.getElementById('profileCoins');
     if (profileCoins) profileCoins.textContent = balance;
     
-    if (typeof renderEmployees === 'function') renderEmployees();
+   if (document.getElementById('employeesGrid') && typeof renderEmployees === 'function') {
+    renderEmployees();
 }
-
+}
 // ============================================
 // ТРАНЗАКЦИИ
 // ============================================
