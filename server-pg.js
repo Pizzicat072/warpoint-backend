@@ -1727,26 +1727,6 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
-        // Проверяем существование таблицы user_achievements
-        const tableCheck = await query(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements')"
-        ).catch(function() { return { rows: [{ exists: false }] }; });
-
-        if (!tableCheck.rows[0].exists) {
-            // Создаём таблицу
-            await query("CREATE TABLE IF NOT EXISTS user_achievements (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE, claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, achievement_id))").catch(function() {});
-        }
-
-        // Проверяем что таблица employees существует
-        var empCheck = await query(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'employees')"
-        ).catch(function() { return { rows: [{ exists: false }] }; });
-
-        if (!empCheck.rows[0].exists) {
-            return res.json({ success: true, counts: {} });
-        }
-
-        // Получаем подсчёт
         var result = await query(
             "SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id WHERE e.deleted_at IS NULL GROUP BY e.id, e.name"
         ).catch(function(err) {
