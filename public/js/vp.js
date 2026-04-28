@@ -64,12 +64,10 @@ function initVp() {
     canEditVp = (role === 'director' || role === 'manager' || (role === 'admin' && profile?.can_edit_vp === true));
     
     updateVpInterface();
-    updateVpDisplay();
-    updateMonthButtons();
-    
-    setupEventListeners();
-    
-    loadVpData();
+updateVpDisplay();
+updateMonthButtons();
+setupEventListeners();  // ← должно быть здесь
+loadVpData();
     
     document.title = 'WARPOINT — Учёт мероприятий';
     
@@ -89,15 +87,12 @@ function setupEventListeners() {
     if (nextBtn) nextBtn.onclick = function() { changeVpMonth(1); };
     
     if (addBtn) {
-        // Всегда назначаем обработчик
+        addBtn.style.display = canEditVp ? 'flex' : 'none';
         addBtn.onclick = function() {
-            if (!canEditVp) {
-                showSystemNotification('❌ Нет прав для создания мероприятий', 'error');
-                return;
-            }
             openVpModal();
         };
-        addBtn.style.display = canEditVp ? 'flex' : 'none';
+    } else {
+        console.warn('⚠️ vpAddBtn не найден');
     }
     
     document.addEventListener('keydown', function(e) {
