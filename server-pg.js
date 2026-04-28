@@ -1,6 +1,6 @@
 // ============================================
-// WARPOINT HUB — SERVER v5.3.0 FULL FIXED
-// Исправлено: Connection terminated, retry logic, паузы миграций, PUPPETEER_EXECUTABLE_PATH
+// WARPOINT HUB — SERVER v5.3.1 RENDER-FIXED
+// Полный файл, часть 1/4 — конфигурация и инициализация БД
 // ============================================
 
 require('dotenv').config();
@@ -31,36 +31,135 @@ const JWT_SECRET = process.env.JWT_SECRET || 'warpoint-secret-key-2024-ultra-sec
 const TIMEZONE = 'Asia/Yekaterinburg';
 const BCRYPT_SALT_ROUNDS = 10;
 
+// ============================================
+// LOGGER
+// ============================================
+
 const logger = winston.createLogger({
     level: 'info',
-    format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+    format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.printf(({ timestamp, level, message }) => {
+            return `${timestamp} [${level.toUpperCase()}]: ${message}`;
+        })
+    ),
     transports: [
+        new winston.transports.Console(),
         new winston.transports.File({ filename: 'error.log', level: 'error' }),
-        new winston.transports.File({ filename: 'combined.log' }),
-        new winston.transports.Console({ format: winston.format.simple() })
+        new winston.transports.File({ filename: 'combined.log' })
     ]
 });
+
+// ============================================
+// CACHE & PARSER
+// ============================================
 
 const cache = new NodeCache({ stdTTL: 300, checkperiod: 600 });
 const bookingParser = new BookingParser();
 
-let pool = null;
-let pusher = null;
-let server = null;
-let dbInitialized = false;
+// ============================================
+// DATABASE POOL (RENDER-FRIENDLY)
+// ============================================
 
-const SERVER_STATE = { started: null, isReady: false, isShuttingDown: false, version: '5.3.0' };
+let pool = null;
 
 const DB_CONFIG = {
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
     max: 4,
-    min: 1,
+    min: 2,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 15000,
-    allowExitOnIdle: true,
-    application_name: 'warpoint_hub_v5'
+    connectionTimeoutMillis: 10000,
+    allowExitOnIdle: true
 };
+
+function createDatabasePool() {
+    if (pool) return pool;
+
+    pool = new Pool(DB_CONFIG);
+
+    pool.on('error', (err) => {
+        logger.error('DB Pool Error: ' + err.message);
+        if (err.message.includes('Connection terminated') ||
+            err.message.includes('Connection closed')) {
+            pool = null;
+            setTimeout(createDatabasePool, 5000);
+        }
+    });
+
+    pool.on('connect', () => {
+        logger.info('Новое соединение с БД установлено');
+    });
+
+    return pool;
+}
+
+// ============================================
+// QUERY С RETRY-ЛОГИКОЙ
+// ============================================
+
+async function query(text, params = [], retries = 3) {
+    if (!pool) pool = createDatabasePool();
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const start = Date.now();
+            const result = await pool.query(text, params);
+            const duration = Date.now() - start;
+
+            if (duration > 1000) {
+                logger.warn(`Медленный запрос (${duration}ms): ${text.substring(0, 100)}`);
+            }
+
+            return result;
+        } catch (err) {
+            const isConnectionError =
+                err.message.includes('Connection terminated') ||
+                err.message.includes('Connection closed') ||
+                err.code === '57P01' ||
+                err.code === '08006' ||
+                err.code === '08003';
+
+            if (isConnectionError && attempt < retries - 1) {
+                const delay = 1000 * Math.pow(2, attempt);
+                logger.warn(`Обрыв соединения (попытка ${attempt + 1}/${retries}), ждём ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+
+                if (attempt > 0) {
+                    try { await pool.end(); } catch (e) { }
+                    pool = null;
+                    pool = createDatabasePool();
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                continue;
+            }
+
+            logger.error(`SQL Error: ${err.message} [${text.substring(0, 100)}]`);
+            throw err;
+        }
+    }
+}
+
+async function transaction(callback) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await callback(client);
+        await client.query('COMMIT');
+        return result;
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+}
+
+// ============================================
+// PUSHER
+// ============================================
+
+let pusher = null;
 
 const PUSHER_CONFIG = {
     appId: process.env.PUSHER_APP_ID,
@@ -69,6 +168,83 @@ const PUSHER_CONFIG = {
     cluster: process.env.PUSHER_CLUSTER,
     useTLS: true
 };
+
+function initPusher() {
+    if (!PUSHER_CONFIG.appId || !PUSHER_CONFIG.key || !PUSHER_CONFIG.secret) {
+        logger.warn('Pusher не настроен');
+        return null;
+    }
+    try {
+        pusher = new Pusher(PUSHER_CONFIG);
+        logger.info('Pusher инициализирован');
+        return pusher;
+    } catch (err) {
+        logger.error('Pusher error: ' + err.message);
+        return null;
+    }
+}
+
+async function triggerPusher(channel, event, data) {
+    if (!pusher) return false;
+    try {
+        await pusher.trigger(channel, event, data);
+        return true;
+    } catch (err) {
+        logger.error('Pusher trigger error: ' + err.message);
+        return false;
+    }
+}
+
+async function addNotification(recipient, type, data) {
+    try {
+        await query(
+            "INSERT INTO notifications (recipient, type, data, read, created_at) VALUES ($1, $2, $3, FALSE, NOW())",
+            [recipient, type, JSON.stringify(data)]
+        );
+        if (pusher) {
+            const channel = `private-user-${transliterate(recipient)}`;
+            await pusher.trigger(channel, 'personal-notification', { type, data });
+        }
+    } catch (err) {
+        logger.error('Add notification error: ' + err.message);
+    }
+}
+
+// ============================================
+// UTILS
+// ============================================
+
+function getTobolskNow() { return moment().tz(TIMEZONE); }
+function getTobolskDate() { return getTobolskNow().format('YYYY-MM-DD'); }
+function getTobolskDateTime() { return getTobolskNow().format('YYYY-MM-DD HH:mm:ss'); }
+
+function transliterate(name) {
+    if (!name) return 'user';
+    const ru = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+        'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
+        'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
+    };
+    let result = '';
+    for (let char of name.toLowerCase()) result += ru[char] || char;
+    return result.replace(/[^a-z0-9]/g, '') || 'user';
+}
+
+async function hashPassword(password) { return await bcrypt.hash(password, BCRYPT_SALT_ROUNDS); }
+async function comparePassword(password, hash) { if (!hash) return false; return await bcrypt.compare(password, hash); }
+function generateToken(payload) { return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }); }
+function verifyToken(token) { try { return jwt.verify(token, JWT_SECRET); } catch (e) { return null; } }
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+}
+
+// ============================================
+// EXPRESS CONFIG
+// ============================================
 
 const upload = multer({
     limits: { fileSize: 5 * 1024 * 1024 },
@@ -106,170 +282,6 @@ const apiLimiter = rateLimit({
     keyGenerator: (req) => req.ip || req.socket.remoteAddress
 });
 
-function getTobolskNow() { return moment().tz(TIMEZONE); }
-function getTobolskDate() { return getTobolskNow().format('YYYY-MM-DD'); }
-function getTobolskDateTime() { return getTobolskNow().format('YYYY-MM-DD HH:mm:ss'); }
-
-function transliterate(name) {
-    if (!name) return 'user';
-    const ru = {
-        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-        'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch',
-        'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya'
-    };
-    let result = '';
-    for (let char of name.toLowerCase()) result += ru[char] || char;
-    return result.replace(/[^a-z0-9]/g, '') || 'user';
-}
-
-async function hashPassword(password) { return await bcrypt.hash(password, BCRYPT_SALT_ROUNDS); }
-async function comparePassword(password, hash) { if (!hash) return false; return await bcrypt.compare(password, hash); }
-function generateToken(payload) { return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }); }
-function verifyToken(token) { try { return jwt.verify(token, JWT_SECRET); } catch (e) { return null; } }
-
-function createDatabasePool() {
-    if (pool) return pool;
-    pool = new Pool(DB_CONFIG);
-    pool.on('error', (err) => {
-        logger.error('DB Pool Error:', err.message);
-        if (err.message.includes('Connection terminated') || err.message.includes('Connection closed')) {
-            logger.warn('🔄 Пересоздание пула БД через 5 секунд...');
-            pool = null;
-            setTimeout(createDatabasePool, 5000);
-        }
-    });
-    logger.info('Пул БД создан');
-    return pool;
-}
-
-// 🔥 ИСПРАВЛЕНО: Retry-логика при обрывах соединения
-async function query(text, params, retries = 3) {
-    if (!pool) pool = createDatabasePool();
-    const start = Date.now();
-
-    for (let attempt = 0; attempt < retries; attempt++) {
-        try {
-            const result = await pool.query(text, params);
-            const duration = Date.now() - start;
-            if (duration > 500) {
-                logger.warn('Slow query:', { duration, rows: result.rowCount, text: text.substring(0, 200) });
-            }
-            return result;
-        } catch (err) {
-            const isConnectionError = err.message.includes('Connection terminated')
-                                   || err.message.includes('Connection closed')
-                                   || err.code === '57P01'
-                                   || err.code === '08006'
-                                   || err.code === '08003';
-
-            if (isConnectionError && attempt < retries - 1) {
-                const delay = 1000 * Math.pow(2, attempt);
-                logger.warn(`⚠️ Обрыв соединения, попытка ${attempt + 1}/${retries}, ждём ${delay}ms...`);
-                await new Promise(r => setTimeout(r, delay));
-
-                if (attempt > 0) {
-                    try { await pool.end(); } catch(e) {}
-                    pool = null;
-                    pool = createDatabasePool();
-                    await new Promise(r => setTimeout(r, 500));
-                }
-                continue;
-            }
-
-            logger.error('SQL Error:', { message: err.message, query: text.substring(0, 200) });
-            throw err;
-        }
-    }
-}
-
-async function transaction(callback) {
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
-        const result = await callback(client);
-        await client.query('COMMIT');
-        return result;
-    } catch (err) {
-        await client.query('ROLLBACK');
-        throw err;
-    } finally {
-        client.release();
-    }
-}
-
-function initPusher() {
-    if (!PUSHER_CONFIG.appId || !PUSHER_CONFIG.key || !PUSHER_CONFIG.secret) {
-        logger.warn('Pusher не настроен');
-        return null;
-    }
-    try {
-        pusher = new Pusher(PUSHER_CONFIG);
-        logger.info('Pusher инициализирован');
-        return pusher;
-    } catch (err) {
-        logger.error('Pusher error:', err.message);
-        return null;
-    }
-}
-
-async function triggerPusher(channel, event, data) {
-    if (!pusher) return false;
-    try {
-        await pusher.trigger(channel, event, data);
-        return true;
-    } catch (err) {
-        logger.error('Pusher trigger error:', err.message);
-        return false;
-    }
-}
-
-async function addNotification(recipient, type, data) {
-    try {
-        await query(
-            "INSERT INTO notifications (recipient, type, data, read, created_at) VALUES ($1, $2, $3, FALSE, NOW())",
-            [recipient, type, JSON.stringify(data)]
-        );
-        if (pusher) {
-            const channel = `private-user-${transliterate(recipient)}`;
-            await pusher.trigger(channel, 'personal-notification', { type, data });
-        }
-    } catch (err) {
-        logger.error('Add notification error:', err.message);
-    }
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
-}
-
-// 🔥 Ожидание готовности БД (новое)
-async function waitForDb(maxRetries = 10) {
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            await pool.query('SELECT 1');
-            logger.info('✅ База данных доступна');
-            return true;
-        } catch (err) {
-            logger.warn(`⏳ Ожидание БД (${i + 1}/${maxRetries}): ${err.message}`);
-            await new Promise(r => setTimeout(r, 3000));
-        }
-    }
-    throw new Error('База данных недоступна после 10 попыток');
-}
-
-// 🔥 Безопасное выполнение с паузой (новое)
-async function safeExec(fn, label) {
-    try {
-        await fn();
-    } catch (err) {
-        logger.warn(`⚠️ ${label}: ${err.message}`);
-    }
-    await new Promise(r => setTimeout(r, 50));
-}
-
 app.set('trust proxy', 1);
 app.use(helmet({
     contentSecurityPolicy: {
@@ -296,6 +308,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(globalLimiter);
 app.use(express.static('public', { maxAge: '1d', etag: true, lastModified: true }));
 
+// ============================================
+// MIDDLEWARE
+// ============================================
+
 const authMiddleware = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ success: false, error: 'No token' });
@@ -315,722 +331,442 @@ const directorOnly = roleMiddleware('director');
 const managerOrDirector = roleMiddleware('manager', 'director');
 const adminOrAbove = roleMiddleware('admin', 'manager', 'director');
 
-console.log('✅ ЧАСТЬ 1/6 загружена (конфигурация, БД, middleware)');
-
 // ============================================
-// ОПРЕДЕЛЕНИЯ ТАБЛИЦ БАЗЫ ДАННЫХ
+// СОЗДАНИЕ ВСЕХ ТАБЛИЦ (ОДНИМ БЛОКОМ)
 // ============================================
 
-const TABLE_DEFINITIONS = {
-    system_settings: `CREATE TABLE IF NOT EXISTS system_settings (
-        key VARCHAR(100) PRIMARY KEY,
-        val TEXT,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    employees: `CREATE TABLE IF NOT EXISTS employees (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) UNIQUE NOT NULL,
-        avatar VARCHAR(10) DEFAULT '👤',
-        avatar_url TEXT,
-        status VARCHAR(100) DEFAULT '💼 Работаю',
-        active_status VARCHAR(100),
-        coins INTEGER DEFAULT 100,
-        rating INTEGER DEFAULT 0,
-        role VARCHAR(50) DEFAULT 'operator',
-        hours NUMERIC(10,2) DEFAULT 0,
-        birthday DATE,
-        phone VARCHAR(20),
-        last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        dashboard_style VARCHAR(50) DEFAULT 'standart',
-        bought_styles TEXT DEFAULT '["standart"]',
-        can_edit_vp BOOLEAN DEFAULT FALSE,
-        bonus_streak INTEGER DEFAULT 1,
-        last_bonus_claimed_at TIMESTAMP,
-        total_shifts INTEGER DEFAULT 0,
-        total_tasks_completed INTEGER DEFAULT 0,
-        total_gifts_sent INTEGER DEFAULT 0,
-        total_gifts_received INTEGER DEFAULT 0,
-        total_messages INTEGER DEFAULT 0,
-        total_exchanges INTEGER DEFAULT 0,
-        deleted_at TIMESTAMP,
-        is_active BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    passwords: `CREATE TABLE IF NOT EXISTS passwords (
-        username VARCHAR(100) PRIMARY KEY,
-        password_hash VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    achievements: `CREATE TABLE IF NOT EXISTS achievements (
-        id VARCHAR(100) PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        description TEXT,
-        category VARCHAR(50),
-        required_value INTEGER NOT NULL,
-        coins_reward INTEGER DEFAULT 0,
-        sort_order INTEGER DEFAULT 0,
-        icon VARCHAR(10) DEFAULT '🏆',
-        color VARCHAR(7) DEFAULT '#fbbf24',
-        is_hidden BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    user_achievements: `CREATE TABLE IF NOT EXISTS user_achievements (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
-        claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, achievement_id)
-    )`,
-
-    pending_achievements: `CREATE TABLE IF NOT EXISTS pending_achievements (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, achievement_id)
-    )`,
-
-    tasks: `CREATE TABLE IF NOT EXISTS tasks (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        author VARCHAR(100) NOT NULL,
-        executor VARCHAR(100),
-        priority VARCHAR(20) DEFAULT 'medium',
-        deadline DATE,
-        progress INTEGER DEFAULT 0,
-        comment TEXT,
-        status VARCHAR(20) DEFAULT 'in_progress',
-        is_group_task VARCHAR(20),
-        group_members JSONB,
-        group_progress JSONB,
-        is_archived BOOLEAN DEFAULT FALSE,
-        penalty_applied BOOLEAN DEFAULT FALSE,
-        wp_reward INTEGER DEFAULT 0,
-        completed_at TIMESTAMP,
-        archived_at TIMESTAMP,
-        recurring VARCHAR(20) DEFAULT 'none',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    subtasks: `CREATE TABLE IF NOT EXISTS subtasks (
-        id SERIAL PRIMARY KEY,
-        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-        name VARCHAR(255) NOT NULL,
-        completed BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    task_attachments: `CREATE TABLE IF NOT EXISTS task_attachments (
-        id SERIAL PRIMARY KEY,
-        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-        file_name VARCHAR(255) NOT NULL,
-        file_size INTEGER,
-        file_type VARCHAR(100),
-        file_data TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    fines: `CREATE TABLE IF NOT EXISTS fines (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL,
-        employee VARCHAR(100) NOT NULL,
-        type VARCHAR(50) DEFAULT 'other',
-        amount INTEGER DEFAULT 0,
-        coins INTEGER DEFAULT 0,
-        rating INTEGER DEFAULT 0,
-        description TEXT,
-        status VARCHAR(30) DEFAULT 'pending',
-        created_by VARCHAR(100),
-        director_comment TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    schedule: `CREATE TABLE IF NOT EXISTS schedule (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL,
-        employee VARCHAR(100) NOT NULL,
-        shift_time VARCHAR(10),
-        shift_status VARCHAR(30) DEFAULT 'working',
-        is_special BOOLEAN DEFAULT FALSE,
-        special_end_time VARCHAR(100),
-        shift_paid BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(date, employee)
-    )`,
-
-    schedule_special_cases: `CREATE TABLE IF NOT EXISTS schedule_special_cases (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL UNIQUE,
-        cases JSONB NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    exchange_requests: `CREATE TABLE IF NOT EXISTS exchange_requests (
-        id SERIAL PRIMARY KEY,
-        from_employee VARCHAR(100) NOT NULL,
-        to_employee VARCHAR(100) NOT NULL,
-        from_date DATE NOT NULL,
-        to_date DATE NOT NULL,
-        from_shift_time VARCHAR(10),
-        to_shift_time VARCHAR(10),
-        status VARCHAR(20) DEFAULT 'pending',
-        comment TEXT,
-        expires_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    vp_bookings: `CREATE TABLE IF NOT EXISTS vp_bookings (
-        id SERIAL PRIMARY KEY,
-        admin VARCHAR(50) NOT NULL,
-        event_date DATE NOT NULL,
-        event_time TIME NOT NULL,
-        customer_name VARCHAR(255) NOT NULL,
-        amount INTEGER DEFAULT 2000,
-        payment_type VARCHAR(30) DEFAULT 'evotor_card',
-        booking_date DATE NOT NULL,
-        photo_status VARCHAR(20) DEFAULT 'pending',
-        script_status VARCHAR(20) DEFAULT 'not_sent',
-        duration INTEGER DEFAULT 1,
-        is_archived BOOLEAN DEFAULT FALSE,
-        comment TEXT,
-        created_by VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    salary_daily: `CREATE TABLE IF NOT EXISTS salary_daily (
-        id SERIAL PRIMARY KEY,
-        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        day_number INTEGER NOT NULL,
-        month_year VARCHAR(7) NOT NULL,
-        oklad INTEGER DEFAULT 0,
-        event INTEGER DEFAULT 0,
-        turnover INTEGER DEFAULT 0,
-        bonus35 INTEGER DEFAULT 0,
-        video INTEGER DEFAULT 0,
-        extra_motivation INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(employee_id, day_number, month_year)
-    )`,
-
-    corporate_fund: `CREATE TABLE IF NOT EXISTS corporate_fund (
-        id SERIAL PRIMARY KEY,
-        amount INTEGER DEFAULT 0,
-        operation_type VARCHAR(20),
-        comment TEXT,
-        created_by INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    messages: `CREATE TABLE IF NOT EXISTS messages (
-        id SERIAL PRIMARY KEY,
-        room VARCHAR(100) NOT NULL,
-        sender VARCHAR(100) NOT NULL,
-        text TEXT NOT NULL,
-        time BIGINT NOT NULL,
-        action_data JSONB,
-        is_deleted BOOLEAN DEFAULT FALSE,
-        deleted_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    stickers: `CREATE TABLE IF NOT EXISTS stickers (
-        id SERIAL PRIMARY KEY,
-        sender VARCHAR(100),
-        employee VARCHAR(100) NOT NULL,
-        gift_id VARCHAR(50) NOT NULL,
-        quantity INTEGER DEFAULT 1,
-        is_anonymous BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    user_statuses: `CREATE TABLE IF NOT EXISTS user_statuses (
-        id SERIAL PRIMARY KEY,
-        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        status_id VARCHAR(50) NOT NULL,
-        status_name VARCHAR(100) NOT NULL,
-        status_icon VARCHAR(10) NOT NULL,
-        price INTEGER DEFAULT 0,
-        is_active BOOLEAN DEFAULT FALSE,
-        purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(employee_id, status_id)
-    )`,
-
-    transactions: `CREATE TABLE IF NOT EXISTS transactions (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        type VARCHAR(50) NOT NULL,
-        amount INTEGER NOT NULL,
-        balance_before INTEGER DEFAULT 0,
-        balance_after INTEGER DEFAULT 0,
-        comment TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    knowledge_categories: `CREATE TABLE IF NOT EXISTS knowledge_categories (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL UNIQUE,
-        icon VARCHAR(10) DEFAULT '📁',
-        description TEXT,
-        sort_order INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    knowledge_articles: `CREATE TABLE IF NOT EXISTS knowledge_articles (
-        id SERIAL PRIMARY KEY,
-        category_id INTEGER REFERENCES knowledge_categories(id) ON DELETE CASCADE,
-        title VARCHAR(255) NOT NULL,
-        content TEXT,
-        views INTEGER DEFAULT 0,
-        created_by VARCHAR(100),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    notifications: `CREATE TABLE IF NOT EXISTS notifications (
-        id SERIAL PRIMARY KEY,
-        recipient VARCHAR(100) NOT NULL,
-        type VARCHAR(50) NOT NULL,
-        data JSONB,
-        read BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    audit_log: `CREATE TABLE IF NOT EXISTS audit_log (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER,
-        action VARCHAR(100) NOT NULL,
-        entity_type VARCHAR(50),
-        entity_id INTEGER,
-        details JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    schema_migrations: `CREATE TABLE IF NOT EXISTS schema_migrations (
-        version INTEGER PRIMARY KEY,
-        name VARCHAR(255),
-        applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`
-};
-
-const INDEX_DEFINITIONS = [
-    `CREATE INDEX IF NOT EXISTS idx_employees_role ON employees(role)`,
-    `CREATE INDEX IF NOT EXISTS idx_employees_is_active ON employees(is_active) WHERE is_active = TRUE`,
-    `CREATE INDEX IF NOT EXISTS idx_employees_name ON employees(name)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_executor_status ON tasks(executor, status)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_is_archived ON tasks(is_archived) WHERE is_archived = FALSE`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_author ON tasks(author)`,
-    `CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline)`,
-    `CREATE INDEX IF NOT EXISTS idx_fines_employee_date ON fines(employee, date DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_fines_status ON fines(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_schedule_date ON schedule(date)`,
-    `CREATE INDEX IF NOT EXISTS idx_schedule_employee ON schedule(employee)`,
-    `CREATE INDEX IF NOT EXISTS idx_vp_event_date ON vp_bookings(event_date)`,
-    `CREATE INDEX IF NOT EXISTS idx_vp_is_archived ON vp_bookings(is_archived) WHERE is_archived = FALSE`,
-    `CREATE INDEX IF NOT EXISTS idx_vp_admin ON vp_bookings(admin)`,
-    `CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room, time DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_messages_is_deleted ON messages(is_deleted) WHERE is_deleted = FALSE`,
-    `CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient, created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read) WHERE read = FALSE`,
-    `CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC)`,
-    `CREATE INDEX IF NOT EXISTS idx_salary_daily_employee_month ON salary_daily(employee_id, month_year)`,
-    `CREATE INDEX IF NOT EXISTS idx_exchange_requests_status ON exchange_requests(status)`,
-    `CREATE INDEX IF NOT EXISTS idx_exchange_requests_to_employee ON exchange_requests(to_employee)`,
-    `CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_pending_achievements_user_id ON pending_achievements(user_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_knowledge_articles_category ON knowledge_articles(category_id)`,
-    `CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`
-];
-
-console.log('✅ ЧАСТЬ 2/6 загружена (таблицы и индексы)');
-// ============================================
-// ФУНКЦИИ МИГРАЦИЙ (ИСПРАВЛЕНО: паузы между запросами)
-// ============================================
-
-// 🔥 Безопасное добавление колонки с микро-паузой
-async function addColumnIfNotExists(table, column, type, defaultValue = null) {
-    try {
-        const check = await query(
-            `SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND column_name = $2`,
-            [table, column]
+async function createAllTables() {
+    const sql = `
+        CREATE TABLE IF NOT EXISTS system_settings (
+            key VARCHAR(100) PRIMARY KEY,
+            val TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        if (check.rows.length === 0) {
-            let sql = `ALTER TABLE ${table} ADD COLUMN ${column} ${type}`;
-            if (defaultValue !== null) sql += ` DEFAULT ${defaultValue}`;
-            await query(sql);
-            logger.info(`Миграция: ${table}.${column} добавлен`);
-        }
-    } catch (err) {
-        logger.warn(`Миграция ${table}.${column}: ${err.message}`);
-    }
-    await new Promise(r => setTimeout(r, 30)); // микро-пауза
-}
 
-async function fixSystemSettingsTable() {
-    try {
-        const tableCheck = await query(`SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'system_settings')`);
-        if (!tableCheck.rows[0].exists) {
-            logger.info('Таблица system_settings не существует, будет создана позже');
-            return;
-        }
-        const valueCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'value'`);
-        const valCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'system_settings' AND column_name = 'val'`);
-        if (valueCheck.rows.length > 0 && valCheck.rows.length === 0) {
-            logger.info('🔄 Переименование system_settings.value -> system_settings.val');
-            await query(`ALTER TABLE system_settings RENAME COLUMN value TO val`);
-            logger.info('✅ Колонка переименована');
-        } else if (valueCheck.rows.length === 0 && valCheck.rows.length === 0) {
-            logger.info('Добавление колонки val в system_settings');
-            await query(`ALTER TABLE system_settings ADD COLUMN val TEXT`);
-        } else {
-            logger.info('Таблица system_settings уже в правильном формате');
-        }
-    } catch (err) {
-        logger.error('Ошибка миграции system_settings:', err.message);
+        CREATE TABLE IF NOT EXISTS employees (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) UNIQUE NOT NULL,
+            avatar VARCHAR(10) DEFAULT '👤',
+            avatar_url TEXT,
+            status VARCHAR(100) DEFAULT '💼 Работаю',
+            active_status VARCHAR(100),
+            coins INTEGER DEFAULT 100,
+            rating INTEGER DEFAULT 0,
+            role VARCHAR(50) DEFAULT 'operator',
+            hours NUMERIC(10,2) DEFAULT 0,
+            birthday DATE,
+            phone VARCHAR(20),
+            last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            dashboard_style VARCHAR(50) DEFAULT 'standart',
+            bought_styles TEXT DEFAULT '["standart"]',
+            can_edit_vp BOOLEAN DEFAULT FALSE,
+            bonus_streak INTEGER DEFAULT 1,
+            last_bonus_claimed_at TIMESTAMP,
+            total_shifts INTEGER DEFAULT 0,
+            total_tasks_completed INTEGER DEFAULT 0,
+            total_gifts_sent INTEGER DEFAULT 0,
+            total_gifts_received INTEGER DEFAULT 0,
+            total_messages INTEGER DEFAULT 0,
+            total_exchanges INTEGER DEFAULT 0,
+            deleted_at TIMESTAMP,
+            is_active BOOLEAN DEFAULT TRUE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS passwords (
+            username VARCHAR(100) PRIMARY KEY,
+            password_hash VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS achievements (
+            id VARCHAR(100) PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            description TEXT,
+            category VARCHAR(50),
+            required_value INTEGER NOT NULL,
+            coins_reward INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0,
+            icon VARCHAR(10) DEFAULT '🏆',
+            color VARCHAR(7) DEFAULT '#fbbf24',
+            is_hidden BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS user_achievements (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
+            claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, achievement_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS pending_achievements (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, achievement_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS tasks (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            author VARCHAR(100) NOT NULL,
+            executor VARCHAR(100),
+            priority VARCHAR(20) DEFAULT 'medium',
+            deadline DATE,
+            progress INTEGER DEFAULT 0,
+            comment TEXT,
+            status VARCHAR(20) DEFAULT 'in_progress',
+            is_group_task VARCHAR(20),
+            group_members JSONB,
+            group_progress JSONB,
+            is_archived BOOLEAN DEFAULT FALSE,
+            penalty_applied BOOLEAN DEFAULT FALSE,
+            wp_reward INTEGER DEFAULT 0,
+            completed_at TIMESTAMP,
+            archived_at TIMESTAMP,
+            recurring VARCHAR(20) DEFAULT 'none',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS subtasks (
+            id SERIAL PRIMARY KEY,
+            task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            completed BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS task_attachments (
+            id SERIAL PRIMARY KEY,
+            task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
+            file_name VARCHAR(255) NOT NULL,
+            file_size INTEGER,
+            file_type VARCHAR(100),
+            file_data TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS fines (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL,
+            employee VARCHAR(100) NOT NULL,
+            type VARCHAR(50) DEFAULT 'other',
+            amount INTEGER DEFAULT 0,
+            coins INTEGER DEFAULT 0,
+            rating INTEGER DEFAULT 0,
+            description TEXT,
+            status VARCHAR(30) DEFAULT 'pending',
+            created_by VARCHAR(100),
+            director_comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS schedule (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL,
+            employee VARCHAR(100) NOT NULL,
+            shift_time VARCHAR(10),
+            shift_status VARCHAR(30) DEFAULT 'working',
+            is_special BOOLEAN DEFAULT FALSE,
+            special_end_time VARCHAR(100),
+            shift_paid BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(date, employee)
+        );
+
+        CREATE TABLE IF NOT EXISTS schedule_special_cases (
+            id SERIAL PRIMARY KEY,
+            date DATE NOT NULL UNIQUE,
+            cases JSONB NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS exchange_requests (
+            id SERIAL PRIMARY KEY,
+            from_employee VARCHAR(100) NOT NULL,
+            to_employee VARCHAR(100) NOT NULL,
+            from_date DATE NOT NULL,
+            to_date DATE NOT NULL,
+            from_shift_time VARCHAR(10),
+            to_shift_time VARCHAR(10),
+            status VARCHAR(20) DEFAULT 'pending',
+            comment TEXT,
+            expires_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS vp_bookings (
+            id SERIAL PRIMARY KEY,
+            admin VARCHAR(50) NOT NULL,
+            event_date DATE NOT NULL,
+            event_time TIME NOT NULL,
+            customer_name VARCHAR(255) NOT NULL,
+            amount INTEGER DEFAULT 2000,
+            payment_type VARCHAR(30) DEFAULT 'evotor_card',
+            booking_date DATE NOT NULL,
+            photo_status VARCHAR(20) DEFAULT 'pending',
+            script_status VARCHAR(20) DEFAULT 'not_sent',
+            duration INTEGER DEFAULT 1,
+            is_archived BOOLEAN DEFAULT FALSE,
+            comment TEXT,
+            created_by VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS salary_daily (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            day_number INTEGER NOT NULL,
+            month_year VARCHAR(7) NOT NULL,
+            oklad INTEGER DEFAULT 0,
+            event INTEGER DEFAULT 0,
+            turnover INTEGER DEFAULT 0,
+            bonus35 INTEGER DEFAULT 0,
+            video INTEGER DEFAULT 0,
+            extra_motivation INTEGER DEFAULT 0,
+            motivation_type VARCHAR(50) DEFAULT 'standard',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(employee_id, day_number, month_year)
+        );
+
+        CREATE TABLE IF NOT EXISTS corporate_fund (
+            id SERIAL PRIMARY KEY,
+            amount INTEGER DEFAULT 0,
+            operation_type VARCHAR(20),
+            comment TEXT,
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS messages (
+            id SERIAL PRIMARY KEY,
+            room VARCHAR(100) NOT NULL,
+            sender VARCHAR(100) NOT NULL,
+            text TEXT NOT NULL,
+            time BIGINT NOT NULL,
+            action_data JSONB,
+            is_deleted BOOLEAN DEFAULT FALSE,
+            deleted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS stickers (
+            id SERIAL PRIMARY KEY,
+            sender VARCHAR(100),
+            employee VARCHAR(100) NOT NULL,
+            gift_id VARCHAR(50) NOT NULL,
+            quantity INTEGER DEFAULT 1,
+            is_anonymous BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS user_statuses (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            status_id VARCHAR(50) NOT NULL,
+            status_name VARCHAR(100) NOT NULL,
+            status_icon VARCHAR(10) NOT NULL,
+            price INTEGER DEFAULT 0,
+            is_active BOOLEAN DEFAULT FALSE,
+            purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(employee_id, status_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS transactions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            type VARCHAR(50) NOT NULL,
+            amount INTEGER NOT NULL,
+            balance_before INTEGER DEFAULT 0,
+            balance_after INTEGER DEFAULT 0,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS knowledge_categories (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            icon VARCHAR(10) DEFAULT '📁',
+            description TEXT,
+            sort_order INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS knowledge_articles (
+            id SERIAL PRIMARY KEY,
+            category_id INTEGER REFERENCES knowledge_categories(id) ON DELETE CASCADE,
+            title VARCHAR(255) NOT NULL,
+            content TEXT,
+            views INTEGER DEFAULT 0,
+            created_by VARCHAR(100),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS notifications (
+            id SERIAL PRIMARY KEY,
+            recipient VARCHAR(100) NOT NULL,
+            type VARCHAR(50) NOT NULL,
+            data JSONB,
+            read BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER,
+            action VARCHAR(100) NOT NULL,
+            entity_type VARCHAR(50),
+            entity_id INTEGER,
+            details JSONB,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            version INTEGER PRIMARY KEY,
+            name VARCHAR(255),
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    // Разбиваем на чанки по 5 таблиц чтобы не перегружать Render PostgreSQL
+    const statements = sql.split(';').filter(s => s.trim());
+    
+    for (let i = 0; i < statements.length; i++) {
+        const stmt = statements[i].trim();
+        if (!stmt) continue;
+        
         try {
-            logger.warn('Попытка пересоздания system_settings...');
-            await query(`DROP TABLE IF EXISTS system_settings CASCADE`);
-            await query(`CREATE TABLE system_settings (key VARCHAR(100) PRIMARY KEY, val TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-            logger.info('✅ Таблица system_settings пересоздана');
-        } catch (e) {
-            logger.error('Не удалось пересоздать system_settings:', e.message);
+            await query(stmt + ';');
+        } catch (err) {
+            logger.warn(`Ошибка создания таблицы #${i}: ${err.message}`);
+        }
+        
+        // Пауза каждые 5 таблиц
+        if ((i + 1) % 5 === 0) {
+            await new Promise(r => setTimeout(r, 300));
         }
     }
-    await new Promise(r => setTimeout(r, 100));
+    
+    logger.info('Все таблицы созданы');
 }
-
-async function fixPasswordsTable() {
-    try {
-        const oldColCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'password'`);
-        const hashColCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'password_hash'`);
-        
-        if (oldColCheck.rows.length > 0) {
-            logger.info('Найдена старая колонка password');
-            if (hashColCheck.rows.length === 0) {
-                logger.info('Создаём password_hash и копируем данные');
-                await query(`ALTER TABLE passwords ADD COLUMN password_hash VARCHAR(255)`);
-                await query(`UPDATE passwords SET password_hash = password WHERE password_hash IS NULL`);
-            }
-            logger.info('Снимаем NOT NULL с password');
-            await query(`ALTER TABLE passwords ALTER COLUMN password DROP NOT NULL`);
-            logger.info('Удаляем старую колонку password');
-            await query(`ALTER TABLE passwords DROP COLUMN IF EXISTS password`);
-            logger.info('✅ Старая колонка password удалена');
-        }
-        
-        if (oldColCheck.rows.length === 0 && hashColCheck.rows.length === 0) {
-            logger.info('Создаём колонку password_hash');
-            await query(`ALTER TABLE passwords ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255)`);
-        }
-        
-        const userCheck = await query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'passwords' AND column_name = 'username'`);
-        if (userCheck.rows.length === 0) {
-            logger.info('Добавляем колонку username');
-            await query(`ALTER TABLE passwords ADD COLUMN username VARCHAR(100)`);
-        }
-        
-        logger.info('✅ Таблица passwords полностью исправлена');
-    } catch (e) {
-        logger.error('Ошибка миграции passwords:', e.message);
-        try {
-            logger.warn('Пересоздание таблицы passwords...');
-            const existingData = await query(`SELECT username, password_hash FROM passwords`).catch(() => ({ rows: [] }));
-            await query(`DROP TABLE IF EXISTS passwords CASCADE`);
-            await query(`CREATE TABLE passwords (username VARCHAR(100) PRIMARY KEY, password_hash VARCHAR(255) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
-            for (const row of existingData.rows) {
-                if (row.username && row.password_hash) {
-                    await query(`INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING`, [row.username, row.password_hash]);
-                }
-            }
-            logger.info('✅ Таблица passwords пересоздана');
-        } catch (e2) {
-            logger.error('Не удалось пересоздать passwords:', e2.message);
-        }
-    }
-    await new Promise(r => setTimeout(r, 100));
-}
-
-// 🔥 ИСПРАВЛЕНО: runMigrations с паузами между операциями
-async function runMigrations() {
-    logger.info('Выполнение миграций...');
-    
-    await fixSystemSettingsTable();
-    await new Promise(r => setTimeout(r, 200));
-    
-    await fixPasswordsTable();
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Таблица employees
-    const employeeColumns = [
-        { name: 'total_shifts', type: 'INTEGER', default: '0' },
-        { name: 'total_tasks_completed', type: 'INTEGER', default: '0' },
-        { name: 'total_gifts_sent', type: 'INTEGER', default: '0' },
-        { name: 'total_gifts_received', type: 'INTEGER', default: '0' },
-        { name: 'total_messages', type: 'INTEGER', default: '0' },
-        { name: 'total_exchanges', type: 'INTEGER', default: '0' },
-        { name: 'deleted_at', type: 'TIMESTAMP', default: null },
-        { name: 'is_active', type: 'BOOLEAN', default: 'TRUE' },
-        { name: 'active_status', type: 'VARCHAR(100)', default: null },
-        { name: 'can_edit_vp', type: 'BOOLEAN', default: 'FALSE' },
-        { name: 'dashboard_style', type: 'VARCHAR(50)', default: "'standart'" },
-        { name: 'bought_styles', type: 'TEXT', default: "'[\"standart\"]'" },
-        { name: 'bonus_streak', type: 'INTEGER', default: '1' },
-        { name: 'last_bonus_claimed_at', type: 'TIMESTAMP', default: null },
-        { name: 'phone', type: 'VARCHAR(20)', default: null },
-        { name: 'birthday', type: 'DATE', default: null },
-        { name: 'created_at', type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' },
-        { name: 'updated_at', type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
-    ];
-    for (const col of employeeColumns) {
-        await safeExec(() => addColumnIfNotExists('employees', col.name, col.type, col.default), `employees.${col.name}`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Таблица tasks
-    const taskColumns = [
-        { name: 'wp_reward', type: 'INTEGER', default: '0' },
-        { name: 'penalty_applied', type: 'BOOLEAN', default: 'FALSE' },
-        { name: 'group_progress', type: 'JSONB', default: null },
-        { name: 'archived_at', type: 'TIMESTAMP', default: null },
-        { name: 'recurring', type: 'VARCHAR(20)', default: "'none'" }
-    ];
-    for (const col of taskColumns) {
-        await safeExec(() => addColumnIfNotExists('tasks', col.name, col.type, col.default), `tasks.${col.name}`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Таблица achievements
-    const achievementColumns = [
-        { name: 'icon', type: 'VARCHAR(10)', default: "'🏆'" },
-        { name: 'color', type: 'VARCHAR(7)', default: "'#fbbf24'" }
-    ];
-    for (const col of achievementColumns) {
-        await safeExec(() => addColumnIfNotExists('achievements', col.name, col.type, col.default), `achievements.${col.name}`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Таблица messages
-    const messageColumns = [
-        { name: 'is_deleted', type: 'BOOLEAN', default: 'FALSE' },
-        { name: 'deleted_at', type: 'TIMESTAMP', default: null }
-    ];
-    for (const col of messageColumns) {
-        await safeExec(() => addColumnIfNotExists('messages', col.name, col.type, col.default), `messages.${col.name}`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Таблица salary_daily
-    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS salary_daily (
-        id SERIAL PRIMARY KEY,
-        employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        day_number INTEGER NOT NULL,
-        month_year VARCHAR(7) NOT NULL,
-        oklad INTEGER DEFAULT 0,
-        event INTEGER DEFAULT 0,
-        turnover INTEGER DEFAULT 0,
-        bonus35 INTEGER DEFAULT 0,
-        video INTEGER DEFAULT 0,
-        extra_motivation INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(employee_id, day_number, month_year)
-    )`).catch(() => {}), 'salary_daily create');
-    await new Promise(r => setTimeout(r, 150));
-    
-    const salaryColumns = [
-        'oklad', 'event', 'turnover', 'bonus35', 'video', 'extra_motivation', 'motivation_type'
-    ];
-    for (const col of salaryColumns) {
-        await safeExec(() => addColumnIfNotExists('salary_daily', col, col === 'motivation_type' ? 'VARCHAR(50)' : 'INTEGER', col === 'motivation_type' ? null : '0'), `salary_daily.${col}`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Таблица fines
-    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS fines (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL,
-        employee VARCHAR(100) NOT NULL,
-        type VARCHAR(50) DEFAULT 'other',
-        amount INTEGER DEFAULT 0,
-        coins INTEGER DEFAULT 0,
-        rating INTEGER DEFAULT 0,
-        description TEXT,
-        status VARCHAR(30) DEFAULT 'pending',
-        created_by VARCHAR(100),
-        director_comment TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {}), 'fines create');
-    await new Promise(r => setTimeout(r, 150));
-    
-    const fineColumns = ['type', 'amount', 'coins', 'rating', 'description', 'created_by', 'director_comment'];
-    for (const col of fineColumns) {
-        const colType = ['amount', 'coins', 'rating'].includes(col) ? 'INTEGER' : (col === 'description' ? 'TEXT' : 'VARCHAR(100)');
-        const colDefault = ['amount', 'coins', 'rating'].includes(col) ? '0' : (col === 'type' ? "'other'" : null);
-        await safeExec(() => addColumnIfNotExists('fines', col, colType, colDefault), `fines.${col}`);
-    }
-    await new Promise(r => setTimeout(r, 200));
-    
-    // Пропускаем fines.event — колонка не используется в коде, удаляем её миграцию
-    // await addColumnIfNotExists('fines', 'event', 'VARCHAR(50)', null); — ЗАКОММЕНТИРОВАНО, не нужно
-    
-    // Таблица vp_bookings
-    await safeExec(() => addColumnIfNotExists('vp_bookings', 'duration', 'INTEGER', '1'), 'vp_bookings.duration');
-    await new Promise(r => setTimeout(r, 100));
-    
-    // Другие таблицы (создаются если не существуют)
-    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS pending_achievements (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-        achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(user_id, achievement_id)
-    )`).catch(() => {}), 'pending_achievements');
-    await new Promise(r => setTimeout(r, 100));
-    
-    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS schedule_special_cases (
-        id SERIAL PRIMARY KEY,
-        date DATE NOT NULL UNIQUE,
-        cases JSONB NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {}), 'schedule_special_cases');
-    await new Promise(r => setTimeout(r, 100));
-    
-    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS task_attachments (
-        id SERIAL PRIMARY KEY,
-        task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
-        file_name VARCHAR(255) NOT NULL,
-        file_size INTEGER,
-        file_type VARCHAR(100),
-        file_data TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {}), 'task_attachments');
-    await new Promise(r => setTimeout(r, 100));
-    
-    // 🔥 Исправление corporate_fund
-    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS corporate_fund (
-        id SERIAL PRIMARY KEY,
-        amount INTEGER DEFAULT 0,
-        operation_type VARCHAR(20),
-        comment TEXT,
-        created_by INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {}), 'corporate_fund');
-    await new Promise(r => setTimeout(r, 150));
-    
-    for (const col of ['operation_type', 'comment', 'created_by', 'created_at']) {
-        const colType = col === 'created_at' ? 'TIMESTAMP' : (col === 'created_by' ? 'INTEGER' : 'VARCHAR(20)');
-        const colDefault = col === 'created_at' ? 'CURRENT_TIMESTAMP' : null;
-        await safeExec(() => addColumnIfNotExists('corporate_fund', col, colType, colDefault), `corporate_fund.${col}`);
-    }
-    await new Promise(r => setTimeout(r, 150));
-    
-    await safeExec(() => query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {}), 'idx_corporate_fund_id');
-    await new Promise(r => setTimeout(r, 100));
-    
-    // 🔥 Исправление motivation_type — удаляем проблемный constraint
-    await safeExec(async () => {
-        const constraints = await query(`SELECT conname FROM pg_constraint WHERE conrelid = 'salary_daily'::regclass AND conname LIKE '%motivation_type%'`);
-        for (const row of constraints.rows) {
-            await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
-            logger.info(`Удалён constraint: ${row.conname}`);
-        }
-    }, 'motivation_type constraint');
-    await new Promise(r => setTimeout(r, 100));
-    
-    await safeExec(() => query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type DROP NOT NULL`).catch(() => {}), 'motivation_type DROP NOT NULL');
-    await safeExec(() => query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type SET DEFAULT 'standard'`).catch(() => {}), 'motivation_type SET DEFAULT');
-    await new Promise(r => setTimeout(r, 200));
-    
-    // 🔥 Исправление foreign key для salary_daily
-    await safeExec(async () => {
-        const fkConstraints = await query(`SELECT conname FROM pg_constraint WHERE conrelid = 'salary_daily'::regclass AND contype = 'f'`);
-        for (const row of fkConstraints.rows) {
-            await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
-            logger.info(`Удалён foreign key: ${row.conname}`);
-        }
-    }, 'salary_daily FK удаление');
-    await new Promise(r => setTimeout(r, 100));
-    
-    await safeExec(() => query(`
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_constraint 
-                WHERE conrelid = 'salary_daily'::regclass 
-                AND conname = 'salary_daily_employee_id_fkey'
-            ) THEN
-                ALTER TABLE salary_daily 
-                ADD CONSTRAINT salary_daily_employee_id_fkey 
-                FOREIGN KEY (employee_id) 
-                REFERENCES employees(id) 
-                ON DELETE CASCADE;
-            END IF;
-        END $$;
-    `).catch(() => {}), 'salary_daily FK создание');
-    
-    logger.info('Миграции выполнены');
-}
-
-console.log('✅ ЧАСТЬ 3/6 загружена (функции миграций)');
 
 // ============================================
-// ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ НАСТРОЕК
+// СОЗДАНИЕ ИНДЕКСОВ
 // ============================================
+
+async function createAllIndexes() {
+    const indexes = [
+        `CREATE INDEX IF NOT EXISTS idx_employees_role ON employees(role)`,
+        `CREATE INDEX IF NOT EXISTS idx_employees_is_active ON employees(is_active) WHERE is_active = TRUE`,
+        `CREATE INDEX IF NOT EXISTS idx_employees_name ON employees(name)`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_executor_status ON tasks(executor, status)`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_is_archived ON tasks(is_archived) WHERE is_archived = FALSE`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_author ON tasks(author)`,
+        `CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline)`,
+        `CREATE INDEX IF NOT EXISTS idx_fines_employee_date ON fines(employee, date DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_fines_status ON fines(status)`,
+        `CREATE INDEX IF NOT EXISTS idx_schedule_date ON schedule(date)`,
+        `CREATE INDEX IF NOT EXISTS idx_schedule_employee ON schedule(employee)`,
+        `CREATE INDEX IF NOT EXISTS idx_vp_event_date ON vp_bookings(event_date)`,
+        `CREATE INDEX IF NOT EXISTS idx_vp_is_archived ON vp_bookings(is_archived) WHERE is_archived = FALSE`,
+        `CREATE INDEX IF NOT EXISTS idx_vp_admin ON vp_bookings(admin)`,
+        `CREATE INDEX IF NOT EXISTS idx_messages_room_time ON messages(room, time DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_messages_is_deleted ON messages(is_deleted) WHERE is_deleted = FALSE`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient, created_at DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read) WHERE read = FALSE`,
+        `CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at DESC)`,
+        `CREATE INDEX IF NOT EXISTS idx_salary_daily_employee_month ON salary_daily(employee_id, month_year)`,
+        `CREATE INDEX IF NOT EXISTS idx_exchange_requests_status ON exchange_requests(status)`,
+        `CREATE INDEX IF NOT EXISTS idx_exchange_requests_to_employee ON exchange_requests(to_employee)`,
+        `CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_pending_achievements_user_id ON pending_achievements(user_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_knowledge_articles_category ON knowledge_articles(category_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`
+    ];
+
+    for (let i = 0; i < indexes.length; i++) {
+        try {
+            await query(indexes[i]);
+        } catch (err) {
+            logger.warn(`Ошибка создания индекса #${i}: ${err.message}`);
+        }
+        
+        if ((i + 1) % 5 === 0) {
+            await new Promise(r => setTimeout(r, 200));
+        }
+    }
+    
+    logger.info('Все индексы созданы');
+}
+
+// ============================================
+// ИНИЦИАЛИЗАЦИЯ БД
+// ============================================
+
+async function waitForDb(maxRetries = 10) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            await pool.query('SELECT 1');
+            logger.info('База данных доступна');
+            return true;
+        } catch (err) {
+            logger.warn(`Ожидание БД (${i + 1}/${maxRetries}): ${err.message}`);
+            await new Promise(r => setTimeout(r, 3000));
+        }
+    }
+    throw new Error('База данных недоступна после 10 попыток');
+}
 
 async function initSystemSettings() {
-    await new Promise(r => setTimeout(r, 100));
     const settings = [
-        { key: 'app_version', val: '5.3.0' },
+        { key: 'app_version', val: '5.3.1' },
         { key: 'global_theme', val: 'vr-portal' },
         { key: 'vp_script_available_days', val: '2' },
         { key: 'auto_archive_tasks_days', val: '3' },
         { key: 'exchange_expire_hours', val: '24' }
     ];
+    
     for (const s of settings) {
-        await safeExec(async () => {
+        try {
             await query(
-                `INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = NOW()`,
+                `INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING`,
                 [s.key, s.val]
             );
-        }, `setting ${s.key}`);
+        } catch (err) {
+            logger.warn(`Не удалось вставить ${s.key}: ${err.message}`);
+        }
     }
+    
     logger.info('Системные настройки инициализированы');
 }
 
-// ============================================
-// ИНИЦИАЛИЗАЦИЯ КОРПОРАТИВНОГО ФОНДА
-// ============================================
-
 async function initCorporateFund() {
-    await safeExec(async () => {
+    try {
         const check = await query("SELECT id FROM corporate_fund LIMIT 1");
         if (check.rows.length === 0) {
             await query("INSERT INTO corporate_fund (amount, operation_type, comment) VALUES (0, 'initial', 'Начальное состояние')");
         }
-    }, 'corporate_fund init');
+    } catch (err) {
+        logger.warn('Ошибка инициализации фонда: ' + err.message);
+    }
 }
 
-// ============================================
-// СОЗДАНИЕ ДИРЕКТОРА ПО УМОЛЧАНИЮ
-// ============================================
-
 async function createDefaultDirector() {
-    await safeExec(async () => {
+    try {
         const check = await query("SELECT id FROM employees WHERE name = 'Денис'");
         if (check.rows.length > 0) {
             const passCheck = await query("SELECT username FROM passwords WHERE username = 'Денис'");
@@ -1040,6 +776,7 @@ async function createDefaultDirector() {
             }
             return;
         }
+        
         const result = await query(
             `INSERT INTO employees (name, avatar, coins, rating, role, dashboard_style, bought_styles, bonus_streak, is_active) 
              VALUES ('Денис', '👑', 1000, 0, 'director', 'standart', '["standart"]', 1, TRUE) RETURNING id`
@@ -1047,11 +784,44 @@ async function createDefaultDirector() {
         const hashedPassword = await hashPassword('denis_1');
         await query("INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)", [hashedPassword]);
         logger.info(`Директор создан, id: ${result.rows[0].id}`);
-    }, 'createDefaultDirector');
+    } catch (err) {
+        logger.error('Ошибка создания директора: ' + err.message);
+    }
 }
 
+async function initDatabase() {
+    if (!pool) pool = createDatabasePool();
+    
+    logger.info('Инициализация БД...');
+    const startTime = Date.now();
+    
+    try {
+        await waitForDb();
+        
+        await createAllTables();
+        await new Promise(r => setTimeout(r, 500));
+        
+        await createAllIndexes();
+        await new Promise(r => setTimeout(r, 500));
+        
+        await initSystemSettings();
+        await initCorporateFund();
+        await createDefaultDirector();
+        
+        await query(
+            `INSERT INTO schema_migrations (version, name) VALUES (5, 'WARPOINT HUB v5.3.1') ON CONFLICT (version) DO NOTHING`
+        );
+        
+        logger.info(`БД инициализирована за ${Date.now() - startTime}ms`);
+    } catch (err) {
+        logger.error('Ошибка инициализации БД: ' + err.message);
+        throw err;
+    }
+}
+
+console.log('[SERVER] Часть 2/4 загружена (таблицы, индексы, инициализация БД)');
 // ============================================
-// КАТЕГОРИИ ДОСТИЖЕНИЙ
+// ДОСТИЖЕНИЯ
 // ============================================
 
 const ACHIEVEMENT_CATEGORIES = {
@@ -1068,13 +838,9 @@ const ACHIEVEMENT_CATEGORIES = {
     legendary: { name: 'Легендарные', icon: '👑', color: '#fbbf24' }
 };
 
-// ============================================
-// ГЕНЕРАЦИЯ ВСЕХ ДОСТИЖЕНИЙ
-// ============================================
-
 function generateAllAchievements() {
     const achievements = [];
-    
+
     // Смены
     const shiftMilestones = [1,2,3,4,5,6,7,8,9,10,12,14,16,18,20,25,30,35,40,45,50,60,70,80,90,100,120,140,160,180,200,250,300,350,400,450,500,600,700,800,900,1000];
     const shiftCoins = [50,30,30,30,50,30,50,30,30,100,60,60,60,60,100,80,100,80,100,80,150,120,150,120,180,200,150,200,250,300,400,500,600,700,800,900,1000,1200,1500,2000,2500,3000];
@@ -1090,7 +856,7 @@ function generateAllAchievements() {
             icon: m === 1 ? '🥇' : (m <= 10 ? '📅' : '📆')
         });
     });
-    
+
     // Задачи
     const taskMilestones = [1,2,3,4,5,6,7,8,9,10,15,20,25,30,35,40,45,50,60,70,80,90,100,150,200,250,300,400,500];
     const taskCoins = [30,20,20,20,30,20,30,20,20,50,40,60,50,80,60,80,60,100,100,120,120,150,200,250,300,350,400,500,600];
@@ -1106,7 +872,7 @@ function generateAllAchievements() {
             icon: m === 1 ? '🎯' : '📋'
         });
     });
-    
+
     // Подарки
     const giftMilestones = [1,2,3,4,5,6,7,8,9,10,15,20,25,30,40,50,60,70,80,90,100,120,150,200];
     const giftCoins = [20,15,15,15,20,15,20,15,15,30,25,40,30,50,60,80,80,100,100,120,150,180,200,250];
@@ -1122,7 +888,7 @@ function generateAllAchievements() {
             icon: '🎁'
         });
     });
-    
+
     // Рейтинг
     const ratingMilestones = [10,20,30,40,50,60,70,80,90,100,120,140,160,180,200,250,300,350,400,450,500,600,700,800,900,1000];
     const ratingCoins = [30,20,20,20,30,20,30,20,20,50,40,40,40,40,60,50,80,70,100,90,120,150,180,200,250,300];
@@ -1143,7 +909,7 @@ function generateAllAchievements() {
             icon
         });
     });
-    
+
     // Стрик
     const streakMilestones = [3,5,7,10,14,21,30,40,50,60,70,80,90,100,150,200,250,300,365];
     const streakCoins = [30,50,80,100,150,200,300,350,400,450,500,550,600,700,900,1200,1500,2000,3000];
@@ -1159,7 +925,7 @@ function generateAllAchievements() {
             icon: '🔥'
         });
     });
-    
+
     // Особые
     const specialAchievements = [
         { id: 'first_login', name: '🎉 Добро пожаловать', description: 'Первый вход в систему', coins: 50, icon: '🎉' },
@@ -1176,7 +942,7 @@ function generateAllAchievements() {
     specialAchievements.forEach((ach, i) => {
         achievements.push({ ...ach, category: 'special', required_value: 1, sort_order: 1000 + i });
     });
-    
+
     // Легендарные
     const legendaryAchievements = [
         { id: 'warpoint_legend', name: '🏆 Легенда WARPOINT', description: 'Выполнить 100 достижений', coins: 5000, icon: '🏆' },
@@ -1187,21 +953,17 @@ function generateAllAchievements() {
     legendaryAchievements.forEach((ach, i) => {
         achievements.push({ ...ach, category: 'legendary', required_value: 1, sort_order: 2000 + i });
     });
-    
+
     return achievements;
 }
-
-// ============================================
-// ИНИЦИАЛИЗАЦИЯ ДОСТИЖЕНИЙ
-// ============================================
 
 async function initAchievements() {
     logger.info('Инициализация достижений...');
     const achievements = generateAllAchievements();
-    let inserted = 0, updated = 0;
+
     for (const ach of achievements) {
-        await safeExec(async () => {
-            const result = await query(
+        try {
+            await query(
                 `INSERT INTO achievements (id, name, description, category, required_value, coins_reward, sort_order, icon, color) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
                  ON CONFLICT (id) DO UPDATE SET 
@@ -1212,62 +974,15 @@ async function initAchievements() {
                     coins_reward = EXCLUDED.coins_reward, 
                     sort_order = EXCLUDED.sort_order, 
                     icon = EXCLUDED.icon, 
-                    color = EXCLUDED.color 
-                 RETURNING (SELECT CASE WHEN xmax = 0 THEN 'inserted' ELSE 'updated' END)`,
+                    color = EXCLUDED.color`,
                 [ach.id, ach.name, ach.description, ach.category, ach.required_value, ach.coins_reward, ach.sort_order, ach.icon, ACHIEVEMENT_CATEGORIES[ach.category]?.color || '#fbbf24']
             );
-            if (result.rows[0]?.xmax === 0) inserted++; else updated++;
-        }, `achievement ${ach.id}`);
-    }
-    logger.info(`Достижения: новых ${inserted}, обновлено ${updated}`);
-}
-
-console.log('✅ ЧАСТЬ 4/6 загружена (настройки, фонд, директор, достижения)');
-// ============================================
-// ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ (ИСПРАВЛЕНО)
-// ============================================
-
-async function initDatabase() {
-    if (!pool) pool = createDatabasePool();
-    logger.info('Инициализация БД...');
-    const startTime = Date.now();
-    try {
-        // 🔥 Ждём готовности БД перед миграциями
-        await waitForDb();
-        
-        const versionResult = await query("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").catch(() => ({ rows: [] }));
-        const currentVersion = versionResult.rows[0]?.version || 0;
-        logger.info(`Текущая версия схемы: ${currentVersion}`);
-        
-        // Создаём таблицы с паузами между каждой
-        for (const [tableName, definition] of Object.entries(TABLE_DEFINITIONS)) {
-            await safeExec(() => query(definition), `CREATE ${tableName}`);
-            await new Promise(r => setTimeout(r, 50));
+        } catch (err) {
+            logger.error(`Ошибка достижения ${ach.id}: ${err.message}`);
         }
-        
-        // Создаём индексы с паузами
-        for (const indexDef of INDEX_DEFINITIONS) {
-            await safeExec(() => query(indexDef), 'CREATE INDEX');
-            await new Promise(r => setTimeout(r, 30));
-        }
-        
-        // Выполняем миграции (внутри уже есть паузы)
-        await runMigrations();
-        
-        // Инициализируем системные данные
-        await initSystemSettings();
-        await createDefaultDirector();
-        await initCorporateFund();
-        
-        await query(
-            `INSERT INTO schema_migrations (version, name) VALUES (5, 'WARPOINT HUB v5.3.0') ON CONFLICT (version) DO NOTHING`
-        );
-        
-        logger.info(`БД инициализирована за ${Date.now() - startTime}ms`);
-    } catch (err) {
-        logger.error('Ошибка инициализации БД:', err.message);
-        throw err;
     }
+
+    logger.info('Достижения инициализированы');
 }
 
 // ============================================
@@ -1282,13 +997,74 @@ let CRON_FLAGS = {
 };
 
 // ============================================
-// НАЧИСЛЕНИЕ WP ЗА СМЕНЫ
+// ПРОВЕРКА ДОСТИЖЕНИЙ
+// ============================================
+
+async function checkAndAwardAchievements(userId, category = null) {
+    if (CRON_FLAGS.isProcessingAchievements) return;
+    CRON_FLAGS.isProcessingAchievements = true;
+
+    try {
+        const user = await query(
+            "SELECT id, name, coins, rating, total_shifts, total_tasks_completed, total_gifts_sent, bonus_streak FROM employees WHERE id = $1",
+            [userId]
+        );
+        if (user.rows.length === 0) return;
+        const u = user.rows[0];
+
+        let sql = "SELECT * FROM achievements WHERE 1=1";
+        const params = [];
+        if (category) {
+            sql += " AND category = $1";
+            params.push(category);
+        }
+        const achievementsToCheck = await query(sql, params);
+
+        const unlocked = await query("SELECT achievement_id FROM user_achievements WHERE user_id = $1", [userId]);
+        const unlockedIds = new Set(unlocked.rows.map(r => r.achievement_id));
+
+        const pending = await query("SELECT achievement_id FROM pending_achievements WHERE user_id = $1", [userId]);
+        const pendingIds = new Set(pending.rows.map(r => r.achievement_id));
+
+        for (const ach of achievementsToCheck.rows) {
+            if (unlockedIds.has(ach.id) || pendingIds.has(ach.id)) continue;
+
+            let currentValue = 0;
+            if (ach.category === 'work') currentValue = u.total_shifts || 0;
+            else if (ach.category === 'tasks') currentValue = u.total_tasks_completed || 0;
+            else if (ach.category === 'gifts') currentValue = u.total_gifts_sent || 0;
+            else if (ach.category === 'rating') currentValue = u.rating || 0;
+            else if (ach.category === 'streak') currentValue = u.bonus_streak || 1;
+            else continue;
+
+            if (currentValue >= ach.required_value) {
+                await query(
+                    "INSERT INTO pending_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                    [userId, ach.id]
+                );
+                await addNotification(u.name, 'achievement_unlocked', {
+                    id: ach.id,
+                    name: ach.name,
+                    coins: ach.coins_reward,
+                    description: ach.description
+                });
+            }
+        }
+    } catch (err) {
+        logger.error('Ошибка проверки достижений: ' + err.message);
+    } finally {
+        CRON_FLAGS.isProcessingAchievements = false;
+    }
+}
+
+// ============================================
+// CRON-ЗАДАЧИ
 // ============================================
 
 async function processShiftEarnings() {
     if (CRON_FLAGS.isProcessingShift) return;
     CRON_FLAGS.isProcessingShift = true;
-    
+
     try {
         const yesterday = getTobolskNow().subtract(1, 'day').format('YYYY-MM-DD');
         const result = await query(
@@ -1308,29 +1084,25 @@ async function processShiftEarnings() {
              RETURNING e.id, e.name, s.hours`,
             [yesterday]
         );
-        
+
         await query("UPDATE schedule SET shift_paid = TRUE WHERE date = $1", [yesterday]);
-        
+
         for (const row of result.rows) {
             await checkAndAwardAchievements(row.id, 'work');
         }
-        
+
         logger.info(`Начислено WP за ${yesterday}: ${result.rowCount} сотрудников`);
     } catch (err) {
-        logger.error('Ошибка начисления WP:', err.message);
+        logger.error('Ошибка начисления WP: ' + err.message);
     } finally {
         CRON_FLAGS.isProcessingShift = false;
     }
 }
 
-// ============================================
-// ПРОВЕРКА ПРОСРОЧЕННЫХ ЗАДАЧ
-// ============================================
-
 async function checkOverdueTasks() {
     if (CRON_FLAGS.isProcessingTasks) return;
     CRON_FLAGS.isProcessingTasks = true;
-    
+
     try {
         const today = getTobolskDate();
         const overdue = await query(
@@ -1339,7 +1111,7 @@ async function checkOverdueTasks() {
              WHERE deadline < $1 AND status NOT IN ('completed', 'failed', 'overdue') AND is_archived = FALSE`,
             [today]
         );
-        
+
         for (const task of overdue.rows) {
             let executors = [];
             if (task.is_group_task === 'operators') {
@@ -1351,7 +1123,7 @@ async function checkOverdueTasks() {
             } else if (task.executor) {
                 executors = [task.executor];
             }
-            
+
             for (const emp of executors) {
                 await query(
                     `INSERT INTO fines (date, employee, type, description, status, created_by) 
@@ -1361,25 +1133,21 @@ async function checkOverdueTasks() {
             }
             await query("UPDATE tasks SET status = 'overdue', penalty_applied = TRUE WHERE id = $1", [task.id]);
         }
-        
+
         if (overdue.rows.length > 0) {
             logger.info(`Создано штрафов за просрочку: ${overdue.rows.length}`);
         }
     } catch (err) {
-        logger.error('Ошибка проверки задач:', err.message);
+        logger.error('Ошибка проверки задач: ' + err.message);
     } finally {
         CRON_FLAGS.isProcessingTasks = false;
     }
 }
 
-// ============================================
-// АВТО-ОТМЕНА ПРОСРОЧЕННЫХ ОБМЕНОВ
-// ============================================
-
 async function autoExpireExchanges() {
     if (CRON_FLAGS.isProcessingExchange) return;
     CRON_FLAGS.isProcessingExchange = true;
-    
+
     try {
         const result = await query(
             "UPDATE exchange_requests SET status = 'expired' WHERE status = 'pending' AND expires_at < NOW()"
@@ -1388,132 +1156,58 @@ async function autoExpireExchanges() {
             logger.info(`Отменено просроченных обменов: ${result.rowCount}`);
         }
     } catch (err) {
-        logger.error('Ошибка отмены обменов:', err.message);
+        logger.error('Ошибка отмены обменов: ' + err.message);
     } finally {
         CRON_FLAGS.isProcessingExchange = false;
     }
 }
 
-// ============================================
-// АВТО-АРХИВАЦИЯ ВЫПОЛНЕННЫХ ЗАДАЧ
-// ============================================
-
 async function autoArchiveCompletedTasks() {
     try {
-        const daysToArchive = 3;
         const result = await query(
             `UPDATE tasks SET is_archived = TRUE, archived_at = NOW() 
-             WHERE status = 'completed' AND is_archived = FALSE AND completed_at < NOW() - INTERVAL '${daysToArchive} days'`
+             WHERE status = 'completed' AND is_archived = FALSE AND completed_at < NOW() - INTERVAL '3 days'`
         );
         if (result.rowCount > 0) {
             logger.info(`Автоархивировано задач: ${result.rowCount}`);
         }
     } catch (err) {
-        logger.error('Ошибка автоархивации задач:', err.message);
+        logger.error('Ошибка автоархивации задач: ' + err.message);
     }
 }
-
-// ============================================
-// ОБНОВЛЕНИЕ ПОГОДЫ
-// ============================================
 
 async function updateWeatherJob() {
     try {
         await fetchWeather();
         logger.info('Погода обновлена');
     } catch (err) {
-        logger.error('Ошибка погоды:', err.message);
+        logger.error('Ошибка погоды: ' + err.message);
     }
 }
-
-// ============================================
-// ПРОВЕРКА И ВЫДАЧА ДОСТИЖЕНИЙ
-// ============================================
-
-async function checkAndAwardAchievements(userId, category = null) {
-    if (CRON_FLAGS.isProcessingAchievements) return;
-    CRON_FLAGS.isProcessingAchievements = true;
-    
-    try {
-        const user = await query(
-            "SELECT id, name, coins, rating, total_shifts, total_tasks_completed, total_gifts_sent, bonus_streak FROM employees WHERE id = $1",
-            [userId]
-        );
-        if (user.rows.length === 0) return;
-        const u = user.rows[0];
-        
-        let sql = "SELECT * FROM achievements WHERE 1=1";
-        const params = [];
-        if (category) {
-            sql += " AND category = $1";
-            params.push(category);
-        }
-        const achievementsToCheck = await query(sql, params);
-        
-        const unlocked = await query("SELECT achievement_id FROM user_achievements WHERE user_id = $1", [userId]);
-        const unlockedIds = new Set(unlocked.rows.map(r => r.achievement_id));
-        
-        const pending = await query("SELECT achievement_id FROM pending_achievements WHERE user_id = $1", [userId]);
-        const pendingIds = new Set(pending.rows.map(r => r.achievement_id));
-        
-        for (const ach of achievementsToCheck.rows) {
-            if (unlockedIds.has(ach.id) || pendingIds.has(ach.id)) continue;
-            
-            let currentValue = 0;
-            if (ach.category === 'work') currentValue = u.total_shifts || 0;
-            else if (ach.category === 'tasks') currentValue = u.total_tasks_completed || 0;
-            else if (ach.category === 'gifts') currentValue = u.total_gifts_sent || 0;
-            else if (ach.category === 'rating') currentValue = u.rating || 0;
-            else if (ach.category === 'streak') currentValue = u.bonus_streak || 1;
-            else continue;
-            
-            if (currentValue >= ach.required_value) {
-                await query(
-                    "INSERT INTO pending_achievements (user_id, achievement_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-                    [userId, ach.id]
-                );
-                await addNotification(u.name, 'achievement_unlocked', {
-                    id: ach.id,
-                    name: ach.name,
-                    coins: ach.coins_reward,
-                    description: ach.description
-                });
-            }
-        }
-    } catch (err) {
-        logger.error('Ошибка проверки достижений:', err.message);
-    } finally {
-        CRON_FLAGS.isProcessingAchievements = false;
-    }
-}
-
-// ============================================
-// ИНИЦИАЛИЗАЦИЯ CRON-ЗАДАЧ
-// ============================================
 
 function initCronJobs() {
     logger.info('Инициализация cron-задач...');
-    
+
     cron.schedule('5 0 * * *', () => {
-        processShiftEarnings().catch(e => logger.error('Cron shift earnings:', e.message));
+        processShiftEarnings().catch(e => logger.error('Cron shift earnings: ' + e.message));
     });
-    
+
     cron.schedule('*/15 * * * *', () => {
-        checkOverdueTasks().catch(e => logger.error('Cron overdue tasks:', e.message));
+        checkOverdueTasks().catch(e => logger.error('Cron overdue tasks: ' + e.message));
     });
-    
+
     cron.schedule('0 * * * *', () => {
-        autoExpireExchanges().catch(e => logger.error('Cron expire exchanges:', e.message));
+        autoExpireExchanges().catch(e => logger.error('Cron expire exchanges: ' + e.message));
     });
-    
+
     cron.schedule('0 2 * * *', () => {
-        autoArchiveCompletedTasks().catch(e => logger.error('Cron archive tasks:', e.message));
+        autoArchiveCompletedTasks().catch(e => logger.error('Cron archive tasks: ' + e.message));
     });
-    
+
     cron.schedule('0 */2 * * *', () => {
-        updateWeatherJob().catch(e => logger.error('Cron weather:', e.message));
+        updateWeatherJob().catch(e => logger.error('Cron weather: ' + e.message));
     });
-    
+
     cron.schedule('0 0 * * *', async () => {
         try {
             const users = await query("SELECT id FROM employees WHERE is_active = TRUE AND deleted_at IS NULL");
@@ -1521,10 +1215,10 @@ function initCronJobs() {
                 await checkAndAwardAchievements(u.id);
             }
         } catch (e) {
-            logger.error('Cron achievements:', e.message);
+            logger.error('Cron achievements: ' + e.message);
         }
     });
-    
+
     logger.info('Cron-задачи запущены');
 }
 
@@ -1535,11 +1229,11 @@ function initCronJobs() {
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
     try {
         const { username, password } = req.body;
-        
+
         if (!username || !password) {
             return res.status(400).json({ success: false, error: 'Введите логин и пароль' });
         }
-        
+
         const userResult = await query(
             `SELECT e.*, p.password_hash 
              FROM employees e 
@@ -1547,13 +1241,13 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
              WHERE e.name = $1 AND e.is_active = TRUE AND e.deleted_at IS NULL`,
             [username]
         );
-        
+
         if (userResult.rows.length === 0) {
             return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
         }
-        
+
         const user = userResult.rows[0];
-        
+
         if (!user.password_hash) {
             if (user.role === 'director' && password === 'denis_1') {
                 const hashedPassword = await hashPassword('denis_1');
@@ -1566,12 +1260,12 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
                 return res.status(401).json({ success: false, error: 'Пароль не установлен' });
             }
         }
-        
+
         const validPassword = await comparePassword(password, user.password_hash);
         if (!validPassword) {
             return res.status(401).json({ success: false, error: 'Неверный логин или пароль' });
         }
-        
+
         const today = getTobolskDate();
         const lastClaim = user.last_bonus_claimed_at ? new Date(user.last_bonus_claimed_at).toISOString().split('T')[0] : null;
         let streak = user.bonus_streak || 1;
@@ -1581,14 +1275,14 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
             else streak = 1;
             await query("UPDATE employees SET bonus_streak = $1 WHERE id = $2", [streak, user.id]);
         }
-        
+
         await query("UPDATE employees SET last_active = NOW() WHERE id = $1", [user.id]);
-        
+
         delete user.password_hash;
         const token = generateToken({ id: user.id, username: user.name, role: user.role });
-        
+
         await checkAndAwardAchievements(user.id);
-        
+
         const pendingAchievements = await query(
             `SELECT a.id, a.name, a.coins_reward 
              FROM pending_achievements pa 
@@ -1596,12 +1290,12 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
              WHERE pa.user_id = $1`,
             [user.id]
         );
-        
-        logger.info(`✅ Вход: ${username}`);
+
+        logger.info(`Вход: ${username}`);
         res.json({ success: true, user, token, newAchievements: pendingAchievements.rows });
-        
+
     } catch (err) {
-        logger.error('Ошибка входа:', err.message);
+        logger.error('Ошибка входа: ' + err.message);
         res.status(500).json({ success: false, error: 'Внутренняя ошибка сервера' });
     }
 });
@@ -1667,14 +1361,14 @@ app.post('/api/auth/refresh', async (req, res) => {
 });
 
 // ============================================
-// API — СОТРУДНИКИ И ПРОФИЛИ
+// API — СОТРУДНИКИ
 // ============================================
 
 app.get('/api/employees', authMiddleware, async (req, res) => {
     try {
         const cached = cache.get('employees_list');
         if (cached) return res.json({ success: true, employees: cached });
-        
+
         const result = await query(
             `SELECT id, name, avatar, avatar_url, status, active_status, coins, rating, role, hours, 
                     birthday, phone, last_active, dashboard_style, bought_styles, can_edit_vp, 
@@ -1684,11 +1378,11 @@ app.get('/api/employees', authMiddleware, async (req, res) => {
              WHERE deleted_at IS NULL 
              ORDER BY rating DESC, name ASC`
         );
-        
+
         cache.set('employees_list', result.rows, 60);
         res.json({ success: true, employees: result.rows });
     } catch (err) {
-        logger.error('/api/employees error:', err.message);
+        logger.error('/api/employees error: ' + err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1697,7 +1391,7 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-        
+
         const result = await query(
             `SELECT * FROM employees WHERE id = $1 AND deleted_at IS NULL`,
             [id]
@@ -1711,20 +1405,6 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
-        const tableCheck = await query(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements')"
-        ).catch(() => ({ rows: [{ exists: false }] }));
-        
-        if (!tableCheck.rows[0].exists) {
-            await query(`CREATE TABLE IF NOT EXISTS user_achievements (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-                achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
-                claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, achievement_id)
-            )`).catch(() => {});
-        }
-        
         const result = await query(
             `SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count 
              FROM employees e 
@@ -1732,17 +1412,17 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
              WHERE e.deleted_at IS NULL 
              GROUP BY e.id, e.name`
         ).catch(() => ({ rows: [] }));
-        
+
         const counts = {};
         if (result && result.rows) {
             result.rows.forEach(function(r) {
                 counts[r.name] = parseInt(r.count) || 0;
             });
         }
-        
+
         res.json({ success: true, counts: counts });
     } catch (err) {
-        console.error('achievements-count error:', err.message);
+        console.error('achievements-count error: ' + err.message);
         res.json({ success: true, counts: {} });
     }
 });
@@ -1750,38 +1430,38 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
 app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { name, password, role, birthday, phone } = req.body;
-        
+
         if (!name || !password) {
             return res.status(400).json({ success: false, error: 'Имя и пароль обязательны' });
         }
         if (password.length < 3) {
             return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 3 символов' });
         }
-        
+
         const existing = await query("SELECT id FROM employees WHERE name = $1", [name]);
         if (existing.rows.length > 0) {
             return res.status(400).json({ success: false, error: 'Сотрудник уже существует' });
         }
-        
+
         const result = await query(
             `INSERT INTO employees (name, role, birthday, phone, is_active, created_at, updated_at) 
              VALUES ($1, $2, $3, $4, TRUE, NOW(), NOW()) RETURNING *`,
             [name, role || 'operator', birthday || null, phone || null]
         );
-        
+
         const hashedPassword = await hashPassword(password);
         await query(
             "INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET password_hash = $2",
             [name, hashedPassword]
         );
-        
+
         cache.del('employees_list');
-        
+
         await addNotification('Денис', 'new_employee', { name, role: role || 'operator' });
-        logger.info(`✅ Сотрудник создан: ${name}`);
+        logger.info(`Сотрудник создан: ${name}`);
         res.json({ success: true, employee: result.rows[0] });
     } catch (err) {
-        logger.error('Ошибка создания сотрудника:', err.message);
+        logger.error('Ошибка создания сотрудника: ' + err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1789,18 +1469,18 @@ app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
 app.put('/api/employees/:id', authMiddleware, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-    
+
     const updates = req.body;
     if (req.user.role !== 'director' && req.user.id != id) {
         return res.status(403).json({ success: false, error: 'Нет прав на редактирование' });
     }
-    
+
     try {
         const allowedFields = ['avatar', 'avatar_url', 'status', 'active_status', 'phone', 'birthday', 'dashboard_style'];
         if (req.user.role === 'director') {
             allowedFields.push('name', 'role', 'coins', 'rating', 'can_edit_vp', 'bought_styles');
         }
-        
+
         const fields = [], values = [];
         let idx = 1;
         for (const field of allowedFields) {
@@ -1809,30 +1489,30 @@ app.put('/api/employees/:id', authMiddleware, async (req, res) => {
                 values.push(updates[field]);
             }
         }
-        
+
         if (fields.length === 0) {
             return res.json({ success: true, message: 'Нет полей для обновления' });
         }
-        
+
         fields.push(`updated_at = NOW()`);
         values.push(id);
-        
+
         const result = await query(
             `UPDATE employees SET ${fields.join(', ')} WHERE id = $${idx} AND deleted_at IS NULL RETURNING *`,
             values
         );
-        
+
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
         }
-        
+
         cache.del('employees_list');
         if (updates.avatar || updates.avatar_url) {
             await checkAndAwardAchievements(id, 'special');
         }
         res.json({ success: true, employee: result.rows[0] });
     } catch (err) {
-        logger.error('/api/employees PUT error:', err.message);
+        logger.error('/api/employees PUT error: ' + err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1841,18 +1521,18 @@ app.delete('/api/employees/:id', authMiddleware, directorOnly, async (req, res) 
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-        
+
         const emp = await query("SELECT role, name FROM employees WHERE id = $1", [id]);
         if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
         if (emp.rows[0].role === 'director') return res.status(403).json({ success: false, error: 'Нельзя удалить директора' });
-        
+
         await query("UPDATE employees SET deleted_at = NOW(), is_active = FALSE WHERE id = $1", [id]);
         cache.del('employees_list');
-        
+
         logger.info(`Сотрудник уволен: ${emp.rows[0].name}`);
         res.json({ success: true, message: 'Сотрудник уволен' });
     } catch (err) {
-        logger.error('/api/employees DELETE error:', err.message);
+        logger.error('/api/employees DELETE error: ' + err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -1861,21 +1541,21 @@ app.put('/api/employees/:id/password', authMiddleware, directorOnly, async (req,
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-        
+
         const { password } = req.body;
         if (!password || password.length < 3) {
             return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 3 символов' });
         }
-        
+
         const emp = await query("SELECT name FROM employees WHERE id = $1", [id]);
         if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
-        
+
         const hashedPassword = await hashPassword(password);
         await query(
             "INSERT INTO passwords (username, password_hash) VALUES ($1, $2) ON CONFLICT (username) DO UPDATE SET password_hash = $2, updated_at = NOW()",
             [emp.rows[0].name, hashedPassword]
         );
-        
+
         res.json({ success: true, message: 'Пароль изменён' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1886,24 +1566,28 @@ app.put('/api/employees/:id/role', authMiddleware, directorOnly, async (req, res
     try {
         const id = parseInt(req.params.id);
         if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-        
+
         const { role } = req.body;
         if (!['operator', 'admin', 'manager'].includes(role)) {
             return res.status(400).json({ success: false, error: 'Недопустимая роль' });
         }
-        
+
         const emp = await query("SELECT role FROM employees WHERE id = $1", [id]);
         if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
         if (emp.rows[0].role === 'director') return res.status(403).json({ success: false, error: 'Нельзя изменить роль директора' });
-        
+
         await query("UPDATE employees SET role = $1, updated_at = NOW() WHERE id = $2", [role, id]);
         cache.del('employees_list');
-        
+
         res.json({ success: true, message: 'Роль изменена' });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
+// ============================================
+// API — ПРОФИЛИ
+// ============================================
 
 app.get('/api/profiles/:name', authMiddleware, async (req, res) => {
     try {
@@ -1925,17 +1609,17 @@ app.get('/api/profiles/:name', authMiddleware, async (req, res) => {
 app.put('/api/profiles/:name', authMiddleware, async (req, res) => {
     const { name } = req.params;
     const updates = req.body;
-    
+
     if (req.user.role !== 'director' && req.user.username !== name) {
         return res.status(403).json({ success: false, error: 'Нет прав на редактирование' });
     }
-    
+
     try {
         const allowedFields = ['avatar', 'avatar_url', 'status', 'active_status', 'phone', 'birthday'];
         if (req.user.role === 'director') {
             allowedFields.push('coins', 'rating', 'role', 'can_edit_vp');
         }
-        
+
         const fields = [], values = [];
         let idx = 1;
         for (const field of allowedFields) {
@@ -1944,32 +1628,32 @@ app.put('/api/profiles/:name', authMiddleware, async (req, res) => {
                 values.push(updates[field]);
             }
         }
-        
+
         if (fields.length === 0) {
             return res.json({ success: true, message: 'Нет полей для обновления' });
         }
-        
+
         fields.push(`updated_at = NOW()`);
         values.push(name);
-        
+
         const result = await query(
             `UPDATE employees SET ${fields.join(', ')} WHERE name = $${idx} AND deleted_at IS NULL RETURNING *`,
             values
         );
-        
+
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
         }
-        
+
         cache.del('employees_list');
-        
+
         if (updates.avatar || updates.avatar_url) {
             const userResult = await query("SELECT id FROM employees WHERE name = $1", [name]);
             if (userResult.rows.length > 0) {
                 await checkAndAwardAchievements(userResult.rows[0].id, 'special');
             }
         }
-        
+
         res.json({ success: true, profile: result.rows[0] });
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
@@ -1981,11 +1665,11 @@ app.get('/api/data', authMiddleware, async (req, res) => {
         const cacheKey = `data_${req.user.id}`;
         const cached = cache.get(cacheKey);
         if (cached) return res.json(cached);
-        
+
         const employees = await query(
             "SELECT id, name, avatar, avatar_url, status, active_status, coins, rating, role, hours, birthday, phone, last_active, dashboard_style, can_edit_vp, bonus_streak, total_shifts, total_tasks_completed FROM employees WHERE deleted_at IS NULL ORDER BY rating DESC, name ASC"
         );
-        
+
         const tasks = await query("SELECT * FROM tasks WHERE is_archived = FALSE ORDER BY created_at DESC LIMIT 500");
         const fines = await query("SELECT * FROM fines ORDER BY date DESC LIMIT 500");
         const schedule = await query("SELECT date, employee, shift_time, shift_status, is_special, special_end_time FROM schedule ORDER BY date DESC LIMIT 1000");
@@ -1996,7 +1680,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
              JOIN employees e ON e.id = ua.user_id 
              JOIN achievements a ON a.id = ua.achievement_id`
         );
-        
+
         const scheduleObj = {};
         schedule.rows.forEach(s => {
             if (!scheduleObj[s.date]) scheduleObj[s.date] = {};
@@ -2007,13 +1691,13 @@ app.get('/api/data', authMiddleware, async (req, res) => {
                 special_end_time: s.special_end_time
             };
         });
-        
+
         const stickersObj = {};
         stickers.rows.forEach(s => {
             if (!stickersObj[s.employee]) stickersObj[s.employee] = [];
             stickersObj[s.employee].push(s);
         });
-        
+
         const achievementsObj = {};
         userAchievements.rows.forEach(a => {
             if (!achievementsObj[a.name]) achievementsObj[a.name] = [];
@@ -2024,7 +1708,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
                 color: a.color
             });
         });
-        
+
         const profiles = {};
         employees.rows.forEach(e => {
             profiles[e.name] = {
@@ -2034,7 +1718,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
                 bonus_streak: e.bonus_streak, total_shifts: e.total_shifts, total_tasks_completed: e.total_tasks_completed
             };
         });
-        
+
         const data = {
             success: true,
             employees: employees.rows.map(e => e.name),
@@ -2045,7 +1729,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
             stickers: stickersObj,
             userAchievements: achievementsObj
         };
-        
+
         cache.set(cacheKey, data, 30);
         res.json(data);
     } catch (err) {
@@ -2053,7 +1737,7 @@ app.get('/api/data', authMiddleware, async (req, res) => {
     }
 });
 
-console.log('✅ ЧАСТЬ 5/6 загружена (cron, авторизация, сотрудники, профили)');
+console.log('[SERVER] Часть 3/4 загружена (достижения, cron, авторизация, сотрудники, профили)');
 // ============================================
 // API — ЗАДАЧИ
 // ============================================
@@ -2226,7 +1910,6 @@ app.post('/api/fines', authMiddleware, adminOrAbove, async (req, res) => {
     try {
         const { fine } = req.body;
         if (!fine || !fine.employee) return res.status(400).json({ success: false, error: 'Сотрудник обязателен' });
-        await query(`CREATE TABLE IF NOT EXISTS fines (id SERIAL PRIMARY KEY, date DATE NOT NULL, employee VARCHAR(100) NOT NULL, type VARCHAR(50) DEFAULT 'other', amount INTEGER DEFAULT 0, coins INTEGER DEFAULT 0, rating INTEGER DEFAULT 0, description TEXT, status VARCHAR(30) DEFAULT 'pending', created_by VARCHAR(100), director_comment TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`).catch(() => {});
         const result = await query(`INSERT INTO fines (date, employee, type, amount, coins, rating, description, status, created_by) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', $8) RETURNING *`, [fine.date || getTobolskDate(), fine.employee, fine.type || 'other', fine.amount || 0, fine.coins || 0, fine.rating || 0, fine.description || null, req.user.username]);
         await addNotification(fine.employee, 'fine_created', { fineId: result.rows[0].id, reason: fine.description || 'Нарушение' });
         if (req.user.role === 'director' || req.user.role === 'manager') await addNotification('Денис', 'fine_created', { fineId: result.rows[0].id, employee: fine.employee, reason: fine.description || 'Нарушение' });
@@ -2427,9 +2110,8 @@ app.delete('/api/vp/:id', authMiddleware, directorOnly, async (req, res) => {
     catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-console.log('✅ ЧАСТЬ 6/8 загружена (задачи, штрафы, график, обмены, ВП)');
 // ============================================
-// API — ЗАРПЛАТА (ИСПРАВЛЕНО)
+// API — ЗАРПЛАТА
 // ============================================
 
 app.get('/api/salary', authMiddleware, async (req, res) => {
@@ -2437,16 +2119,10 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
         const { month, year } = req.query;
         if (!month || !year) return res.status(400).json({ success: false, error: 'Месяц и год обязательны' });
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        await query(`CREATE TABLE IF NOT EXISTS salary_daily (id SERIAL PRIMARY KEY, employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, day_number INTEGER NOT NULL, month_year VARCHAR(7) NOT NULL, oklad INTEGER DEFAULT 0, event INTEGER DEFAULT 0, turnover INTEGER DEFAULT 0, bonus35 INTEGER DEFAULT 0, video INTEGER DEFAULT 0, extra_motivation INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee_id, day_number, month_year))`).catch(() => {});
-        // 🔥 Проверяем и добавляем колонки по одной с паузой
-        const cols = ['oklad', 'event', 'turnover', 'bonus35', 'video', 'extra_motivation'];
-        for (const col of cols) {
-            await safeExec(() => addColumnIfNotExists('salary_daily', col, 'INTEGER', '0'), `salary_daily.${col}`);
-        }
         const employees = await query("SELECT id, name, role, avatar, avatar_url FROM employees WHERE role != 'director' AND is_active = TRUE AND deleted_at IS NULL ORDER BY name");
         const dailyData = await query("SELECT * FROM salary_daily WHERE month_year = $1", [monthYear]);
         res.json({ success: true, employees: employees.rows, dailyData: dailyData.rows });
-    } catch (err) { logger.error('/api/salary error:', err.message); res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) { logger.error('/api/salary error: ' + err.message); res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.get('/api/salary/day', authMiddleware, async (req, res) => {
@@ -2454,13 +2130,9 @@ app.get('/api/salary/day', authMiddleware, async (req, res) => {
         const { employee_id, day, month, year } = req.query;
         if (!employee_id || !day || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        const cols = ['oklad', 'event', 'turnover', 'bonus35', 'video', 'extra_motivation'];
-        for (const col of cols) {
-            await safeExec(() => addColumnIfNotExists('salary_daily', col, 'INTEGER', '0'), `salary_daily.${col} (day)`);
-        }
         const result = await query(`SELECT oklad, event, turnover, bonus35, video, extra_motivation FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`, [employee_id, day, monthYear]).catch(() => ({ rows: [] }));
         res.json({ success: true, oklad: result.rows[0]?.oklad || 0, event: result.rows[0]?.event || 0, turnover: result.rows[0]?.turnover || 0, bonus35: result.rows[0]?.bonus35 || 0, video: result.rows[0]?.video || 0, extra_motivation: result.rows[0]?.extra_motivation || 0 });
-    } catch (err) { logger.error('/api/salary/day error:', err.message); res.status(500).json({ success: false, error: err.message }); }
+    } catch (err) { logger.error('/api/salary/day error: ' + err.message); res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) => {
@@ -2469,38 +2141,22 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
         if (!employee_id || !day_number || !month || !year) {
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
-        
-        // 🔥 Проверка что сотрудник существует
+
         const empCheck = await query(
             "SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL AND is_active = TRUE",
             [employee_id]
         );
         if (empCheck.rows.length === 0) {
-            logger.warn(`Попытка сохранить з/п для несуществующего сотрудника: ${employee_id}`);
             return res.status(400).json({ success: false, error: 'Сотрудник не найден или уволен' });
         }
-        
+
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        
-        // Проверяем и создаём constraint если его нет
-        const constraintCheck = await query(
-            `SELECT conname FROM pg_constraint 
-             WHERE conrelid = 'salary_daily'::regclass AND contype = 'u'`
-        ).catch(() => ({ rows: [] }));
-        
-        if (constraintCheck.rows.length === 0) {
-            await query(`DELETE FROM salary_daily a USING salary_daily b 
-                         WHERE a.id > b.id AND a.employee_id = b.employee_id 
-                         AND a.day_number = b.day_number AND a.month_year = b.month_year`);
-            await query(`ALTER TABLE salary_daily ADD CONSTRAINT salary_daily_unique 
-                         UNIQUE (employee_id, day_number, month_year)`).catch(() => {});
-        }
-        
+
         const existing = await query(
             "SELECT id FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3",
             [employee_id, day_number, monthYear]
         );
-        
+
         if (existing.rows.length > 0) {
             await query(
                 `UPDATE salary_daily 
@@ -2516,10 +2172,10 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
                 [employee_id, day_number, monthYear, oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, 'standard']
             );
         }
-        
+
         res.json({ success: true });
     } catch (err) {
-        logger.error('/api/salary/day/save error:', err.message);
+        logger.error('/api/salary/day/save error: ' + err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -2530,14 +2186,14 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
         if (!day_number || !month || !year) {
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
-        
+
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         const operators = await query("SELECT id FROM employees WHERE role = 'operator' AND is_active = TRUE AND deleted_at IS NULL");
-        
+
         if (operators.rows.length === 0) {
             return res.status(400).json({ success: false, error: 'Нет активных операторов для применения' });
         }
-        
+
         for (const op of operators.rows) {
             await query(
                 `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation, motivation_type) 
@@ -2555,10 +2211,10 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
                 [op.id, day_number, monthYear, fields.oklad || 0, fields.event || 0, fields.turnover || 0, fields.bonus35 || 0, fields.video || 0, fields.extra_motivation || 0, 'standard']
             );
         }
-        
+
         res.json({ success: true, updated: operators.rows.length });
     } catch (err) {
-        logger.error('/api/salary/apply-all error:', err.message);
+        logger.error('/api/salary/apply-all error: ' + err.message);
         res.status(500).json({ success: false, error: err.message });
     }
 });
@@ -2569,7 +2225,6 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
 
 app.get('/api/fund', authMiddleware, async (req, res) => {
     try {
-        await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
         const result = await query("SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1");
         res.json({ success: true, amount: result.rows[0]?.amount || 0 });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
@@ -2598,107 +2253,23 @@ app.post('/api/fund/add', authMiddleware, directorOnly, async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-// ============================================
-// API — ЧАТ (оставлен для совместимости, можно удалить при полном отказе от чата)
-// ============================================
-
-app.post('/api/chat', authMiddleware, async (req, res) => {
-    try {
-        const { room, message } = req.body;
-        if (!message || !message.text || message.text.length > 2000) return res.status(400).json({ success: false, error: 'Неверное сообщение' });
-        const cleanText = sanitizeHtml(message.text, { allowedTags: [], allowedAttributes: {} });
-        const result = await query("INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4) RETURNING *", [room || 'general', message.sender, cleanText, Date.now()]);
-        await query("UPDATE employees SET total_messages = total_messages + 1 WHERE name = $1", [message.sender]);
-        await triggerPusher('private-warpoint-sync', 'new-message', { room: room || 'general', message: result.rows[0] });
-        if (room && room !== 'general') {
-            await addNotification(room, 'mention', { sender: message.sender, text: cleanText.substring(0, 100) });
-            const privateChannel = `private-user-${transliterate(room)}`;
-            await triggerPusher(privateChannel, 'private-message', { from: message.sender, message: result.rows[0] });
-        }
-        res.json({ success: true, message: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.post('/api/chat/private', authMiddleware, async (req, res) => {
-    try {
-        const { to, message } = req.body;
-        if (!to || !message || !message.text) return res.status(400).json({ success: false, error: 'Неверные данные' });
-        const cleanText = sanitizeHtml(message.text, { allowedTags: [], allowedAttributes: {} });
-        const room = [req.user.username, to].sort().join('-');
-        const result = await query("INSERT INTO messages (room, sender, text, time) VALUES ($1, $2, $3, $4) RETURNING *", [room, message.sender, cleanText, Date.now()]);
-        await query("UPDATE employees SET total_messages = total_messages + 1 WHERE name = $1", [message.sender]);
-        await addNotification(to, 'mention', { sender: message.sender, text: cleanText.substring(0, 100), roomId: room });
-        const privateChannel = `private-user-${transliterate(to)}`;
-        await triggerPusher(privateChannel, 'private-message', { from: message.sender, message: result.rows[0] });
-        res.json({ success: true, message: result.rows[0] });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.post('/api/chat/announcement', authMiddleware, managerOrDirector, async (req, res) => {
-    try {
-        const { announcement } = req.body;
-        if (!announcement || !announcement.text) return res.status(400).json({ success: false, error: 'Текст объявления обязателен' });
-        const cleanText = sanitizeHtml(announcement.text, { allowedTags: ['b', 'i', 'u', 'br'], allowedAttributes: {} });
-        const announcementData = { ...announcement, text: cleanText, type: 'announcement' };
-        await query("INSERT INTO messages (room, sender, text, time) VALUES ('general', $1, $2, $3)", [announcement.sender, JSON.stringify(announcementData), Date.now()]);
-        await triggerPusher('private-warpoint-sync', 'announcement', { announcement: announcementData });
-        const employees = await query("SELECT name FROM employees WHERE is_active = TRUE AND deleted_at IS NULL AND name != $1", [announcement.sender]);
-        for (const emp of employees.rows) await addNotification(emp.name, 'mention', { sender: announcement.sender, text: cleanText.substring(0, 100), isAnnouncement: true });
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.get('/api/chat/history/:room', authMiddleware, async (req, res) => {
-    try {
-        const { room } = req.params;
-        const { after } = req.query;
-        let sql = "SELECT * FROM messages WHERE room = $1 AND is_deleted = FALSE";
-        const params = [room];
-        if (after) { sql += " AND time > $" + (params.length + 1); params.push(parseInt(after)); }
-        sql += " ORDER BY time ASC LIMIT 500";
-        const result = await query(sql, params);
-        res.json(result.rows);
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.post('/api/chat/delete', authMiddleware, async (req, res) => {
-    try {
-        const { room, messageTime, sender } = req.body;
-        if (!room || !messageTime) return res.status(400).json({ success: false, error: 'Неверные данные' });
-        const msg = await query("SELECT sender FROM messages WHERE room = $1 AND time = $2 AND is_deleted = FALSE", [room, messageTime]);
-        if (msg.rows.length === 0) return res.status(404).json({ success: false, error: 'Сообщение не найдено' });
-        if (req.user.role !== 'director' && msg.rows[0].sender !== req.user.username) return res.status(403).json({ success: false, error: 'Нет прав на удаление' });
-        await query("UPDATE messages SET is_deleted = TRUE, deleted_at = NOW() WHERE room = $1 AND time = $2", [room, messageTime]);
-        if (room === 'general') await triggerPusher('private-warpoint-sync', 'delete-message', { room, messageTime });
-        else { const participants = room.split('-'); for (const p of participants) await triggerPusher(`private-user-${transliterate(p)}`, 'delete-private', { room, messageTime }); }
-        res.json({ success: true });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
-app.post('/api/chat/delete-bulk', authMiddleware, directorOnly, async (req, res) => {
-    try {
-        const { period, room, timeThreshold } = req.body;
-        if (!room) return res.status(400).json({ success: false, error: 'Комната не указана' });
-        let deletedCount = 0;
-        if (period === 'all') { const result = await query("UPDATE messages SET is_deleted = TRUE, deleted_at = NOW() WHERE room = $1 AND is_deleted = FALSE RETURNING id", [room]); deletedCount = result.rowCount; }
-        else if (timeThreshold) { const result = await query("UPDATE messages SET is_deleted = TRUE, deleted_at = NOW() WHERE room = $1 AND time >= $2 AND is_deleted = FALSE RETURNING id", [room, timeThreshold]); deletedCount = result.rowCount; }
-        else return res.status(400).json({ success: false, error: 'Период не указан' });
-        if (room === 'general') await triggerPusher('private-warpoint-sync', 'bulk-delete', { period, room, timeThreshold, timestamp: Date.now() });
-        res.json({ success: true, deletedCount });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
-});
-
+console.log('[SERVER] Часть 4/6 загружена (задачи, штрафы, график, обмены, ВП, зарплата, фонд)');
 // ============================================
 // API — ПОДАРКИ (МАГАЗИН)
 // ============================================
 
 app.get('/api/gifts', authMiddleware, (req, res) => {
     const gifts = [
-        { id: 'flower', name: '🌸 Букет', icon: '🌸', price: 25, rating: 8 }, { id: 'star', name: '⭐ Звезда', icon: '⭐', price: 75, rating: 25 },
-        { id: 'pizza', name: '🍕 Пицца', icon: '🍕', price: 150, rating: 50 }, { id: 'trophy', name: '🏆 Трофей', icon: '🏆', price: 300, rating: 100 },
-        { id: 'crown', name: '👑 Корона', icon: '👑', price: 500, rating: 175 }, { id: 'trash', name: '🗑️ Мешок мусора', icon: '🗑️', price: 25, rating: -8 },
-        { id: 'socks', name: '🧦 Носки с дыркой', icon: '🧦', price: 75, rating: -25 }, { id: 'brick', name: '🧱 Кирпич', icon: '🧱', price: 150, rating: -50 },
-        { id: 'abibas', name: '👟 Кеды Abibas', icon: '👟', price: 300, rating: -100 }, { id: 'poop', name: '💩 Шоколадный сюрприз', icon: '💩', price: 500, rating: -175 }
+        { id: 'flower', name: '🌸 Букет', icon: '🌸', price: 25, rating: 8 },
+        { id: 'star', name: '⭐ Звезда', icon: '⭐', price: 75, rating: 25 },
+        { id: 'pizza', name: '🍕 Пицца', icon: '🍕', price: 150, rating: 50 },
+        { id: 'trophy', name: '🏆 Трофей', icon: '🏆', price: 300, rating: 100 },
+        { id: 'crown', name: '👑 Корона', icon: '👑', price: 500, rating: 175 },
+        { id: 'trash', name: '🗑️ Мешок мусора', icon: '🗑️', price: 25, rating: -8 },
+        { id: 'socks', name: '🧦 Носки с дыркой', icon: '🧦', price: 75, rating: -25 },
+        { id: 'brick', name: '🧱 Кирпич', icon: '🧱', price: 150, rating: -50 },
+        { id: 'abibas', name: '👟 Кеды Abibas', icon: '👟', price: 300, rating: -100 },
+        { id: 'poop', name: '💩 Шоколадный сюрприз', icon: '💩', price: 500, rating: -175 }
     ];
     res.json({ success: true, gifts });
 });
@@ -2819,6 +2390,7 @@ app.post('/api/knowledge/articles/:id/view', authMiddleware, async (req, res) =>
     try { const id = parseInt(req.params.id); if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' }); await query("UPDATE knowledge_articles SET views = views + 1 WHERE id = $1", [id]); res.json({ success: true }); }
     catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
+
 // ============================================
 // API — ДОСТИЖЕНИЯ
 // ============================================
@@ -2881,7 +2453,7 @@ app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
 
 app.post('/api/parsing/run', authMiddleware, managerOrDirector, async (req, res) => {
     res.json({ success: true, message: 'Парсинг запущен' });
-    setImmediate(async () => { try { await bookingParser.parseAvailability(); } catch (err) { logger.error('Ошибка парсинга:', err.message); } });
+    setImmediate(async () => { try { await bookingParser.parseAvailability(); } catch (err) { logger.error('Ошибка парсинга: ' + err.message); } });
 });
 
 app.post('/api/parsing/reset', authMiddleware, directorOnly, async (req, res) => {
@@ -3063,21 +2635,55 @@ app.post('/api/pusher/auth', authMiddleware, (req, res) => {
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 app.get('/about.html', (req, res) => res.sendFile(path.join(__dirname, 'public', 'about.html')));
-app.get('/pages/:page', (req, res) => { const pagePath = path.join(__dirname, 'public', 'pages', req.params.page); fs.existsSync(pagePath) ? res.sendFile(pagePath) : res.status(404).send('Page not found'); });
-app.get('/css/:file', (req, res) => { const cssPath = path.join(__dirname, 'public', 'css', req.params.file); fs.existsSync(cssPath) ? res.sendFile(cssPath) : res.status(404).send('CSS not found'); });
-app.get('/js/:file', (req, res) => { const jsPath = path.join(__dirname, 'public', 'js', req.params.file); fs.existsSync(jsPath) ? res.sendFile(jsPath) : res.status(404).send('JS not found'); });
-app.get('*', (req, res) => { if (req.path.startsWith('/api/') || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/pages/')) return res.status(404).json({ error: 'Not found' }); res.sendFile(path.join(__dirname, 'public', 'index.html')); });
+app.get('/pages/:page', (req, res) => {
+    const pagePath = path.join(__dirname, 'public', 'pages', req.params.page);
+    if (fs.existsSync(pagePath)) res.sendFile(pagePath);
+    else res.status(404).send('Page not found');
+});
+app.get('/css/:file', (req, res) => {
+    const cssPath = path.join(__dirname, 'public', 'css', req.params.file);
+    if (fs.existsSync(cssPath)) res.sendFile(cssPath);
+    else res.status(404).send('CSS not found');
+});
+app.get('/js/:file', (req, res) => {
+    const jsPath = path.join(__dirname, 'public', 'js', req.params.file);
+    if (fs.existsSync(jsPath)) res.sendFile(jsPath);
+    else res.status(404).send('JS not found');
+});
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/') || req.path.startsWith('/css/') || req.path.startsWith('/js/') || req.path.startsWith('/pages/')) {
+        return res.status(404).json({ error: 'Not found' });
+    }
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
-app.use((req, res) => { if (req.path.startsWith('/api/')) res.status(404).json({ success: false, error: 'Endpoint not found' }); else res.status(404).sendFile(path.join(__dirname, 'public', 'index.html')); });
+app.use((req, res) => {
+    if (req.path.startsWith('/api/')) res.status(404).json({ success: false, error: 'Endpoint not found' });
+    else res.status(404).sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 app.use((err, req, res, next) => {
-    logger.error('Unhandled error:', err.message, err.stack);
+    logger.error('Unhandled error: ' + err.message);
     if (res.headersSent) return next(err);
     if (err.type === 'entity.parse.failed') return res.status(400).json({ success: false, error: 'Invalid JSON' });
     if (err.code === '23505') return res.status(409).json({ success: false, error: 'Duplicate entry' });
     if (err.code === '23503') return res.status(400).json({ success: false, error: 'Foreign key violation' });
     res.status(500).json({ success: false, error: 'Internal server error' });
 });
+
+// ============================================
+// SERVER STATE
+// ============================================
+
+let server = null;
+let dbInitialized = false;
+
+const SERVER_STATE = {
+    started: null,
+    isReady: false,
+    isShuttingDown: false,
+    version: '5.3.1'
+};
 
 // ============================================
 // GRACEFUL SHUTDOWN
@@ -3087,31 +2693,31 @@ function gracefulShutdown(signal) {
     if (SERVER_STATE.isShuttingDown) return;
     SERVER_STATE.isShuttingDown = true;
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
-    
+
     let shutdownTimeout = setTimeout(() => {
         logger.error('Forcing shutdown after timeout');
         process.exit(1);
     }, 15000);
-    
+
     const cleanup = async () => {
         clearTimeout(shutdownTimeout);
-        
+
         if (server) {
             server.close(() => logger.info('HTTP server closed'));
             if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
         }
-        
+
         if (pool) {
-            await pool.end().then(() => logger.info('Database pool closed')).catch(e => logger.error('Error closing pool:', e.message));
+            await pool.end().then(() => logger.info('Database pool closed')).catch(e => logger.error('Error closing pool: ' + e.message));
         }
-        
+
         if (pusher && typeof pusher.disconnect === 'function') pusher.disconnect();
-        
+
         cache.flushAll();
         logger.info('WARPOINT Hub shut down');
         process.exit(0);
     };
-    
+
     cleanup();
 }
 
@@ -3127,7 +2733,7 @@ app.get('/health', async (req, res) => {
         version: SERVER_STATE.version,
         environment: process.env.NODE_ENV || 'development'
     };
-    
+
     try {
         await query('SELECT 1');
         health.database = 'ok';
@@ -3135,16 +2741,16 @@ app.get('/health', async (req, res) => {
         health.status = 'degraded';
         health.database = 'error';
     }
-    
+
     health.pusher = pusher ? 'configured' : 'not_configured';
-    
+
     const memory = process.memoryUsage();
     health.memory = {
         rss: Math.round(memory.rss / 1024 / 1024) + 'MB',
         heapUsed: Math.round(memory.heapUsed / 1024 / 1024) + 'MB',
         heapTotal: Math.round(memory.heapTotal / 1024 / 1024) + 'MB'
     };
-    
+
     res.status(health.status === 'ok' ? 200 : 503).json(health);
 });
 
@@ -3157,43 +2763,29 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Dat
 function setupServerHandlers() {
     server.keepAliveTimeout = 65000;
     server.headersTimeout = 66000;
-    
+
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGQUIT', () => gracefulShutdown('SIGQUIT'));
-    
+
     process.on('uncaughtException', (err) => {
         if (err.message.includes('EADDRINUSE')) {
             logger.error('Порт уже занят — выходим');
             process.exit(0);
         }
-        logger.error('UNCAUGHT EXCEPTION:', err.message, err.stack);
+        logger.error('UNCAUGHT EXCEPTION: ' + err.message);
     });
-    
+
     process.on('unhandledRejection', (reason) => {
-        logger.error('UNHANDLED REJECTION:', reason);
+        logger.error('UNHANDLED REJECTION: ' + reason);
     });
 }
 
 // ============================================
-// ЗАПУСК СЕРВЕРА (ИСПРАВЛЕНО)
+// ЗАПУСК СЕРВЕРА
 // ============================================
 
 async function startServer() {
-    if (dbInitialized) {
-        logger.info('БД уже инициализирована, запускаем только HTTP сервер...');
-        server = app.listen(PORT, '0.0.0.0', () => {
-            SERVER_STATE.started = new Date();
-            SERVER_STATE.isReady = true;
-            logger.info(`🚀 WARPOINT Hub запущен на порту ${PORT}`);
-            logger.info(`🌍 Окружение: ${process.env.NODE_ENV || 'development'}`);
-            logger.info(`🕐 Время: ${getTobolskDateTime()}`);
-            logger.info(`👤 Директор по умолчанию: Денис / denis_1`);
-        });
-        setupServerHandlers();
-        return;
-    }
-    
     try {
         logger.info('\n╔══════════════════════════════════════════════════════════════╗');
         logger.info('║   ██╗    ██╗ █████╗ ██████╗ ██████╗  ██████╗ ██╗███╗   ██╗████████╗  ║');
@@ -3202,27 +2794,23 @@ async function startServer() {
         logger.info('║   ██║███╗██║██╔══██║██╔══██╗██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║     ║');
         logger.info('║   ╚███╔███╔╝██║  ██║██║  ██║██║     ╚██████╔╝██║██║ ╚████║   ██║     ║');
         logger.info('║    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝     ║');
-        logger.info('║                    CORPORATE PORTAL v5.3.0                    ║');
+        logger.info('║                    CORPORATE PORTAL v5.3.1                    ║');
         logger.info('╚══════════════════════════════════════════════════════════════╝\n');
-        
+
         const dataDir = path.join(__dirname, 'data');
         if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-        
+
         pusher = initPusher();
         pool = createDatabasePool();
+
         if (!pool) throw new Error('Не удалось создать пул БД');
-        
-        // 🔥 Ждём готовности БД и выполняем миграции с паузами
+
         await initDatabase();
         dbInitialized = true;
-        
-        // Инициализируем достижения (может занять время)
+
         await initAchievements();
-        
-        // Запускаем cron-задачи
         initCronJobs();
-        
-        // Запускаем HTTP сервер
+
         server = app.listen(PORT, '0.0.0.0', () => {
             SERVER_STATE.started = new Date();
             SERVER_STATE.isReady = true;
@@ -3231,66 +2819,59 @@ async function startServer() {
             logger.info(`🕐 Время: ${getTobolskDateTime()}`);
             logger.info(`👤 Директор по умолчанию: Денис / denis_1`);
         });
-        
+
         setupServerHandlers();
-        
-        // Пост-инициализация через 3 секунды
+
+        // Пост-инициализация
         setTimeout(async () => {
             try {
                 const check = await query("SELECT id FROM employees WHERE name = 'Денис' AND is_active = TRUE AND deleted_at IS NULL");
                 if (check.rows.length === 0) {
                     logger.warn('Директор не найден, создаём...');
                     await createDefaultDirector();
-                } else {
-                    const passCheck = await query("SELECT username FROM passwords WHERE username = 'Денис'");
-                    if (passCheck.rows.length === 0) {
-                        const hashedPassword = await hashPassword('denis_1');
-                        await query("INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)", [hashedPassword]);
-                    }
                 }
-                
                 const achievementsCheck = await query("SELECT COUNT(*) FROM achievements");
                 if (parseInt(achievementsCheck.rows[0].count) === 0) {
                     logger.warn('Достижения не найдены, инициализируем...');
                     await initAchievements();
                 }
             } catch (err) {
-                logger.error('Ошибка пост-инициализации:', err.message);
+                logger.error('Ошибка пост-инициализации: ' + err.message);
             }
         }, 3000);
-        
-        // Мониторинг памяти каждые 5 минут
+
+        // Мониторинг памяти
         setInterval(() => {
             const mem = process.memoryUsage();
-            logger.debug(`📊 Память: RSS=${Math.round(mem.rss/1024/1024)}MB, Heap=${Math.round(mem.heapUsed/1024/1024)}/${Math.round(mem.heapTotal/1024/1024)}MB`);
+            logger.debug(`📊 Память: RSS=${Math.round(mem.rss / 1024 / 1024)}MB, Heap=${Math.round(mem.heapUsed / 1024 / 1024)}/${Math.round(mem.heapTotal / 1024 / 1024)}MB`);
         }, 300000);
-        
-        // Очистка старых уведомлений раз в сутки
+
+        // Очистка старых уведомлений
         setInterval(async () => {
             try {
                 const result = await query("DELETE FROM notifications WHERE created_at < NOW() - INTERVAL '30 days'");
                 if (result.rowCount > 0) logger.debug(`🧹 Очищено уведомлений: ${result.rowCount}`);
-            } catch (e) {}
+            } catch (e) { }
         }, 86400000);
-        
-        // Первое обновление погоды через 5 секунд
+
+        // Первое обновление погоды
         setTimeout(() => {
-            updateWeatherJob().catch(err => logger.error('Погода:', err.message));
+            updateWeatherJob().catch(err => logger.error('Погода: ' + err.message));
         }, 5000);
-        
-        // Авто-парсинг через 10 секунд (если включен)
+
+        // Авто-парсинг
         setTimeout(async () => {
             try {
                 const parserData = await query("SELECT val FROM system_settings WHERE key = 'auto_parse_enabled'");
                 if (parserData.rows[0]?.val === 'true') {
                     logger.info('🔍 Запуск авто-парсинга...');
-                    bookingParser.parseAvailability().catch(e => logger.error('Ошибка авто-парсинга:', e.message));
+                    bookingParser.parseAvailability().catch(e => logger.error('Ошибка авто-парсинга: ' + e.message));
                 }
-            } catch (e) {}
+            } catch (e) { }
         }, 10000);
-        
+
     } catch (err) {
-        logger.error('❌ КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА:', err.message, err.stack);
+        logger.error('❌ КРИТИЧЕСКАЯ ОШИБКА ЗАПУСКА: ' + err.message);
         process.exit(1);
     }
 }
@@ -3300,7 +2881,7 @@ async function startServer() {
 // ============================================
 
 startServer().catch(err => {
-    logger.error('❌ Fatal error:', err);
+    logger.error('❌ Fatal error: ' + err);
     process.exit(1);
 });
 
@@ -3317,5 +2898,5 @@ module.exports = {
     checkAndAwardAchievements
 };
 
-console.log('✅ ЧАСТЬ 6/6 загружена (запуск сервера, экспорт)');
-console.log('🎉 WARPOINT HUB v5.3.0 — ПОЛНОСТЬЮ ГОТОВ К РАБОТЕ!');
+console.log('[SERVER] Часть 4/4 загружена (все API, статика, health check, запуск сервера)');
+console.log('🎉 WARPOINT HUB v5.3.1 — ГОТОВ К РАБОТЕ!');
