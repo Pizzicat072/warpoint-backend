@@ -672,7 +672,15 @@
         if (createBtn) createBtn.style.display = window.app && window.app.currentUserRole === 'director' ? 'inline-flex' : 'none';
         employeesInitialized = true;
     }
-
+// Добавить ПЕРЕД window.openMyProfile = openMyProfile;
+function openMyProfile() {
+    const currentUser = window.app?.currentUser;
+    if (currentUser && typeof window.openProfile === 'function') {
+        window.openProfile(currentUser);
+    } else if (typeof showNotif === 'function') {
+        showNotif('Пользователь не определён', 'error');
+    }
+}
     // ============================================
     // ЭКСПОРТ ВСЕХ ФУНКЦИЙ В WINDOW
     // ============================================
