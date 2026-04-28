@@ -581,8 +581,7 @@ function renderActionButton(action, notification) {
             return `<button class="toast-action-btn" onclick="viewProfile('${notification.data.name}')">👤 Профиль</button>`;
         case 'view_rating':
             return `<button class="toast-action-btn" onclick="viewRating()">⭐ Рейтинг</button>`;
-        case 'open_chat':
-            return `<button class="toast-action-btn" onclick="openChat('${notification.data.roomId || notification.data.sender}')">💬 Чат</button>`;
+        
         case 'view_schedule':
             return `<button class="toast-action-btn" onclick="viewSchedule()">📅 График</button>`;
         case 'view_vp':
@@ -746,16 +745,7 @@ function viewRating() {
     }
 }
 
-function openChat(roomId) {
-    if (typeof window.switchToTab === 'function') {
-        window.switchToTab('chat');
-        setTimeout(() => {
-            if (typeof window.switchChat === 'function') {
-                window.switchChat(roomId);
-            }
-        }, 300);
-    }
-}
+
 
 function viewSchedule() {
     if (typeof window.switchToTab === 'function') {
@@ -934,7 +924,7 @@ window.viewExchange = viewExchange;
 window.viewAchievements = viewAchievements;
 window.viewProfile = viewProfile;
 window.viewRating = viewRating;
-window.openChat = openChat;
+
 window.viewSchedule = viewSchedule;
 window.viewVp = viewVp;
 window.viewSalary = viewSalary;

@@ -200,7 +200,6 @@
         var fines = getFines();
         var stickers = getStickers();
         var userAchievements = getUserAchievements();
-        var chatUnread = getChatUnread();
         
         console.log('👥 Рендер: ' + employees.length + ' сотрудников, профилей: ' + Object.keys(profiles).length);
         
@@ -249,9 +248,6 @@
             var achievementsCount = userAchievements[emp] ? userAchievements[emp].length : 0;
             var completedShifts = getCompletedShifts(emp);
             
-            var unreadCount = chatUnread[emp] || 0;
-            var unreadBadge = unreadCount > 0 ? '<span class="emp-unread-badge">' + (unreadCount > 99 ? '99+' : unreadCount) + '</span>' : '';
-            
             var avatarHtml = '';
             if (p.avatar_url && p.avatar_url.startsWith('data:image')) {
                 avatarHtml = '<img src="' + escapeHtml(p.avatar_url) + '" alt="' + escapeHtml(emp) + '" style="width:100%;height:100%;object-fit:cover;" loading="lazy">';
@@ -273,7 +269,6 @@
             }
             
             html += '<div class="emp-card ' + (isCurrent ? 'current-user' : '') + '" onclick="openProfile(\'' + escapeHtml(emp) + '\')" style="cursor:pointer;">' +
-                unreadBadge +
                 '<div class="emp-rating-corner ' + ratingClass + '"><i class="fas fa-star"></i><span>' + ratingPrefix + rating + '</span></div>' +
                 '<div class="emp-card-top">' +
                     '<div class="emp-avatar">' + avatarHtml + '</div>' +
@@ -298,7 +293,6 @@
                 '</div>' +
                 '<div class="emp-card-footer">' +
                     '<span class="emp-active-status" title="' + escapeHtml(activeStatus) + '"><i class="fas fa-circle" style="font-size:6px;margin-right:6px;color:#a78bfa;"></i>' + escapeHtml(activeStatus) + '</span>' +
-                    '<button class="emp-chat-btn" onclick="event.stopPropagation();openChatWithEmployee(\'' + escapeHtml(emp) + '\')" title="Написать в чат"><i class="fas fa-comment-dots"></i></button>' +
                 '</div>' +
             '</div>';
         }
@@ -597,16 +591,7 @@
         return response && response.success;
     }
 
-    // ============================================
-    // ЧАТ С СОТРУДНИКОМ
-    // ============================================
-    function openChatWithEmployee(employeeName) {
-        if (typeof loadPage === 'function') {
-            loadPage('chat');
-            setTimeout(function() { if (typeof switchChat === 'function') switchChat(employeeName); }, 300);
-        }
-    }
-    function openMyProfile() { if (window.app && window.app.currentUser) openProfile(window.app.currentUser); }
+    
 
     // ============================================
     // СОЗДАНИЕ СОТРУДНИКА
@@ -695,6 +680,7 @@
     window.resetEmployeesState = resetEmployeesState;
     window.renderEmployees = renderEmployees;
     window.safeRenderEmployees = safeRenderEmployees;
+window.openCreateEmployeeModal = openCreateEmployeeModal;
     window.openProfile = openProfile;
     window.closeProfileModal = closeProfileModal;
     window.switchProfileTab = window.switchProfileTab;
@@ -704,7 +690,7 @@
     window.openAvatarUploadModal = openAvatarUploadModal;
     window.closeAvatarPreviewModal = closeAvatarPreviewModal;
     window.confirmAvatarUpload = confirmAvatarUpload;
-    window.openChatWithEmployee = openChatWithEmployee;
+    
     window.openMyProfile = openMyProfile;
     window.openCreateEmployeeModal = openCreateEmployeeModal;
     window.closeCreateEmployeeModal = closeCreateEmployeeModal;
