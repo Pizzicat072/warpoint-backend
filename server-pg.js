@@ -54,8 +54,8 @@ const SERVER_STATE = { started: null, isReady: false, isShuttingDown: false, ver
 const DB_CONFIG = {
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 8,
-    min: 2,
+    max: 4,
+    min: 1,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     allowExitOnIdle: true,
@@ -143,17 +143,35 @@ function createDatabasePool() {
     return pool;
 }
 
-async function query(text, params) {
+async function query(text, params = [], retries = 3) {
     if (!pool) pool = createDatabasePool();
-    const start = Date.now();
-    try {
-        const result = await pool.query(text, params);
-        const duration = Date.now() - start;
-        if (duration > 500) logger.warn('Slow query:', { duration, rows: result.rowCount, text: text.substring(0, 200) });
-        return result;
-    } catch (err) {
-        logger.error('SQL Error:', { message: err.message, query: text.substring(0, 200) });
-        throw err;
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const start = Date.now();
+            const result = await pool.query(text, params);
+            const duration = Date.now() - start;
+            if (duration > 1000) logger.warn(`Медленный запрос (${duration}ms): ${text.substring(0, 100)}`);
+            return result;
+        } catch (err) {
+            const isConnectionError = err.message.includes('Connection terminated') || 
+                                       err.message.includes('Connection closed') || 
+                                       err.code === '57P01' || 
+                                       err.code === '08006';
+            if (isConnectionError && attempt < retries - 1) {
+                const delay = 1000 * Math.pow(2, attempt);
+                logger.warn(`Обрыв соединения (попытка ${attempt + 1}/${retries}), ждём ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+                if (attempt > 0) {
+                    try { await pool.end(); } catch(e) {}
+                    pool = null;
+                    pool = createDatabasePool();
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                continue;
+            }
+            logger.error(`SQL Error: ${err.message} [${text.substring(0, 100)}]`);
+            throw err;
+        }
     }
 }
 
@@ -1144,7 +1162,19 @@ async function initAchievements() {
     }
     logger.info(`Достижения: новых ${inserted}, обновлено ${updated}`);
 }
-
+async function waitForDb(maxRetries = 10) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            await pool.query('SELECT 1');
+            logger.info('База данных доступна');
+            return true;
+        } catch (err) {
+            logger.warn(`Ожидание БД (${i + 1}/${maxRetries}): ${err.message}`);
+            await new Promise(r => setTimeout(r, 3000));
+        }
+    }
+    throw new Error('База данных недоступна');
+}
 console.log('✅ ЧАСТЬ 4/12 загружена (настройки, фонд, директор, достижения)');
 // ============================================
 // 11. ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ
@@ -1153,6 +1183,7 @@ console.log('✅ ЧАСТЬ 4/12 загружена (настройки, фон�
 async function initDatabase() {
     if (!pool) pool = createDatabasePool();
     logger.info('Инициализация БД...');
+await waitForDb();
     const startTime = Date.now();
     try {
         const versionResult = await query("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").catch(() => ({ rows: [] }));
@@ -1631,14 +1662,6 @@ app.post('/api/user/apply-style', authMiddleware, async (req, res) => {
     } catch (err) {
         res.status(500).json({ success: false, error: err.message });
     }
-});
-        const streak = user.rows[0].bonus_streak || 1;
-        const lastClaim = user.rows[0].last_bonus_claimed_at ? new Date(user.rows[0].last_bonus_claimed_at).toISOString().split('T')[0] : null;
-        const today = getTobolskDate();
-        const hasClaimedToday = lastClaim === today;
-        const nextBonus = Math.min(streak * 5, 50);
-        res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: nextBonus });
-    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/auth/refresh', async (req, res) => {
