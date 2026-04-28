@@ -79,21 +79,40 @@ loadVpData();
     vpInitialized = true;
 }
 function setupEventListeners() {
+    // Даём DOM время загрузиться
     setTimeout(function() {
+        var prevBtn = document.getElementById('vpPrevMonth');
+        var nextBtn = document.getElementById('vpNextMonth');
         var addBtn = document.getElementById('vpAddBtn');
+        
+        if (prevBtn) {
+            prevBtn.onclick = function() { changeVpMonth(-1); };
+            console.log('✅ Кнопка пред. месяца назначена');
+        } else {
+            console.warn('⚠️ vpPrevMonth не найден');
+        }
+        
+        if (nextBtn) {
+            nextBtn.onclick = function() { changeVpMonth(1); };
+            console.log('✅ Кнопка след. месяца назначена');
+        } else {
+            console.warn('⚠️ vpNextMonth не найден');
+        }
+        
         if (addBtn) {
             addBtn.onclick = function() { openVpModal(); };
             addBtn.style.display = canEditVp ? 'flex' : 'none';
+            console.log('✅ Кнопка Добавить назначена');
+        } else {
+            console.warn('⚠️ vpAddBtn не найден');
         }
-        
-        var prevBtn = document.getElementById('vpPrevMonth');
-        var nextBtn = document.getElementById('vpNextMonth');
-        if (prevBtn) prevBtn.onclick = function() { changeVpMonth(-1); };
-        if (nextBtn) nextBtn.onclick = function() { changeVpMonth(1); };
-    }, 300);
+    }, 400);
     
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') { closeVpModal(); closeBookingDetailsModal(); }
+        if (e.key === 'Escape') {
+            closeVpModal();
+            closeBookingDetailsModal();
+        }
     });
 }
 
