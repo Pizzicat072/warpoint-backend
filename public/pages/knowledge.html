@@ -1717,170 +1717,113 @@
     }
 
     .kb-article-body {
-        padding: 24px 20px;
-    }
-
-    .kb-article-content {
-        font-size: 15px !important;
-    }
-
-    .kb-article-content h1,
-    .kb-article-content h1[style] {
-        font-size: 24px !important;
-        margin: 28px 0 14px !important;
-    }
-
-    .kb-article-content h2,
-    .kb-article-content h2[style] {
-        font-size: 20px !important;
-        margin: 24px 0 12px !important;
-    }
-
-    .kb-article-content h3,
-    .kb-article-content h3[style] {
-        font-size: 18px !important;
-        margin: 20px 0 10px !important;
-    }
-
-    .kb-article-content table,
-    .kb-article-content table[style] {
-        font-size: 12px !important;
-    }
-
-    .kb-article-content th,
-    .kb-article-content th[style],
-    .kb-article-content td,
-    .kb-article-content td[style] {
-        padding: 10px 12px !important;
-        font-size: 12px !important;
-    }
-
-    .kb-article-content pre,
-    .kb-article-content pre[style],
-    .kb-article-content div[style*="background:#0d1016"],
-    .kb-article-content div[style*="background: #0d1016"] {
-        padding: 18px !important;
-        margin: 18px 0 !important;
-        border-radius: 12px !important;
-    }
-
-    .kb-article-content pre code,
-    .kb-article-content pre[style] code {
-        font-size: 12px !important;
-    }
-
-    .kb-article-footer {
-        flex-direction: column;
-        gap: 16px;
-        padding: 20px 24px;
-    }
-
-    .kb-article-likes {
-        width: 100%;
-    }
-
-    .kb-like-btn {
-        width: 100%;
-        justify-content: center;
-        padding: 14px;
-        font-size: 18px;
-    }
-
-    .kb-article-actions {
-        width: 100%;
-        flex-direction: column;
-    }
-
-    .kb-btn-primary,
-    .kb-btn-secondary {
-        width: 100%;
-        justify-content: center;
-        padding: 14px;
-    }
-
-    .kb-popular-section {
-        padding: 18px;
-        border-radius: 20px;
-    }
-
-    .kb-popular-item {
-        padding: 14px;
-        gap: 12px;
-    }
-
-    .kb-popular-rank {
-        font-size: 22px;
-        min-width: 35px;
-    }
-
-    .kb-popular-meta {
-        gap: 10px;
-    }
+    padding: 32px;
 }
 
-@media (max-width: 480px) {
-    .knowledge-header {
-        padding: 28px 16px;
-        border-radius: 20px;
-    }
+/* Сброс всех стилей внутри контента статьи */
+.kb-article-content {
+    all: revert;
+    color: #e2e8f0;
+    line-height: 1.8;
+    font-size: 16px;
+    word-break: break-word;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
 
-    .knowledge-header h1 {
-        font-size: 22px;
-    }
+/* Убираем все !important из предыдущей версии — они ломают отображение */
+.kb-article-content h1 { font-size: 28px; color: #f1f5f9; margin: 32px 0 16px; font-weight: 700; border-bottom: 1px solid rgba(99,102,241,0.15); padding-bottom: 10px; }
+.kb-article-content h2 { font-size: 24px; color: #f1f5f9; margin: 28px 0 12px; font-weight: 700; }
+.kb-article-content h3 { font-size: 20px; color: #f1f5f9; margin: 24px 0 10px; font-weight: 600; }
+.kb-article-content h4 { font-size: 18px; color: #a78bfa; margin: 20px 0 8px; font-weight: 600; }
 
-    .preset-item {
-        min-width: 70px;
-        padding: 8px 10px;
-    }
+.kb-article-content p { margin: 12px 0; color: #e2e8f0; }
 
-    .preset-item-icon {
-        font-size: 22px;
-        margin-bottom: 6px;
-    }
+.kb-article-content ul, .kb-article-content ol { padding-left: 24px; margin: 12px 0; color: #e2e8f0; }
+.kb-article-content li { margin: 6px 0; }
 
-    .preset-item-name {
-        font-size: 10px;
-    }
+.kb-article-content a { color: #a78bfa; text-decoration: underline; }
 
-    .kb-toolbar-btn {
-        width: 26px;
-        height: 26px;
-        font-size: 10px;
-        border-radius: 6px;
-    }
+.kb-article-content code {
+    background: rgba(99,102,241,0.12);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    color: #c4b5fd;
+}
 
-    .kb-editor-content {
-        min-height: 250px;
-        padding: 14px;
-        font-size: 13px;
-    }
+.kb-article-content pre {
+    background: #0a0d16;
+    padding: 20px;
+    border-radius: 12px;
+    overflow-x: auto;
+    margin: 20px 0;
+    border: 1px solid rgba(99,102,241,0.2);
+}
 
-    .kb-article-title {
-        font-size: 20px;
-    }
+.kb-article-content pre code {
+    background: transparent;
+    padding: 0;
+    border: none;
+}
 
-    .kb-article-meta {
-        flex-direction: column;
-        gap: 8px;
-    }
+.kb-article-content blockquote {
+    border-left: 4px solid #a78bfa;
+    padding: 12px 20px;
+    margin: 20px 0;
+    background: rgba(99,102,241,0.05);
+    border-radius: 0 12px 12px 0;
+    font-style: italic;
+    color: #cbd5e1;
+}
 
-    .kb-article-content {
-        font-size: 14px !important;
-    }
+.kb-article-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(99,102,241,0.2);
+}
 
-    .kb-article-content h1,
-    .kb-article-content h1[style] {
-        font-size: 20px !important;
-    }
+.kb-article-content th {
+    background: rgba(99,102,241,0.2);
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(99,102,241,0.1);
+    text-align: left;
+    font-weight: 600;
+    color: #a78bfa;
+}
 
-    .kb-article-content h2,
-    .kb-article-content h2[style] {
-        font-size: 18px !important;
-    }
+.kb-article-content td {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(99,102,241,0.1);
+    background: rgba(0,0,0,0.15);
+    color: #e2e8f0;
+}
 
-    .kb-article-content h3,
-    .kb-article-content h3[style] {
-        font-size: 16px !important;
-    }
+.kb-article-content img {
+    max-width: 100%;
+    border-radius: 16px;
+    margin: 20px 0;
+}
+
+.kb-article-content hr {
+    margin: 28px 0;
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(167,139,250,0.4), transparent);
+}
+
+.kb-article-content iframe {
+    border-radius: 16px;
+    max-width: 100%;
+}
+
+.kb-article-content input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+    accent-color: #a78bfa;
 }
 </style>

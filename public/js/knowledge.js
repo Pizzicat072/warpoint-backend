@@ -46,16 +46,24 @@
     }
 
     function formatTimeAgo(dateStr) {
-        if (!dateStr) return '';
-        var now = new Date();
-        var date = new Date(dateStr);
-        var diff = Math.floor((now - date) / 1000);
-        if (diff < 60) return 'только что';
-        if (diff < 3600) return Math.floor(diff / 60) + ' мин назад';
-        if (diff < 86400) return Math.floor(diff / 3600) + ' ч назад';
-        if (diff < 2592000) return Math.floor(diff / 86400) + ' дн назад';
-        return formatDate(dateStr);
-    }
+    if (!dateStr) return '';
+    
+    // 🔥 Преобразуем строку в дату в часовом поясе Тобольска (UTC+5)
+    var date = new Date(dateStr);
+    // Корректируем на Тобольск (+5 часов от UTC)
+    var tobolskOffset = 5 * 60 * 60 * 1000; // +5 часов в миллисекундах
+    var localDate = new Date(date.getTime() + tobolskOffset - (date.getTimezoneOffset() * 60 * 1000));
+    
+    var now = new Date();
+    var diff = Math.floor((now - localDate) / 1000);
+    
+    if (diff < 0) return 'только что'; // будущее время = только что
+    if (diff < 60) return 'только что';
+    if (diff < 3600) return Math.floor(diff / 60) + ' мин назад';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' ч назад';
+    if (diff < 2592000) return Math.floor(diff / 86400) + ' дн назад';
+    return formatDate(dateStr);
+}
 
     function showNotification(message, type) {
         if (typeof window.showSystemNotification === 'function') {
