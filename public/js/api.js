@@ -48,14 +48,12 @@ async function originalApiCall(endpoint, method, body) {
     if (body === undefined) body = null;
 
     var token = localStorage.getItem('token');
-
-    // Если нет основного токена — пробуем warpoint_token
-    if (!token) {
-        token = localStorage.getItem('warpoint_token');
-        if (token) {
-            localStorage.setItem('token', token);
-        }
+if (!token) {
+    token = localStorage.getItem('warpoint_token');
+    if (token) {
+        localStorage.setItem('token', token);
     }
+}
 
     if (!token && !endpoint.includes('/auth/')) {
         console.log('🔐 Нет токена, требуется авторизация');
