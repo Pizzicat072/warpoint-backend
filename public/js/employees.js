@@ -593,90 +593,109 @@
 
     
 
-    // ============================================
+        // ============================================
     // СОЗДАНИЕ СОТРУДНИКА
     // ============================================
-    // Функция открытия модалки создания сотрудника
-function openCreateEmployeeModal() {
-    var modal = document.getElementById('createEmployeeModal');
-    if (!modal) {
-        console.error('❌ createEmployeeModal не найден');
-        return;
-    }
-    modal.classList.add('active');
-    modal.style.display = 'flex';
-    selectRole('operator');
-    
-    // Очищаем поля
-    var fields = ['newEmpName', 'newEmpPassword', 'newEmpBirthday', 'newEmpPhone'];
-    fields.forEach(function(id) {
-        var el = document.getElementById(id);
-        if (el) el.value = '';
-    });
-}
-
-// Функция закрытия
-function closeCreateEmployeeModal() {
-    var modal = document.getElementById('createEmployeeModal');
-    if (modal) {
-        modal.classList.remove('active');
-        modal.style.display = 'none';
-    }
-}
-
-// Функция выбора роли
-function selectRole(role) {
-    var roleInput = document.getElementById('newEmpRole');
-    if (roleInput) roleInput.value = role;
-    
-    document.querySelectorAll('.emp-role-option').forEach(function(opt) {
-        opt.classList.remove('active');
-        var radio = opt.querySelector('input');
-        if (radio && radio.value === role) {
-            opt.classList.add('active');
-            radio.checked = true;
+    function openCreateEmployeeModal() {
+        var modal = document.getElementById('createEmployeeModal');
+        if (!modal) return;
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+        selectRole('operator');
+        
+        // Очищаем поля
+        var fields = ['newEmpName', 'newEmpPassword', 'newEmpBirthday', 'newEmpPhone'];
+        fields.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+        
+        // Назначаем обработчик на кнопку сохранения
+        var saveBtn = document.getElementById('saveCreateBtn');
+        if (saveBtn) {
+            saveBtn.onclick = function() {
+                createEmployee();
+            };
         }
-    });
-}
-
-// Функция создания сотрудника
-async function createEmployee() {
-    var name = document.getElementById('newEmpName')?.value.trim();
-    var password = document.getElementById('newEmpPassword')?.value;
-    var role = document.getElementById('newEmpRole')?.value || 'operator';
-    var birthday = document.getElementById('newEmpBirthday')?.value || '';
-    var phone = document.getElementById('newEmpPhone')?.value || '';
-    
-    if (!name || !password) {
-        showSystemNotification('❌ Заполните имя и пароль', 'error');
-        return;
-    }
-    if (password.length < 3) {
-        showSystemNotification('❌ Пароль должен быть не менее 3 символов', 'error');
-        return;
+        
+        // Назначаем обработчик на кнопку отмены
+        var cancelBtn = document.getElementById('cancelCreateBtn');
+        if (cancelBtn) {
+            cancelBtn.onclick = function() {
+                closeCreateEmployeeModal();
+            };
+        }
+        
+        // Назначаем обработчик на кнопку закрытия (крестик)
+        var closeBtn = document.getElementById('closeCreateModalBtn');
+        if (closeBtn) {
+            closeBtn.onclick = function() {
+                closeCreateEmployeeModal();
+            };
+        }
     }
     
-    var response = await apiCall('/employees', 'POST', { 
-        name: name, 
-        password: password, 
-        role: role, 
-        birthday: birthday || null, 
-        phone: phone || null 
-    });
-    
-    if (response && response.success) {
-        showSystemNotification('✅ ' + name + ' создан', 'success');
-        closeCreateEmployeeModal();
-        await loadEmployees();
-        safeRenderEmployees();
-    } else {
-        showSystemNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+    function closeCreateEmployeeModal() {
+        var m = document.getElementById('createEmployeeModal');
+        if (m) {
+            m.classList.remove('active');
+            m.style.display = 'none';
+        }
+        // Очищаем поля после закрытия
+        var fields = ['newEmpName', 'newEmpPassword', 'newEmpBirthday', 'newEmpPhone'];
+        fields.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.value = '';
+        });
     }
-}
+    
+    function selectRole(role) {
+        var roleInput = document.getElementById('newEmpRole');
+        if (roleInput) roleInput.value = role;
+        
+        document.querySelectorAll('.emp-role-option').forEach(function(opt) {
+            opt.classList.remove('active');
+            var radio = opt.querySelector('input');
+            if (radio && radio.value === role) {
+                opt.classList.add('active');
+                radio.checked = true;
+            }
+        });
+    }
 
-// ЭКСПОРТ
-
-
+    async function createEmployee() {
+        var name = document.getElementById('newEmpName') ? document.getElementById('newEmpName').value.trim() : '';
+        var password = document.getElementById('newEmpPassword') ? document.getElementById('newEmpPassword').value : '';
+        var role = document.getElementById('newEmpRole') ? document.getElementById('newEmpRole').value : 'operator';
+        var birthday = document.getElementById('newEmpBirthday') ? document.getElementById('newEmpBirthday').value : '';
+        var phone = document.getElementById('newEmpPhone') ? document.getElementById('newEmpPhone').value : '';
+        
+        if (!name || !password) { 
+            showSystemNotification('❌ Заполните имя и пароль', 'error'); 
+            return; 
+        }
+        if (password.length < 3) {
+            showSystemNotification('❌ Пароль должен быть не менее 3 символов', 'error');
+            return;
+        }
+        
+        var response = await apiCall('/employees', 'POST', { 
+            name: name, 
+            password: password, 
+            role: role, 
+            birthday: birthday || null, 
+            phone: phone || null 
+        });
+        
+        if (response && response.success) { 
+            showSystemNotification('✅ ' + name + ' создан', 'success'); 
+            closeCreateEmployeeModal(); 
+            await loadEmployees(); 
+            safeRenderEmployees(); 
+        } else {
+            showSystemNotification('❌ ' + (response ? response.error : 'Ошибка'), 'error'); 
+        }
+    }
 
     // ============================================
     // БОНУСЫ, РОЛИ, ПАРОЛИ, УДАЛЕНИЕ
