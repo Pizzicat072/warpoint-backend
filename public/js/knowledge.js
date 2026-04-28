@@ -94,26 +94,58 @@
     }
 
     function canCountView(articleId) {
-        var key = 'kb_view_' + articleId;
-        var lastView = parseInt(localStorage.getItem(key) || '0');
-        var now = Date.now();
+    var currentUser = window.app?.currentUser;
+    if (!currentUser) return false;
+    
+    var key = 'kb_views_' + currentUser; // ключ по имени пользователя
+    var viewsData = {};
+    
+    try {
+        viewsData = JSON.parse(localStorage.getItem(key) || '{}');
+    } catch(e) {
+        viewsData = {};
+    }
+    
+    var articleKey = 'article_' + articleId;
+    var lastView = viewsData[articleKey] || 0;
+    var now = Date.now();
+    var fiveMinutes = 5 * 60 * 1000; // 5 минут
+    
+    if (now - lastView > fiveMinutes) {
+        // Прошло больше 5 минут — засчитываем просмотр
+        viewsData[articleKey] = now;
+        
+        // Очищаем старые записи (старше 1 часа)
         var oneHour = 60 * 60 * 1000;
-        if (now - lastView > oneHour) {
-            localStorage.setItem(key, now.toString());
-            return true;
-        }
-        return false;
+        Object.keys(viewsData).forEach(function(key) {
+            if (now - viewsData[key] > oneHour) {
+                delete viewsData[key];
+            }
+        });
+        
+        localStorage.setItem(key, JSON.stringify(viewsData));
+        return true;
     }
+    
+    return false;
+}
 
-    async function trackArticleView(articleId) {
-        if (!canCountView(articleId)) return;
-        try {
-            await apiCall('/knowledge/articles/' + articleId + '/view', 'POST');
+async function trackArticleView(articleId) {
+    if (!canCountView(articleId)) return;
+    
+    try {
+        var response = await apiCall('/knowledge/articles/' + articleId + '/view', 'POST');
+        if (response && response.success) {
+            // Обновляем счётчик локально
             var article = knowledgeArticles.find(function(a) { return a.id === articleId; });
-            if (article) article.views = (article.views || 0) + 1;
-        } catch (e) {}
+            if (article) {
+                article.views = (article.views || 0) + 1;
+            }
+        }
+    } catch(e) {
+        // молча игнорируем ошибки
     }
-
+}
     async function toggleLike(articleId) {
         var key = 'kb_like_' + articleId;
         var liked = localStorage.getItem(key) === 'true';
