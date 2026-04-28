@@ -1556,6 +1556,88 @@ app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
         const hasClaimedToday = lastClaim === today;
         const nextBonus = Math.min(streak * 5, 50);
         res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: nextBonus });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+app.post('/api/user/claim-daily-bonus', authMiddleware, async (req, res) => {
+    try {
+        const userResult = await query("SELECT id, name, coins, bonus_streak, last_bonus_claimed_at FROM employees WHERE id = $1", [req.user.id]);
+        if (userResult.rows.length === 0) return res.status(404).json({ success: false });
+
+        const user = userResult.rows[0];
+        const today = getTobolskDate();
+        const lastClaim = user.last_bonus_claimed_at ? new Date(user.last_bonus_claimed_at).toISOString().split('T')[0] : null;
+
+        if (lastClaim === today) {
+            return res.json({ success: true, claimed: false, message: 'Уже получен сегодня' });
+        }
+
+        const bonus = Math.min((user.bonus_streak || 1) * 5, 50);
+
+        await query(
+            "UPDATE employees SET coins = coins + $1, last_bonus_claimed_at = NOW() WHERE id = $2",
+            [bonus, user.id]
+        );
+
+        await query(
+            "INSERT INTO transactions (user_id, type, amount, balance_after, comment) VALUES ($1, 'login_streak', $2, (SELECT coins FROM employees WHERE id = $1), $3)",
+            [user.id, bonus, `Ежедневный бонус (стрик ${user.bonus_streak || 1})`]
+        );
+
+        res.json({ success: true, claimed: true, bonus: bonus, streak: user.bonus_streak || 1 });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+app.post('/api/user/buy-style', authMiddleware, async (req, res) => {
+    try {
+        const { style, price } = req.body;
+        if (!style) return res.status(400).json({ success: false, error: 'Стиль не указан' });
+
+        const userResult = await query("SELECT id, coins, bought_styles FROM employees WHERE id = $1", [req.user.id]);
+        if (userResult.rows.length === 0) return res.status(404).json({ success: false });
+
+        const user = userResult.rows[0];
+        if ((user.coins || 0) < (price || 0)) {
+            return res.status(400).json({ success: false, error: 'Недостаточно WP' });
+        }
+
+        let boughtStyles = [];
+        try { boughtStyles = JSON.parse(user.bought_styles || '["standart"]'); } catch(e) { boughtStyles = ['standart']; }
+        if (!boughtStyles.includes(style)) boughtStyles.push(style);
+
+        await query(
+            "UPDATE employees SET coins = coins - $1, bought_styles = $2 WHERE id = $3",
+            [price || 0, JSON.stringify(boughtStyles), user.id]
+        );
+
+        res.json({
+            success: true,
+            boughtStyles: boughtStyles,
+            remainingCoins: (user.coins || 0) - (price || 0)
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+app.post('/api/user/apply-style', authMiddleware, async (req, res) => {
+    try {
+        const { style } = req.body;
+        if (!style) return res.status(400).json({ success: false, error: 'Стиль не указан' });
+
+        await query("UPDATE employees SET dashboard_style = $1 WHERE id = $2", [style, req.user.id]);
+        res.json({ success: true, style });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+        const streak = user.rows[0].bonus_streak || 1;
+        const lastClaim = user.rows[0].last_bonus_claimed_at ? new Date(user.rows[0].last_bonus_claimed_at).toISOString().split('T')[0] : null;
+        const today = getTobolskDate();
+        const hasClaimedToday = lastClaim === today;
+        const nextBonus = Math.min(streak * 5, 50);
+        res.json({ success: true, streak, hasClaimedToday, nextBonusAmount: nextBonus });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
@@ -1622,13 +1704,12 @@ app.get('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.get('/api/employees/achievements-count', authMiddleware, async (req, res) => {
     try {
-        // Проверяем существование таблицы
+        // Проверяем существование таблицы user_achievements
         const tableCheck = await query(
             "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements')"
         ).catch(() => ({ rows: [{ exists: false }] }));
 
         if (!tableCheck.rows[0].exists) {
-            // Таблицы нет — создаём
             await query(`CREATE TABLE IF NOT EXISTS user_achievements (
                 id SERIAL PRIMARY KEY,
                 user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -1647,7 +1728,7 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
             return res.json({ success: true, counts: {} });
         }
 
-        // Получаем подсчёт
+        // Получаем подсчёт достижений
         const result = await query(
             `SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count 
              FROM employees e 
@@ -2773,9 +2854,37 @@ app.delete('/api/knowledge/articles/:id', authMiddleware, async (req, res) => {
     catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+// ============================================
+// API — ПРОСМОТР СТАТЬИ (СЧЁТЧИК)
+// ============================================
+
 app.post('/api/knowledge/articles/:id/view', authMiddleware, async (req, res) => {
-    try { const id = parseInt(req.params.id); if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' }); await query("UPDATE knowledge_articles SET views = views + 1 WHERE id = $1", [id]); res.json({ success: true }); }
-    catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
+        await query("UPDATE knowledge_articles SET views = views + 1 WHERE id = $1", [id]);
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// ============================================
+// API — ЛАЙК СТАТЬИ
+// ============================================
+
+app.post('/api/knowledge/articles/:id/like', authMiddleware, async (req, res) => {
+    try {
+        const articleId = parseInt(req.params.id);
+        if (isNaN(articleId)) return res.status(400).json({ success: false, error: 'Invalid ID' });
+        
+        const { like } = req.body;
+        
+        // Заглушка — в будущем можно добавить таблицу likes
+        res.json({ success: true, likes: like ? 1 : 0 });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
 });
 
 console.log('✅ ЧАСТЬ 9/12 загружена (чат, подарки, статусы, база знаний)');
