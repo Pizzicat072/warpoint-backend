@@ -1580,7 +1580,7 @@ app.post('/api/heartbeat', authMiddleware, async (req, res) => {
 app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
     try {
         const user = await query("SELECT bonus_streak, last_bonus_claimed_at FROM employees WHERE id = $1", [req.user.id]);
-        if (user.rows.length === 0) return res.status(404).json({ success: false });
+        if (user.rows.length === 0) return res.status(404).json({ success: false, error: 'Пользователь не найден' });
         const streak = user.rows[0].bonus_streak || 1;
         const lastClaim = user.rows[0].last_bonus_claimed_at ? new Date(user.rows[0].last_bonus_claimed_at).toISOString().split('T')[0] : null;
         const today = getTobolskDate();
@@ -1730,40 +1730,31 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
         // Проверяем существование таблицы user_achievements
         const tableCheck = await query(
             "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'user_achievements')"
-        ).catch(() => ({ rows: [{ exists: false }] }));
+        ).catch(function() { return { rows: [{ exists: false }] }; });
 
         if (!tableCheck.rows[0].exists) {
-            await query(`CREATE TABLE IF NOT EXISTS user_achievements (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-                achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
-                claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, achievement_id)
-            )`).catch(() => {});
+            // Создаём таблицу
+            await query("CREATE TABLE IF NOT EXISTS user_achievements (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE, claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, achievement_id))").catch(function() {});
         }
 
-        // Проверяем существование таблицы employees
-        const empCheck = await query(
+        // Проверяем что таблица employees существует
+        var empCheck = await query(
             "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'employees')"
-        ).catch(() => ({ rows: [{ exists: false }] }));
+        ).catch(function() { return { rows: [{ exists: false }] }; });
 
         if (!empCheck.rows[0].exists) {
             return res.json({ success: true, counts: {} });
         }
 
-        // Получаем подсчёт достижений
-        const result = await query(
-            `SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count 
-             FROM employees e 
-             LEFT JOIN user_achievements ua ON ua.user_id = e.id 
-             WHERE e.deleted_at IS NULL 
-             GROUP BY e.id, e.name`
-        ).catch((err) => {
-            console.error('achievements-count query error:', err.message);
+        // Получаем подсчёт
+        var result = await query(
+            "SELECT e.name, COALESCE(COUNT(ua.achievement_id), 0) as count FROM employees e LEFT JOIN user_achievements ua ON ua.user_id = e.id WHERE e.deleted_at IS NULL GROUP BY e.id, e.name"
+        ).catch(function(err) {
+            console.error('Query error:', err.message);
             return { rows: [] };
         });
 
-        const counts = {};
+        var counts = {};
         if (result && result.rows) {
             result.rows.forEach(function(r) {
                 counts[r.name] = parseInt(r.count) || 0;
@@ -1772,7 +1763,7 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
 
         res.json({ success: true, counts: counts });
     } catch (err) {
-        console.error('achievements-count error:', err.message);
+        console.error('Error:', err.message);
         res.json({ success: true, counts: {} });
     }
 });
