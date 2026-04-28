@@ -297,7 +297,124 @@ function initRouter() {
             loadPage(event.state.page, false);
         }
     });
+
+    // 🔥 REAL-TIME LISTENERS
+    setupPusherListeners();
+    
     console.log('✅ Роутер инициализирован');
+}
+
+// 🔥 НОВАЯ ФУНКЦИЯ
+function setupPusherListeners() {
+    // Ждём пока Pusher подключится
+    function waitForChannel(callback) {
+        if (window.channel) {
+            callback();
+            return;
+        }
+        var attempts = 0;
+        var maxAttempts = 50; // 15 секунд максимум
+        var interval = setInterval(function() {
+            attempts++;
+            if (window.channel) {
+                clearInterval(interval);
+                callback();
+            } else if (attempts >= maxAttempts) {
+                clearInterval(interval);
+                console.warn('⚠️ Pusher channel not available');
+            }
+        }, 300);
+    }
+
+    waitForChannel(function() {
+        var ch = window.channel;
+
+        // 🔄 Зарплата
+        ch.bind('salary-updated', function(data) {
+            console.log('🔔 salary-updated', data);
+            if (currentPage === 'salary' && typeof loadSalaryData === 'function') {
+                loadSalaryData();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        });
+
+        // 🔄 Задачи
+        ch.bind('tasks-updated', function(data) {
+            console.log('🔔 tasks-updated', data);
+            if (currentPage === 'tasks' && typeof loadTasksData === 'function') {
+                loadTasksData();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        });
+
+        // 🔄 Штрафы
+        ch.bind('fines-updated', function(data) {
+            console.log('🔔 fines-updated', data);
+            if (currentPage === 'fines' && typeof loadFinesData === 'function') {
+                loadFinesData();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        });
+
+        // 🔄 ВП
+        ch.bind('vp-updated', function(data) {
+            console.log('🔔 vp-updated', data);
+            if (currentPage === 'vp' && typeof renderVpTable === 'function') {
+                loadVpData();
+            }
+        });
+
+        // 🔄 Сотрудники
+        ch.bind('employees-updated', function(data) {
+            console.log('🔔 employees-updated', data);
+            if (typeof loadEmployees === 'function') {
+                loadEmployees().then(function() {
+                    if (currentPage === 'employees' && typeof renderEmployees === 'function') {
+                        renderEmployees();
+                    }
+                    if (currentPage === 'rating' && typeof renderRatingTable === 'function') {
+                        renderRatingTable();
+                    }
+                });
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        });
+
+        // 🔄 График (уже был, но проверим)
+        ch.bind('schedule-updated', function(data) {
+            console.log('🔔 schedule-updated', data);
+            if (currentPage === 'schedule' && typeof loadScheduleData === 'function') {
+                loadScheduleData();
+            }
+            if (typeof updateNextShiftInfo === 'function') {
+                updateNextShiftInfo();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        });
+
+        // 🔄 Фонд
+        ch.bind('fund-updated', function(data) {
+            console.log('🔔 fund-updated', data);
+            if (typeof loadFundAmount === 'function') {
+                loadFundAmount();
+            }
+            if (typeof updateDashboardStats === 'function') {
+                updateDashboardStats();
+            }
+        });
+
+        console.log('✅ Real-time listeners activated');
+    });
 }
 
 // ============================================
