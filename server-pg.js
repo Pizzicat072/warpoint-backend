@@ -1,6 +1,6 @@
 // ============================================
-// WARPOINT HUB — SERVER v5.2.0 FULL FIXED
-// ВСЕ ОШИБКИ ИСПРАВЛЕНЫ
+// WARPOINT HUB — SERVER v5.3.0 FULL FIXED
+// Исправлено: Connection terminated, retry logic, паузы миграций, PUPPETEER_EXECUTABLE_PATH
 // ============================================
 
 require('dotenv').config();
@@ -49,15 +49,15 @@ let pusher = null;
 let server = null;
 let dbInitialized = false;
 
-const SERVER_STATE = { started: null, isReady: false, isShuttingDown: false, version: '5.2.0' };
+const SERVER_STATE = { started: null, isReady: false, isShuttingDown: false, version: '5.3.0' };
 
 const DB_CONFIG = {
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    max: 8,
-    min: 2,
+    max: 4,
+    min: 1,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 15000,
     allowExitOnIdle: true,
     application_name: 'warpoint_hub_v5'
 };
@@ -134,7 +134,8 @@ function createDatabasePool() {
     pool = new Pool(DB_CONFIG);
     pool.on('error', (err) => {
         logger.error('DB Pool Error:', err.message);
-        if (err.message.includes('Connection terminated')) {
+        if (err.message.includes('Connection terminated') || err.message.includes('Connection closed')) {
+            logger.warn('🔄 Пересоздание пула БД через 5 секунд...');
             pool = null;
             setTimeout(createDatabasePool, 5000);
         }
@@ -143,17 +144,43 @@ function createDatabasePool() {
     return pool;
 }
 
-async function query(text, params) {
+// 🔥 ИСПРАВЛЕНО: Retry-логика при обрывах соединения
+async function query(text, params, retries = 3) {
     if (!pool) pool = createDatabasePool();
     const start = Date.now();
-    try {
-        const result = await pool.query(text, params);
-        const duration = Date.now() - start;
-        if (duration > 500) logger.warn('Slow query:', { duration, rows: result.rowCount, text: text.substring(0, 200) });
-        return result;
-    } catch (err) {
-        logger.error('SQL Error:', { message: err.message, query: text.substring(0, 200) });
-        throw err;
+
+    for (let attempt = 0; attempt < retries; attempt++) {
+        try {
+            const result = await pool.query(text, params);
+            const duration = Date.now() - start;
+            if (duration > 500) {
+                logger.warn('Slow query:', { duration, rows: result.rowCount, text: text.substring(0, 200) });
+            }
+            return result;
+        } catch (err) {
+            const isConnectionError = err.message.includes('Connection terminated')
+                                   || err.message.includes('Connection closed')
+                                   || err.code === '57P01'
+                                   || err.code === '08006'
+                                   || err.code === '08003';
+
+            if (isConnectionError && attempt < retries - 1) {
+                const delay = 1000 * Math.pow(2, attempt);
+                logger.warn(`⚠️ Обрыв соединения, попытка ${attempt + 1}/${retries}, ждём ${delay}ms...`);
+                await new Promise(r => setTimeout(r, delay));
+
+                if (attempt > 0) {
+                    try { await pool.end(); } catch(e) {}
+                    pool = null;
+                    pool = createDatabasePool();
+                    await new Promise(r => setTimeout(r, 500));
+                }
+                continue;
+            }
+
+            logger.error('SQL Error:', { message: err.message, query: text.substring(0, 200) });
+            throw err;
+        }
     }
 }
 
@@ -218,6 +245,31 @@ function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
 }
 
+// 🔥 Ожидание готовности БД (новое)
+async function waitForDb(maxRetries = 10) {
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            await pool.query('SELECT 1');
+            logger.info('✅ База данных доступна');
+            return true;
+        } catch (err) {
+            logger.warn(`⏳ Ожидание БД (${i + 1}/${maxRetries}): ${err.message}`);
+            await new Promise(r => setTimeout(r, 3000));
+        }
+    }
+    throw new Error('База данных недоступна после 10 попыток');
+}
+
+// 🔥 Безопасное выполнение с паузой (новое)
+async function safeExec(fn, label) {
+    try {
+        await fn();
+    } catch (err) {
+        logger.warn(`⚠️ ${label}: ${err.message}`);
+    }
+    await new Promise(r => setTimeout(r, 50));
+}
+
 app.set('trust proxy', 1);
 app.use(helmet({
     contentSecurityPolicy: {
@@ -226,7 +278,7 @@ app.use(helmet({
             styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com", "https://fonts.googleapis.com"],
             styleSrcAttr: ["'unsafe-inline'"],
             scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://js.pusher.com", "https://cdn.jsdelivr.net", "https://cdnjs.cloudflare.com"],
-            scriptSrcAttr: ["'unsafe-inline'"],  // ← ДОБАВИТЬ ЭТУ СТРОКУ
+            scriptSrcAttr: ["'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https:"],
             fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
             connectSrc: ["'self'", "https://*.pusher.com", "wss://*.pusher.com", "https://api.pusherapp.com", "https://js.pusher.com", "https://cdn.jsdelivr.net"],
@@ -263,9 +315,10 @@ const directorOnly = roleMiddleware('director');
 const managerOrDirector = roleMiddleware('manager', 'director');
 const adminOrAbove = roleMiddleware('admin', 'manager', 'director');
 
-console.log('✅ ЧАСТЬ 1/12 загружена (конфигурация, БД, middleware)');
+console.log('✅ ЧАСТЬ 1/6 загружена (конфигурация, БД, middleware)');
+
 // ============================================
-// 2. ОПРЕДЕЛЕНИЯ ТАБЛИЦ БАЗЫ ДАННЫХ
+// ОПРЕДЕЛЕНИЯ ТАБЛИЦ БАЗЫ ДАННЫХ
 // ============================================
 
 const TABLE_DEFINITIONS = {
@@ -274,7 +327,7 @@ const TABLE_DEFINITIONS = {
         val TEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     employees: `CREATE TABLE IF NOT EXISTS employees (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) UNIQUE NOT NULL,
@@ -305,14 +358,14 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     passwords: `CREATE TABLE IF NOT EXISTS passwords (
         username VARCHAR(100) PRIMARY KEY,
         password_hash VARCHAR(255) NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     achievements: `CREATE TABLE IF NOT EXISTS achievements (
         id VARCHAR(100) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -326,7 +379,7 @@ const TABLE_DEFINITIONS = {
         is_hidden BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     user_achievements: `CREATE TABLE IF NOT EXISTS user_achievements (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -334,7 +387,7 @@ const TABLE_DEFINITIONS = {
         claimed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, achievement_id)
     )`,
-    
+
     pending_achievements: `CREATE TABLE IF NOT EXISTS pending_achievements (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -342,7 +395,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, achievement_id)
     )`,
-    
+
     tasks: `CREATE TABLE IF NOT EXISTS tasks (
         id SERIAL PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
@@ -365,7 +418,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     subtasks: `CREATE TABLE IF NOT EXISTS subtasks (
         id SERIAL PRIMARY KEY,
         task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
@@ -373,7 +426,7 @@ const TABLE_DEFINITIONS = {
         completed BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     task_attachments: `CREATE TABLE IF NOT EXISTS task_attachments (
         id SERIAL PRIMARY KEY,
         task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
@@ -383,7 +436,7 @@ const TABLE_DEFINITIONS = {
         file_data TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     fines: `CREATE TABLE IF NOT EXISTS fines (
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL,
@@ -399,7 +452,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     schedule: `CREATE TABLE IF NOT EXISTS schedule (
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL,
@@ -413,7 +466,7 @@ const TABLE_DEFINITIONS = {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(date, employee)
     )`,
-    
+
     schedule_special_cases: `CREATE TABLE IF NOT EXISTS schedule_special_cases (
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL UNIQUE,
@@ -421,7 +474,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     exchange_requests: `CREATE TABLE IF NOT EXISTS exchange_requests (
         id SERIAL PRIMARY KEY,
         from_employee VARCHAR(100) NOT NULL,
@@ -436,7 +489,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     vp_bookings: `CREATE TABLE IF NOT EXISTS vp_bookings (
         id SERIAL PRIMARY KEY,
         admin VARCHAR(50) NOT NULL,
@@ -455,7 +508,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     salary_daily: `CREATE TABLE IF NOT EXISTS salary_daily (
         id SERIAL PRIMARY KEY,
         employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -471,7 +524,7 @@ const TABLE_DEFINITIONS = {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(employee_id, day_number, month_year)
     )`,
-    
+
     corporate_fund: `CREATE TABLE IF NOT EXISTS corporate_fund (
         id SERIAL PRIMARY KEY,
         amount INTEGER DEFAULT 0,
@@ -480,7 +533,7 @@ const TABLE_DEFINITIONS = {
         created_by INTEGER,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     messages: `CREATE TABLE IF NOT EXISTS messages (
         id SERIAL PRIMARY KEY,
         room VARCHAR(100) NOT NULL,
@@ -492,7 +545,7 @@ const TABLE_DEFINITIONS = {
         deleted_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     stickers: `CREATE TABLE IF NOT EXISTS stickers (
         id SERIAL PRIMARY KEY,
         sender VARCHAR(100),
@@ -502,7 +555,7 @@ const TABLE_DEFINITIONS = {
         is_anonymous BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     user_statuses: `CREATE TABLE IF NOT EXISTS user_statuses (
         id SERIAL PRIMARY KEY,
         employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -514,7 +567,7 @@ const TABLE_DEFINITIONS = {
         purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(employee_id, status_id)
     )`,
-    
+
     transactions: `CREATE TABLE IF NOT EXISTS transactions (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
@@ -525,7 +578,7 @@ const TABLE_DEFINITIONS = {
         comment TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     knowledge_categories: `CREATE TABLE IF NOT EXISTS knowledge_categories (
         id SERIAL PRIMARY KEY,
         name VARCHAR(100) NOT NULL UNIQUE,
@@ -534,7 +587,7 @@ const TABLE_DEFINITIONS = {
         sort_order INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     knowledge_articles: `CREATE TABLE IF NOT EXISTS knowledge_articles (
         id SERIAL PRIMARY KEY,
         category_id INTEGER REFERENCES knowledge_categories(id) ON DELETE CASCADE,
@@ -545,7 +598,7 @@ const TABLE_DEFINITIONS = {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     notifications: `CREATE TABLE IF NOT EXISTS notifications (
         id SERIAL PRIMARY KEY,
         recipient VARCHAR(100) NOT NULL,
@@ -554,7 +607,7 @@ const TABLE_DEFINITIONS = {
         read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     audit_log: `CREATE TABLE IF NOT EXISTS audit_log (
         id SERIAL PRIMARY KEY,
         user_id INTEGER,
@@ -564,17 +617,13 @@ const TABLE_DEFINITIONS = {
         details JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`,
-    
+
     schema_migrations: `CREATE TABLE IF NOT EXISTS schema_migrations (
         version INTEGER PRIMARY KEY,
         name VARCHAR(255),
         applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`
 };
-
-// ============================================
-// 3. ИНДЕКСЫ
-// ============================================
 
 const INDEX_DEFINITIONS = [
     `CREATE INDEX IF NOT EXISTS idx_employees_role ON employees(role)`,
@@ -606,11 +655,12 @@ const INDEX_DEFINITIONS = [
     `CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`
 ];
 
-console.log('✅ ЧАСТЬ 2/12 загружена (таблицы и индексы)');
+console.log('✅ ЧАСТЬ 2/6 загружена (таблицы и индексы)');
 // ============================================
-// 4. ФУНКЦИИ МИГРАЦИЙ
+// ФУНКЦИИ МИГРАЦИЙ (ИСПРАВЛЕНО: паузы между запросами)
 // ============================================
 
+// 🔥 Безопасное добавление колонки с микро-паузой
 async function addColumnIfNotExists(table, column, type, defaultValue = null) {
     try {
         const check = await query(
@@ -626,6 +676,7 @@ async function addColumnIfNotExists(table, column, type, defaultValue = null) {
     } catch (err) {
         logger.warn(`Миграция ${table}.${column}: ${err.message}`);
     }
+    await new Promise(r => setTimeout(r, 30)); // микро-пауза
 }
 
 async function fixSystemSettingsTable() {
@@ -658,6 +709,7 @@ async function fixSystemSettingsTable() {
             logger.error('Не удалось пересоздать system_settings:', e.message);
         }
     }
+    await new Promise(r => setTimeout(r, 100));
 }
 
 async function fixPasswordsTable() {
@@ -708,13 +760,18 @@ async function fixPasswordsTable() {
             logger.error('Не удалось пересоздать passwords:', e2.message);
         }
     }
+    await new Promise(r => setTimeout(r, 100));
 }
 
+// 🔥 ИСПРАВЛЕНО: runMigrations с паузами между операциями
 async function runMigrations() {
     logger.info('Выполнение миграций...');
     
     await fixSystemSettingsTable();
+    await new Promise(r => setTimeout(r, 200));
+    
     await fixPasswordsTable();
+    await new Promise(r => setTimeout(r, 200));
     
     // Таблица employees
     const employeeColumns = [
@@ -738,26 +795,45 @@ async function runMigrations() {
         { name: 'updated_at', type: 'TIMESTAMP', default: 'CURRENT_TIMESTAMP' }
     ];
     for (const col of employeeColumns) {
-        await addColumnIfNotExists('employees', col.name, col.type, col.default);
+        await safeExec(() => addColumnIfNotExists('employees', col.name, col.type, col.default), `employees.${col.name}`);
     }
+    await new Promise(r => setTimeout(r, 200));
     
     // Таблица tasks
-    await addColumnIfNotExists('tasks', 'wp_reward', 'INTEGER', '0');
-    await addColumnIfNotExists('tasks', 'penalty_applied', 'BOOLEAN', 'FALSE');
-    await addColumnIfNotExists('tasks', 'group_progress', 'JSONB', null);
-    await addColumnIfNotExists('tasks', 'archived_at', 'TIMESTAMP', null);
-    await addColumnIfNotExists('tasks', 'recurring', 'VARCHAR(20)', "'none'");
+    const taskColumns = [
+        { name: 'wp_reward', type: 'INTEGER', default: '0' },
+        { name: 'penalty_applied', type: 'BOOLEAN', default: 'FALSE' },
+        { name: 'group_progress', type: 'JSONB', default: null },
+        { name: 'archived_at', type: 'TIMESTAMP', default: null },
+        { name: 'recurring', type: 'VARCHAR(20)', default: "'none'" }
+    ];
+    for (const col of taskColumns) {
+        await safeExec(() => addColumnIfNotExists('tasks', col.name, col.type, col.default), `tasks.${col.name}`);
+    }
+    await new Promise(r => setTimeout(r, 200));
     
     // Таблица achievements
-    await addColumnIfNotExists('achievements', 'icon', 'VARCHAR(10)', "'🏆'");
-    await addColumnIfNotExists('achievements', 'color', 'VARCHAR(7)', "'#fbbf24'");
+    const achievementColumns = [
+        { name: 'icon', type: 'VARCHAR(10)', default: "'🏆'" },
+        { name: 'color', type: 'VARCHAR(7)', default: "'#fbbf24'" }
+    ];
+    for (const col of achievementColumns) {
+        await safeExec(() => addColumnIfNotExists('achievements', col.name, col.type, col.default), `achievements.${col.name}`);
+    }
+    await new Promise(r => setTimeout(r, 200));
     
     // Таблица messages
-    await addColumnIfNotExists('messages', 'is_deleted', 'BOOLEAN', 'FALSE');
-    await addColumnIfNotExists('messages', 'deleted_at', 'TIMESTAMP', null);
+    const messageColumns = [
+        { name: 'is_deleted', type: 'BOOLEAN', default: 'FALSE' },
+        { name: 'deleted_at', type: 'TIMESTAMP', default: null }
+    ];
+    for (const col of messageColumns) {
+        await safeExec(() => addColumnIfNotExists('messages', col.name, col.type, col.default), `messages.${col.name}`);
+    }
+    await new Promise(r => setTimeout(r, 200));
     
     // Таблица salary_daily
-    await query(`CREATE TABLE IF NOT EXISTS salary_daily (
+    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS salary_daily (
         id SERIAL PRIMARY KEY,
         employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
         day_number INTEGER NOT NULL,
@@ -771,17 +847,19 @@ async function runMigrations() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(employee_id, day_number, month_year)
-    )`).catch(() => {});
+    )`).catch(() => {}), 'salary_daily create');
+    await new Promise(r => setTimeout(r, 150));
     
-    await addColumnIfNotExists('salary_daily', 'oklad', 'INTEGER', '0');
-    await addColumnIfNotExists('salary_daily', 'event', 'INTEGER', '0');
-    await addColumnIfNotExists('salary_daily', 'turnover', 'INTEGER', '0');
-    await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0');
-    await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0');
-    await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
-    await addColumnIfNotExists('salary_daily', 'motivation_type', 'VARCHAR(50)', null);
+    const salaryColumns = [
+        'oklad', 'event', 'turnover', 'bonus35', 'video', 'extra_motivation', 'motivation_type'
+    ];
+    for (const col of salaryColumns) {
+        await safeExec(() => addColumnIfNotExists('salary_daily', col, col === 'motivation_type' ? 'VARCHAR(50)' : 'INTEGER', col === 'motivation_type' ? null : '0'), `salary_daily.${col}`);
+    }
+    await new Promise(r => setTimeout(r, 200));
+    
     // Таблица fines
-    await query(`CREATE TABLE IF NOT EXISTS fines (
+    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS fines (
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL,
         employee VARCHAR(100) NOT NULL,
@@ -795,40 +873,44 @@ async function runMigrations() {
         director_comment TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {});
+    )`).catch(() => {}), 'fines create');
+    await new Promise(r => setTimeout(r, 150));
     
-    await addColumnIfNotExists('fines', 'type', 'VARCHAR(50)', "'other'");
-    await addColumnIfNotExists('fines', 'amount', 'INTEGER', '0');
-    await addColumnIfNotExists('fines', 'coins', 'INTEGER', '0');
-    await addColumnIfNotExists('fines', 'rating', 'INTEGER', '0');
-    await addColumnIfNotExists('fines', 'description', 'TEXT', null);
-    await addColumnIfNotExists('fines', 'created_by', 'VARCHAR(100)', null);
-    await addColumnIfNotExists('fines', 'director_comment', 'TEXT', null);
-    await addColumnIfNotExists('fines', 'event', 'VARCHAR(50)', null);
-await query(`ALTER TABLE fines ALTER COLUMN event DROP NOT NULL`).catch(() => {});
-await query(`ALTER TABLE fines ALTER COLUMN event SET DEFAULT ''`).catch(() => {});
-
+    const fineColumns = ['type', 'amount', 'coins', 'rating', 'description', 'created_by', 'director_comment'];
+    for (const col of fineColumns) {
+        const colType = ['amount', 'coins', 'rating'].includes(col) ? 'INTEGER' : (col === 'description' ? 'TEXT' : 'VARCHAR(100)');
+        const colDefault = ['amount', 'coins', 'rating'].includes(col) ? '0' : (col === 'type' ? "'other'" : null);
+        await safeExec(() => addColumnIfNotExists('fines', col, colType, colDefault), `fines.${col}`);
+    }
+    await new Promise(r => setTimeout(r, 200));
+    
+    // Пропускаем fines.event — колонка не используется в коде, удаляем её миграцию
+    // await addColumnIfNotExists('fines', 'event', 'VARCHAR(50)', null); — ЗАКОММЕНТИРОВАНО, не нужно
+    
     // Таблица vp_bookings
-    await addColumnIfNotExists('vp_bookings', 'duration', 'INTEGER', '1');
+    await safeExec(() => addColumnIfNotExists('vp_bookings', 'duration', 'INTEGER', '1'), 'vp_bookings.duration');
+    await new Promise(r => setTimeout(r, 100));
     
-    // Другие таблицы
-    await query(`CREATE TABLE IF NOT EXISTS pending_achievements (
+    // Другие таблицы (создаются если не существуют)
+    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS pending_achievements (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
         achievement_id VARCHAR(100) REFERENCES achievements(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, achievement_id)
-    )`).catch(() => {});
+    )`).catch(() => {}), 'pending_achievements');
+    await new Promise(r => setTimeout(r, 100));
     
-    await query(`CREATE TABLE IF NOT EXISTS schedule_special_cases (
+    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS schedule_special_cases (
         id SERIAL PRIMARY KEY,
         date DATE NOT NULL UNIQUE,
         cases JSONB NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {});
+    )`).catch(() => {}), 'schedule_special_cases');
+    await new Promise(r => setTimeout(r, 100));
     
-    await query(`CREATE TABLE IF NOT EXISTS task_attachments (
+    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS task_attachments (
         id SERIAL PRIMARY KEY,
         task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE,
         file_name VARCHAR(255) NOT NULL,
@@ -836,120 +918,119 @@ await query(`ALTER TABLE fines ALTER COLUMN event SET DEFAULT ''`).catch(() => {
         file_type VARCHAR(100),
         file_data TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`).catch(() => {});
-    // Исправление corporate_fund
-await query(`CREATE TABLE IF NOT EXISTS corporate_fund (
-    id SERIAL PRIMARY KEY,
-    amount INTEGER DEFAULT 0,
-    operation_type VARCHAR(20),
-    comment TEXT,
-    created_by INTEGER,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)`).catch(() => {});
-
-await addColumnIfNotExists('corporate_fund', 'operation_type', 'VARCHAR(20)', null);
-await addColumnIfNotExists('corporate_fund', 'comment', 'TEXT', null);
-await addColumnIfNotExists('corporate_fund', 'created_by', 'INTEGER', null);
-await addColumnIfNotExists('corporate_fund', 'created_at', 'TIMESTAMP', 'CURRENT_TIMESTAMP');
-    await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
-    // Исправление motivation_type — удаляем проблемный constraint
-try {
-    const constraints = await query(
-        `SELECT conname FROM pg_constraint 
-         WHERE conrelid = 'salary_daily'::regclass 
-         AND conname LIKE '%motivation_type%'`
-    );
+    )`).catch(() => {}), 'task_attachments');
+    await new Promise(r => setTimeout(r, 100));
     
-    for (const row of constraints.rows) {
-        await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
-        logger.info(`Удалён constraint: ${row.conname}`);
-    }
-} catch (e) {
-    logger.warn('Ошибка удаления constraint motivation_type:', e.message);
-}
-
-// Делаем колонку необязательной
-await query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type DROP NOT NULL`).catch(() => {});
-await query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type SET DEFAULT 'standard'`).catch(() => {});
-// Исправление foreign key для salary_daily
-try {
-    const fkConstraints = await query(
-        `SELECT conname FROM pg_constraint 
-         WHERE conrelid = 'salary_daily'::regclass AND contype = 'f'`
-    );
+    // 🔥 Исправление corporate_fund
+    await safeExec(() => query(`CREATE TABLE IF NOT EXISTS corporate_fund (
+        id SERIAL PRIMARY KEY,
+        amount INTEGER DEFAULT 0,
+        operation_type VARCHAR(20),
+        comment TEXT,
+        created_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`).catch(() => {}), 'corporate_fund');
+    await new Promise(r => setTimeout(r, 150));
     
-    for (const row of fkConstraints.rows) {
-        await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
-        logger.info(`Удалён foreign key: ${row.conname}`);
+    for (const col of ['operation_type', 'comment', 'created_by', 'created_at']) {
+        const colType = col === 'created_at' ? 'TIMESTAMP' : (col === 'created_by' ? 'INTEGER' : 'VARCHAR(20)');
+        const colDefault = col === 'created_at' ? 'CURRENT_TIMESTAMP' : null;
+        await safeExec(() => addColumnIfNotExists('corporate_fund', col, colType, colDefault), `corporate_fund.${col}`);
     }
-} catch (e) {
-    logger.warn('Ошибка удаления foreign key:', e.message);
-}
-
-// Создаём правильный foreign key с CASCADE
-await query(`
-    DO $$
-    BEGIN
-        IF NOT EXISTS (
-            SELECT 1 FROM pg_constraint 
-            WHERE conrelid = 'salary_daily'::regclass 
-            AND conname = 'salary_daily_employee_id_fkey'
-        ) THEN
-            ALTER TABLE salary_daily 
-            ADD CONSTRAINT salary_daily_employee_id_fkey 
-            FOREIGN KEY (employee_id) 
-            REFERENCES employees(id) 
-            ON DELETE CASCADE;
-        END IF;
-    END $$;
-`).catch((e) => logger.warn('Ошибка создания foreign key:', e.message));
+    await new Promise(r => setTimeout(r, 150));
+    
+    await safeExec(() => query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {}), 'idx_corporate_fund_id');
+    await new Promise(r => setTimeout(r, 100));
+    
+    // 🔥 Исправление motivation_type — удаляем проблемный constraint
+    await safeExec(async () => {
+        const constraints = await query(`SELECT conname FROM pg_constraint WHERE conrelid = 'salary_daily'::regclass AND conname LIKE '%motivation_type%'`);
+        for (const row of constraints.rows) {
+            await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
+            logger.info(`Удалён constraint: ${row.conname}`);
+        }
+    }, 'motivation_type constraint');
+    await new Promise(r => setTimeout(r, 100));
+    
+    await safeExec(() => query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type DROP NOT NULL`).catch(() => {}), 'motivation_type DROP NOT NULL');
+    await safeExec(() => query(`ALTER TABLE salary_daily ALTER COLUMN motivation_type SET DEFAULT 'standard'`).catch(() => {}), 'motivation_type SET DEFAULT');
+    await new Promise(r => setTimeout(r, 200));
+    
+    // 🔥 Исправление foreign key для salary_daily
+    await safeExec(async () => {
+        const fkConstraints = await query(`SELECT conname FROM pg_constraint WHERE conrelid = 'salary_daily'::regclass AND contype = 'f'`);
+        for (const row of fkConstraints.rows) {
+            await query(`ALTER TABLE salary_daily DROP CONSTRAINT IF EXISTS "${row.conname}"`).catch(() => {});
+            logger.info(`Удалён foreign key: ${row.conname}`);
+        }
+    }, 'salary_daily FK удаление');
+    await new Promise(r => setTimeout(r, 100));
+    
+    await safeExec(() => query(`
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_constraint 
+                WHERE conrelid = 'salary_daily'::regclass 
+                AND conname = 'salary_daily_employee_id_fkey'
+            ) THEN
+                ALTER TABLE salary_daily 
+                ADD CONSTRAINT salary_daily_employee_id_fkey 
+                FOREIGN KEY (employee_id) 
+                REFERENCES employees(id) 
+                ON DELETE CASCADE;
+            END IF;
+        END $$;
+    `).catch(() => {}), 'salary_daily FK создание');
+    
     logger.info('Миграции выполнены');
 }
 
-console.log('✅ ЧАСТЬ 3/12 загружена (функции миграций)');
+console.log('✅ ЧАСТЬ 3/6 загружена (функции миграций)');
+
 // ============================================
-// 5. ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ НАСТРОЕК
+// ИНИЦИАЛИЗАЦИЯ СИСТЕМНЫХ НАСТРОЕК
 // ============================================
 
 async function initSystemSettings() {
     await new Promise(r => setTimeout(r, 100));
     const settings = [
-        { key: 'app_version', val: '5.2.0' },
+        { key: 'app_version', val: '5.3.0' },
         { key: 'global_theme', val: 'vr-portal' },
         { key: 'vp_script_available_days', val: '2' },
         { key: 'auto_archive_tasks_days', val: '3' },
         { key: 'exchange_expire_hours', val: '24' }
     ];
     for (const s of settings) {
-        try {
+        await safeExec(async () => {
             await query(
                 `INSERT INTO system_settings (key, val) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET val = EXCLUDED.val, updated_at = NOW()`,
                 [s.key, s.val]
             );
-        } catch (e) {
-            logger.warn(`Не удалось вставить ${s.key}:`, e.message);
-        }
+        }, `setting ${s.key}`);
     }
     logger.info('Системные настройки инициализированы');
 }
 
 // ============================================
-// 6. ИНИЦИАЛИЗАЦИЯ КОРПОРАТИВНОГО ФОНДА
+// ИНИЦИАЛИЗАЦИЯ КОРПОРАТИВНОГО ФОНДА
 // ============================================
 
 async function initCorporateFund() {
-    const check = await query("SELECT id FROM corporate_fund LIMIT 1");
-    if (check.rows.length === 0) {
-        await query("INSERT INTO corporate_fund (amount, operation_type, comment) VALUES (0, 'initial', 'Начальное состояние')");
-    }
+    await safeExec(async () => {
+        const check = await query("SELECT id FROM corporate_fund LIMIT 1");
+        if (check.rows.length === 0) {
+            await query("INSERT INTO corporate_fund (amount, operation_type, comment) VALUES (0, 'initial', 'Начальное состояние')");
+        }
+    }, 'corporate_fund init');
 }
 
 // ============================================
-// 7. СОЗДАНИЕ ДИРЕКТОРА ПО УМОЛЧАНИЮ
+// СОЗДАНИЕ ДИРЕКТОРА ПО УМОЛЧАНИЮ
 // ============================================
 
 async function createDefaultDirector() {
-    try {
+    await safeExec(async () => {
         const check = await query("SELECT id FROM employees WHERE name = 'Денис'");
         if (check.rows.length > 0) {
             const passCheck = await query("SELECT username FROM passwords WHERE username = 'Денис'");
@@ -966,13 +1047,11 @@ async function createDefaultDirector() {
         const hashedPassword = await hashPassword('denis_1');
         await query("INSERT INTO passwords (username, password_hash) VALUES ('Денис', $1)", [hashedPassword]);
         logger.info(`Директор создан, id: ${result.rows[0].id}`);
-    } catch (err) {
-        logger.error('Ошибка создания директора:', err.message);
-    }
+    }, 'createDefaultDirector');
 }
 
 // ============================================
-// 8. КАТЕГОРИИ ДОСТИЖЕНИЙ
+// КАТЕГОРИИ ДОСТИЖЕНИЙ
 // ============================================
 
 const ACHIEVEMENT_CATEGORIES = {
@@ -990,7 +1069,7 @@ const ACHIEVEMENT_CATEGORIES = {
 };
 
 // ============================================
-// 9. ГЕНЕРАЦИЯ ВСЕХ ДОСТИЖЕНИЙ
+// ГЕНЕРАЦИЯ ВСЕХ ДОСТИЖЕНИЙ
 // ============================================
 
 function generateAllAchievements() {
@@ -1113,7 +1192,7 @@ function generateAllAchievements() {
 }
 
 // ============================================
-// 10. ИНИЦИАЛИЗАЦИЯ ДОСТИЖЕНИЙ
+// ИНИЦИАЛИЗАЦИЯ ДОСТИЖЕНИЙ
 // ============================================
 
 async function initAchievements() {
@@ -1121,7 +1200,7 @@ async function initAchievements() {
     const achievements = generateAllAchievements();
     let inserted = 0, updated = 0;
     for (const ach of achievements) {
-        try {
+        await safeExec(async () => {
             const result = await query(
                 `INSERT INTO achievements (id, name, description, category, required_value, coins_reward, sort_order, icon, color) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
@@ -1138,16 +1217,14 @@ async function initAchievements() {
                 [ach.id, ach.name, ach.description, ach.category, ach.required_value, ach.coins_reward, ach.sort_order, ach.icon, ACHIEVEMENT_CATEGORIES[ach.category]?.color || '#fbbf24']
             );
             if (result.rows[0]?.xmax === 0) inserted++; else updated++;
-        } catch (err) {
-            logger.error(`Ошибка достижения ${ach.id}: ${err.message}`);
-        }
+        }, `achievement ${ach.id}`);
     }
     logger.info(`Достижения: новых ${inserted}, обновлено ${updated}`);
 }
 
-console.log('✅ ЧАСТЬ 4/12 загружена (настройки, фонд, директор, достижения)');
+console.log('✅ ЧАСТЬ 4/6 загружена (настройки, фонд, директор, достижения)');
 // ============================================
-// 11. ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ
+// ИНИЦИАЛИЗАЦИЯ БАЗЫ ДАННЫХ (ИСПРАВЛЕНО)
 // ============================================
 
 async function initDatabase() {
@@ -1155,25 +1232,35 @@ async function initDatabase() {
     logger.info('Инициализация БД...');
     const startTime = Date.now();
     try {
+        // 🔥 Ждём готовности БД перед миграциями
+        await waitForDb();
+        
         const versionResult = await query("SELECT version FROM schema_migrations ORDER BY version DESC LIMIT 1").catch(() => ({ rows: [] }));
         const currentVersion = versionResult.rows[0]?.version || 0;
         logger.info(`Текущая версия схемы: ${currentVersion}`);
         
+        // Создаём таблицы с паузами между каждой
         for (const [tableName, definition] of Object.entries(TABLE_DEFINITIONS)) {
-            await query(definition).catch(e => logger.warn(`Таблица ${tableName}:`, e.message));
+            await safeExec(() => query(definition), `CREATE ${tableName}`);
+            await new Promise(r => setTimeout(r, 50));
         }
         
+        // Создаём индексы с паузами
         for (const indexDef of INDEX_DEFINITIONS) {
-            await query(indexDef).catch(() => {});
+            await safeExec(() => query(indexDef), 'CREATE INDEX');
+            await new Promise(r => setTimeout(r, 30));
         }
         
+        // Выполняем миграции (внутри уже есть паузы)
         await runMigrations();
+        
+        // Инициализируем системные данные
         await initSystemSettings();
         await createDefaultDirector();
         await initCorporateFund();
         
         await query(
-            `INSERT INTO schema_migrations (version, name) VALUES (5, 'WARPOINT HUB v5.2.0') ON CONFLICT (version) DO NOTHING`
+            `INSERT INTO schema_migrations (version, name) VALUES (5, 'WARPOINT HUB v5.3.0') ON CONFLICT (version) DO NOTHING`
         );
         
         logger.info(`БД инициализирована за ${Date.now() - startTime}ms`);
@@ -1184,7 +1271,7 @@ async function initDatabase() {
 }
 
 // ============================================
-// 12. CRON-ФЛАГИ
+// CRON-ФЛАГИ
 // ============================================
 
 let CRON_FLAGS = {
@@ -1195,7 +1282,7 @@ let CRON_FLAGS = {
 };
 
 // ============================================
-// 13. НАЧИСЛЕНИЕ WP ЗА СМЕНЫ
+// НАЧИСЛЕНИЕ WP ЗА СМЕНЫ
 // ============================================
 
 async function processShiftEarnings() {
@@ -1237,7 +1324,7 @@ async function processShiftEarnings() {
 }
 
 // ============================================
-// 14. ПРОВЕРКА ПРОСРОЧЕННЫХ ЗАДАЧ
+// ПРОВЕРКА ПРОСРОЧЕННЫХ ЗАДАЧ
 // ============================================
 
 async function checkOverdueTasks() {
@@ -1286,7 +1373,7 @@ async function checkOverdueTasks() {
 }
 
 // ============================================
-// 15. АВТО-ОТМЕНА ПРОСРОЧЕННЫХ ОБМЕНОВ
+// АВТО-ОТМЕНА ПРОСРОЧЕННЫХ ОБМЕНОВ
 // ============================================
 
 async function autoExpireExchanges() {
@@ -1308,7 +1395,7 @@ async function autoExpireExchanges() {
 }
 
 // ============================================
-// 16. АВТО-АРХИВАЦИЯ ВЫПОЛНЕННЫХ ЗАДАЧ
+// АВТО-АРХИВАЦИЯ ВЫПОЛНЕННЫХ ЗАДАЧ
 // ============================================
 
 async function autoArchiveCompletedTasks() {
@@ -1325,8 +1412,9 @@ async function autoArchiveCompletedTasks() {
         logger.error('Ошибка автоархивации задач:', err.message);
     }
 }
+
 // ============================================
-// 17. ОБНОВЛЕНИЕ ПОГОДЫ
+// ОБНОВЛЕНИЕ ПОГОДЫ
 // ============================================
 
 async function updateWeatherJob() {
@@ -1339,7 +1427,7 @@ async function updateWeatherJob() {
 }
 
 // ============================================
-// 18. ПРОВЕРКА И ВЫДАЧА ДОСТИЖЕНИЙ
+// ПРОВЕРКА И ВЫДАЧА ДОСТИЖЕНИЙ
 // ============================================
 
 async function checkAndAwardAchievements(userId, category = null) {
@@ -1399,9 +1487,8 @@ async function checkAndAwardAchievements(userId, category = null) {
     }
 }
 
-console.log('✅ ЧАСТЬ 5/12 загружена (инициализация БД, cron-задачи)');
 // ============================================
-// 19. ИНИЦИАЛИЗАЦИЯ CRON-ЗАДАЧ
+// ИНИЦИАЛИЗАЦИЯ CRON-ЗАДАЧ
 // ============================================
 
 function initCronJobs() {
@@ -1420,7 +1507,7 @@ function initCronJobs() {
     });
     
     cron.schedule('0 2 * * *', () => {
-    autoArchiveCompletedTasks().catch(e => logger.error('Cron archive tasks:', e.message));
+        autoArchiveCompletedTasks().catch(e => logger.error('Cron archive tasks:', e.message));
     });
     
     cron.schedule('0 */2 * * *', () => {
@@ -1442,7 +1529,7 @@ function initCronJobs() {
 }
 
 // ============================================
-// 20. API — АВТОРИЗАЦИЯ
+// API — АВТОРИЗАЦИЯ
 // ============================================
 
 app.post('/api/auth/login', loginLimiter, async (req, res) => {
@@ -1538,6 +1625,7 @@ app.get('/api/auth/me', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
 app.post('/api/heartbeat', authMiddleware, async (req, res) => {
     try {
         await query("UPDATE employees SET last_active = NOW() WHERE id = $1", [req.user.id]);
@@ -1546,6 +1634,7 @@ app.post('/api/heartbeat', authMiddleware, async (req, res) => {
         res.status(500).json({ success: false, error: err.message });
     }
 });
+
 app.get('/api/user/login-streak', authMiddleware, async (req, res) => {
     try {
         const user = await query("SELECT bonus_streak, last_bonus_claimed_at FROM employees WHERE id = $1", [req.user.id]);
@@ -1578,7 +1667,7 @@ app.post('/api/auth/refresh', async (req, res) => {
 });
 
 // ============================================
-// 21. API — СОТРУДНИКИ И ПРОФИЛИ
+// API — СОТРУДНИКИ И ПРОФИЛИ
 // ============================================
 
 app.get('/api/employees', authMiddleware, async (req, res) => {
@@ -1657,6 +1746,7 @@ app.get('/api/employees/achievements-count', authMiddleware, async (req, res) =>
         res.json({ success: true, counts: {} });
     }
 });
+
 app.post('/api/employees', authMiddleware, directorOnly, async (req, res) => {
     try {
         const { name, password, role, birthday, phone } = req.body;
@@ -1963,9 +2053,9 @@ app.get('/api/data', authMiddleware, async (req, res) => {
     }
 });
 
-console.log('✅ ЧАСТЬ 6/12 загружена (cron, авторизация, сотрудники, профили)');
+console.log('✅ ЧАСТЬ 5/6 загружена (cron, авторизация, сотрудники, профили)');
 // ============================================
-// 22. API — ЗАДАЧИ
+// API — ЗАДАЧИ
 // ============================================
 
 app.get('/api/tasks', authMiddleware, async (req, res) => {
@@ -2115,7 +2205,7 @@ app.delete('/api/subtasks/:id', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// 23. API — ШТРАФЫ
+// API — ШТРАФЫ
 // ============================================
 
 app.get('/api/fines', authMiddleware, async (req, res) => {
@@ -2173,7 +2263,7 @@ app.delete('/api/fines/:id', authMiddleware, directorOnly, async (req, res) => {
 });
 
 // ============================================
-// 24. API — ГРАФИК СМЕН
+// API — ГРАФИК СМЕН
 // ============================================
 
 app.get('/api/schedule', authMiddleware, async (req, res) => {
@@ -2219,7 +2309,7 @@ app.post('/api/schedule/special-cases', authMiddleware, managerOrDirector, async
 });
 
 // ============================================
-// 25. API — ОБМЕН СМЕНАМИ
+// API — ОБМЕН СМЕНАМИ
 // ============================================
 
 app.post('/api/exchange/create', authMiddleware, async (req, res) => {
@@ -2282,9 +2372,8 @@ app.post('/api/exchange/cancel/:id', authMiddleware, async (req, res) => {
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-console.log('✅ ЧАСТЬ 7/12 загружена (задачи, штрафы, график, обмены)');
 // ============================================
-// 26. API — ВП (МЕРОПРИЯТИЯ)
+// API — ВП (МЕРОПРИЯТИЯ)
 // ============================================
 
 app.get('/api/vp', authMiddleware, async (req, res) => {
@@ -2338,8 +2427,9 @@ app.delete('/api/vp/:id', authMiddleware, directorOnly, async (req, res) => {
     catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
+console.log('✅ ЧАСТЬ 6/8 загружена (задачи, штрафы, график, обмены, ВП)');
 // ============================================
-// 27. API — ЗАРПЛАТА
+// API — ЗАРПЛАТА (ИСПРАВЛЕНО)
 // ============================================
 
 app.get('/api/salary', authMiddleware, async (req, res) => {
@@ -2348,7 +2438,11 @@ app.get('/api/salary', authMiddleware, async (req, res) => {
         if (!month || !year) return res.status(400).json({ success: false, error: 'Месяц и год обязательны' });
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         await query(`CREATE TABLE IF NOT EXISTS salary_daily (id SERIAL PRIMARY KEY, employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE, day_number INTEGER NOT NULL, month_year VARCHAR(7) NOT NULL, oklad INTEGER DEFAULT 0, event INTEGER DEFAULT 0, turnover INTEGER DEFAULT 0, bonus35 INTEGER DEFAULT 0, video INTEGER DEFAULT 0, extra_motivation INTEGER DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(employee_id, day_number, month_year))`).catch(() => {});
-        await addColumnIfNotExists('salary_daily', 'oklad', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'event', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'turnover', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
+        // 🔥 Проверяем и добавляем колонки по одной с паузой
+        const cols = ['oklad', 'event', 'turnover', 'bonus35', 'video', 'extra_motivation'];
+        for (const col of cols) {
+            await safeExec(() => addColumnIfNotExists('salary_daily', col, 'INTEGER', '0'), `salary_daily.${col}`);
+        }
         const employees = await query("SELECT id, name, role, avatar, avatar_url FROM employees WHERE role != 'director' AND is_active = TRUE AND deleted_at IS NULL ORDER BY name");
         const dailyData = await query("SELECT * FROM salary_daily WHERE month_year = $1", [monthYear]);
         res.json({ success: true, employees: employees.rows, dailyData: dailyData.rows });
@@ -2360,7 +2454,10 @@ app.get('/api/salary/day', authMiddleware, async (req, res) => {
         const { employee_id, day, month, year } = req.query;
         if (!employee_id || !day || !month || !year) return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
-        await addColumnIfNotExists('salary_daily', 'oklad', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'event', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'turnover', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'bonus35', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'video', 'INTEGER', '0'); await addColumnIfNotExists('salary_daily', 'extra_motivation', 'INTEGER', '0');
+        const cols = ['oklad', 'event', 'turnover', 'bonus35', 'video', 'extra_motivation'];
+        for (const col of cols) {
+            await safeExec(() => addColumnIfNotExists('salary_daily', col, 'INTEGER', '0'), `salary_daily.${col} (day)`);
+        }
         const result = await query(`SELECT oklad, event, turnover, bonus35, video, extra_motivation FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3`, [employee_id, day, monthYear]).catch(() => ({ rows: [] }));
         res.json({ success: true, oklad: result.rows[0]?.oklad || 0, event: result.rows[0]?.event || 0, turnover: result.rows[0]?.turnover || 0, bonus35: result.rows[0]?.bonus35 || 0, video: result.rows[0]?.video || 0, extra_motivation: result.rows[0]?.extra_motivation || 0 });
     } catch (err) { logger.error('/api/salary/day error:', err.message); res.status(500).json({ success: false, error: err.message }); }
@@ -2373,7 +2470,7 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
             return res.status(400).json({ success: false, error: 'Не все параметры указаны' });
         }
         
-                // 🔥 ПРОВЕРКА ЧТО СОТРУДНИК СУЩЕСТВУЕТ
+        // 🔥 Проверка что сотрудник существует
         const empCheck = await query(
             "SELECT id FROM employees WHERE id = $1 AND deleted_at IS NULL AND is_active = TRUE",
             [employee_id]
@@ -2381,34 +2478,30 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
         if (empCheck.rows.length === 0) {
             logger.warn(`Попытка сохранить з/п для несуществующего сотрудника: ${employee_id}`);
             return res.status(400).json({ success: false, error: 'Сотрудник не найден или уволен' });
-        }   // ← ДОБАВЬ ЭТУ СКОБКУ
+        }
         
         const monthYear = `${year}-${String(month).padStart(2, '0')}`;
         
-        // 🔥 Проверяем и создаём constraint если его нет
+        // Проверяем и создаём constraint если его нет
         const constraintCheck = await query(
             `SELECT conname FROM pg_constraint 
              WHERE conrelid = 'salary_daily'::regclass AND contype = 'u'`
         ).catch(() => ({ rows: [] }));
         
         if (constraintCheck.rows.length === 0) {
-            // Удаляем дубликаты если есть
             await query(`DELETE FROM salary_daily a USING salary_daily b 
                          WHERE a.id > b.id AND a.employee_id = b.employee_id 
                          AND a.day_number = b.day_number AND a.month_year = b.month_year`);
-            // Создаём constraint
             await query(`ALTER TABLE salary_daily ADD CONSTRAINT salary_daily_unique 
                          UNIQUE (employee_id, day_number, month_year)`).catch(() => {});
         }
         
-        // Проверяем есть ли уже запись
         const existing = await query(
             "SELECT id FROM salary_daily WHERE employee_id = $1 AND day_number = $2 AND month_year = $3",
             [employee_id, day_number, monthYear]
         );
         
         if (existing.rows.length > 0) {
-            // ОБНОВЛЯЕМ существующую запись
             await query(
                 `UPDATE salary_daily 
                  SET oklad = $1, event = $2, turnover = $3, bonus35 = $4, video = $5, 
@@ -2417,8 +2510,6 @@ app.post('/api/salary/day/save', authMiddleware, directorOnly, async (req, res) 
                 [oklad || 0, event || 0, turnover || 0, bonus35 || 0, video || 0, extra_motivation || 0, 'standard', employee_id, day_number, monthYear]
             );
         } else {
-            
-                        // ВСТАВЛЯЕМ новую запись
             await query(
                 `INSERT INTO salary_daily (employee_id, day_number, month_year, oklad, event, turnover, bonus35, video, extra_motivation, motivation_type) 
                  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -2473,27 +2564,42 @@ app.post('/api/salary/apply-all', authMiddleware, directorOnly, async (req, res)
 });
 
 // ============================================
-// 28. API — КОРПОРАТИВНЫЙ ФОНД
+// API — КОРПОРАТИВНЫЙ ФОНД
 // ============================================
 
 app.get('/api/fund', authMiddleware, async (req, res) => {
-    try { await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {}); const result = await query("SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1"); res.json({ success: true, amount: result.rows[0]?.amount || 0 }); }
-    catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    try {
+        await query(`CREATE INDEX IF NOT EXISTS idx_corporate_fund_id ON corporate_fund(id DESC)`).catch(() => {});
+        const result = await query("SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1");
+        res.json({ success: true, amount: result.rows[0]?.amount || 0 });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/fund/update', authMiddleware, directorOnly, async (req, res) => {
-    try { const { amount, comment, reset } = req.body; if (amount === undefined || amount < 0) return res.status(400).json({ success: false, error: 'Некорректная сумма' }); await query("INSERT INTO corporate_fund (amount, operation_type, comment, created_by) VALUES ($1, $2, $3, $4)", [amount, reset ? 'reset' : 'update', comment || null, req.user.id]); await addNotification('Денис', 'fund_updated', { amount }); res.json({ success: true, amount }); }
-    catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    try {
+        const { amount, comment, reset } = req.body;
+        if (amount === undefined || amount < 0) return res.status(400).json({ success: false, error: 'Некорректная сумма' });
+        await query("INSERT INTO corporate_fund (amount, operation_type, comment, created_by) VALUES ($1, $2, $3, $4)", [amount, reset ? 'reset' : 'update', comment || null, req.user.id]);
+        await addNotification('Денис', 'fund_updated', { amount });
+        res.json({ success: true, amount });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
 app.post('/api/fund/add', authMiddleware, directorOnly, async (req, res) => {
-    try { const { sum, comment } = req.body; if (!sum || typeof sum !== 'number') return res.status(400).json({ success: false, error: 'Некорректная сумма' }); const current = await query("SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1"); const newAmount = (current.rows[0]?.amount || 0) + sum; if (newAmount < 0) return res.status(400).json({ success: false, error: 'Недостаточно средств' }); await query("INSERT INTO corporate_fund (amount, operation_type, comment, created_by) VALUES ($1, $2, $3, $4)", [newAmount, sum > 0 ? 'add' : 'subtract', comment || null, req.user.id]); await addNotification('Денис', 'fund_updated', { amount: newAmount }); res.json({ success: true, amount: newAmount }); }
-    catch (err) { res.status(500).json({ success: false, error: err.message }); }
+    try {
+        const { sum, comment } = req.body;
+        if (!sum || typeof sum !== 'number') return res.status(400).json({ success: false, error: 'Некорректная сумма' });
+        const current = await query("SELECT amount FROM corporate_fund ORDER BY id DESC LIMIT 1");
+        const newAmount = (current.rows[0]?.amount || 0) + sum;
+        if (newAmount < 0) return res.status(400).json({ success: false, error: 'Недостаточно средств' });
+        await query("INSERT INTO corporate_fund (amount, operation_type, comment, created_by) VALUES ($1, $2, $3, $4)", [newAmount, sum > 0 ? 'add' : 'subtract', comment || null, req.user.id]);
+        await addNotification('Денис', 'fund_updated', { amount: newAmount });
+        res.json({ success: true, amount: newAmount });
+    } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
 
-console.log('✅ ЧАСТЬ 8/12 загружена (ВП, зарплата, фонд)');
 // ============================================
-// 29. API — ЧАТ
+// API — ЧАТ (оставлен для совместимости, можно удалить при полном отказе от чата)
 // ============================================
 
 app.post('/api/chat', authMiddleware, async (req, res) => {
@@ -2583,7 +2689,7 @@ app.post('/api/chat/delete-bulk', authMiddleware, directorOnly, async (req, res)
 });
 
 // ============================================
-// 30. API — ПОДАРКИ (МАГАЗИН)
+// API — ПОДАРКИ (МАГАЗИН)
 // ============================================
 
 app.get('/api/gifts', authMiddleware, (req, res) => {
@@ -2621,7 +2727,7 @@ app.post('/api/gifts', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// 31. API — СТАТУСЫ
+// API — СТАТУСЫ
 // ============================================
 
 app.get('/api/user/statuses', authMiddleware, async (req, res) => {
@@ -2661,7 +2767,7 @@ app.post('/api/statuses/activate', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// 32. API — БАЗА ЗНАНИЙ
+// API — БАЗА ЗНАНИЙ
 // ============================================
 
 app.get('/api/knowledge/categories', authMiddleware, async (req, res) => {
@@ -2713,10 +2819,8 @@ app.post('/api/knowledge/articles/:id/view', authMiddleware, async (req, res) =>
     try { const id = parseInt(req.params.id); if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' }); await query("UPDATE knowledge_articles SET views = views + 1 WHERE id = $1", [id]); res.json({ success: true }); }
     catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
-
-console.log('✅ ЧАСТЬ 9/12 загружена (чат, подарки, статусы, база знаний)');
 // ============================================
-// 33. API — ДОСТИЖЕНИЯ
+// API — ДОСТИЖЕНИЯ
 // ============================================
 
 app.get('/api/achievements', authMiddleware, async (req, res) => {
@@ -2760,7 +2864,7 @@ app.post('/api/achievements/claim', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// 34. API — ПАРСИНГ БРОНИРОВАНИЙ
+// API — ПАРСИНГ БРОНИРОВАНИЙ
 // ============================================
 
 app.get('/api/parsing/latest', authMiddleware, async (req, res) => {
@@ -2795,7 +2899,7 @@ app.get('/api/parsing/progress', authMiddleware, (req, res) => {
 });
 
 // ============================================
-// 35. API — ПОГОДА
+// API — ПОГОДА
 // ============================================
 
 app.get('/api/weather', async (req, res) => {
@@ -2813,7 +2917,7 @@ app.get('/api/weather', async (req, res) => {
 });
 
 // ============================================
-// 36. API — ТРАНЗАКЦИИ
+// API — ТРАНЗАКЦИИ
 // ============================================
 
 app.get('/api/transactions', authMiddleware, async (req, res) => {
@@ -2831,7 +2935,7 @@ app.get('/api/transactions', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// 37. API — СТАТИСТИКА ДАШБОРДА
+// API — СТАТИСТИКА ДАШБОРДА
 // ============================================
 
 app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
@@ -2847,7 +2951,7 @@ app.get('/api/dashboard/stats', authMiddleware, async (req, res) => {
 });
 
 // ============================================
-// 38. API — АДМИНИСТРИРОВАНИЕ
+// API — АДМИНИСТРИРОВАНИЕ
 // ============================================
 
 app.get('/api/admin/theme', authMiddleware, async (req, res) => {
@@ -2906,7 +3010,7 @@ app.post('/api/admin/init-achievements', authMiddleware, directorOnly, async (re
 });
 
 // ============================================
-// 39. API — УВЕДОМЛЕНИЯ
+// API — УВЕДОМЛЕНИЯ
 // ============================================
 
 app.get('/api/notifications', authMiddleware, async (req, res) => {
@@ -2937,7 +3041,7 @@ app.post('/api/notifications/send', authMiddleware, managerOrDirector, async (re
 });
 
 // ============================================
-// 40. PUSHER АВТОРИЗАЦИЯ
+// PUSHER АВТОРИЗАЦИЯ
 // ============================================
 
 app.post('/api/pusher/auth', authMiddleware, (req, res) => {
@@ -2953,9 +3057,8 @@ app.post('/api/pusher/auth', authMiddleware, (req, res) => {
     res.send(auth);
 });
 
-console.log('✅ ЧАСТЬ 10/12 загружена (достижения, парсинг, погода, админ, уведомления)');
 // ============================================
-// 41. СТАТИЧЕСКИЕ ФАЙЛЫ И SPA
+// СТАТИЧЕСКИЕ ФАЙЛЫ И SPA
 // ============================================
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -2977,7 +3080,7 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================
-// 42. GRACEFUL SHUTDOWN
+// GRACEFUL SHUTDOWN
 // ============================================
 
 function gracefulShutdown(signal) {
@@ -3013,7 +3116,7 @@ function gracefulShutdown(signal) {
 }
 
 // ============================================
-// 43. HEALTH CHECK
+// HEALTH CHECK
 // ============================================
 
 app.get('/health', async (req, res) => {
@@ -3048,7 +3151,7 @@ app.get('/health', async (req, res) => {
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // ============================================
-// 44. НАСТРОЙКА ОБРАБОТЧИКОВ СЕРВЕРА
+// НАСТРОЙКА ОБРАБОТЧИКОВ СЕРВЕРА
 // ============================================
 
 function setupServerHandlers() {
@@ -3072,9 +3175,8 @@ function setupServerHandlers() {
     });
 }
 
-console.log('✅ ЧАСТЬ 11/12 загружена (статика, health check, shutdown)');
 // ============================================
-// 45. ЗАПУСК СЕРВЕРА
+// ЗАПУСК СЕРВЕРА (ИСПРАВЛЕНО)
 // ============================================
 
 async function startServer() {
@@ -3100,7 +3202,7 @@ async function startServer() {
         logger.info('║   ██║███╗██║██╔══██║██╔══██╗██╔═══╝ ██║   ██║██║██║╚██╗██║   ██║     ║');
         logger.info('║   ╚███╔███╔╝██║  ██║██║  ██║██║     ╚██████╔╝██║██║ ╚████║   ██║     ║');
         logger.info('║    ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝      ╚═════╝ ╚═╝╚═╝  ╚═══╝   ╚═╝     ║');
-        logger.info('║                    CORPORATE PORTAL v5.2.0                    ║');
+        logger.info('║                    CORPORATE PORTAL v5.3.0                    ║');
         logger.info('╚══════════════════════════════════════════════════════════════╝\n');
         
         const dataDir = path.join(__dirname, 'data');
@@ -3110,12 +3212,17 @@ async function startServer() {
         pool = createDatabasePool();
         if (!pool) throw new Error('Не удалось создать пул БД');
         
+        // 🔥 Ждём готовности БД и выполняем миграции с паузами
         await initDatabase();
         dbInitialized = true;
         
+        // Инициализируем достижения (может занять время)
         await initAchievements();
+        
+        // Запускаем cron-задачи
         initCronJobs();
         
+        // Запускаем HTTP сервер
         server = app.listen(PORT, '0.0.0.0', () => {
             SERVER_STATE.started = new Date();
             SERVER_STATE.isReady = true;
@@ -3189,7 +3296,7 @@ async function startServer() {
 }
 
 // ============================================
-// 46. ЗАПУСК
+// ЗАПУСК
 // ============================================
 
 startServer().catch(err => {
@@ -3198,7 +3305,7 @@ startServer().catch(err => {
 });
 
 // ============================================
-// 47. ЭКСПОРТ ДЛЯ ТЕСТИРОВАНИЯ
+// ЭКСПОРТ ДЛЯ ТЕСТИРОВАНИЯ
 // ============================================
 
 module.exports = {
@@ -3210,5 +3317,5 @@ module.exports = {
     checkAndAwardAchievements
 };
 
-console.log('✅ ЧАСТЬ 12/12 загружена (запуск сервера, экспорт)');
-console.log('🎉 WARPOINT HUB v5.2.0 — ПОЛНОСТЬЮ ГОТОВ К РАБОТЕ!');
+console.log('✅ ЧАСТЬ 6/6 загружена (запуск сервера, экспорт)');
+console.log('🎉 WARPOINT HUB v5.3.0 — ПОЛНОСТЬЮ ГОТОВ К РАБОТЕ!');
