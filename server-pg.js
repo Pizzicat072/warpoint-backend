@@ -1871,16 +1871,27 @@ app.delete('/api/employees/:id', authMiddleware, directorOnly, async (req, res) 
 
 app.put('/api/employees/:id/password', authMiddleware, directorOnly, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-        
+        const idParam = req.params.id;
         const { password } = req.body;
+        
         if (!password || password.length < 3) {
             return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 3 символов' });
         }
         
-        const emp = await query("SELECT name FROM employees WHERE id = $1", [id]);
-        if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        let emp;
+        const numericId = parseInt(idParam);
+        
+        if (!isNaN(numericId)) {
+            // Поиск по ID
+            emp = await query("SELECT name FROM employees WHERE id = $1", [numericId]);
+        } else {
+            // Поиск по имени
+            emp = await query("SELECT name FROM employees WHERE name = $1", [idParam]);
+        }
+        
+        if (emp.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
+        }
         
         const hashedPassword = await hashPassword(password);
         await query(
@@ -1896,19 +1907,26 @@ app.put('/api/employees/:id/password', authMiddleware, directorOnly, async (req,
 
 app.put('/api/employees/:id/role', authMiddleware, directorOnly, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-        
+        const idParam = req.params.id;
         const { role } = req.body;
+        
         if (!['operator', 'admin', 'manager'].includes(role)) {
             return res.status(400).json({ success: false, error: 'Недопустимая роль' });
         }
         
-        const emp = await query("SELECT role FROM employees WHERE id = $1", [id]);
+        let emp;
+        const numericId = parseInt(idParam);
+        
+        if (!isNaN(numericId)) {
+            emp = await query("SELECT role, name FROM employees WHERE id = $1", [numericId]);
+        } else {
+            emp = await query("SELECT role, name FROM employees WHERE name = $1", [idParam]);
+        }
+        
         if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
         if (emp.rows[0].role === 'director') return res.status(403).json({ success: false, error: 'Нельзя изменить роль директора' });
         
-        await query("UPDATE employees SET role = $1, updated_at = NOW() WHERE id = $2", [role, id]);
+        await query("UPDATE employees SET role = $1, updated_at = NOW() WHERE name = $2", [role, emp.rows[0].name]);
         cache.del('employees_list');
         
         res.json({ success: true, message: 'Роль изменена' });
