@@ -485,11 +485,11 @@
         if (!refreshed) {
             logger.warn('Не удалось обновить токен');
             showNotification('Сессия истекла. Войдите снова.', 'warning');
-            // НЕ ВЫХОДИМ АВТОМАТИЧЕСКИ
+            // 🔥 НЕ ВЫЗЫВАЕМ logout() — просто показываем предупреждение
+            return;
         }
     }
     
-    // Проверяем валидность токена на сервере
     try {
         var response = await fetch('/api/auth/me', {
             headers: { 'Authorization': 'Bearer ' + token }
@@ -499,12 +499,10 @@
             var refreshed2 = await refreshToken();
             if (!refreshed2) {
                 logger.warn('Токен недействителен, но НЕ разлогиниваем');
-                // await logout({ silent: true }); — ЗАКОММЕНТИРОВАНО
-                // showNotification('Сессия истекла. Войдите снова.', 'warning');
+                // 🔥 НЕ ВЫЗЫВАЕМ logout()
             }
         }
     } catch (e) {
-        // Сеть недоступна - НЕ разлогиниваем
         logger.warn('Сеть недоступна при проверке токена');
     }
 }
