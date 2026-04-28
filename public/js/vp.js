@@ -79,27 +79,21 @@ loadVpData();
     vpInitialized = true;
 }
 function setupEventListeners() {
-    var prevBtn = document.getElementById('vpPrevMonth');
-    var nextBtn = document.getElementById('vpNextMonth');
-    var addBtn = document.getElementById('vpAddBtn');
-    
-    if (prevBtn) prevBtn.onclick = function() { changeVpMonth(-1); };
-    if (nextBtn) nextBtn.onclick = function() { changeVpMonth(1); };
-    
-    if (addBtn) {
-        addBtn.style.display = canEditVp ? 'flex' : 'none';
-        addBtn.onclick = function() {
-            openVpModal();
-        };
-    } else {
-        console.warn('⚠️ vpAddBtn не найден');
-    }
+    setTimeout(function() {
+        var addBtn = document.getElementById('vpAddBtn');
+        if (addBtn) {
+            addBtn.onclick = function() { openVpModal(); };
+            addBtn.style.display = canEditVp ? 'flex' : 'none';
+        }
+        
+        var prevBtn = document.getElementById('vpPrevMonth');
+        var nextBtn = document.getElementById('vpNextMonth');
+        if (prevBtn) prevBtn.onclick = function() { changeVpMonth(-1); };
+        if (nextBtn) nextBtn.onclick = function() { changeVpMonth(1); };
+    }, 300);
     
     document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            closeVpModal();
-            closeBookingDetailsModal();
-        }
+        if (e.key === 'Escape') { closeVpModal(); closeBookingDetailsModal(); }
     });
 }
 
