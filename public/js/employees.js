@@ -715,16 +715,67 @@ async function createEmployee() {
     // ИНИЦИАЛИЗАЦИЯ
     // ============================================
     function initEmployees() {
-        if (employeesInitialized) { console.log('👥 Уже инициализированы'); var grid = document.getElementById('employeesGrid'); if (grid && grid.children.length === 0) safeRenderEmployees(); return; }
-        console.log('👥 Инициализация команды');
+    if (employeesInitialized) { 
+        console.log('👥 Уже инициализированы');
         var grid = document.getElementById('employeesGrid');
-        if (!grid) { setTimeout(initEmployees, 100); return; }
-        if (typeof loadEmployees === 'function') { loadEmployees().then(function() { console.log('✅ Данные загружены'); safeRenderEmployees(); }); }
-        else safeRenderEmployees();
-        var createBtn = document.getElementById('createEmployeeBtn');
-        if (createBtn) createBtn.style.display = window.app && window.app.currentUserRole === 'director' ? 'inline-flex' : 'none';
-        employeesInitialized = true;
+        if (grid && grid.children.length === 0) {
+            safeRenderEmployees();
+        }
+        return; 
     }
+    
+    console.log('👥 Инициализация команды');
+    
+    // Проверяем готовность контейнера
+    var grid = document.getElementById('employeesGrid');
+    if (!grid) {
+        console.warn('⚠️ employeesGrid не найден, ждём DOM...');
+        // Ждём и пробуем снова
+        setTimeout(initEmployees, 200);
+        return;
+    }
+    
+    // Проверяем что данные сотрудников загружены
+    if (typeof loadEmployees === 'function') {
+        loadEmployees().then(function() {
+            console.log('✅ Данные загружены');
+            // Проверяем ещё раз что контейнер существует
+            var gridCheck = document.getElementById('employeesGrid');
+            if (gridCheck) {
+                safeRenderEmployees();
+            } else {
+                console.warn('⚠️ employeesGrid исчез, повтор через 300ms');
+                setTimeout(function() {
+                    var gridRetry = document.getElementById('employeesGrid');
+                    if (gridRetry) safeRenderEmployees();
+                }, 300);
+            }
+        }).catch(function(err) {
+            console.error('❌ Ошибка загрузки:', err);
+            // Пробуем отрендерить что есть
+            safeRenderEmployees();
+        });
+    } else {
+        // loadEmployees ещё не загружен — ждём
+        setTimeout(function() {
+            if (typeof loadEmployees === 'function') {
+                loadEmployees().then(function() {
+                    safeRenderEmployees();
+                });
+            } else {
+                safeRenderEmployees();
+            }
+        }, 500);
+    }
+    
+    // Показываем кнопку создания для директора
+    var createBtn = document.getElementById('createEmployeeBtn');
+    if (createBtn) {
+        createBtn.style.display = window.app && window.app.currentUserRole === 'director' ? 'inline-flex' : 'none';
+    }
+    
+    employeesInitialized = true;
+}
 // Добавить ПЕРЕД window.openMyProfile = openMyProfile;
 function openMyProfile() {
     const currentUser = window.app?.currentUser;
