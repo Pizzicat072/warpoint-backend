@@ -29,8 +29,15 @@
     var tc=document.getElementById('toolsContainer');
     var ab=document.getElementById('actionBar');
     document.querySelectorAll('.kb-mode-btn').forEach(function(b){b.classList.remove('active');if(b.dataset.mode===m)b.classList.add('active');});
-    if(m==='articles'){if(ac)ac.style.display='flex';if(tc){tc.style.display='none';tc.classList.remove('active');}if(ab)ab.style.display='flex';if(typeof renderKnowledge==='function')renderKnowledge();}
-    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='flex';tc.classList.add('active');tc.style.flexDirection='column';tc.style.alignItems='center';if(typeof window.initTools==='function'){setTimeout(function(){window.initTools();},100);}}}
+    if(m==='articles'){if(ac)ac.style.display='flex';if(tc)tc.style.display='none';if(ab)ab.style.display='flex';if(typeof renderKnowledge==='function')renderKnowledge();}
+    else{ac.style.display='none';ab.style.display='none';
+        tc.style.display='flex';tc.style.flexDirection='column';tc.style.alignItems='center';
+        // Ждём рендера DOM, потом инициализируем
+        setTimeout(function(){
+            if(typeof window.initTools==='function')window.initTools();
+            else{var s=document.createElement('script');s.src='/js/tools.js';document.body.appendChild(s);}
+        },200);
+    }
 })('tools')">
     <i class="fas fa-wrench"></i> Утилиты
 </button>
