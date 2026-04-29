@@ -19,8 +19,8 @@
     var tc=document.getElementById('toolsContainer');
     var ab=document.getElementById('actionBar');
     document.querySelectorAll('.kb-mode-btn').forEach(function(b){b.classList.remove('active');if(b.dataset.mode===m)b.classList.add('active');});
-    if(m==='articles'){if(ac)ac.style.display='flex';if(tc)tc.style.display='none';if(ab)ab.style.display='flex';}
-    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='block';if(typeof window.initTools==='function')window.initTools();}}
+    if(m==='articles'){if(ac)ac.style.display='flex';if(tc){tc.style.display='none';tc.classList.remove('active');}if(ab)ab.style.display='flex';if(typeof renderKnowledge==='function')renderKnowledge();}
+    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='flex';tc.classList.add('active');tc.style.flexDirection='column';tc.style.alignItems='center';if(typeof window.initTools==='function'){setTimeout(function(){window.initTools();},100);}}}
 })('articles')">
     <i class="fas fa-book"></i> База знаний
 </button>
@@ -29,8 +29,8 @@
     var tc=document.getElementById('toolsContainer');
     var ab=document.getElementById('actionBar');
     document.querySelectorAll('.kb-mode-btn').forEach(function(b){b.classList.remove('active');if(b.dataset.mode===m)b.classList.add('active');});
-    if(m==='articles'){if(ac)ac.style.display='flex';if(tc)tc.style.display='none';if(ab)ab.style.display='flex';}
-    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='block';if(typeof window.initTools==='function')window.initTools();}}
+    if(m==='articles'){if(ac)ac.style.display='flex';if(tc){tc.style.display='none';tc.classList.remove('active');}if(ab)ab.style.display='flex';if(typeof renderKnowledge==='function')renderKnowledge();}
+    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='flex';tc.classList.add('active');tc.style.flexDirection='column';tc.style.alignItems='center';if(typeof window.initTools==='function'){setTimeout(function(){window.initTools();},100);}}}
 })('tools')">
     <i class="fas fa-wrench"></i> Утилиты
 </button>
@@ -1300,7 +1300,45 @@ window.switchKnowledgeMode = function(mode) {
     background: linear-gradient(135deg,rgba(99,102,241,0.5),rgba(139,92,246,0.5));
     border-radius: 10px;
 }
+/* ============================================ */
+/* УТИЛИТЫ — КОНТЕЙНЕР                         */
+/* ============================================ */
 
+#toolsContainer {
+    display: none;
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+#toolsContainer.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tools-actions-bar {
+    width: 100%;
+    max-width: 1200px;
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 24px;
+}
+
+.tools-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 1200px;
+}
+
+.tools-skeleton {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+    width: 100%;
+}
 /* ============================================ */
 /* АДАПТИВ                                     */
 /* ============================================ */
