@@ -4,7 +4,7 @@
 var routes = {
     dashboard: '/pages/dashboard.html',
     employees: '/pages/employees.html',
-tools: '/pages/tools.html',
+
     schedule: '/pages/schedule.html',
     tasks: '/pages/tasks.html',
     shop: '/pages/shop.html',
@@ -266,10 +266,6 @@ function renderMainMenu() {
         { id: 'vp', name: 'ВП', icon: 'gamepad' },
         { id: 'salary', name: 'Зарплата', icon: 'ruble-sign' }
     ];
-// Инструменты — только для ПК
-if (isDesktop()) {
-    menuItems.push({ id: 'tools', name: 'Инструменты', icon: 'tools' });
-}
 
     // Админка только для директора
     if (window.app && window.app.currentUserRole === 'director') {
