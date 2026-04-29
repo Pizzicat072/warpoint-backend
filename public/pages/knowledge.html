@@ -7,6 +7,41 @@
         <h1>База знаний <span>WARPOINT</span></h1>
         <p>Инструкции, правила и полезная информация для сотрудников</p>
     </div>
+
+<script>
+// Определяем функцию переключения ДО рендера кнопок
+window.switchKnowledgeMode = function(mode) {
+    var articleContainer = document.getElementById('knowledgeContainer');
+    var toolsContainer = document.getElementById('toolsContainer');
+    var actionBar = document.getElementById('actionBar');
+    var modeButtons = document.querySelectorAll('.kb-mode-btn');
+    
+    modeButtons.forEach(function(btn) {
+        btn.classList.remove('active');
+        if (btn.dataset.mode === mode) btn.classList.add('active');
+    });
+    
+    if (mode === 'articles') {
+        if (articleContainer) articleContainer.style.display = 'flex';
+        if (toolsContainer) toolsContainer.style.display = 'none';
+        if (actionBar) actionBar.style.display = 'flex';
+    } else {
+        if (articleContainer) articleContainer.style.display = 'none';
+        if (actionBar) actionBar.style.display = 'none';
+        if (toolsContainer) {
+            toolsContainer.style.display = 'grid';
+            toolsContainer.classList.add('active');
+            if (typeof window.initTools === 'function') {
+                window.initTools();
+            }
+        }
+    }
+};
+</script>
+
+<!-- ПЕРЕКЛЮЧАТЕЛЬ: База знаний / Утилиты -->
+<div class="kb-mode-switch">
+
 <!-- ПЕРЕКЛЮЧАТЕЛЬ: База знаний / Утилиты -->
 <div class="kb-mode-switch">
     <button class="kb-mode-btn active" data-mode="articles" onclick="window.switchKnowledgeMode('articles')">
