@@ -230,7 +230,20 @@ function updateActiveMenuItem(pageId) {
         }
     });
 }
-
+// Определение ПК
+function isDesktop() {
+    // Проверяем ширину экрана (больше 768px)
+    if (window.innerWidth <= 768) return false;
+    
+    // Проверяем наличие тачскрина
+    if ('ontouchstart' in window) return false;
+    
+    // Проверяем User-Agent на мобильные устройства
+    var ua = navigator.userAgent || '';
+    if (ua.match(/Android|iPhone|iPad|iPod|webOS|BlackBerry|Windows Phone|Mobile/i)) return false;
+    
+    return true;
+}
 // ============================================
 // РЕНДЕР МЕНЮ
 // ============================================
@@ -250,13 +263,13 @@ function renderMainMenu() {
         { id: 'fines', name: 'Нарушения', icon: 'exclamation-triangle' },
         { id: 'reports', name: 'Отчёты', icon: 'chart-bar' },
         { id: 'knowledge', name: 'База знаний', icon: 'book' },
+        { id: 'vp', name: 'ВП', icon: 'gamepad' },
+        { id: 'salary', name: 'Зарплата', icon: 'ruble-sign' }
+    ];
 // Инструменты — только для ПК
 if (isDesktop()) {
     menuItems.push({ id: 'tools', name: 'Инструменты', icon: 'tools' });
 }
-        { id: 'vp', name: 'ВП', icon: 'gamepad' },
-        { id: 'salary', name: 'Зарплата', icon: 'ruble-sign' }
-    ];
 
     // Админка только для директора
     if (window.app && window.app.currentUserRole === 'director') {
