@@ -1847,21 +1847,26 @@ app.put('/api/employees/:id', authMiddleware, async (req, res) => {
 
 app.delete('/api/employees/:id', authMiddleware, directorOnly, async (req, res) => {
     try {
-        const id = parseInt(req.params.id);
-        if (isNaN(id)) return res.status(400).json({ success: false, error: 'Invalid ID' });
-
-        const emp = await query("SELECT role, name FROM employees WHERE id = $1", [id]);
+        const idParam = req.params.id;
+        const numericId = parseInt(idParam);
+        
+        let emp;
+        if (!isNaN(numericId)) {
+            emp = await query("SELECT role, name FROM employees WHERE id = $1", [numericId]);
+        } else {
+            emp = await query("SELECT role, name FROM employees WHERE name = $1", [idParam]);
+        }
+        
         if (emp.rows.length === 0) return res.status(404).json({ success: false, error: 'Сотрудник не найден' });
         if (emp.rows[0].role === 'director') return res.status(403).json({ success: false, error: 'Нельзя удалить директора' });
-
-        await query("UPDATE employees SET deleted_at = NOW(), is_active = FALSE WHERE id = $1", [id]);
+        
+        await query("UPDATE employees SET deleted_at = NOW(), is_active = FALSE WHERE name = $1", [emp.rows[0].name]);
         cache.del('employees_list');
-
+        
         logger.info(`Сотрудник уволен: ${emp.rows[0].name}`);
-
-        // 🔥 REAL-TIME
-        await triggerPusher('private-warpoint-sync', 'employees-updated', { employeeId: id, action: 'deleted', name: emp.rows[0].name });
-
+        
+        await triggerPusher('private-warpoint-sync', 'employees-updated', { employeeId: numericId, action: 'deleted', name: emp.rows[0].name });
+        
         res.json({ success: true, message: 'Сотрудник уволен' });
     } catch (err) {
         logger.error('/api/employees DELETE error: ' + err.message);
