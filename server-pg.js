@@ -2948,7 +2948,87 @@ app.post('/api/achievements/claim', authMiddleware, async (req, res) => {
         res.json({ success: true, coins: ach.rows[0].coins_reward, achievement: ach.rows[0] });
     } catch (err) { res.status(500).json({ success: false, error: err.message }); }
 });
+// ============================================
+// API — УТИЛИТЫ (ЗАГРУЗКА И СКАЧИВАНИЕ)
+// ============================================
 
+const toolsDir = path.join(__dirname, 'public', 'tools');
+if (!fs.existsSync(toolsDir)) fs.mkdirSync(toolsDir, { recursive: true });
+
+const toolUpload = multer({
+    storage: multer.diskStorage({
+        destination: function(req, file, cb) {
+            cb(null, toolsDir);
+        },
+        filename: function(req, file, cb) {
+            // Сохраняем оригинальное имя + таймштамп для уникальности
+            var ext = path.extname(file.originalname);
+            var name = path.basename(file.originalname, ext);
+            cb(null, name + '_' + Date.now() + ext);
+        }
+    }),
+    limits: { fileSize: 100 * 1024 * 1024 } // до 100 МБ
+});
+
+// Загрузка файла утилиты
+app.post('/api/tools/upload', authMiddleware, toolUpload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, error: 'Файл не загружен' });
+        }
+        
+        var fileName = req.file.filename;
+        var originalName = req.file.originalname;
+        var fileSize = req.file.size;
+        
+        res.json({
+            success: true,
+            file: {
+                name: originalName,
+                path: '/tools/' + fileName,
+                size: fileSize,
+                type: path.extname(originalName).toLowerCase()
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+// Получить список загруженных утилит
+app.get('/api/tools', authMiddleware, async (req, res) => {
+    try {
+        var files = fs.readdirSync(toolsDir);
+        var tools = files.map(function(f) {
+            var stats = fs.statSync(path.join(toolsDir, f));
+            return {
+                name: f,
+                size: stats.size,
+                uploadedAt: stats.mtime,
+                path: '/tools/' + f
+            };
+        });
+        res.json({ success: true, tools: tools });
+    } catch (err) {
+        res.json({ success: true, tools: [] });
+    }
+});
+
+// Удаление утилиты
+app.delete('/api/tools/:filename', authMiddleware, directorOnly, async (req, res) => {
+    try {
+        var filename = req.params.filename;
+        var filePath = path.join(toolsDir, filename);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            res.json({ success: true });
+        } else {
+            res.status(404).json({ success: false, error: 'Файл не найден' });
+        }
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 // ============================================
 // 34. API — ПАРСИНГ БРОНИРОВАНИЙ
 // ============================================

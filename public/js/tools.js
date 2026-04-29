@@ -1,36 +1,83 @@
-// public/js/tools.js
+// public/js/tools.js — УТИЛИТЫ С ЗАГРУЗКОЙ ФАЙЛОВ v2.0
+// Без заготовок, только загруженные файлы и ссылки
+
 (function() {
     'use strict';
     
     var tools = [];
+    var serverTools = [];
     
     function initTools() {
         var uploadBtn = document.getElementById('uploadToolBtn');
         if (uploadBtn) {
             uploadBtn.onclick = function() { openUploadToolModal(); };
         }
+        
+        var toolType = document.getElementById('toolType');
+        if (toolType) {
+            toolType.onchange = function() {
+                var fileInput = document.getElementById('toolFile');
+                var urlInput = document.getElementById('toolPath');
+                if (this.value === 'url') {
+                    if (fileInput) fileInput.style.display = 'none';
+                    if (urlInput) urlInput.style.display = 'block';
+                } else {
+                    if (fileInput) fileInput.style.display = 'block';
+                    if (urlInput) urlInput.style.display = 'none';
+                }
+            };
+        }
+        
         loadTools();
     }
     
-    function loadTools() {
-        // Загружаем из localStorage
+    async function loadTools() {
+        var grid = document.getElementById('toolsGrid');
+        if (!grid) return;
+        
+        grid.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка утилит...</div>';
+        
+        tools = [];
+        
+        // Грузим сохранённые ссылки из localStorage
         var saved = localStorage.getItem('warpoint_tools');
-        tools = saved ? JSON.parse(saved) : getDefaultTools();
+        if (saved) {
+            try { tools = JSON.parse(saved); } catch(e) { tools = []; }
+        }
+        
+        // Грузим файлы с сервера
+        try {
+            var response = await apiCall('/tools');
+            if (response && response.success) {
+                serverTools = response.tools || [];
+                serverTools.forEach(function(st) {
+                    var exists = tools.find(function(t) { return t.path === st.path; });
+                    if (!exists) {
+                        var ext = st.name.split('.').pop().toLowerCase();
+                        var icons = { 
+                            exe: '💻', msi: '📦', bat: '📜', ps1: '⚡', 
+                            zip: '📚', rar: '📚', pdf: '📄', doc: '📝',
+                            png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️',
+                            mp4: '🎬', mp3: '🎵', txt: '📃', csv: '📊'
+                        };
+                        tools.push({
+                            id: st.name,
+                            name: st.name.replace(/_\d+\./, '.'),
+                            desc: formatSize(st.size) + ' • ' + new Date(st.uploadedAt).toLocaleDateString('ru-RU'),
+                            type: ext,
+                            icon: icons[ext] || '📁',
+                            path: st.path,
+                            size: st.size,
+                            isServer: true
+                        });
+                    }
+                });
+            }
+        } catch(e) {
+            console.error('Ошибка загрузки утилит:', e);
+        }
+        
         renderTools();
-    }
-    
-    function getDefaultTools() {
-        return [
-            { id: 1, name: 'Калькулятор', desc: 'Встроенный калькулятор Windows', type: 'exe', icon: '🧮', path: 'calc.exe' },
-            { id: 2, name: 'Блокнот', desc: 'Текстовый редактор', type: 'exe', icon: '📝', path: 'notepad.exe' },
-            { id: 3, name: 'Проводник', desc: 'Файловый менеджер', type: 'exe', icon: '📁', path: 'explorer.exe' },
-            { id: 4, name: 'Командная строка', desc: 'cmd.exe', type: 'exe', icon: '⬛', path: 'cmd.exe' },
-            { id: 5, name: 'Диск C', desc: 'Открыть диск C', type: 'exe', icon: '💾', path: 'C:' }
-        ];
-    }
-    
-    function saveTools() {
-        localStorage.setItem('warpoint_tools', JSON.stringify(tools));
     }
     
     function renderTools() {
@@ -38,99 +85,204 @@
         if (!grid) return;
         
         if (tools.length === 0) {
-            grid.innerHTML = '<div class="loading-spinner">Нет инструментов. Загрузите первый!</div>';
+            grid.innerHTML = '<div class="loading-spinner" style="grid-column:1/-1;">' +
+                '<div style="font-size:64px;margin-bottom:16px;">📭</div>' +
+                '<div style="font-size:16px;color:#e2e8f0;margin-bottom:8px;">Нет утилит</div>' +
+                '<div style="font-size:13px;color:#64748b;">Загрузите первую утилиту или добавьте ссылку</div>' +
+            '</div>';
             return;
         }
         
         grid.innerHTML = tools.map(function(t) {
-            return '<div class="tool-card">' +
+            var isServer = t.isServer;
+            var typeLabel = t.type ? t.type.toUpperCase() : 'ФАЙЛ';
+            var badgeText = isServer ? '☁️ На сервере' : '🔗 Ссылка';
+            var badgeClass = isServer ? 'tool-badge-server' : 'tool-badge-link';
+            
+            return '<div class="tool-card' + (isServer ? ' tool-server' : ' tool-link') + '">' +
+                '<div class="tool-card-badge ' + badgeClass + '">' + badgeText + '</div>' +
                 '<div class="tool-icon">' + (t.icon || '🔧') + '</div>' +
                 '<div class="tool-name">' + escapeHTML(t.name) + '</div>' +
                 '<div class="tool-desc">' + escapeHTML(t.desc || '') + '</div>' +
-                '<div class="tool-meta">' + (t.type || 'url').toUpperCase() + '</div>' +
+                '<div class="tool-meta">' + typeLabel + (t.size ? ' • ' + formatSize(t.size) : '') + '</div>' +
                 '<div class="tool-actions">' +
-                    '<button class="btn-launch" onclick="window.launchTool(\'' + escapeAttr(t.path) + '\', \'' + (t.type || 'exe') + '\')">🚀 Запустить</button>' +
-                    '<button class="btn-download" onclick="window.deleteTool(' + t.id + ')">🗑️</button>' +
+                    (isServer ?
+                        '<a href="' + t.path + '" download class="btn-launch" style="text-decoration:none;text-align:center;">📥 Скачать</a>' :
+                        '<a href="' + escapeAttr(t.path) + '" target="_blank" rel="noopener" class="btn-launch btn-launch-link" style="text-decoration:none;text-align:center;">🔗 Открыть</a>'
+                    ) +
+                    '<button class="btn-delete-tool" onclick="window.removeTool(\'' + escapeAttr(String(t.id)) + '\')" title="Удалить">🗑️</button>' +
                 '</div>' +
             '</div>';
         }).join('');
     }
     
-    function launchTool(path, type) {
-        if (!path) return;
+    function removeTool(id) {
+        if (!confirm('Удалить эту утилиту?')) return;
         
-        // Ссылки открываем в новой вкладке
-        if (type === 'url' || path.startsWith('http://') || path.startsWith('https://')) {
-            window.open(path, '_blank');
-            showNotif('🔗 Открываем ссылку...', 'info');
-            return;
+        var tool = tools.find(function(t) { return String(t.id) === String(id); });
+        
+        if (tool && tool.isServer) {
+            var filename = tool.path.split('/').pop();
+            apiCall('/tools/' + encodeURIComponent(filename), 'DELETE').then(function(res) {
+                if (res && res.success) {
+                    tools = tools.filter(function(t) { return String(t.id) !== String(id); });
+                    saveLocalTools();
+                    renderTools();
+                    showNotif('🗑️ Утилита удалена', 'info');
+                }
+            }).catch(function() {
+                tools = tools.filter(function(t) { return String(t.id) !== String(id); });
+                saveLocalTools();
+                renderTools();
+                showNotif('🗑️ Утилита удалена', 'info');
+            });
+        } else {
+            tools = tools.filter(function(t) { return String(t.id) !== String(id); });
+            saveLocalTools();
+            renderTools();
+            showNotif('🗑️ Утилита удалена', 'info');
         }
-        
-        // Локальные файлы — через URL scheme
-        if (path.match(/^[a-zA-Z]:\\/) || path.match(/^[a-zA-Z]:$/)) {
-            // Локальный путь
-            window.open('file:///' + path.replace(/\\/g, '/'), '_blank');
-            showNotif('📂 Открываем: ' + path, 'info');
-            return;
-        }
-        
-        // Обычные программы
-        var a = document.createElement('a');
-        a.href = path;
-        a.click();
-        showNotif('🚀 Запуск: ' + path, 'info');
     }
     
-    function deleteTool(id) {
-        if (!confirm('Удалить этот инструмент?')) return;
-        tools = tools.filter(function(t) { return t.id !== id; });
-        saveTools();
-        renderTools();
-        showNotif('🗑️ Инструмент удалён', 'info');
+    function saveLocalTools() {
+        var localOnly = tools.filter(function(t) { return !t.isServer; });
+        localStorage.setItem('warpoint_tools', JSON.stringify(localOnly));
     }
     
     function openUploadToolModal() {
         var modal = document.getElementById('uploadToolModal');
-        if (modal) modal.style.display = 'flex';
+        if (modal) {
+            modal.style.display = 'flex';
+            modal.classList.add('active');
+            
+            var nameEl = document.getElementById('toolName');
+            var descEl = document.getElementById('toolDesc');
+            var urlEl = document.getElementById('toolPath');
+            var typeEl = document.getElementById('toolType');
+            var fileEl = document.getElementById('toolFile');
+            
+            if (nameEl) nameEl.value = '';
+            if (descEl) descEl.value = '';
+            if (urlEl) urlEl.value = '';
+            if (typeEl) typeEl.value = 'exe';
+            if (fileEl) {
+                fileEl.style.display = 'block';
+                fileEl.value = '';
+            }
+            if (urlEl) urlEl.style.display = 'none';
+        }
     }
     
     function closeUploadToolModal() {
         var modal = document.getElementById('uploadToolModal');
-        if (modal) modal.style.display = 'none';
+        if (modal) {
+            modal.style.display = 'none';
+            modal.classList.remove('active');
+        }
     }
     
-    function addTool() {
-        var name = document.getElementById('toolName')?.value.trim();
-        var desc = document.getElementById('toolDesc')?.value.trim();
-        var type = document.getElementById('toolType')?.value || 'url';
-        var path = document.getElementById('toolPath')?.value.trim();
+    async function addTool() {
+        var nameEl = document.getElementById('toolName');
+        var descEl = document.getElementById('toolDesc');
+        var typeEl = document.getElementById('toolType');
+        var fileEl = document.getElementById('toolFile');
+        var urlEl = document.getElementById('toolPath');
         
-        if (!name || !path) {
-            showNotif('❌ Заполните название и путь', 'error');
+        var name = nameEl ? nameEl.value.trim() : '';
+        var desc = descEl ? descEl.value.trim() : '';
+        var type = typeEl ? typeEl.value : 'exe';
+        
+        if (!name) { showNotif('❌ Введите название', 'error'); return; }
+        
+        // Если тип URL — просто добавляем ссылку
+        if (type === 'url') {
+            var url = urlEl ? urlEl.value.trim() : '';
+            if (!url) { showNotif('❌ Введите ссылку', 'error'); return; }
+            
+            tools.push({ 
+                id: Date.now().toString(), 
+                name: name, 
+                desc: desc || url, 
+                type: 'url', 
+                icon: '🌐', 
+                path: url 
+            });
+            saveLocalTools();
+            renderTools();
+            closeUploadToolModal();
+            showNotif('✅ Ссылка добавлена', 'success');
             return;
         }
         
-        var icons = { url: '🌐', exe: '💻', bat: '📜', msi: '📦' };
+        // Загрузка файла
+        var file = fileEl ? fileEl.files[0] : null;
+        if (!file) { showNotif('❌ Выберите файл', 'error'); return; }
         
-        tools.push({
-            id: Date.now(),
-            name: name,
-            desc: desc || '',
-            type: type,
-            icon: icons[type] || '🔧',
-            path: path
-        });
+        if (file.size > 100 * 1024 * 1024) {
+            showNotif('❌ Файл слишком большой (макс. 100 МБ)', 'error');
+            return;
+        }
         
-        saveTools();
-        renderTools();
-        closeUploadToolModal();
+        showNotif('⏳ Загрузка файла...', 'info');
         
-        // Очищаем поля
-        document.getElementById('toolName').value = '';
-        document.getElementById('toolDesc').value = '';
-        document.getElementById('toolPath').value = '';
+        var formData = new FormData();
+        formData.append('file', file);
         
-        showNotif('✅ Инструмент добавлен', 'success');
+        try {
+            var token = localStorage.getItem('token') || localStorage.getItem('warpoint_token');
+            var response = await fetch('/api/tools/upload', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+            
+            var data = await response.json();
+            
+            if (data.success) {
+                var ext = data.file.type;
+                var icons = { '.exe': '💻', '.msi': '📦', '.bat': '📜', '.ps1': '⚡', '.zip': '📚', '.pdf': '📄' };
+                
+                tools.push({
+                    id: data.file.path,
+                    name: name,
+                    desc: desc || formatSize(data.file.size),
+                    type: ext.replace('.', ''),
+                    icon: icons[ext] || '📁',
+                    path: data.file.path,
+                    size: data.file.size,
+                    isServer: true
+                });
+                
+                saveLocalTools();
+                renderTools();
+                closeUploadToolModal();
+                showNotif('✅ Файл загружен: ' + file.name, 'success');
+            } else {
+                showNotif('❌ ' + (data.error || 'Ошибка загрузки'), 'error');
+            }
+        } catch(e) {
+            console.error('Upload error:', e);
+            showNotif('❌ Ошибка соединения', 'error');
+        }
+    }
+    
+    function formatSize(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+        if (bytes < 1073741824) return (bytes / 1048576).toFixed(1) + ' MB';
+        return (bytes / 1073741824).toFixed(1) + ' GB';
+    }
+    
+    function escapeHTML(str) {
+        if (!str) return '';
+        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+        return String(str).replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+    
+    function escapeAttr(str) {
+        if (!str) return '';
+        return String(str).replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/</g, '\\x3C').replace(/>/g, '\\x3E');
     }
     
     function showNotif(msg, type) {
@@ -138,23 +290,32 @@
             window.showSystemNotification(msg, type);
         } else if (typeof window.showNotif === 'function') {
             window.showNotif(msg, type);
+        } else {
+            console.log('[' + type + '] ' + msg);
         }
     }
     
-    function escapeHTML(str) {
-        if (!str) return '';
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    async function apiCall(endpoint, method, body) {
+        if (method === undefined) method = 'GET';
+        var token = localStorage.getItem('token') || localStorage.getItem('warpoint_token');
+        var options = { method: method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = 'Bearer ' + token;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            var response = await fetch('/api' + endpoint, options);
+            return await response.json();
+        } catch(e) {
+            console.error('API error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
     }
     
-    function escapeAttr(str) {
-        if (!str) return '';
-        return str.replace(/'/g,"\\'").replace(/"/g,'\\"');
-    }
-    
+    // Экспорт
     window.initTools = initTools;
-    window.launchTool = launchTool;
-    window.deleteTool = deleteTool;
+    window.removeTool = removeTool;
     window.openUploadToolModal = openUploadToolModal;
     window.closeUploadToolModal = closeUploadToolModal;
     window.addTool = addTool;
+    
+    console.log('✅ tools.js v2.0 загружен');
 })();
