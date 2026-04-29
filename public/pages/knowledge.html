@@ -7,7 +7,15 @@
         <h1>База знаний <span>WARPOINT</span></h1>
         <p>Инструкции, правила и полезная информация для сотрудников</p>
     </div>
-
+<!-- ПЕРЕКЛЮЧАТЕЛЬ: База знаний / Утилиты -->
+<div class="kb-mode-switch">
+    <button class="kb-mode-btn active" data-mode="articles" onclick="window.switchKnowledgeMode('articles')">
+        <i class="fas fa-book"></i> База знаний
+    </button>
+    <button class="kb-mode-btn" data-mode="tools" onclick="window.switchKnowledgeMode('tools')">
+        <i class="fas fa-wrench"></i> Утилиты
+    </button>
+</div>
     <div class="action-bar" id="actionBar">
         <div class="search-wrapper">
             <i class="fas fa-search"></i>
@@ -21,7 +29,12 @@
         <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
     </div>
 </div>
-
+<!-- КОНТЕЙНЕР УТИЛИТ (скрыт по умолчанию) -->
+<div id="toolsContainer" style="display:none;">
+    <div class="tools-header" style="text-align:center;padding:20px;">
+        <p style="color:#94a3b8;">Загрузка утилит...</p>
+    </div>
+</div>
 <script>
 (function() {
     var searchInput = document.getElementById('knowledgeSearch');
@@ -33,6 +46,38 @@
     function tryInit() { if (typeof initKnowledge === 'function') { initKnowledge(); } else { setTimeout(tryInit, 100); } }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', tryInit); } else { tryInit(); }
 })();
+// Функция переключения режимов
+window.switchKnowledgeMode = function(mode) {
+    var articleContainer = document.getElementById('knowledgeContainer');
+    var toolsContainer = document.getElementById('toolsContainer');
+    var actionBar = document.getElementById('actionBar');
+    var modeButtons = document.querySelectorAll('.kb-mode-btn');
+    
+    // Обновляем активную кнопку
+    modeButtons.forEach(function(btn) {
+        btn.classList.remove('active');
+        if (btn.dataset.mode === mode) btn.classList.add('active');
+    });
+    
+    if (mode === 'articles') {
+        // Показываем статьи
+        if (articleContainer) articleContainer.style.display = 'flex';
+        if (toolsContainer) toolsContainer.style.display = 'none';
+        if (actionBar) actionBar.style.display = 'flex';
+    } else {
+        // Показываем утилиты
+        if (articleContainer) articleContainer.style.display = 'none';
+        if (actionBar) actionBar.style.display = 'none';
+        if (toolsContainer) {
+            toolsContainer.style.display = 'grid';
+            toolsContainer.classList.add('active');
+            // Загружаем утилиты если ещё не загружены
+            if (typeof window.initTools === 'function') {
+                window.initTools();
+            }
+        }
+    }
+};
 </script>
 
 <style>
@@ -443,5 +488,152 @@
     .kb-article-content h1,.kb-article-content h1[style]{font-size:20px !important}
     .kb-article-content h2,.kb-article-content h2[style]{font-size:18px !important}
     .kb-article-content h3,.kb-article-content h3[style]{font-size:16px !important}
+}
+/* ============================================ */
+/* ПЕРЕКЛЮЧАТЕЛЬ РЕЖИМОВ                       */
+/* ============================================ */
+
+.kb-mode-switch {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    background: rgba(0, 0, 0, 0.25);
+    padding: 6px;
+    border-radius: 40px;
+    width: fit-content;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+}
+
+.kb-mode-btn {
+    padding: 12px 28px;
+    background: transparent;
+    border: none;
+    border-radius: 40px;
+    color: #94a3b8;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.kb-mode-btn:hover {
+    color: #e2e8f0;
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.kb-mode-btn.active {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+}
+
+/* ============================================ */
+/* КОНТЕЙНЕР УТИЛИТ                             */
+/* ============================================ */
+
+#toolsContainer {
+    display: none;
+}
+
+#toolsContainer.active {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.tool-card {
+    background: rgba(17, 20, 28, 0.6);
+    backdrop-filter: blur(12px);
+    border-radius: 20px;
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    padding: 24px;
+    transition: all 0.25s;
+}
+
+.tool-card:hover {
+    border-color: rgba(16, 185, 129, 0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.tool-icon {
+    font-size: 48px;
+    margin-bottom: 14px;
+}
+
+.tool-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+}
+
+.tool-desc {
+    font-size: 13px;
+    color: #94a3b8;
+    margin-bottom: 10px;
+}
+
+.tool-meta {
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 16px;
+}
+
+.tool-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-launch {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    color: white;
+    cursor: pointer;
+    font-weight: 500;
+    flex: 1;
+    transition: all 0.2s;
+}
+
+.btn-launch:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.btn-download {
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    padding: 10px 16px;
+    border-radius: 20px;
+    color: #f87171;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-download:hover {
+    background: rgba(239, 68, 68, 0.25);
+}
+
+.tools-actions-bar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 24px;
+}
+
+@media (max-width: 768px) {
+    .kb-mode-btn span {
+        display: none;
+    }
+    .kb-mode-btn {
+        padding: 12px 20px;
+    }
+    #toolsContainer.active {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
