@@ -14,12 +14,26 @@
 
     <!-- ПЕРЕКЛЮЧАТЕЛЬ: База знаний / Утилиты -->
     <div class="kb-mode-switch">
-        <button class="kb-mode-btn active" data-mode="articles" onclick="window.switchKnowledgeMode('articles')">
-            <i class="fas fa-book"></i> База знаний
-        </button>
-        <button class="kb-mode-btn" data-mode="tools" onclick="window.switchKnowledgeMode('tools')">
-            <i class="fas fa-wrench"></i> Утилиты
-        </button>
+        <button class="kb-mode-btn active" data-mode="articles" onclick="(function(m){
+    var ac=document.getElementById('knowledgeContainer');
+    var tc=document.getElementById('toolsContainer');
+    var ab=document.getElementById('actionBar');
+    document.querySelectorAll('.kb-mode-btn').forEach(function(b){b.classList.remove('active');if(b.dataset.mode===m)b.classList.add('active');});
+    if(m==='articles'){if(ac)ac.style.display='flex';if(tc)tc.style.display='none';if(ab)ab.style.display='flex';}
+    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='block';if(typeof window.initTools==='function')window.initTools();}}
+})('articles')">
+    <i class="fas fa-book"></i> База знаний
+</button>
+<button class="kb-mode-btn" data-mode="tools" onclick="(function(m){
+    var ac=document.getElementById('knowledgeContainer');
+    var tc=document.getElementById('toolsContainer');
+    var ab=document.getElementById('actionBar');
+    document.querySelectorAll('.kb-mode-btn').forEach(function(b){b.classList.remove('active');if(b.dataset.mode===m)b.classList.add('active');});
+    if(m==='articles'){if(ac)ac.style.display='flex';if(tc)tc.style.display='none';if(ab)ab.style.display='flex';}
+    else{if(ac)ac.style.display='none';if(ab)ab.style.display='none';if(tc){tc.style.display='block';if(typeof window.initTools==='function')window.initTools();}}
+})('tools')">
+    <i class="fas fa-wrench"></i> Утилиты
+</button>
     </div>
 
     <!-- ПАНЕЛЬ ДЕЙСТВИЙ (только для статей) -->
