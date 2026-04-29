@@ -158,6 +158,17 @@ window.switchKnowledgeMode = function(mode) {
     function tryInit() { if (typeof initKnowledge === 'function') { initKnowledge(); } else { setTimeout(tryInit, 100); } }
     if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', tryInit); } else { tryInit(); }
 })();
+// Предзагрузка утилит при старте страницы
+(function() {
+    var check = setInterval(function() {
+        if (typeof window.initTools === 'function') {
+            clearInterval(check);
+            window.initTools();
+        }
+    }, 100);
+    // Таймаут — если за 5 секунд не загрузилось, перестаём ждать
+    setTimeout(function() { clearInterval(check); }, 5000);
+})();
 </script>
 
 <style>
