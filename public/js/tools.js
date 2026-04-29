@@ -32,53 +32,44 @@
     }
     
     async function loadTools() {
-        var grid = document.getElementById('toolsGrid');
-        if (!grid) return;
-        
-        grid.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка утилит...</div>';
-        
-        tools = [];
-        
-        // Грузим сохранённые ссылки из localStorage
-        var saved = localStorage.getItem('warpoint_tools');
-        if (saved) {
-            try { tools = JSON.parse(saved); } catch(e) { tools = []; }
-        }
-        
-        // Грузим файлы с сервера
-        try {
-            var response = await apiCall('/tools');
-            if (response && response.success) {
-                serverTools = response.tools || [];
-                serverTools.forEach(function(st) {
-                    var exists = tools.find(function(t) { return t.path === st.path; });
-                    if (!exists) {
-                        var ext = st.name.split('.').pop().toLowerCase();
-                        var icons = { 
-                            exe: '💻', msi: '📦', bat: '📜', ps1: '⚡', 
-                            zip: '📚', rar: '📚', pdf: '📄', doc: '📝',
-                            png: '🖼️', jpg: '🖼️', jpeg: '🖼️', gif: '🖼️',
-                            mp4: '🎬', mp3: '🎵', txt: '📃', csv: '📊'
-                        };
-                        tools.push({
-                            id: st.name,
-                            name: st.name.replace(/_\d+\./, '.'),
-                            desc: formatSize(st.size) + ' • ' + new Date(st.uploadedAt).toLocaleDateString('ru-RU'),
-                            type: ext,
-                            icon: icons[ext] || '📁',
-                            path: st.path,
-                            size: st.size,
-                            isServer: true
-                        });
-                    }
-                });
-            }
-        } catch(e) {
-            console.error('Ошибка загрузки утилит:', e);
-        }
-        
-        renderTools();
+    var grid = document.getElementById('toolsGrid');
+    if (!grid) return;
+    
+    // Красивый скелетон загрузки
+    grid.innerHTML = '<div class="tools-skeleton">' +
+        '<div class="skeleton-card"></div>' +
+        '<div class="skeleton-card"></div>' +
+        '<div class="skeleton-card"></div>' +
+    '</div>';
+    
+    tools = [];
+    
+    var saved = localStorage.getItem('warpoint_tools');
+    if (saved) {
+        try { tools = JSON.parse(saved); } catch(e) { tools = []; }
     }
+    
+    try {
+        var response = await toolsApiCall('/tools');
+        if (response && response.success) {
+            serverTools = response.tools || [];
+            serverTools.forEach(function(st) {
+                var exists = tools.find(function(t) { return t.path === st.path; });
+                if (!exists) {
+                    var ext = st.name.split('.').pop().toLowerCase();
+                    var icons = { exe:'💻', msi:'📦', bat:'📜', ps1:'⚡', zip:'📚', pdf:'📄', png:'🖼️', jpg:'🖼️' };
+                    tools.push({
+                        id: st.name, name: st.name.replace(/_\d+\./, '.'),
+                        desc: formatSize(st.size) + ' • ' + new Date(st.uploadedAt).toLocaleDateString('ru-RU'),
+                        type: ext, icon: icons[ext] || '📁', path: st.path, size: st.size, isServer: true
+                    });
+                }
+            });
+        }
+    } catch(e) {}
+    
+    renderTools();
+}
     
     function renderTools() {
         var grid = document.getElementById('toolsGrid');
@@ -295,7 +286,7 @@
         }
     }
     
-    async function apiCall(endpoint, method, body) {
+    async function toolsApiCall(endpoint, method, body) {
         if (method === undefined) method = 'GET';
         var token = localStorage.getItem('token') || localStorage.getItem('warpoint_token');
         var options = { method: method, headers: { 'Content-Type': 'application/json' } };
