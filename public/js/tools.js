@@ -38,79 +38,69 @@
     // ============================================
     
     async function loadTools() {
-        var grid = document.getElementById('toolsGrid');
-        if (!grid) {
-            console.warn('⚠️ toolsGrid не найден');
-            return;
-        }
-        
-        // Показываем скелетон
-        grid.innerHTML = '' +
-        '<div class="tools-skeleton">' +
-            '<div class="skeleton-card"></div>' +
-            '<div class="skeleton-card"></div>' +
-            '<div class="skeleton-card"></div>' +
-        '</div>';
-        
-        tools = [];
-        
-        // 1. Загружаем сохранённые ссылки из localStorage
-        try {
-            var savedLinks = localStorage.getItem('warpoint_tools');
-            if (savedLinks) {
+    var grid = document.getElementById('toolsGrid');
+    if (!grid) {
+        console.warn('⚠️ toolsGrid не найден');
+        return;
+    }
+    
+    tools = [];
+    
+    // 1. СНАЧАЛА загружаем данные, ПОТОМ показываем
+    try {
+        // Грузим ссылки из localStorage
+        var savedLinks = localStorage.getItem('warpoint_tools');
+        if (savedLinks) {
+            try {
                 var parsed = JSON.parse(savedLinks);
                 if (Array.isArray(parsed)) {
                     tools = parsed;
                 }
-            }
-        } catch(e) {
-            console.warn('Ошибка чтения localStorage:', e);
+            } catch(e) {}
         }
         
-        // 2. Загружаем файлы с сервера
-        try {
-            var response = await fetch('/api/tools', {
-                headers: {
-                    'Authorization': 'Bearer ' + getToken()
-                }
-            });
-            
-            if (response.ok) {
-                var data = await response.json();
-                if (data && data.success && Array.isArray(data.tools)) {
-                    data.tools.forEach(function(serverFile) {
-                        // Проверяем нет ли уже такого файла
-                        var alreadyExists = tools.some(function(t) {
-                            return t.path === serverFile.path;
-                        });
-                        
-                        if (!alreadyExists) {
-                            var ext = getFileExtension(serverFile.name);
-                            var icon = getFileIcon(ext);
-                            
-                            tools.push({
-                                id: 'srv_' + serverFile.name,
-                                name: cleanFileName(serverFile.name),
-                                desc: formatFileSize(serverFile.size) + ' — ' + formatDate(serverFile.uploadedAt),
-                                type: ext,
-                                icon: icon,
-                                path: serverFile.path,
-                                size: serverFile.size,
-                                uploadedAt: serverFile.uploadedAt,
-                                isServer: true,
-                                isLink: false
-                            });
-                        }
+        // Грузим файлы с сервера
+        var response = await fetch('/api/tools', {
+            headers: {
+                'Authorization': 'Bearer ' + getToken()
+            }
+        });
+        
+        if (response.ok) {
+            var data = await response.json();
+            if (data && data.success && Array.isArray(data.tools)) {
+                data.tools.forEach(function(serverFile) {
+                    var alreadyExists = tools.some(function(t) {
+                        return t.path === serverFile.path;
                     });
-                }
+                    
+                    if (!alreadyExists) {
+                        var ext = getFileExtension(serverFile.name);
+                        var icon = getFileIcon(ext);
+                        
+                        tools.push({
+                            id: 'srv_' + serverFile.name,
+                            name: cleanFileName(serverFile.name),
+                            desc: formatFileSize(serverFile.size) + ' — ' + formatDate(serverFile.uploadedAt),
+                            type: ext,
+                            icon: icon,
+                            path: serverFile.path,
+                            size: serverFile.size,
+                            uploadedAt: serverFile.uploadedAt,
+                            isServer: true,
+                            isLink: false
+                        });
+                    }
+                });
             }
-        } catch(e) {
-            console.warn('Ошибка загрузки с сервера:', e.message);
         }
-        
-        // 3. Рендерим
-        renderTools();
+    } catch(e) {
+        console.warn('Ошибка загрузки утилит:', e.message);
     }
+    
+    // 2. Только теперь рендерим
+    renderTools();
+}
     
     // ============================================
     // РЕНДЕР
