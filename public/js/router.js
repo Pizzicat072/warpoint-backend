@@ -4,6 +4,7 @@
 var routes = {
     dashboard: '/pages/dashboard.html',
     employees: '/pages/employees.html',
+tools: '/pages/tools.html',
     schedule: '/pages/schedule.html',
     tasks: '/pages/tasks.html',
     shop: '/pages/shop.html',
@@ -249,6 +250,10 @@ function renderMainMenu() {
         { id: 'fines', name: 'Нарушения', icon: 'exclamation-triangle' },
         { id: 'reports', name: 'Отчёты', icon: 'chart-bar' },
         { id: 'knowledge', name: 'База знаний', icon: 'book' },
+// Инструменты — только для ПК
+if (isDesktop()) {
+    menuItems.push({ id: 'tools', name: 'Инструменты', icon: 'tools' });
+}
         { id: 'vp', name: 'ВП', icon: 'gamepad' },
         { id: 'salary', name: 'Зарплата', icon: 'ruble-sign' }
     ];
