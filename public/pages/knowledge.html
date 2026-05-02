@@ -1,111 +1,1100 @@
-<!-- public/pages/knowledge.html -->
-<div class="knowledge-container">
-    
-    <!-- ХЕДЕР -->
-    <div class="knowledge-header">
-        <div class="header-icon"><i class="fas fa-database"></i></div>
-        <h1>База знаний <span>WARPOINT</span></h1>
-        <p>Инструкции, правила и полезная информация для сотрудников</p>
-    </div>
+<!-- public/pages/knowledge.html — WARPOINT KNOWLEDGE BASE v7.0 -->
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>База знаний WARPOINT</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* ============================================ */
+        /* WARPOINT KNOWLEDGE BASE v7.0 — PREMIUM STYLES */
+        /* ============================================ */
 
-    <!-- ПЕРЕКЛЮЧАТЕЛЬ -->
-    <div class="kb-mode-switch">
-        <button class="kb-mode-btn active" id="btnArticles">
-            <i class="fas fa-book"></i> <span>База знаний</span>
-        </button>
-        <button class="kb-mode-btn" id="btnTools">
-            <i class="fas fa-wrench"></i> <span>Утилиты</span>
-        </button>
-    </div>
+        :root {
+            --kb-bg: #06080f;
+            --kb-surface: rgba(15,18,28,0.85);
+            --kb-surface-alt: rgba(20,24,38,0.9);
+            --kb-border: rgba(99,102,241,0.12);
+            --kb-border-active: rgba(99,102,241,0.3);
+            --kb-accent: #6366f1;
+            --kb-accent-light: #a78bfa;
+            --kb-accent-glow: rgba(99,102,241,0.25);
+            --kb-text: #e8ecf2;
+            --kb-text-secondary: #b0b8c4;
+            --kb-text-muted: #6b7280;
+            --kb-gold: #fbbf24;
+            --kb-gold-glow: rgba(251,191,36,0.15);
+            --kb-danger: #ef4444;
+            --kb-success: #10b981;
+            --kb-info: #3b82f6;
+            --kb-radius: 24px;
+            --kb-radius-sm: 14px;
+            --kb-radius-xs: 8px;
+            --kb-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            --kb-shadow-lg: 0 16px 48px rgba(0,0,0,0.7);
+            --kb-transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+        }
 
-    <!-- ВКЛАДКА: СТАТЬИ -->
-    <div id="tabArticles">
-        <div class="action-bar">
-            <div class="search-wrapper">
-                <i class="fas fa-search"></i>
-                <input type="text" id="knowledgeSearch" placeholder="Поиск по статьям...">
-                <button class="clear-search" id="clearSearchBtn" style="display:none;">✕</button>
-            </div>
-            <div class="action-buttons" id="actionButtons"></div>
-        </div>
-        <div id="knowledgeContainer" class="knowledge-categories">
-            <div class="loading-spinner"><i class="fas fa-spinner fa-spin"></i> Загрузка...</div>
-        </div>
-    </div>
+        * { box-sizing: border-box; }
 
-    <!-- ВКЛАДКА: УТИЛИТЫ -->
-    <div id="tabTools" style="display:none;">
-        <div class="tools-top-bar">
-            <div class="tools-stats">
-                <div class="tools-stat"><span class="tools-stat-value" id="toolsCount">0</span><span class="tools-stat-label">Утилит</span></div>
-                <div class="tools-stat"><span class="tools-stat-value" id="toolsTotalSize">0 KB</span><span class="tools-stat-label">Общий размер</span></div>
-            </div>
-            <button class="btn-primary" id="uploadToolBtn"><i class="fas fa-plus"></i> Добавить</button>
-        </div>
-        <div class="tools-filter-bar">
-            <input type="text" id="toolsSearch" placeholder="Поиск утилит..." class="tools-search-input">
-            <select id="toolsFilterType" class="tools-filter-select">
-                <option value="all">Все типы</option>
-                <option value="exe">💻 Программы</option>
-                <option value="msi">📦 Установщики</option>
-                <option value="url">🌐 Ссылки</option>
-                <option value="other">📁 Другое</option>
-            </select>
-        </div>
-        <div id="toolsGrid" class="tools-grid"></div>
-    </div>
+        .knowledge-container {
+            max-width: 1260px;
+            margin: 0 auto;
+            padding: 0 28px 60px;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: var(--kb-text);
+        }
 
-</div>
+        /* ============================================ */
+        /* ХЕДЕР */
+        /* ============================================ */
+        .kb-header {
+            position: relative;
+            text-align: center;
+            padding: 56px 32px 48px;
+            margin-bottom: 28px;
+            background: linear-gradient(160deg, rgba(20,26,48,0.7), rgba(12,15,28,0.5));
+            border-radius: var(--kb-radius);
+            border: 1px solid var(--kb-border-active);
+            overflow: hidden;
+        }
+        .kb-header-glow {
+            position: absolute;
+            top: -40%;
+            left: -20%;
+            width: 140%;
+            height: 180%;
+            background: radial-gradient(ellipse at 35% 45%, rgba(99,102,241,0.06) 0%, transparent 55%),
+                        radial-gradient(ellipse at 65% 55%, rgba(236,72,153,0.04) 0%, transparent 55%);
+            pointer-events: none;
+        }
+        .kb-header-icon {
+            width: 84px;
+            height: 84px;
+            margin: 0 auto 28px;
+            background: linear-gradient(135deg, var(--kb-accent), #ec4899);
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            z-index: 2;
+            box-shadow: 0 0 40px var(--kb-accent-glow), 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .kb-header-icon i { font-size: 38px; color: #fff; }
+        .kb-header-title {
+            font-size: 40px;
+            font-weight: 800;
+            margin: 0 0 20px;
+            color: #f8fafc;
+            position: relative;
+            z-index: 2;
+            letter-spacing: -1px;
+        }
+        .kb-header-title span {
+            background: linear-gradient(135deg, #a78bfa, #ec4899, #f472b6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .kb-header-subtitle {
+            font-size: 16px;
+            color: var(--kb-text-secondary);
+            margin: 0;
+            position: relative;
+            z-index: 2;
+        }
 
-<!-- МОДАЛКА ДОБАВЛЕНИЯ -->
-<div id="uploadToolModal" class="modal" style="display:none;">
-    <div class="modal-window" style="max-width:500px;">
-        <div class="modal-header">
-            <div class="modal-icon"><i class="fas fa-wrench"></i></div>
-            <div class="modal-title"><h3>Добавить утилиту</h3></div>
-            <button class="modal-close" id="closeUploadModalBtn">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Название</label>
-                <input type="text" id="toolName" class="form-input" placeholder="Название утилиты">
-            </div>
-            <div class="form-group">
-                <label>Описание</label>
-                <textarea id="toolDesc" class="form-textarea" rows="3" placeholder="Описание..."></textarea>
-            </div>
-            <div class="form-group">
-                <label>Тип</label>
-                <select id="toolType" class="form-select">
-                    <option value="exe">💻 Программа (.exe)</option>
-                    <option value="msi">📦 Установщик (.msi)</option>
-                    <option value="bat">📜 Скрипт</option>
-                    <option value="other">📁 Другое</option>
-                    <option value="url">🌐 Ссылка</option>
-                </select>
-            </div>
-            <div class="form-group" id="toolFileGroup">
-                <label>Файл</label>
-                <div class="tool-upload-area" id="toolDropZone">
-                    <i class="fas fa-cloud-upload-alt" style="font-size:32px;color:#64748b;"></i>
-                    <p style="color:#94a3b8;margin:8px 0;">Перетащите файл или нажмите</p>
-                    <input type="file" id="toolFile" style="display:none;">
-                </div>
-                <p id="toolFileName" style="color:#a78bfa;margin-top:8px;display:none;"></p>
-            </div>
-            <div class="form-group" id="toolUrlGroup" style="display:none;">
-                <label>Ссылка</label>
-                <input type="text" id="toolPath" class="form-input" placeholder="https://...">
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-secondary" id="cancelUploadBtn">Отмена</button>
-            <button class="btn-primary" id="saveToolBtn">💾 Добавить</button>
-        </div>
-    </div>
-</div>
-<!-- public/pages/knowledge.html — WARPOINT KNOWLEDGE BASE v6.0 -->
-<!-- Полный файл: статьи + редактор + лайки + просмотры + популярное + утилиты -->
+        /* ============================================ */
+        /* ПЕРЕКЛЮЧАТЕЛЬ ВКЛАДОК */
+        /* ============================================ */
+        .kb-tab-switch {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 28px;
+            background: rgba(0,0,0,0.35);
+            padding: 8px;
+            border-radius: 48px;
+            width: fit-content;
+            border: 1px solid var(--kb-border);
+        }
+        .kb-tab-btn {
+            padding: 14px 32px;
+            background: transparent;
+            border: none;
+            border-radius: 40px;
+            color: var(--kb-text-muted);
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 500;
+            transition: var(--kb-transition);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .kb-tab-btn i { font-size: 18px; transition: var(--kb-transition); }
+        .kb-tab-btn:hover { color: var(--kb-text); background: rgba(99,102,241,0.08); }
+        .kb-tab-btn.active {
+            background: linear-gradient(135deg, #6366f1, #7c3aed);
+            color: #fff;
+            box-shadow: 0 6px 20px rgba(99,102,241,0.4);
+        }
+        .kb-tab-btn.active i { color: #fff; }
+
+        /* ============================================ */
+        /* ПАНЕЛИ */
+        /* ============================================ */
+        .kb-panel { display: none; }
+        .kb-panel.active { display: block; animation: kbFadeSlideIn 0.35s ease; }
+
+        @keyframes kbFadeSlideIn {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ============================================ */
+        /* ACTION BAR (ПОИСК + КНОПКИ) */
+        /* ============================================ */
+        .kb-action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 28px;
+            flex-wrap: wrap;
+        }
+        .kb-search-box {
+            position: relative;
+            flex: 2;
+            min-width: 300px;
+        }
+        .kb-search-box i {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--kb-text-muted);
+            font-size: 15px;
+        }
+        .kb-search-box input {
+            width: 100%;
+            padding: 16px 50px 16px 52px;
+            background: var(--kb-surface);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--kb-border);
+            border-radius: 48px;
+            color: var(--kb-text);
+            font-size: 15px;
+            transition: var(--kb-transition);
+            outline: none;
+        }
+        .kb-search-box input:focus {
+            border-color: var(--kb-accent-light);
+            box-shadow: 0 0 28px rgba(167,139,250,0.12);
+            background: var(--kb-surface-alt);
+        }
+        .kb-search-clear {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            background: rgba(255,255,255,0.06);
+            border: none;
+            border-radius: 50%;
+            color: var(--kb-text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            transition: var(--kb-transition);
+        }
+        .kb-search-clear:hover { background: rgba(239,68,68,0.25); color: #f87171; }
+        .kb-action-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+
+        /* ============================================ */
+        /* КНОПКИ */
+        /* ============================================ */
+        .btn-primary, .btn-secondary, .btn-danger {
+            padding: 12px 26px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--kb-accent), #7c3aed);
+            border: none;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 28px rgba(99,102,241,0.4);
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--kb-border);
+            color: var(--kb-text-secondary);
+        }
+        .btn-secondary:hover {
+            background: rgba(99,102,241,0.12);
+            border-color: var(--kb-accent-light);
+            color: var(--kb-text);
+        }
+        .btn-danger {
+            background: rgba(239,68,68,0.1);
+            border: 1px solid rgba(239,68,68,0.25);
+            color: #f87171;
+        }
+        .btn-danger:hover { background: rgba(239,68,68,0.25); }
+
+        /* ============================================ */
+        /* ЗАГРУЗКА */
+        /* ============================================ */
+        .kb-loading {
+            text-align: center;
+            padding: 80px 20px;
+            color: var(--kb-text-muted);
+        }
+        .kb-spinner {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 20px;
+            border: 3px solid rgba(99,102,241,0.15);
+            border-top-color: var(--kb-accent);
+            border-radius: 50%;
+            animation: kbSpin 0.8s linear infinite;
+        }
+        @keyframes kbSpin { to { transform: rotate(360deg); } }
+
+        /* ============================================ */
+        /* ПОПУЛЯРНЫЕ СТАТЬИ */
+        /* ============================================ */
+        .kb-popular-section {
+            margin-bottom: 28px;
+            background: linear-gradient(160deg, rgba(251,191,36,0.04), rgba(245,158,11,0.02));
+            border-radius: var(--kb-radius);
+            border: 1px solid rgba(251,191,36,0.2);
+            padding: 24px 28px;
+        }
+        .kb-popular-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--kb-gold);
+            margin-bottom: 20px;
+        }
+        .kb-popular-header i { font-size: 22px; }
+        .kb-popular-list { display: flex; flex-direction: column; gap: 10px; }
+        .kb-popular-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 14px 18px;
+            background: rgba(0,0,0,0.2);
+            border-radius: var(--kb-radius-sm);
+            cursor: pointer;
+            transition: var(--kb-transition);
+            border: 1px solid transparent;
+        }
+        .kb-popular-item:hover {
+            background: rgba(251,191,36,0.06);
+            border-color: rgba(251,191,36,0.25);
+            transform: translateX(6px);
+        }
+        .kb-popular-rank {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--kb-gold);
+            min-width: 42px;
+            text-align: center;
+            opacity: 0.8;
+        }
+        .kb-popular-info { flex: 1; }
+        .kb-popular-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--kb-text);
+            margin-bottom: 6px;
+        }
+        .kb-popular-meta {
+            display: flex;
+            gap: 18px;
+            font-size: 12px;
+            color: var(--kb-text-muted);
+            flex-wrap: wrap;
+        }
+        .kb-popular-meta i { margin-right: 5px; opacity: 0.6; }
+        .kb-popular-views {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--kb-gold);
+            min-width: 50px;
+            text-align: center;
+        }
+
+        /* ============================================ */
+        /* КАТЕГОРИИ */
+        /* ============================================ */
+        .kb-categories-list {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .kb-category-card {
+            background: var(--kb-surface);
+            backdrop-filter: blur(16px);
+            border-radius: var(--kb-radius);
+            border: 1px solid var(--kb-border);
+            overflow: hidden;
+            transition: var(--kb-transition);
+        }
+        .kb-category-card:hover { border-color: var(--kb-border-active); }
+        .kb-category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 24px;
+            background: rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: var(--kb-transition);
+        }
+        .kb-category-header:hover { background: rgba(99,102,241,0.05); }
+        .kb-category-title-group {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .kb-category-icon-box {
+            width: 48px;
+            height: 48px;
+            background: rgba(99,102,241,0.1);
+            border-radius: var(--kb-radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+        }
+        .kb-category-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: #f1f5f9;
+        }
+        .kb-category-count {
+            font-size: 12px;
+            padding: 3px 12px;
+            background: rgba(99,102,241,0.15);
+            border-radius: 20px;
+            color: var(--kb-accent-light);
+            margin-left: 10px;
+            font-weight: 500;
+        }
+        .kb-category-actions-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .kb-category-edit-btn, .kb-category-delete-btn {
+            background: none;
+            border: none;
+            color: var(--kb-text-muted);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: var(--kb-radius-xs);
+            transition: var(--kb-transition);
+            font-size: 14px;
+        }
+        .kb-category-edit-btn:hover { color: var(--kb-accent-light); background: rgba(99,102,241,0.15); }
+        .kb-category-delete-btn:hover { color: var(--kb-danger); background: rgba(239,68,68,0.1); }
+        .kb-category-arrow {
+            transition: transform 0.3s;
+            color: var(--kb-text-muted);
+            margin-left: 8px;
+        }
+        .kb-category-body {
+            display: none;
+            padding: 20px 24px;
+            flex-direction: column;
+            gap: 10px;
+            border-top: 1px solid rgba(99,102,241,0.06);
+        }
+
+        /* ============================================ */
+        /* СТАТЬИ В СПИСКЕ */
+        /* ============================================ */
+        .kb-article-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 18px;
+            background: rgba(0,0,0,0.15);
+            border-radius: var(--kb-radius-sm);
+            cursor: pointer;
+            transition: var(--kb-transition);
+            border: 1px solid transparent;
+        }
+        .kb-article-item:hover {
+            background: rgba(99,102,241,0.08);
+            border-color: rgba(99,102,241,0.15);
+            transform: translateX(5px);
+        }
+        .kb-article-item-info { flex: 1; }
+        .kb-article-item-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--kb-text);
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .kb-article-item-title i { color: var(--kb-accent-light); font-size: 13px; }
+        .kb-article-item-meta {
+            display: flex;
+            gap: 18px;
+            font-size: 11px;
+            color: var(--kb-text-muted);
+        }
+        .kb-article-item-meta i { margin-right: 4px; opacity: 0.6; }
+        .kb-article-item-actions {
+            display: flex;
+            gap: 4px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .kb-article-item:hover .kb-article-item-actions { opacity: 1; }
+        .kb-article-edit-btn, .kb-article-delete-btn {
+            background: none;
+            border: none;
+            color: var(--kb-text-muted);
+            cursor: pointer;
+            padding: 8px 12px;
+            border-radius: var(--kb-radius-xs);
+            font-size: 13px;
+            transition: var(--kb-transition);
+        }
+        .kb-article-edit-btn:hover { color: var(--kb-accent-light); background: rgba(99,102,241,0.15); }
+        .kb-article-delete-btn:hover { color: var(--kb-danger); background: rgba(239,68,68,0.1); }
+
+        /* ============================================ */
+        /* МОДАЛЬНЫЕ ОКНА */
+        /* ============================================ */
+        .kb-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(4,6,12,0.94);
+            backdrop-filter: blur(28px);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            animation: kbFadeIn 0.25s ease;
+        }
+        .kb-modal-overlay.active { display: flex; }
+
+        @keyframes kbFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .kb-modal-window {
+            background: linear-gradient(150deg, #191e30, #0f1324);
+            border-radius: 28px;
+            padding: 0;
+            max-width: 680px;
+            width: 100%;
+            max-height: 84vh;
+            overflow-y: auto;
+            border: 1px solid rgba(99,102,241,0.25);
+            box-shadow: var(--kb-shadow-lg), 0 0 60px rgba(99,102,241,0.08);
+            animation: kbModalSlideIn 0.35s cubic-bezier(0.16,1,0.3,1);
+        }
+        @keyframes kbModalSlideIn {
+            from { opacity: 0; transform: translateY(28px) scale(0.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .kb-modal-article { max-width: 820px; }
+        .kb-modal-editor { max-width: 920px; }
+
+        .kb-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 22px 28px;
+            background: linear-gradient(180deg, rgba(99,102,241,0.06), transparent);
+            border-bottom: 1px solid rgba(99,102,241,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(12px);
+        }
+        .kb-modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 700;
+            color: #f1f5f9;
+        }
+        .kb-modal-close-btn {
+            width: 38px;
+            height: 38px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            color: var(--kb-text-muted);
+            font-size: 22px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--kb-transition);
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        .kb-modal-close-btn:hover {
+            background: rgba(239,68,68,0.15);
+            border-color: rgba(239,68,68,0.3);
+            color: #f87171;
+        }
+        .kb-modal-body { padding: 28px; }
+        .kb-modal-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 28px;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid rgba(99,102,241,0.08);
+            position: sticky;
+            bottom: 0;
+            backdrop-filter: blur(12px);
+        }
+
+        /* ============================================ */
+        /* ПРОСМОТР СТАТЬИ */
+        /* ============================================ */
+        .kb-article-category-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid;
+        }
+        .kb-article-view-title {
+            font-size: 30px;
+            font-weight: 800;
+            color: #f1f5f9;
+            margin: 14px 0;
+            line-height: 1.3;
+        }
+        .kb-article-meta-row {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            color: var(--kb-text-secondary);
+        }
+        .kb-article-meta-row span {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .kb-article-meta-row i { color: var(--kb-accent-light); opacity: 0.7; }
+
+        /* Контент статьи */
+        .kb-article-content {
+            color: var(--kb-text);
+            line-height: 1.9;
+            font-size: 16px;
+            word-break: break-word;
+        }
+        .kb-article-content h1 { font-size: 28px; color: #f1f5f9; margin: 32px 0 16px; font-weight: 700; border-bottom: 1px solid rgba(99,102,241,0.12); padding-bottom: 10px; }
+        .kb-article-content h2 { font-size: 24px; color: #f1f5f9; margin: 28px 0 12px; font-weight: 700; }
+        .kb-article-content h3 { font-size: 20px; color: #f1f5f9; margin: 24px 0 10px; font-weight: 600; }
+        .kb-article-content h4 { font-size: 18px; color: var(--kb-accent-light); margin: 20px 0 8px; font-weight: 600; }
+        .kb-article-content p { margin: 14px 0; }
+        .kb-article-content ul, .kb-article-content ol { padding-left: 26px; margin: 14px 0; }
+        .kb-article-content li { margin: 6px 0; }
+        .kb-article-content a { color: var(--kb-accent-light); text-decoration: underline; }
+        .kb-article-content code { background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; color: #c4b5fd; }
+        .kb-article-content pre { background: #0a0d16; padding: 20px; border-radius: 14px; overflow-x: auto; margin: 20px 0; border: 1px solid rgba(99,102,241,0.15); }
+        .kb-article-content pre code { background: transparent; padding: 0; }
+        .kb-article-content blockquote { border-left: 4px solid var(--kb-accent-light); padding: 14px 22px; margin: 22px 0; background: rgba(99,102,241,0.04); border-radius: 0 14px 14px 0; font-style: italic; color: #cbd5e1; }
+        .kb-article-content table { width: 100%; border-collapse: collapse; margin: 22px 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(99,102,241,0.15); }
+        .kb-article-content th { background: rgba(99,102,241,0.15); padding: 12px 16px; font-weight: 600; color: var(--kb-accent-light); text-align: left; }
+        .kb-article-content td { padding: 12px 16px; border-bottom: 1px solid rgba(99,102,241,0.08); background: rgba(0,0,0,0.1); }
+        .kb-article-content img { max-width: 100%; border-radius: 18px; margin: 20px 0; box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
+        .kb-article-content hr { margin: 32px 0; border: none; height: 2px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.35), transparent); }
+        .kb-article-content iframe { border-radius: 18px; max-width: 100%; }
+
+        /* ============================================ */
+        /* ЛАЙКИ */
+        /* ============================================ */
+        .kb-article-likes-area { display: flex; align-items: center; }
+        .kb-like-btn {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 36px;
+            padding: 12px 24px;
+            color: #f87171;
+            font-size: 17px;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-family: inherit;
+        }
+        .kb-like-btn:hover {
+            background: rgba(239,68,68,0.12);
+            border-color: rgba(239,68,68,0.4);
+            transform: translateY(-2px);
+        }
+        .kb-like-btn.liked {
+            background: rgba(239,68,68,0.18);
+            border-color: #ef4444;
+            color: #ef4444;
+            animation: kbHeartBeat 0.4s ease;
+        }
+        @keyframes kbHeartBeat {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.2); }
+            60% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+        .kb-article-actions-area { display: flex; gap: 10px; }
+
+        /* ============================================ */
+        /* РЕДАКТОР */
+        /* ============================================ */
+        .kb-editor-wrapper {
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .kb-editor-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            padding: 10px 14px;
+            background: rgba(10,13,24,0.9);
+            border-bottom: 1px solid rgba(99,102,241,0.12);
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        .kb-editor-toolbar button {
+            width: 34px;
+            height: 34px;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            color: var(--kb-text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            transition: all 0.15s;
+        }
+        .kb-editor-toolbar button:hover {
+            background: rgba(99,102,241,0.18);
+            border-color: rgba(99,102,241,0.3);
+            color: var(--kb-text);
+        }
+        .kb-editor-toolbar select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 8px;
+            color: var(--kb-text);
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            outline: none;
+            height: 34px;
+        }
+        .kb-editor-toolbar select option { background: #1a1f2e; color: #e2e8f0; }
+        .kb-editor-toolbar input[type="color"] {
+            width: 32px;
+            height: 32px;
+            border: 1px solid rgba(99,102,241,0.2);
+            border-radius: 8px;
+            cursor: pointer;
+            padding: 2px;
+            background: transparent;
+        }
+
+        .kb-editor-area {
+            min-height: 420px;
+            max-height: 58vh;
+            overflow-y: auto;
+            padding: 22px 26px;
+            background: #080b14;
+            color: var(--kb-text);
+            font-size: 15px;
+            line-height: 1.8;
+            outline: none;
+            font-family: inherit;
+        }
+        .kb-editor-area:focus { box-shadow: inset 0 0 0 2px rgba(99,102,241,0.12); }
+        .kb-editor-area:empty:before {
+            content: attr(data-placeholder);
+            color: var(--kb-text-muted);
+            font-style: italic;
+        }
+        .kb-editor-area h1 { font-size: 28px; margin: 18px 0 12px; }
+        .kb-editor-area h2 { font-size: 24px; margin: 16px 0 10px; }
+        .kb-editor-area h3 { font-size: 20px; margin: 14px 0 8px; }
+        .kb-editor-area p { margin: 10px 0; }
+        .kb-editor-area ul, .kb-editor-area ol { padding-left: 24px; margin: 10px 0; }
+        .kb-editor-area blockquote { border-left: 4px solid #a78bfa; padding: 10px 16px; margin: 14px 0; background: rgba(99,102,241,0.05); border-radius: 0 10px 10px 0; }
+        .kb-editor-area pre { background: #0a0d16; padding: 16px; border-radius: 10px; margin: 14px 0; }
+        .kb-editor-area table { border-collapse: collapse; width: 100%; margin: 14px 0; }
+        .kb-editor-area th, .kb-editor-area td { border: 1px solid rgba(99,102,241,0.15); padding: 10px 14px; }
+
+        /* ============================================ */
+        /* ВЫБОР ИКОНОК */
+        /* ============================================ */
+        .kb-icon-picker {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+            max-height: 180px;
+            overflow-y: auto;
+            padding: 10px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 12px;
+            border: 1px solid rgba(99,102,241,0.12);
+        }
+        .kb-icon-option {
+            font-size: 26px;
+            cursor: pointer;
+            padding: 8px;
+            text-align: center;
+            border-radius: 10px;
+            transition: all 0.15s;
+        }
+        .kb-icon-option:hover { background: rgba(99,102,241,0.2); transform: scale(1.1); }
+        .kb-icon-option.selected { background: rgba(99,102,241,0.3); border: 1px solid var(--kb-accent-light); }
+
+        /* ============================================ */
+        /* ФОРМЫ */
+        /* ============================================ */
+        .form-group { margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 500; color: var(--kb-text-secondary); }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 14px 18px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(99,102,241,0.18);
+            border-radius: 14px;
+            color: var(--kb-text);
+            font-size: 15px;
+            outline: none;
+            transition: var(--kb-transition);
+            font-family: inherit;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--kb-accent-light);
+            box-shadow: 0 0 0 3px rgba(167,139,250,0.08);
+        }
+        .form-select option { background: #1a1f2e; color: #e2e8f0; }
+        .form-textarea { resize: vertical; min-height: 80px; }
+
+        /* ============================================ */
+        /* УТИЛИТЫ */
+        /* ============================================ */
+        .tools-hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 28px 32px;
+            background: linear-gradient(160deg, rgba(16,185,129,0.06), rgba(5,150,105,0.02));
+            border-radius: var(--kb-radius);
+            border: 1px solid rgba(16,185,129,0.2);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .tools-hero-info { display: flex; align-items: center; gap: 18px; }
+        .tools-hero-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: white;
+            box-shadow: 0 8px 24px rgba(16,185,129,0.25);
+        }
+        .tools-hero h2 { font-size: 24px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
+        .tools-hero p { font-size: 14px; color: var(--kb-text-secondary); margin: 0; }
+        .tools-hero-stats { display: flex; gap: 28px; }
+        .tools-hero-stat { text-align: center; }
+        .tools-hero-stat-value { font-size: 28px; font-weight: 800; color: var(--kb-gold); display: block; line-height: 1; }
+        .tools-hero-stat-label { font-size: 11px; color: var(--kb-text-muted); text-transform: uppercase; margin-top: 6px; }
+
+        .tools-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .tools-search-box {
+            flex: 1;
+            min-width: 220px;
+            position: relative;
+        }
+        .tools-search-box i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--kb-text-muted);
+            font-size: 14px;
+        }
+        .tools-search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 40px;
+            color: var(--kb-text);
+            font-size: 14px;
+            outline: none;
+            transition: var(--kb-transition);
+        }
+        .tools-search-box input:focus { border-color: #10b981; }
+        .tools-filter-select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 40px;
+            color: var(--kb-text);
+            padding: 12px 20px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+        }
+        .tools-filter-select option { background: #1a1f2e; color: #e2e8f0; }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        /* Карточка утилиты */
+        .tool-card {
+            background: var(--kb-surface);
+            backdrop-filter: blur(14px);
+            border-radius: 20px;
+            border: 1px solid var(--kb-border);
+            padding: 22px;
+            transition: var(--kb-transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tool-card:hover::before { opacity: 1; }
+        .tool-card:hover {
+            border-color: rgba(16,185,129,0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+        }
+        .tool-card-icon { font-size: 48px; margin-bottom: 12px; line-height: 1; }
+        .tool-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .badge-server { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-link { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .tool-card-name { font-size: 17px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px; }
+        .tool-card-desc { font-size: 13px; color: var(--kb-text-secondary); margin-bottom: 10px; line-height: 1.5; }
+        .tool-card-meta { display: flex; gap: 10px; font-size: 11px; color: var(--kb-text-muted); margin-bottom: 16px; flex-wrap: wrap; }
+        .tool-card-actions { display: flex; gap: 10px; }
+        .btn-launch {
+            flex: 1;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 11px 18px;
+            border-radius: 24px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 13px;
+            transition: var(--kb-transition);
+        }
+        .btn-launch:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
+        .btn-launch-link { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .btn-launch-link:hover { box-shadow: 0 4px 14px rgba(59,130,246,0.3); }
+        .btn-delete-tool {
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.25);
+            padding: 11px 16px;
+            border-radius: 24px;
+            color: #f87171;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            font-size: 14px;
+        }
+        .btn-delete-tool:hover { background: rgba(239,68,68,0.25); }
+
+        /* ============================================ */
+        /* ДРОПЗОНА */
+        /* ============================================ */
+        .tool-drop-zone {
+            border: 2px dashed rgba(99,102,241,0.25);
+            border-radius: 18px;
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--kb-transition);
+        }
+        .tool-drop-zone:hover {
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.04);
+        }
+        .tool-drop-zone i { font-size: 40px; color: var(--kb-text-muted); margin-bottom: 10px; display: block; }
+        .tool-drop-zone p { margin: 6px 0; color: var(--kb-text-secondary); }
+
+        /* ============================================ */
+        /* ПРЕСЕТЫ КАТЕГОРИЙ */
+        /* ============================================ */
+        .kb-preset-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        .kb-preset-item {
+            background: var(--kb-surface);
+            border: 1px solid var(--kb-border);
+            border-radius: 16px;
+            padding: 14px 20px;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            text-align: center;
+            min-width: 100px;
+        }
+        .kb-preset-item:hover {
+            background: rgba(99,102,241,0.15);
+            border-color: var(--kb-accent-light);
+            transform: translateY(-2px);
+        }
+        .kb-preset-item-icon { font-size: 32px; display: block; margin-bottom: 8px; }
+        .kb-preset-item-name { font-size: 12px; font-weight: 500; color: var(--kb-text); }
+
+        /* ============================================ */
+        /* ПУСТЫЕ СОСТОЯНИЯ */
+        /* ============================================ */
+        .kb-empty-state {
+            text-align: center;
+            padding: 70px 20px;
+            background: var(--kb-surface);
+            border-radius: var(--kb-radius);
+            border: 1px solid var(--kb-border);
+        }
+        .kb-empty-state-icon { font-size: 68px; margin-bottom: 16px; opacity: 0.35; }
+        .kb-empty-state h3 { font-size: 22px; color: var(--kb-text); margin-bottom: 10px; }
+        .kb-empty-state p { color: var(--kb-text-secondary); margin-bottom: 24px; }
+
+        /* ============================================ */
+        /* СКРОЛЛБАРЫ */
+        /* ============================================ */
+        .kb-editor-area::-webkit-scrollbar,
+        .kb-modal-window::-webkit-scrollbar,
+        .kb-icon-picker::-webkit-scrollbar {
+            width: 6px;
+        }
+        .kb-editor-area::-webkit-scrollbar-track,
+        .kb-modal-window::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+            border-radius: 10px;
+        }
+        .kb-editor-area::-webkit-scrollbar-thumb,
+        .kb-modal-window::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(99,102,241,0.5), rgba(139,92,246,0.5));
+            border-radius: 10px;
+        }
+
+        /* ============================================ */
+        /* АДАПТИВ */
+        /* ============================================ */
+        @media (max-width: 900px) {
+            .knowledge-container { padding: 0 16px 40px; }
+            .kb-header { padding: 40px 20px; border-radius: 20px; }
+            .kb-header-title { font-size: 28px; }
+            .kb-header-icon { width: 64px; height: 64px; border-radius: 18px; }
+            .kb-header-icon i { font-size: 28px; }
+            
+            .kb-tab-btn { padding: 12px 20px; font-size: 13px; }
+            .kb-tab-btn span { display: none; }
+            
+            .kb-action-bar { flex-direction: column; align-items: stretch; }
+            .kb-search-box { min-width: auto; }
+            
+            .tools-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+            .tools-hero { flex-direction: column; align-items: flex-start; }
+            .tools-controls { flex-direction: column; }
+            
+            .kb-modal-article { max-width: 100%; }
+            .kb-modal-editor { max-width: 100%; }
+            .kb-article-view-title { font-size: 22px; }
+            .kb-article-meta-row { gap: 14px; font-size: 12px; }
+            
+            .kb-editor-area { min-height: 300px; padding: 18px; }
+            .kb-editor-toolbar button { width: 30px; height: 30px; font-size: 11px; }
+            
+            .kb-icon-picker { grid-template-columns: repeat(6, 1fr); }
+        }
+
+        @media (max-width: 500px) {
+            .knowledge-container { padding: 0 10px 32px; }
+            .kb-header { padding: 28px 14px; }
+            .kb-header-title { font-size: 22px; }
+            .tools-grid { grid-template-columns: 1fr; }
+            .kb-modal-window { border-radius: 20px; }
+            .kb-modal-body { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
 
 <div class="knowledge-container">
     
@@ -221,7 +1210,7 @@
 <!-- ============================================ -->
 <!-- МОДАЛКА: ПРОСМОТР СТАТЬИ -->
 <!-- ============================================ -->
-<div id="kbArticleModal" class="kb-modal-overlay" style="display:none;">
+<div id="kbArticleModal" class="kb-modal-overlay">
     <div class="kb-modal-window kb-modal-article">
         <div class="kb-modal-header">
             <div class="kb-modal-header-top">
@@ -258,7 +1247,7 @@
 <!-- ============================================ -->
 <!-- МОДАЛКА: РЕДАКТОР СТАТЬИ -->
 <!-- ============================================ -->
-<div id="kbEditorModal" class="kb-modal-overlay" style="display:none;">
+<div id="kbEditorModal" class="kb-modal-overlay">
     <div class="kb-modal-window kb-modal-editor">
         <div class="kb-modal-header">
             <h3 id="kbEditorTitle">Редактор статьи</h3>
@@ -293,7 +1282,7 @@
 <!-- ============================================ -->
 <!-- МОДАЛКА: КАТЕГОРИЯ -->
 <!-- ============================================ -->
-<div id="kbCategoryModal" class="kb-modal-overlay" style="display:none;">
+<div id="kbCategoryModal" class="kb-modal-overlay">
     <div class="kb-modal-window" style="max-width:450px;">
         <div class="kb-modal-header">
             <h3 id="kbCategoryModalTitle">Новая категория</h3>
@@ -318,9 +1307,32 @@
 </div>
 
 <!-- ============================================ -->
+<!-- МОДАЛКА: ПРЕСЕТЫ КАТЕГОРИЙ -->
+<!-- ============================================ -->
+<div id="kbPresetModal" class="kb-modal-overlay">
+    <div class="kb-modal-window" style="max-width:700px;">
+        <div class="kb-modal-header">
+            <h3>🎨 Готовые категории</h3>
+            <button class="kb-modal-close-btn" id="kbPresetCloseBtn">&times;</button>
+        </div>
+        <div class="kb-modal-body">
+            <div class="kb-preset-grid" id="kbPresetGrid"></div>
+            <div style="text-align:center;margin-top:16px;">
+                <button class="btn-primary" id="kbPresetAddAllBtn">
+                    <i class="fas fa-plus-circle"></i> Добавить все категории
+                </button>
+            </div>
+        </div>
+        <div class="kb-modal-footer">
+            <button class="btn-secondary" id="kbPresetCancelBtn">Закрыть</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
 <!-- МОДАЛКА: ДОБАВЛЕНИЕ УТИЛИТЫ -->
 <!-- ============================================ -->
-<div id="uploadToolModal" class="kb-modal-overlay" style="display:none;">
+<div id="uploadToolModal" class="kb-modal-overlay">
     <div class="kb-modal-window" style="max-width:520px;">
         <div class="kb-modal-header">
             <div class="kb-modal-header-icon"><i class="fas fa-wrench"></i></div>
@@ -373,1115 +1385,1271 @@
     </div>
 </div>
 
-<!-- ============================================ -->
-<!-- МОДАЛКА: ПРЕСЕТЫ КАТЕГОРИЙ -->
-<!-- ============================================ -->
-<div id="kbPresetModal" class="kb-modal-overlay" style="display:none;">
-    <div class="kb-modal-window" style="max-width:700px;">
-        <div class="kb-modal-header">
-            <h3>🎨 Готовые категории</h3>
-            <button class="kb-modal-close-btn" id="kbPresetCloseBtn">&times;</button>
-        </div>
-        <div class="kb-modal-body">
-            <div class="kb-preset-grid" id="kbPresetGrid"></div>
-            <div style="text-align:center;margin-top:16px;">
-                <button class="btn-primary" id="kbPresetAddAllBtn">
-                    <i class="fas fa-plus-circle"></i> Добавить все категории
-                </button>
-            </div>
-        </div>
-        <div class="kb-modal-footer">
-            <button class="btn-secondary" id="kbPresetCancelBtn">Закрыть</button>
-        </div>
-    </div>
-</div>
-<style>
-/* ============================================ */
-/* WARPOINT KNOWLEDGE BASE v6.0 — PREMIUM STYLES */
-/* ============================================ */
+<script>
+// ============================================
+// knowledge.js — WARPOINT KNOWLEDGE BASE v7.0
+// ============================================
 
-:root {
-    --kb-bg: #06080f;
-    --kb-surface: rgba(15,18,28,0.7);
-    --kb-surface-alt: rgba(20,24,38,0.8);
-    --kb-border: rgba(99,102,241,0.12);
-    --kb-border-active: rgba(99,102,241,0.3);
-    --kb-accent: #6366f1;
-    --kb-accent-light: #a78bfa;
-    --kb-accent-glow: rgba(99,102,241,0.3);
-    --kb-text: #e8ecf2;
-    --kb-text-secondary: #b0b8c4;
-    --kb-text-muted: #6b7280;
-    --kb-gold: #fbbf24;
-    --kb-gold-glow: rgba(251,191,36,0.2);
-    --kb-danger: #ef4444;
-    --kb-success: #10b981;
-    --kb-info: #3b82f6;
-    --kb-radius: 24px;
-    --kb-radius-sm: 14px;
-    --kb-radius-xs: 8px;
-    --kb-shadow: 0 8px 32px rgba(0,0,0,0.4);
-    --kb-shadow-lg: 0 16px 48px rgba(0,0,0,0.6);
-    --kb-transition: 0.3s cubic-bezier(0.4,0,0.2,1);
-}
-
-* { box-sizing: border-box; }
-
-.knowledge-container {
-    max-width: 1260px;
-    margin: 0 auto;
-    padding: 0 28px 60px;
-}
-
-/* ============================================ */
-/* ХЕДЕР */
-/* ============================================ */
-.kb-header {
-    position: relative;
-    text-align: center;
-    padding: 56px 32px 48px;
-    margin-bottom: 28px;
-    background: linear-gradient(160deg, rgba(20,26,48,0.7), rgba(12,15,28,0.5));
-    border-radius: var(--kb-radius);
-    border: 1px solid var(--kb-border-active);
-    overflow: hidden;
-}
-.kb-header-glow {
-    position: absolute;
-    top: -40%;
-    left: -20%;
-    width: 140%;
-    height: 180%;
-    background: radial-gradient(ellipse at 35% 45%, rgba(99,102,241,0.06) 0%, transparent 55%),
-                radial-gradient(ellipse at 65% 55%, rgba(236,72,153,0.04) 0%, transparent 55%);
-    pointer-events: none;
-}
-.kb-header-icon {
-    width: 84px;
-    height: 84px;
-    margin: 0 auto 28px;
-    background: linear-gradient(135deg, var(--kb-accent), #ec4899);
-    border-radius: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-    z-index: 2;
-    box-shadow: 0 0 40px var(--kb-accent-glow), 0 8px 24px rgba(0,0,0,0.5);
-}
-.kb-header-icon i { font-size: 38px; color: #fff; }
-.kb-header-title {
-    font-size: 40px;
-    font-weight: 800;
-    margin: 0 0 20px;
-    color: #f8fafc;
-    position: relative;
-    z-index: 2;
-    letter-spacing: -1px;
-}
-.kb-header-title span {
-    background: linear-gradient(135deg, #a78bfa, #ec4899, #f472b6);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-}
-.kb-header-subtitle {
-    font-size: 16px;
-    color: var(--kb-text-secondary);
-    margin: 0;
-    position: relative;
-    z-index: 2;
-}
-
-/* ============================================ */
-/* ПЕРЕКЛЮЧАТЕЛЬ ВКЛАДОК */
-/* ============================================ */
-.kb-tab-switch {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 28px;
-    background: rgba(0,0,0,0.35);
-    padding: 8px;
-    border-radius: 48px;
-    width: fit-content;
-    border: 1px solid var(--kb-border);
-}
-.kb-tab-btn {
-    padding: 14px 32px;
-    background: transparent;
-    border: none;
-    border-radius: 40px;
-    color: var(--kb-text-muted);
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 500;
-    transition: var(--kb-transition);
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    position: relative;
-}
-.kb-tab-btn i { font-size: 18px; transition: var(--kb-transition); }
-.kb-tab-btn:hover { color: var(--kb-text); background: rgba(99,102,241,0.08); }
-.kb-tab-btn.active {
-    background: linear-gradient(135deg, #6366f1, #7c3aed);
-    color: #fff;
-    box-shadow: 0 6px 20px rgba(99,102,241,0.4);
-}
-.kb-tab-btn.active i { color: #fff; }
-
-/* ============================================ */
-/* ПАНЕЛИ */
-/* ============================================ */
-.kb-panel { display: none; }
-.kb-panel.active { display: block; animation: kbFadeSlideIn 0.35s ease; }
-
-@keyframes kbFadeSlideIn {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* ============================================ */
-/* ACTION BAR (ПОИСК + КНОПКИ) */
-/* ============================================ */
-.kb-action-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 28px;
-    flex-wrap: wrap;
-}
-.kb-search-box {
-    position: relative;
-    flex: 2;
-    min-width: 300px;
-}
-.kb-search-box i {
-    position: absolute;
-    left: 20px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--kb-text-muted);
-    font-size: 15px;
-}
-.kb-search-box input {
-    width: 100%;
-    padding: 16px 50px 16px 52px;
-    background: var(--kb-surface);
-    backdrop-filter: blur(16px);
-    border: 1px solid var(--kb-border);
-    border-radius: 48px;
-    color: var(--kb-text);
-    font-size: 15px;
-    transition: var(--kb-transition);
-    outline: none;
-}
-.kb-search-box input:focus {
-    border-color: var(--kb-accent-light);
-    box-shadow: 0 0 28px rgba(167,139,250,0.12);
-    background: var(--kb-surface-alt);
-}
-.kb-search-clear {
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 30px;
-    height: 30px;
-    background: rgba(255,255,255,0.06);
-    border: none;
-    border-radius: 50%;
-    color: var(--kb-text-muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    transition: var(--kb-transition);
-}
-.kb-search-clear:hover { background: rgba(239,68,68,0.25); color: #f87171; }
-.kb-action-btns { display: flex; gap: 10px; }
-
-/* ============================================ */
-/* КНОПКИ */
-/* ============================================ */
-.btn-primary, .btn-secondary, .btn-danger {
-    padding: 12px 26px;
-    border-radius: 40px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: var(--kb-transition);
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 14px;
-    font-family: inherit;
-    white-space: nowrap;
-}
-.btn-primary {
-    background: linear-gradient(135deg, var(--kb-accent), #7c3aed);
-    border: none;
-    color: #fff;
-}
-.btn-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 28px rgba(99,102,241,0.4);
-}
-.btn-secondary {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid var(--kb-border);
-    color: var(--kb-text-secondary);
-}
-.btn-secondary:hover {
-    background: rgba(99,102,241,0.12);
-    border-color: var(--kb-accent-light);
-    color: var(--kb-text);
-}
-.btn-danger {
-    background: rgba(239,68,68,0.1);
-    border: 1px solid rgba(239,68,68,0.25);
-    color: #f87171;
-}
-.btn-danger:hover { background: rgba(239,68,68,0.25); }
-
-/* ============================================ */
-/* ЗАГРУЗКА */
-/* ============================================ */
-.kb-loading {
-    text-align: center;
-    padding: 80px 20px;
-    color: var(--kb-text-muted);
-}
-.kb-spinner {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto 20px;
-    border: 3px solid rgba(99,102,241,0.15);
-    border-top-color: var(--kb-accent);
-    border-radius: 50%;
-    animation: kbSpin 0.8s linear infinite;
-}
-@keyframes kbSpin { to { transform: rotate(360deg); } }
-
-/* ============================================ */
-/* ПОПУЛЯРНЫЕ СТАТЬИ */
-/* ============================================ */
-.kb-popular-section {
-    margin-bottom: 28px;
-    background: linear-gradient(160deg, rgba(251,191,36,0.04), rgba(245,158,11,0.02));
-    border-radius: var(--kb-radius);
-    border: 1px solid rgba(251,191,36,0.2);
-    padding: 24px 28px;
-}
-.kb-popular-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 18px;
-    font-weight: 700;
-    color: var(--kb-gold);
-    margin-bottom: 20px;
-}
-.kb-popular-header i { font-size: 22px; }
-.kb-popular-list { display: flex; flex-direction: column; gap: 10px; }
-.kb-popular-item {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 18px;
-    background: rgba(0,0,0,0.2);
-    border-radius: var(--kb-radius-sm);
-    cursor: pointer;
-    transition: var(--kb-transition);
-    border: 1px solid transparent;
-}
-.kb-popular-item:hover {
-    background: rgba(251,191,36,0.06);
-    border-color: rgba(251,191,36,0.25);
-    transform: translateX(6px);
-}
-.kb-popular-rank {
-    font-size: 26px;
-    font-weight: 800;
-    color: var(--kb-gold);
-    min-width: 42px;
-    text-align: center;
-    opacity: 0.8;
-}
-.kb-popular-info { flex: 1; }
-.kb-popular-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--kb-text);
-    margin-bottom: 6px;
-}
-.kb-popular-meta {
-    display: flex;
-    gap: 18px;
-    font-size: 12px;
-    color: var(--kb-text-muted);
-    flex-wrap: wrap;
-}
-.kb-popular-meta i { margin-right: 5px; opacity: 0.6; }
-.kb-popular-views {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--kb-gold);
-    min-width: 50px;
-    text-align: center;
-}
-
-/* ============================================ */
-/* КАТЕГОРИИ */
-/* ============================================ */
-.kb-categories-list {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-.kb-category-card {
-    background: var(--kb-surface);
-    backdrop-filter: blur(16px);
-    border-radius: var(--kb-radius);
-    border: 1px solid var(--kb-border);
-    overflow: hidden;
-    transition: var(--kb-transition);
-}
-.kb-category-card:hover { border-color: var(--kb-border-active); }
-.kb-category-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    background: rgba(0,0,0,0.2);
-    cursor: pointer;
-    transition: var(--kb-transition);
-}
-.kb-category-header:hover { background: rgba(99,102,241,0.05); }
-.kb-category-title-group {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-.kb-category-icon-box {
-    width: 48px;
-    height: 48px;
-    background: rgba(99,102,241,0.1);
-    border-radius: var(--kb-radius-sm);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 26px;
-}
-.kb-category-name {
-    font-size: 17px;
-    font-weight: 600;
-    color: #f1f5f9;
-}
-.kb-category-count {
-    font-size: 12px;
-    padding: 3px 12px;
-    background: rgba(99,102,241,0.15);
-    border-radius: 20px;
-    color: var(--kb-accent-light);
-    margin-left: 10px;
-    font-weight: 500;
-}
-.kb-category-actions-group {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.kb-category-edit-btn, .kb-category-delete-btn {
-    background: none;
-    border: none;
-    color: var(--kb-text-muted);
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: var(--kb-radius-xs);
-    transition: var(--kb-transition);
-    font-size: 14px;
-}
-.kb-category-edit-btn:hover { color: var(--kb-accent-light); background: rgba(99,102,241,0.15); }
-.kb-category-delete-btn:hover { color: var(--kb-danger); background: rgba(239,68,68,0.1); }
-.kb-category-arrow {
-    transition: transform 0.3s;
-    color: var(--kb-text-muted);
-    margin-left: 8px;
-}
-.kb-category-body {
-    display: none;
-    padding: 20px 24px;
-    flex-direction: column;
-    gap: 10px;
-    border-top: 1px solid rgba(99,102,241,0.06);
-}
-
-/* ============================================ */
-/* СТАТЬИ В СПИСКЕ */
-/* ============================================ */
-.kb-article-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 18px;
-    background: rgba(0,0,0,0.15);
-    border-radius: var(--kb-radius-sm);
-    cursor: pointer;
-    transition: var(--kb-transition);
-    border: 1px solid transparent;
-}
-.kb-article-item:hover {
-    background: rgba(99,102,241,0.08);
-    border-color: rgba(99,102,241,0.15);
-    transform: translateX(5px);
-}
-.kb-article-item-info { flex: 1; }
-.kb-article-item-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: var(--kb-text);
-    margin-bottom: 6px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.kb-article-item-title i { color: var(--kb-accent-light); font-size: 13px; }
-.kb-article-item-meta {
-    display: flex;
-    gap: 18px;
-    font-size: 11px;
-    color: var(--kb-text-muted);
-}
-.kb-article-item-meta i { margin-right: 4px; opacity: 0.6; }
-.kb-article-item-actions {
-    display: flex;
-    gap: 4px;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-.kb-article-item:hover .kb-article-item-actions { opacity: 1; }
-.kb-article-edit-btn, .kb-article-delete-btn {
-    background: none;
-    border: none;
-    color: var(--kb-text-muted);
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: var(--kb-radius-xs);
-    font-size: 13px;
-    transition: var(--kb-transition);
-}
-.kb-article-edit-btn:hover { color: var(--kb-accent-light); background: rgba(99,102,241,0.15); }
-.kb-article-delete-btn:hover { color: var(--kb-danger); background: rgba(239,68,68,0.1); }
-/* ============================================ */
-/* МОДАЛЬНЫЕ ОКНА */
-/* ============================================ */
-.kb-modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(4,6,12,0.94);
-    backdrop-filter: blur(28px);
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    animation: kbFadeIn 0.25s ease;
-}
-@keyframes kbFadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-.kb-modal-window {
-    background: linear-gradient(150deg, #191e30, #0f1324);
-    border-radius: 28px;
-    padding: 0;
-    max-width: 680px;
-    width: 100%;
-    max-height: 84vh;
-    overflow-y: auto;
-    border: 1px solid rgba(99,102,241,0.25);
-    box-shadow: var(--kb-shadow-lg), 0 0 60px rgba(99,102,241,0.08);
-    animation: kbModalSlideIn 0.35s cubic-bezier(0.16,1,0.3,1);
-}
-@keyframes kbModalSlideIn {
-    from { opacity: 0; transform: translateY(28px) scale(0.96); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-.kb-modal-article { max-width: 820px; }
-.kb-modal-editor { max-width: 920px; }
-
-.kb-modal-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 22px 28px;
-    background: linear-gradient(180deg, rgba(99,102,241,0.06), transparent);
-    border-bottom: 1px solid rgba(99,102,241,0.1);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    backdrop-filter: blur(12px);
-}
-.kb-modal-header-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    margin-bottom: 8px;
-}
-.kb-modal-header h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 700;
-    color: #f1f5f9;
-}
-.kb-modal-close-btn {
-    width: 38px;
-    height: 38px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    color: var(--kb-text-muted);
-    font-size: 22px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: var(--kb-transition);
-    flex-shrink: 0;
-}
-.kb-modal-close-btn:hover {
-    background: rgba(239,68,68,0.15);
-    border-color: rgba(239,68,68,0.3);
-    color: #f87171;
-}
-.kb-modal-body {
-    padding: 28px;
-}
-.kb-modal-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 18px 28px;
-    background: rgba(0,0,0,0.2);
-    border-top: 1px solid rgba(99,102,241,0.08);
-    position: sticky;
-    bottom: 0;
-    backdrop-filter: blur(12px);
-}
-
-/* ============================================ */
-/* ПРОСМОТР СТАТЬИ */
-/* ============================================ */
-.kb-article-category-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 500;
-    border: 1px solid;
-}
-.kb-article-view-title {
-    font-size: 30px;
-    font-weight: 800;
-    color: #f1f5f9;
-    margin: 14px 0;
-    line-height: 1.3;
-}
-.kb-article-meta-row {
-    display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    font-size: 13px;
-    color: var(--kb-text-secondary);
-}
-.kb-article-meta-row span {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.kb-article-meta-row i { color: var(--kb-accent-light); opacity: 0.7; }
-
-/* Контент статьи */
-.kb-article-content {
-    color: var(--kb-text);
-    line-height: 1.9;
-    font-size: 16px;
-    word-break: break-word;
-}
-.kb-article-content h1 { font-size: 28px; color: #f1f5f9; margin: 32px 0 16px; font-weight: 700; border-bottom: 1px solid rgba(99,102,241,0.12); padding-bottom: 10px; }
-.kb-article-content h2 { font-size: 24px; color: #f1f5f9; margin: 28px 0 12px; font-weight: 700; }
-.kb-article-content h3 { font-size: 20px; color: #f1f5f9; margin: 24px 0 10px; font-weight: 600; }
-.kb-article-content h4 { font-size: 18px; color: var(--kb-accent-light); margin: 20px 0 8px; font-weight: 600; }
-.kb-article-content p { margin: 14px 0; }
-.kb-article-content ul, .kb-article-content ol { padding-left: 26px; margin: 14px 0; }
-.kb-article-content li { margin: 6px 0; }
-.kb-article-content a { color: var(--kb-accent-light); text-decoration: underline; }
-.kb-article-content code { background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; color: #c4b5fd; }
-.kb-article-content pre { background: #0a0d16; padding: 20px; border-radius: 14px; overflow-x: auto; margin: 20px 0; border: 1px solid rgba(99,102,241,0.15); }
-.kb-article-content pre code { background: transparent; padding: 0; }
-.kb-article-content blockquote { border-left: 4px solid var(--kb-accent-light); padding: 14px 22px; margin: 22px 0; background: rgba(99,102,241,0.04); border-radius: 0 14px 14px 0; font-style: italic; color: #cbd5e1; }
-.kb-article-content table { width: 100%; border-collapse: collapse; margin: 22px 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(99,102,241,0.15); }
-.kb-article-content th { background: rgba(99,102,241,0.15); padding: 12px 16px; font-weight: 600; color: var(--kb-accent-light); text-align: left; }
-.kb-article-content td { padding: 12px 16px; border-bottom: 1px solid rgba(99,102,241,0.08); background: rgba(0,0,0,0.1); }
-.kb-article-content img { max-width: 100%; border-radius: 18px; margin: 20px 0; box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
-.kb-article-content hr { margin: 32px 0; border: none; height: 2px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.35), transparent); }
-.kb-article-content iframe { border-radius: 18px; max-width: 100%; }
-
-/* ============================================ */
-/* ЛАЙКИ */
-/* ============================================ */
-.kb-article-likes-area { display: flex; align-items: center; }
-.kb-like-btn {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(239,68,68,0.2);
-    border-radius: 36px;
-    padding: 12px 24px;
-    color: #f87171;
-    font-size: 17px;
-    cursor: pointer;
-    transition: var(--kb-transition);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 600;
-    font-family: inherit;
-}
-.kb-like-btn:hover {
-    background: rgba(239,68,68,0.12);
-    border-color: rgba(239,68,68,0.4);
-    transform: translateY(-2px);
-}
-.kb-like-btn.liked {
-    background: rgba(239,68,68,0.18);
-    border-color: #ef4444;
-    color: #ef4444;
-    animation: kbHeartBeat 0.4s ease;
-}
-@keyframes kbHeartBeat {
-    0% { transform: scale(1); }
-    30% { transform: scale(1.2); }
-    60% { transform: scale(0.95); }
-    100% { transform: scale(1); }
-}
-.kb-article-actions-area { display: flex; gap: 10px; }
-
-/* ============================================ */
-/* РЕДАКТОР */
-/* ============================================ */
-.kb-editor-wrapper {
-    border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 16px;
-    overflow: hidden;
-}
-.kb-editor-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
-    padding: 10px 14px;
-    background: rgba(10,13,24,0.9);
-    border-bottom: 1px solid rgba(99,102,241,0.12);
-    position: sticky;
-    top: 0;
-    z-index: 5;
-}
-.kb-editor-toolbar button {
-    width: 34px;
-    height: 34px;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--kb-text-muted);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    transition: all 0.15s;
-}
-.kb-editor-toolbar button:hover {
-    background: rgba(99,102,241,0.18);
-    border-color: rgba(99,102,241,0.3);
-    color: var(--kb-text);
-}
-.kb-editor-toolbar select {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 8px;
-    color: var(--kb-text);
-    padding: 4px 10px;
-    font-size: 12px;
-    cursor: pointer;
-    outline: none;
-    height: 34px;
-}
-.kb-editor-toolbar select option { background: #1a1f2e; color: #e2e8f0; }
-.kb-editor-toolbar input[type="color"] {
-    width: 32px;
-    height: 32px;
-    border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 8px;
-    cursor: pointer;
-    padding: 2px;
-    background: transparent;
-}
-
-.kb-editor-area {
-    min-height: 420px;
-    max-height: 58vh;
-    overflow-y: auto;
-    padding: 22px 26px;
-    background: #080b14;
-    color: var(--kb-text);
-    font-size: 15px;
-    line-height: 1.8;
-    outline: none;
-    font-family: inherit;
-}
-.kb-editor-area:focus { box-shadow: inset 0 0 0 2px rgba(99,102,241,0.12); }
-.kb-editor-area:empty:before {
-    content: attr(data-placeholder);
-    color: var(--kb-text-muted);
-    font-style: italic;
-}
-.kb-editor-area h1 { font-size: 28px; margin: 18px 0 12px; }
-.kb-editor-area h2 { font-size: 24px; margin: 16px 0 10px; }
-.kb-editor-area h3 { font-size: 20px; margin: 14px 0 8px; }
-.kb-editor-area p { margin: 10px 0; }
-.kb-editor-area ul, .kb-editor-area ol { padding-left: 24px; margin: 10px 0; }
-.kb-editor-area blockquote { border-left: 4px solid #a78bfa; padding: 10px 16px; margin: 14px 0; background: rgba(99,102,241,0.05); border-radius: 0 10px 10px 0; }
-.kb-editor-area pre { background: #0a0d16; padding: 16px; border-radius: 10px; margin: 14px 0; }
-.kb-editor-area table { border-collapse: collapse; width: 100%; margin: 14px 0; }
-.kb-editor-area th, .kb-editor-area td { border: 1px solid rgba(99,102,241,0.15); padding: 10px 14px; }
-
-/* ============================================ */
-/* ВЫБОР ИКОНОК */
-/* ============================================ */
-.kb-icon-picker {
-    display: grid;
-    grid-template-columns: repeat(10, 1fr);
-    gap: 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    padding: 10px;
-    background: rgba(0,0,0,0.2);
-    border-radius: 12px;
-    border: 1px solid rgba(99,102,241,0.12);
-}
-.kb-icon-option {
-    font-size: 26px;
-    cursor: pointer;
-    padding: 8px;
-    text-align: center;
-    border-radius: 10px;
-    transition: all 0.15s;
-}
-.kb-icon-option:hover { background: rgba(99,102,241,0.25); transform: scale(1.1); }
-.kb-icon-option.selected { background: rgba(99,102,241,0.3); border: 1px solid var(--kb-accent-light); }
-
-/* ============================================ */
-/* ФОРМЫ */
-/* ============================================ */
-.form-group { margin-bottom: 20px; }
-.form-group label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 500; color: var(--kb-text-secondary); }
-.form-input, .form-select, .form-textarea {
-    width: 100%;
-    padding: 14px 18px;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(99,102,241,0.18);
-    border-radius: 14px;
-    color: var(--kb-text);
-    font-size: 15px;
-    outline: none;
-    transition: var(--kb-transition);
-    font-family: inherit;
-}
-.form-input:focus, .form-select:focus, .form-textarea:focus {
-    border-color: var(--kb-accent-light);
-    box-shadow: 0 0 0 3px rgba(167,139,250,0.08);
-}
-.form-select option { background: #1a1f2e; color: #e2e8f0; }
-.form-textarea { resize: vertical; min-height: 80px; }
-/* ============================================ */
-/* УТИЛИТЫ */
-/* ============================================ */
-.tools-hero {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 28px 32px;
-    background: linear-gradient(160deg, rgba(16,185,129,0.06), rgba(5,150,105,0.02));
-    border-radius: var(--kb-radius);
-    border: 1px solid rgba(16,185,129,0.2);
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 20px;
-}
-.tools-hero-info { display: flex; align-items: center; gap: 18px; }
-.tools-hero-icon {
-    width: 64px;
-    height: 64px;
-    background: linear-gradient(135deg, #10b981, #059669);
-    border-radius: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 30px;
-    color: white;
-    box-shadow: 0 8px 24px rgba(16,185,129,0.25);
-}
-.tools-hero h2 { font-size: 24px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
-.tools-hero p { font-size: 14px; color: var(--kb-text-secondary); margin: 0; }
-.tools-hero-stats { display: flex; gap: 28px; }
-.tools-hero-stat { text-align: center; }
-.tools-hero-stat-value { font-size: 28px; font-weight: 800; color: var(--kb-gold); display: block; line-height: 1; }
-.tools-hero-stat-label { font-size: 11px; color: var(--kb-text-muted); text-transform: uppercase; margin-top: 6px; }
-
-.tools-controls {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-.tools-search-box {
-    flex: 1;
-    min-width: 220px;
-    position: relative;
-}
-.tools-search-box i {
-    position: absolute;
-    left: 16px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--kb-text-muted);
-    font-size: 14px;
-}
-.tools-search-box input {
-    width: 100%;
-    padding: 12px 16px 12px 44px;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(16,185,129,0.2);
-    border-radius: 40px;
-    color: var(--kb-text);
-    font-size: 14px;
-    outline: none;
-    transition: var(--kb-transition);
-}
-.tools-search-box input:focus { border-color: #10b981; }
-.tools-filter-select {
-    background: rgba(0,0,0,0.3);
-    border: 1px solid rgba(16,185,129,0.2);
-    border-radius: 40px;
-    color: var(--kb-text);
-    padding: 12px 20px;
-    font-size: 13px;
-    cursor: pointer;
-    outline: none;
-}
-.tools-filter-select option { background: #1a1f2e; color: #e2e8f0; }
-
-.tools-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-    gap: 20px;
-}
-
-/* Карточка утилиты */
-.tool-card {
-    background: var(--kb-surface);
-    backdrop-filter: blur(14px);
-    border-radius: 20px;
-    border: 1px solid var(--kb-border);
-    padding: 22px;
-    transition: var(--kb-transition);
-    position: relative;
-    overflow: hidden;
-}
-.tool-card::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #10b981, #34d399);
-    opacity: 0;
-    transition: opacity 0.3s;
-}
-.tool-card:hover::before { opacity: 1; }
-.tool-card:hover {
-    border-color: rgba(16,185,129,0.4);
-    transform: translateY(-3px);
-    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
-}
-.tool-card-icon { font-size: 48px; margin-bottom: 12px; line-height: 1; }
-.tool-badge {
-    display: inline-block;
-    padding: 5px 12px;
-    border-radius: 20px;
-    font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 10px;
-}
-.badge-server { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
-.badge-link { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
-.tool-card-name { font-size: 17px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px; }
-.tool-card-desc { font-size: 13px; color: var(--kb-text-secondary); margin-bottom: 10px; line-height: 1.5; }
-.tool-card-meta { display: flex; gap: 10px; font-size: 11px; color: var(--kb-text-muted); margin-bottom: 16px; flex-wrap: wrap; }
-.tool-card-actions { display: flex; gap: 10px; }
-.btn-launch {
-    flex: 1;
-    background: linear-gradient(135deg, #10b981, #059669);
-    border: none;
-    padding: 11px 18px;
-    border-radius: 24px;
-    color: white;
-    cursor: pointer;
-    font-weight: 500;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
-    font-size: 13px;
-    transition: var(--kb-transition);
-}
-.btn-launch:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
-.btn-launch-link { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-.btn-launch-link:hover { box-shadow: 0 4px 14px rgba(59,130,246,0.3); }
-.btn-delete-tool {
-    background: rgba(239,68,68,0.12);
-    border: 1px solid rgba(239,68,68,0.25);
-    padding: 11px 16px;
-    border-radius: 24px;
-    color: #f87171;
-    cursor: pointer;
-    transition: var(--kb-transition);
-    font-size: 14px;
-}
-.btn-delete-tool:hover { background: rgba(239,68,68,0.25); }
-
-/* ============================================ */
-/* ДРОПЗОНА */
-/* ============================================ */
-.tool-drop-zone {
-    border: 2px dashed rgba(99,102,241,0.25);
-    border-radius: 18px;
-    padding: 32px 24px;
-    text-align: center;
-    cursor: pointer;
-    transition: var(--kb-transition);
-}
-.tool-drop-zone:hover {
-    border-color: rgba(99,102,241,0.5);
-    background: rgba(99,102,241,0.04);
-}
-.tool-drop-zone i { font-size: 40px; color: var(--kb-text-muted); margin-bottom: 10px; display: block; }
-.tool-drop-zone p { margin: 6px 0; color: var(--kb-text-secondary); }
-
-/* ============================================ */
-/* ПРЕСЕТЫ КАТЕГОРИЙ */
-/* ============================================ */
-.kb-preset-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-}
-.kb-preset-item {
-    background: var(--kb-surface);
-    border: 1px solid var(--kb-border);
-    border-radius: 16px;
-    padding: 14px 20px;
-    cursor: pointer;
-    transition: var(--kb-transition);
-    text-align: center;
-    min-width: 100px;
-}
-.kb-preset-item:hover {
-    background: rgba(99,102,241,0.15);
-    border-color: var(--kb-accent-light);
-    transform: translateY(-2px);
-}
-.kb-preset-item-icon { font-size: 32px; display: block; margin-bottom: 8px; }
-.kb-preset-item-name { font-size: 12px; font-weight: 500; color: var(--kb-text); }
-
-/* ============================================ */
-/* ПУСТЫЕ СОСТОЯНИЯ */
-/* ============================================ */
-.kb-empty-state {
-    text-align: center;
-    padding: 70px 20px;
-    background: var(--kb-surface);
-    border-radius: var(--kb-radius);
-    border: 1px solid var(--kb-border);
-}
-.kb-empty-state-icon { font-size: 68px; margin-bottom: 16px; opacity: 0.35; }
-.kb-empty-state h3 { font-size: 22px; color: var(--kb-text); margin-bottom: 10px; }
-.kb-empty-state p { color: var(--kb-text-secondary); margin-bottom: 24px; }
-
-/* ============================================ */
-/* СКРОЛЛБАРЫ */
-/* ============================================ */
-.kb-editor-area::-webkit-scrollbar,
-.kb-modal-window::-webkit-scrollbar,
-.kb-icon-picker::-webkit-scrollbar {
-    width: 6px;
-}
-.kb-editor-area::-webkit-scrollbar-track,
-.kb-modal-window::-webkit-scrollbar-track {
-    background: rgba(255,255,255,0.02);
-    border-radius: 10px;
-}
-.kb-editor-area::-webkit-scrollbar-thumb,
-.kb-modal-window::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, rgba(99,102,241,0.5), rgba(139,92,246,0.5));
-    border-radius: 10px;
-}
-
-/* ============================================ */
-/* АДАПТИВ */
-/* ============================================ */
-@media (max-width: 900px) {
-    .knowledge-container { padding: 0 16px 40px; }
-    .kb-header { padding: 40px 20px; border-radius: 20px; }
-    .kb-header-title { font-size: 28px; }
-    .kb-header-icon { width: 64px; height: 64px; border-radius: 18px; }
-    .kb-header-icon i { font-size: 28px; }
+(function() {
+    'use strict';
     
-    .kb-tab-btn { padding: 12px 20px; font-size: 13px; }
-    .kb-tab-btn span { display: none; }
-    
-    .kb-action-bar { flex-direction: column; align-items: stretch; }
-    .kb-search-box { min-width: auto; }
-    
-    .tools-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-    .tools-hero { flex-direction: column; align-items: flex-start; }
-    .tools-controls { flex-direction: column; }
-    
-    .kb-modal-article { max-width: 100%; }
-    .kb-modal-editor { max-width: 100%; }
-    .kb-article-view-title { font-size: 22px; }
-    .kb-article-meta-row { gap: 14px; font-size: 12px; }
-    
-    .kb-editor-area { min-height: 300px; padding: 18px; }
-    .kb-editor-toolbar button { width: 30px; height: 30px; font-size: 11px; }
-    
-    .kb-icon-picker { grid-template-columns: repeat(8, 1fr); }
-}
+    let knowledgeCategories = [];
+    let knowledgeArticles = [];
+    let knowledgeSearchQuery = '';
+    let editingArticleId = null;
+    let editingCategoryId = null;
+    let isLoadingKnowledge = false;
+    let activeEditor = null;
+    let knowledgeInitialized = false;
+    let articleLikes = {};
 
-@media (max-width: 500px) {
-    .knowledge-container { padding: 0 10px 32px; }
-    .kb-header { padding: 28px 14px; }
-    .kb-header-title { font-size: 22px; }
-    .tools-grid { grid-template-columns: 1fr; }
-    .kb-modal-window { border-radius: 20px; }
-    .kb-modal-body { padding: 20px; }
-}
-</style>
+    // ============================================
+    // Вспомогательные функции
+    // ============================================
+
+    function canManageCategories() {
+        var role = window.app?.currentUserRole;
+        return role === 'director' || role === 'manager';
+    }
+
+    function canManageArticles() {
+        var role = window.app?.currentUserRole;
+        return role === 'director' || role === 'manager' || role === 'admin' || role === 'operator';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;', '/': '&#x2F;' };
+        return String(str).replace(/[&<>"'/]/g, function(m) { return map[m]; });
+    }
+
+    function formatDate(dateStr) {
+        if (!dateStr) return '—';
+        var d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '—';
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+    }
+
+    function formatTimeAgo(dateStr) {
+        if (!dateStr) return '';
+        var date = new Date(dateStr);
+        var now = new Date();
+        var diff = Math.floor((now - date) / 1000);
+        if (diff < 0) return 'только что';
+        if (diff < 60) return 'только что';
+        if (diff < 3600) return Math.floor(diff / 60) + ' мин назад';
+        if (diff < 86400) return Math.floor(diff / 3600) + ' ч назад';
+        if (diff < 2592000) return Math.floor(diff / 86400) + ' дн назад';
+        return formatDate(dateStr);
+    }
+
+    function showNotification(message, type) {
+        if (typeof window.showSystemNotification === 'function') {
+            window.showSystemNotification(message, type);
+        } else if (typeof window.showNotif === 'function') {
+            window.showNotif(message, type);
+        } else {
+            console.log('[' + type + '] ' + message);
+        }
+    }
+
+    async function apiCall(endpoint, method, body) {
+        if (method === undefined) method = 'GET';
+        if (body === undefined) body = null;
+        var token = localStorage.getItem('token');
+        var options = { method: method, headers: { 'Content-Type': 'application/json' } };
+        if (token) options.headers['Authorization'] = 'Bearer ' + token;
+        if (body) options.body = JSON.stringify(body);
+        try {
+            var response = await fetch('/api' + endpoint, options);
+            return await response.json();
+        } catch (e) {
+            console.error('Fetch error:', e);
+            return { success: false, error: 'Ошибка соединения' };
+        }
+    }
+
+    function canCountView(articleId) {
+        var currentUser = window.app?.currentUser;
+        if (!currentUser) return false;
+        var key = 'kb_views_' + currentUser;
+        var viewsData = {};
+        try {
+            viewsData = JSON.parse(localStorage.getItem(key) || '{}');
+        } catch(e) {
+            viewsData = {};
+        }
+        var articleKey = 'article_' + articleId;
+        var lastView = viewsData[articleKey] || 0;
+        var now = Date.now();
+        var fiveMinutes = 5 * 60 * 1000;
+        if (now - lastView > fiveMinutes) {
+            viewsData[articleKey] = now;
+            var oneHour = 60 * 60 * 1000;
+            Object.keys(viewsData).forEach(function(key) {
+                if (now - viewsData[key] > oneHour) {
+                    delete viewsData[key];
+                }
+            });
+            localStorage.setItem(key, JSON.stringify(viewsData));
+            return true;
+        }
+        return false;
+    }
+
+    async function trackArticleView(articleId) {
+        if (!canCountView(articleId)) return;
+        try {
+            var response = await apiCall('/knowledge/articles/' + articleId + '/view', 'POST');
+            if (response && response.success) {
+                var article = knowledgeArticles.find(function(a) { return a.id === articleId; });
+                if (article) {
+                    article.views = (article.views || 0) + 1;
+                }
+            }
+        } catch(e) {
+            // молча игнорируем
+        }
+    }
+
+    async function toggleLike(articleId) {
+        var key = 'kb_like_' + articleId;
+        var liked = localStorage.getItem(key) === 'true';
+        try {
+            var response = await apiCall('/knowledge/articles/' + articleId + '/like', 'POST', { like: !liked });
+            if (response && response.success) {
+                localStorage.setItem(key, (!liked).toString());
+                articleLikes[articleId] = response.likes || 0;
+                renderKnowledge();
+                showNotification(liked ? '💔 Лайк убран' : '❤️ Статья понравилась!', 'success');
+            }
+        } catch (e) {
+            showNotification('❌ Ошибка', 'error');
+        }
+    }
+
+    function getEmojiList() {
+        var emojis = [
+            '😀','😂','🤣','😍','🥰','😘','😎','🤩','😤','😢','😡','😱','🤔','😴',
+            '👍','👎','👏','🙌','💪','🤝','🎉','🔥','💯','✅','❌','⭐','🌟','🎮',
+            '🛒','💰','📅','📋','🏆','👑','🎁','🔄','📚','💡','🔧','⚙️','📸','📝',
+            '🎯','🚀','🎂','☕','🧹','📱','💻','🖥️','🎧','🎬','📊','📈','🔒','🔑',
+            '❤️','💔','🫶','🤌','🫡','🥇','🥈','🥉','🏅','🎖️','🔔','💬','🗨️','📢'
+        ];
+        return emojis.map(function(e) {
+            return '<span class="kb-emoji-item" onclick="window.kbInsertEmoji(\'' + e + '\')" title="' + e + '">' + e + '</span>';
+        }).join('');
+    }
+
+    // ============================================
+    // Редактор
+    // ============================================
+
+    function renderEditorToolbar() {
+        return '' +
+        '<div class="kb-editor-toolbar" id="kbEditorToolbar">' +
+            '<div class="kb-toolbar-row">' +
+                '<button onclick="window.kbExec(\'bold\')" title="Жирный (Ctrl+B)" class="kb-toolbar-btn"><b>B</b></button>' +
+                '<button onclick="window.kbExec(\'italic\')" title="Курсив (Ctrl+I)" class="kb-toolbar-btn"><i>I</i></button>' +
+                '<button onclick="window.kbExec(\'underline\')" title="Подчёркнутый (Ctrl+U)" class="kb-toolbar-btn"><u>U</u></button>' +
+                '<button onclick="window.kbExec(\'strikeThrough\')" title="Зачёркнутый" class="kb-toolbar-btn"><s>S</s></button>' +
+                '<button onclick="window.kbExec(\'removeFormat\')" title="Очистить формат" class="kb-toolbar-btn"><i class="fas fa-eraser"></i></button>' +
+                '<select onchange="window.kbExec(\'formatBlock\', this.value)" class="kb-toolbar-select">' +
+                    '<option value="p">📝 Параграф</option>' +
+                    '<option value="h1">H1 Заголовок</option>' +
+                    '<option value="h2">H2 Заголовок</option>' +
+                    '<option value="h3">H3 Подзаголовок</option>' +
+                    '<option value="h4">H4 Заголовок</option>' +
+                    '<option value="pre">💻 Код</option>' +
+                    '<option value="blockquote">💬 Цитата</option>' +
+                '</select>' +
+                '<select onchange="window.kbExec(\'fontSize\', this.value)" class="kb-toolbar-select kb-select-sm">' +
+                    '<option value="1">8px</option>' +
+                    '<option value="2">10px</option>' +
+                    '<option value="3">12px</option>' +
+                    '<option value="4" selected>14px</option>' +
+                    '<option value="5">18px</option>' +
+                    '<option value="6">24px</option>' +
+                    '<option value="7">36px</option>' +
+                '</select>' +
+                '<input type="color" onchange="window.kbExec(\'foreColor\', this.value)" value="#e2e8f0" title="Цвет текста" class="kb-color-picker">' +
+                '<input type="color" onchange="window.kbExec(\'hiliteColor\', this.value)" value="#000000" title="Цвет фона" class="kb-color-picker">' +
+            '</div>' +
+            '<div class="kb-toolbar-row">' +
+                '<button onclick="window.kbExec(\'justifyLeft\')" title="По левому краю" class="kb-toolbar-btn"><i class="fas fa-align-left"></i></button>' +
+                '<button onclick="window.kbExec(\'justifyCenter\')" title="По центру" class="kb-toolbar-btn"><i class="fas fa-align-center"></i></button>' +
+                '<button onclick="window.kbExec(\'justifyRight\')" title="По правому краю" class="kb-toolbar-btn"><i class="fas fa-align-right"></i></button>' +
+                '<button onclick="window.kbExec(\'justifyFull\')" title="По ширине" class="kb-toolbar-btn"><i class="fas fa-align-justify"></i></button>' +
+                '<button onclick="window.kbExec(\'insertUnorderedList\')" title="Маркированный список" class="kb-toolbar-btn"><i class="fas fa-list-ul"></i></button>' +
+                '<button onclick="window.kbExec(\'insertOrderedList\')" title="Нумерованный список" class="kb-toolbar-btn"><i class="fas fa-list-ol"></i></button>' +
+                '<button onclick="window.kbInsertChecklist()" title="Чек-лист" class="kb-toolbar-btn"><i class="fas fa-check-square"></i></button>' +
+                '<button onclick="window.kbInsertLink()" title="Ссылка" class="kb-toolbar-btn"><i class="fas fa-link"></i></button>' +
+                '<button onclick="window.kbInsertImage()" title="Изображение" class="kb-toolbar-btn"><i class="fas fa-image"></i></button>' +
+                '<button onclick="window.kbInsertVideo()" title="Видео (YouTube)" class="kb-toolbar-btn"><i class="fas fa-video"></i></button>' +
+                '<button onclick="window.kbInsertTable()" title="Таблица" class="kb-toolbar-btn"><i class="fas fa-table"></i></button>' +
+                '<button onclick="window.kbInsertDivider()" title="Разделитель" class="kb-toolbar-btn"><i class="fas fa-grip-lines"></i></button>' +
+                '<button onclick="window.kbInsertCallout(\'info\')" title="Инфо" class="kb-toolbar-btn" style="color:#3b82f6;"><i class="fas fa-info-circle"></i></button>' +
+                '<button onclick="window.kbInsertCallout(\'success\')" title="Успех" class="kb-toolbar-btn" style="color:#10b981;"><i class="fas fa-check-circle"></i></button>' +
+                '<button onclick="window.kbInsertCallout(\'warning\')" title="Предупреждение" class="kb-toolbar-btn" style="color:#f59e0b;"><i class="fas fa-exclamation-triangle"></i></button>' +
+                '<button onclick="window.kbInsertCallout(\'error\')" title="Ошибка" class="kb-toolbar-btn" style="color:#ef4444;"><i class="fas fa-times-circle"></i></button>' +
+                '<button onclick="window.kbInsertCodeBlock()" title="Блок кода" class="kb-toolbar-btn"><i class="fas fa-code"></i></button>' +
+                '<button onclick="window.kbToggleEmoji()" title="Эмодзи" class="kb-toolbar-btn">😊</button>' +
+                '<button onclick="document.execCommand(\'undo\')" title="Отменить (Ctrl+Z)" class="kb-toolbar-btn"><i class="fas fa-undo"></i></button>' +
+                '<button onclick="document.execCommand(\'redo\')" title="Повторить (Ctrl+Y)" class="kb-toolbar-btn"><i class="fas fa-redo"></i></button>' +
+            '</div>' +
+            '<div id="kbEmojiPanel" class="kb-emoji-panel" style="display:none;">' + getEmojiList() + '</div>' +
+        '</div>';
+    }
+
+    function kbExec(command, value) {
+        if (value === undefined) value = null;
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        try {
+            document.execCommand(command, false, value);
+        } catch(e) {
+            console.error('execCommand error:', e);
+        }
+    }
+
+    function kbInitEditor(editorElement) {
+        activeEditor = editorElement;
+        if (!editorElement.innerHTML || editorElement.innerHTML === '<br>') {
+            editorElement.innerHTML = '';
+        }
+        editorElement.setAttribute('data-placeholder', 'Начните писать здесь...');
+        if (!editorElement.innerHTML.trim()) {
+            editorElement.classList.add('kb-editor-empty');
+        }
+        editorElement.addEventListener('input', function() {
+            if (!this.innerHTML.trim() || this.innerHTML === '<br>') {
+                this.classList.add('kb-editor-empty');
+            } else {
+                this.classList.remove('kb-editor-empty');
+            }
+        });
+        editorElement.addEventListener('keydown', function(e) {
+            if (e.ctrlKey || e.metaKey) {
+                switch(e.key.toLowerCase()) {
+                    case 'b': e.preventDefault(); kbExec('bold'); break;
+                    case 'i': e.preventDefault(); kbExec('italic'); break;
+                    case 'u': e.preventDefault(); kbExec('underline'); break;
+                    case 'k': e.preventDefault(); kbInsertLink(); break;
+                    case 'z': e.preventDefault(); document.execCommand('undo'); break;
+                    case 'y': e.preventDefault(); document.execCommand('redo'); break;
+                }
+            }
+            if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                kbExec('indent');
+            }
+            if (e.key === 'Tab' && e.shiftKey) {
+                e.preventDefault();
+                kbExec('outdent');
+            }
+        });
+        setTimeout(function() { editorElement.focus(); }, 150);
+    }
+
+    function kbToggleEmoji() {
+        var panel = document.getElementById('kbEmojiPanel');
+        if (panel) {
+            panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+        }
+    }
+
+    function kbInsertEmoji(emoji) {
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        var sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+            var range = sel.getRangeAt(0);
+            range.deleteContents();
+            var textNode = document.createTextNode(emoji);
+            range.insertNode(textNode);
+            range.setStartAfter(textNode);
+            sel.removeAllRanges();
+            sel.addRange(range);
+        } else {
+            activeEditor.innerHTML += emoji;
+        }
+        var panel = document.getElementById('kbEmojiPanel');
+        if (panel) panel.style.display = 'none';
+    }
+
+    function kbInsertLink() {
+        var url = prompt('🔗 Введите URL ссылки:', 'https://');
+        if (!url || !url.trim()) return;
+        var text = prompt('📝 Текст ссылки (необязательно):', '');
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        if (text && text.trim()) {
+            document.execCommand('insertHTML', false,
+                '<a href="' + escapeHtml(url.trim()) + '" target="_blank" rel="noopener noreferrer" style="color:#a78bfa;text-decoration:underline;">' + escapeHtml(text.trim()) + '</a>'
+            );
+        } else {
+            document.execCommand('createLink', false, url.trim());
+        }
+        showNotification('🔗 Ссылка добавлена', 'info');
+    }
+
+    function kbInsertImage() {
+        var url = prompt('🖼️ Введите URL изображения:', 'https://');
+        if (!url || !url.trim()) return;
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        document.execCommand('insertHTML', false,
+            '<div style="margin:24px 0;text-align:center;position:relative;">' +
+                '<img src="' + escapeHtml(url.trim()) + '" alt="Изображение" ' +
+                     'style="max-width:100%;border-radius:16px;box-shadow:0 8px 25px rgba(0,0,0,0.4);cursor:pointer;transition:transform 0.3s;" ' +
+                     'onerror="this.onerror=null;this.parentElement.innerHTML=\'<div style=&quot;padding:40px;background:rgba(239,68,68,0.1);border-radius:16px;border:1px solid rgba(239,68,68,0.3);text-align:center;color:#f87171;&quot;>❌ Не удалось загрузить изображение</div>\'" ' +
+                     'onclick="this.style.transform=this.style.transform===\'scale(1.05)\'?\'scale(1)\':\'scale(1.05)\'">' +
+                '<div style="margin-top:8px;font-size:11px;color:#64748b;">🖼️ Нажмите на изображение чтобы увеличить</div>' +
+            '</div>'
+        );
+        showNotification('🖼️ Изображение добавлено', 'info');
+    }
+
+    function kbInsertVideo() {
+        var url = prompt('🎬 Введите ссылку на YouTube видео:', 'https://www.youtube.com/watch?v=');
+        if (!url || !url.trim()) return;
+        var videoId = '';
+        try {
+            var u = new URL(url.trim());
+            videoId = u.searchParams.get('v') || u.pathname.split('/').pop();
+        } catch(e) {
+            videoId = url.trim().split('v=')[1]?.split('&')[0] || '';
+        }
+        if (!videoId) {
+            showNotification('❌ Неверная ссылка на YouTube', 'error');
+            return;
+        }
+        var embedUrl = 'https://www.youtube.com/embed/' + escapeHtml(videoId);
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        document.execCommand('insertHTML', false,
+            '<div style="margin:24px 0;position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:16px;box-shadow:0 8px 25px rgba(0,0,0,0.4);">' +
+                '<iframe src="' + embedUrl + '" ' +
+                        'style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:16px;" ' +
+                        'frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" ' +
+                        'allowfullscreen>' +
+                '</iframe>' +
+            '</div>'
+        );
+        showNotification('🎬 Видео добавлено', 'info');
+    }
+
+    function kbInsertTable() {
+        var rows = parseInt(prompt('Количество строк:', '3')) || 3;
+        var cols = parseInt(prompt('Количество столбцов:', '3')) || 3;
+        if (rows < 1 || cols < 1 || rows > 10 || cols > 8) {
+            showNotification('❌ Строк: 1-10, Столбцов: 1-8', 'error');
+            return;
+        }
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        var table = '<div style="overflow-x:auto;margin:24px 0;border-radius:16px;border:1px solid rgba(99,102,241,0.2);"><table style="width:100%;border-collapse:collapse;background:rgba(0,0,0,0.2);">';
+        for (var i = 0; i < rows; i++) {
+            table += '<tr>';
+            for (var j = 0; j < cols; j++) {
+                var isHeader = i === 0;
+                var tag = isHeader ? 'th' : 'td';
+                var style = isHeader ? 'background:rgba(99,102,241,0.2);font-weight:600;color:#a78bfa;' : 'background:rgba(0,0,0,0.1);';
+                table += '<' + tag + ' style="border:1px solid rgba(99,102,241,0.1);padding:12px 16px;text-align:left;' + style + '">' + (isHeader ? 'Колонка ' + (j+1) : '—') + '</' + tag + '>';
+            }
+            table += '</tr>';
+        }
+        table += '</table></div>';
+        document.execCommand('insertHTML', false, table);
+        showNotification('📊 Таблица добавлена', 'info');
+    }
+
+    function kbInsertDivider() {
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        document.execCommand('insertHTML', false,
+            '<hr style="margin:32px 0;border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(167,139,250,0.5),transparent);">'
+        );
+    }
+
+    function kbInsertCallout(type) {
+        var config = {
+            info: { icon: 'ℹ️', color: '#3b82f6', bg: 'rgba(59,130,246,0.08)', title: 'Информация' },
+            success: { icon: '✅', color: '#10b981', bg: 'rgba(16,185,129,0.08)', title: 'Успешно' },
+            warning: { icon: '⚠️', color: '#f59e0b', bg: 'rgba(245,158,11,0.08)', title: 'Внимание' },
+            error: { icon: '❌', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', title: 'Ошибка' }
+        };
+        var c = config[type] || config.info;
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        document.execCommand('insertHTML', false,
+            '<div style="background:' + c.bg + ';border-left:4px solid ' + c.color + ';border-radius:16px;padding:16px 20px;margin:24px 0;display:flex;align-items:flex-start;gap:14px;">' +
+                '<span style="font-size:24px;flex-shrink:0;">' + c.icon + '</span>' +
+                '<div style="flex:1;color:#e2e8f0;">' +
+                    '<div style="font-weight:600;color:' + c.color + ';margin-bottom:6px;font-size:15px;">' + c.title + '</div>' +
+                    '<div style="line-height:1.6;">Введите текст сообщения здесь...</div>' +
+                '</div>' +
+            '</div>'
+        );
+        showNotification(c.icon + ' Блок добавлен', 'info');
+    }
+
+    function kbInsertCodeBlock() {
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        document.execCommand('insertHTML', false,
+            '<div style="margin:24px 0;position:relative;">' +
+                '<div style="background:#0d1016;border-radius:16px;border:1px solid rgba(99,102,241,0.2);overflow:hidden;">' +
+                    '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:rgba(99,102,241,0.1);border-bottom:1px solid rgba(99,102,241,0.2);">' +
+                        '<div style="display:flex;gap:8px;">' +
+                            '<span style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></span>' +
+                            '<span style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></span>' +
+                            '<span style="width:10px;height:10px;border-radius:50%;background:#10b981;"></span>' +
+                        '</div>' +
+                        '<span style="font-size:11px;color:#64748b;">JavaScript</span>' +
+                        '<button onclick="navigator.clipboard.writeText(this.closest(\'.kb-code-wrapper\')?.querySelector(\'code\')?.textContent || \'\');" ' +
+                                'style="background:transparent;border:1px solid rgba(99,102,241,0.3);color:#a78bfa;padding:4px 12px;border-radius:20px;font-size:11px;cursor:pointer;">' +
+                            '📋 Копировать' +
+                        '</button>' +
+                    '</div>' +
+                    '<div class="kb-code-wrapper" style="padding:20px;">' +
+                        '<pre style="margin:0;overflow-x:auto;"><code style="color:#e2e8f0;font-family:\'JetBrains Mono\',\'Fira Code\',\'Courier New\',monospace;font-size:13px;line-height:1.6;">// Введите ваш код здесь\nfunction hello() {\n    console.log("Привет, WARPOINT!");\n}</code></pre>' +
+                    '</div>' +
+                '</div>' +
+            '</div>'
+        );
+        showNotification('💻 Блок кода добавлен', 'info');
+    }
+
+    function kbInsertChecklist() {
+        if (!activeEditor) activeEditor = document.getElementById('kbEditorContent');
+        if (!activeEditor) return;
+        activeEditor.focus();
+        document.execCommand('insertHTML', false,
+            '<div style="margin:20px 0;display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(0,0,0,0.2);border-radius:12px;">' +
+                '<input type="checkbox" style="width:18px;height:18px;cursor:pointer;accent-color:#a78bfa;">' +
+                '<span style="color:#e2e8f0;">Задача для выполнения</span>' +
+            '</div>'
+        );
+    }
+
+    function cleanHTML(html) {
+        if (!html) return '';
+        var div = document.createElement('div');
+        div.innerHTML = html;
+        div.querySelectorAll('[contenteditable]').forEach(function(el) {
+            el.removeAttribute('contenteditable');
+        });
+        div.querySelectorAll('span').forEach(function(el) {
+            if (!el.textContent.trim() && !el.querySelector('img')) {
+                el.remove();
+            }
+        });
+        div.querySelectorAll('p, div').forEach(function(el) {
+            if (!el.textContent.trim() && !el.querySelector('img, iframe, table, pre, hr, br')) {
+                el.remove();
+            }
+        });
+        div.querySelectorAll('[style]').forEach(function(el) {
+            var style = el.getAttribute('style');
+            if (style) {
+                style = style.replace(/\s+/g, ' ').trim();
+                if (style === '' || style === ';') {
+                    el.removeAttribute('style');
+                } else {
+                    el.setAttribute('style', style);
+                }
+            }
+        });
+        return div.innerHTML;
+    }
+
+    // ============================================
+    // Популярные статьи
+    // ============================================
+
+    function getPopularArticles(limit) {
+        if (limit === undefined) limit = 5;
+        return knowledgeArticles.filter(function(a) { return (a.views || 0) > 0; })
+            .sort(function(a, b) { return (b.views || 0) - (a.views || 0); })
+            .slice(0, limit);
+    }
+
+    function renderPopularArticles() {
+        var popular = getPopularArticles(3);
+        if (popular.length === 0) return '';
+
+        var html = '' +
+        '<div class="kb-popular-header">' +
+            '<i class="fas fa-fire" style="color:#f59e0b;"></i>' +
+            '<span>Популярные статьи</span>' +
+        '</div>' +
+        '<div class="kb-popular-list">';
+
+        popular.forEach(function(article, idx) {
+            var author = article.created_by || 'Неизвестный';
+            var category = knowledgeCategories.find(function(c) { return c.id === article.category_id; });
+            html += '' +
+            '<div class="kb-popular-item" onclick="window.kbOpenArticle(' + article.id + ')">' +
+                '<div class="kb-popular-rank">#' + (idx + 1) + '</div>' +
+                '<div class="kb-popular-info">' +
+                    '<div class="kb-popular-title">' + escapeHtml(article.title) + '</div>' +
+                    '<div class="kb-popular-meta">' +
+                        '<span><i class="fas fa-user"></i> ' + escapeHtml(author) + '</span>' +
+                        '<span><i class="fas fa-eye"></i> ' + (article.views || 0) + '</span>' +
+                        (category ? '<span style="color:' + (category.color || '#a78bfa') + ';">' + category.icon + ' ' + category.name + '</span>' : '') +
+                    '</div>' +
+                '</div>' +
+                '<div class="kb-popular-views">' + (article.views || 0) + ' 👁️</div>' +
+            '</div>';
+        });
+
+        html += '</div>';
+        return html;
+    }
+
+    // ============================================
+    // Просмотр статьи
+    // ============================================
+
+    async function openArticle(articleId) {
+        var article = knowledgeArticles.find(function(a) { return a.id === articleId; });
+        if (!article) {
+            showNotification('❌ Статья не найдена', 'error');
+            return;
+        }
+
+        await trackArticleView(articleId);
+
+        var category = knowledgeCategories.find(function(c) { return c.id === article.category_id; });
+        var likes = articleLikes[articleId] || article.likes || 0;
+        var liked = localStorage.getItem('kb_like_' + articleId) === 'true';
+        var canEdit = canManageArticles();
+
+        var modal = document.getElementById('kbArticleModal');
+        var categoryTag = document.getElementById('kbArticleCategory');
+        var titleEl = document.getElementById('kbArticleTitle');
+        var authorEl = document.getElementById('kbArticleAuthor');
+        var dateEl = document.getElementById('kbArticleDate');
+        var timeEl = document.getElementById('kbArticleTime');
+        var viewsEl = document.getElementById('kbArticleViews');
+        var contentEl = document.getElementById('kbArticleContent');
+        var likeBtn = document.getElementById('kbArticleLikeBtn');
+        var editBtn = document.getElementById('kbArticleEditBtn');
+
+        if (categoryTag) {
+            categoryTag.textContent = (category?.icon || '📁') + ' ' + (category?.name || 'Без категории');
+            categoryTag.style.borderColor = category?.color || '#6366f1';
+            categoryTag.style.color = category?.color || '#a78bfa';
+        }
+        if (titleEl) titleEl.textContent = article.title;
+        if (authorEl) authorEl.innerHTML = '<i class="fas fa-user"></i> ' + escapeHtml(article.created_by || 'Неизвестный');
+        if (dateEl) dateEl.innerHTML = '<i class="fas fa-calendar"></i> ' + formatDate(article.created_at);
+        if (timeEl) timeEl.innerHTML = '<i class="fas fa-clock"></i> ' + formatTimeAgo(article.updated_at || article.created_at);
+        if (viewsEl) viewsEl.innerHTML = '<i class="fas fa-eye"></i> ' + ((article.views || 0) + 1) + ' просмотров';
+        if (contentEl) contentEl.innerHTML = article.content || '<p style="color:#64748b;text-align:center;padding:40px;">У этой статьи пока нет содержания</p>';
+        if (likeBtn) {
+            likeBtn.className = 'kb-like-btn ' + (liked ? 'liked' : '');
+            likeBtn.innerHTML = (liked ? '❤️' : '🤍') + ' <span>' + (likes || 0) + '</span>';
+            likeBtn.onclick = function() { kbToggleLike(articleId); };
+        }
+        if (editBtn) {
+            editBtn.style.display = canEdit ? 'inline-flex' : 'none';
+            editBtn.onclick = function() {
+                closeArticle();
+                kbEditArticle(articleId);
+            };
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        // Обработчик Escape
+        var escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeArticle();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    function closeArticle() {
+        var modal = document.getElementById('kbArticleModal');
+        if (modal) modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    // ============================================
+    // Редактор/создание статьи
+    // ============================================
+
+    function kbCreateArticle(categoryId) {
+        editingArticleId = null;
+        openEditor(categoryId, null);
+    }
+
+    function kbEditArticle(articleId) {
+        editingArticleId = articleId;
+        var article = knowledgeArticles.find(function(a) { return a.id === articleId; });
+        if (article) {
+            var cleanContent = cleanHTML(article.content || '');
+            openEditor(article.category_id, {
+                id: article.id,
+                title: article.title,
+                content: cleanContent
+            });
+        }
+    }
+
+    function openEditor(categoryId, article) {
+        var modal = document.getElementById('kbEditorModal');
+        var titleEl = document.getElementById('kbEditorTitle');
+        var titleInput = document.getElementById('kbEditorArticleTitle');
+        var contentEl = document.getElementById('kbEditorContent');
+        var deleteBtn = document.getElementById('kbEditorDeleteBtn');
+        var saveBtn = document.getElementById('kbEditorSaveBtn');
+
+        if (titleEl) titleEl.textContent = article ? '✏️ Редактировать статью' : '➕ Новая статья';
+        if (titleInput) titleInput.value = article ? article.title : '';
+        if (contentEl) contentEl.innerHTML = article?.content || '';
+        if (deleteBtn) deleteBtn.style.display = article ? 'inline-flex' : 'none';
+        if (saveBtn) {
+            saveBtn.onclick = function() { kbSaveArticle(categoryId); };
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        // Инициализация редактора
+        setTimeout(function() {
+            if (contentEl) kbInitEditor(contentEl);
+        }, 200);
+
+        // Обработчик Escape
+        var escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeEditor();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    function closeEditor() {
+        var modal = document.getElementById('kbEditorModal');
+        if (modal) modal.classList.remove('active');
+        document.body.style.overflow = '';
+        editingArticleId = null;
+    }
+
+    async function kbSaveArticle(categoryId) {
+        var title = document.getElementById('kbEditorArticleTitle')?.value.trim();
+        var content = document.getElementById('kbEditorContent')?.innerHTML || '';
+
+        if (!title) {
+            showNotification('❌ Введите заголовок', 'error');
+            return;
+        }
+
+        content = cleanHTML(content);
+
+        var response;
+        if (editingArticleId) {
+            response = await apiCall('/knowledge/articles/' + editingArticleId, 'PUT', { title: title, content: content });
+        } else {
+            response = await apiCall('/knowledge/articles', 'POST', { category_id: categoryId, title: title, content: content });
+        }
+
+        if (response?.success) {
+            showNotification(editingArticleId ? '✅ Статья обновлена' : '✅ Статья создана', 'success');
+            closeEditor();
+            await loadKnowledgeData();
+        } else {
+            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    }
+
+    async function kbDeleteArticle(articleId) {
+        if (!canManageArticles()) {
+            showNotification('❌ Нет прав', 'error');
+            return;
+        }
+        if (!confirm('Удалить эту статью?')) return;
+        var response = await apiCall('/knowledge/articles/' + articleId, 'DELETE');
+        if (response?.success) {
+            showNotification('🗑️ Статья удалена', 'warning');
+            closeEditor();
+            closeArticle();
+            await loadKnowledgeData();
+        } else {
+            showNotification('❌ Ошибка', 'error');
+        }
+    }
+
+    function kbDeleteArticleConfirm(articleId) {
+        if (confirm('Удалить эту статью?')) kbDeleteArticle(articleId);
+    }
+
+    // ============================================
+    // Категории
+    // ============================================
+
+    function kbOpenCreateCategory() {
+        editingCategoryId = null;
+        openCategoryModal(null, null);
+    }
+
+    function kbOpenEditCategory(id, name, icon) {
+        editingCategoryId = id;
+        openCategoryModal(name, icon);
+    }
+
+    function openCategoryModal(name, icon) {
+        var modal = document.getElementById('kbCategoryModal');
+        var titleEl = document.getElementById('kbCategoryModalTitle');
+        var nameInput = document.getElementById('kbCategoryName');
+        var iconInput = document.getElementById('kbCategoryIcon');
+        var iconPicker = document.getElementById('kbIconPicker');
+
+        if (titleEl) titleEl.textContent = editingCategoryId ? '✏️ Редактировать категорию' : '➕ Новая категория';
+        if (nameInput) nameInput.value = name || '';
+        if (iconInput) iconInput.value = icon || '📁';
+
+        // Генерация иконок
+        var iconList = ['📁','📖','📜','❓','💡','🔧','⚙️','🎮','🏆','⭐','🔥','✅','❌','⚠️','ℹ️','📅','🎧','📡','🧹','👋','💬','🎫','🆕','💰','📊','🌍','📢','🤝','🎯','🎂'];
+        if (iconPicker) {
+            iconPicker.innerHTML = iconList.map(function(ic) {
+                var selected = ic === (icon || '📁') ? 'selected' : '';
+                return '<div class="kb-icon-option ' + selected + '" data-icon="' + ic + '" onclick="window.kbSelectIcon(\'' + ic + '\')">' + ic + '</div>';
+            }).join('');
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        var escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeCategoryModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    function closeCategoryModal() {
+        var modal = document.getElementById('kbCategoryModal');
+        if (modal) modal.classList.remove('active');
+        document.body.style.overflow = '';
+        editingCategoryId = null;
+    }
+
+    function kbSelectIcon(icon) {
+        document.getElementById('kbCategoryIcon').value = icon;
+        document.querySelectorAll('.kb-icon-option').forEach(function(el) {
+            el.classList.remove('selected');
+            if (el.dataset.icon === icon) {
+                el.classList.add('selected');
+            }
+        });
+    }
+
+    async function kbSaveCategory() {
+        var name = document.getElementById('kbCategoryName')?.value.trim();
+        var icon = document.getElementById('kbCategoryIcon')?.value || '📁';
+
+        if (!name) {
+            showNotification('❌ Введите название', 'error');
+            return;
+        }
+
+        var response;
+        if (editingCategoryId) {
+            response = await apiCall('/knowledge/categories/' + editingCategoryId, 'PUT', { name: name, icon: icon });
+        } else {
+            response = await apiCall('/knowledge/categories', 'POST', { name: name, icon: icon });
+        }
+
+        if (response?.success) {
+            showNotification(editingCategoryId ? '✅ Категория обновлена' : '✅ Категория создана', 'success');
+            closeCategoryModal();
+            await loadKnowledgeData();
+        } else {
+            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    }
+
+    async function kbDeleteCategory(categoryId) {
+        if (!canManageCategories()) {
+            showNotification('❌ Нет прав', 'error');
+            return;
+        }
+        if (!confirm('Удалить категорию и все статьи в ней?')) return;
+        var response = await apiCall('/knowledge/categories/' + categoryId, 'DELETE');
+        if (response?.success) {
+            showNotification('🗑️ Категория удалена', 'warning');
+            await loadKnowledgeData();
+        } else {
+            showNotification('❌ Ошибка', 'error');
+        }
+    }
+
+    // ============================================
+    // Пресеты категорий
+    // ============================================
+
+    function kbShowPresets() {
+        var presetCategories = [
+            { icon: '⚔️', name: 'Мясорубка' }, { icon: '👥', name: 'Командный бой' },
+            { icon: '🔫', name: 'Свободная игра' }, { icon: '🧟', name: 'Кооператив' },
+            { icon: '👤', name: 'VR-станция' }, { icon: '🎢', name: 'VR-экстрим' },
+            { icon: '🏆', name: 'Турниры' }, { icon: '🎯', name: 'Тактика' },
+            { icon: '🎂', name: 'День рождения' }, { icon: '🏢', name: 'Корпоратив' },
+            { icon: '🎧', name: 'VR-шлемы' }, { icon: '🎮', name: 'Контроллеры' },
+            { icon: '📡', name: 'Wi-Fi' }, { icon: '🧹', name: 'Дезинфекция' },
+            { icon: '👋', name: 'Встреча' }, { icon: '💬', name: 'Скрипты' },
+            { icon: '🎫', name: 'Бронирования' }, { icon: '🆕', name: 'Онбординг' },
+            { icon: '📜', name: 'Правила' }, { icon: '💰', name: 'Финансы' }
+        ];
+
+        var modal = document.getElementById('kbPresetModal');
+        var grid = document.getElementById('kbPresetGrid');
+
+        if (grid) {
+            grid.innerHTML = presetCategories.map(function(cat) {
+                return '<div class="kb-preset-item" onclick="window.kbCreatePresetCategory(\'' + escapeHtml(cat.name) + '\',\'' + cat.icon + '\')">' +
+                    '<div class="kb-preset-item-icon">' + cat.icon + '</div>' +
+                    '<div class="kb-preset-item-name">' + escapeHtml(cat.name) + '</div>' +
+                '</div>';
+            }).join('');
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+
+        var escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closePresets();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+    }
+
+    function closePresets() {
+        var modal = document.getElementById('kbPresetModal');
+        if (modal) modal.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+
+    async function kbCreatePresetCategory(name, icon) {
+        var exists = knowledgeCategories.some(function(cat) {
+            return cat.name.toLowerCase() === name.toLowerCase();
+        });
+        if (exists) {
+            showNotification('❌ Категория "' + name + '" уже существует!', 'error');
+            return;
+        }
+        var response = await apiCall('/knowledge/categories', 'POST', { name: name, icon: icon });
+        if (response?.success) {
+            showNotification('✅ Категория "' + name + '" создана', 'success');
+            await loadKnowledgeData();
+        } else {
+            showNotification('❌ Ошибка при создании', 'error');
+        }
+    }
+
+    async function kbCreateAllPresets() {
+        var presetCategories = [
+            { icon: '⚔️', name: 'Мясорубка' }, { icon: '👥', name: 'Командный бой' },
+            { icon: '🔫', name: 'Свободная игра' }, { icon: '🧟', name: 'Кооператив' },
+            { icon: '👤', name: 'VR-станция' }, { icon: '🎢', name: 'VR-экстрим' },
+            { icon: '🏆', name: 'Турниры' }, { icon: '🎯', name: 'Тактика' },
+            { icon: '🎂', name: 'День рождения' }, { icon: '🏢', name: 'Корпоратив' },
+            { icon: '🎧', name: 'VR-шлемы' }, { icon: '🎮', name: 'Контроллеры' },
+            { icon: '📡', name: 'Wi-Fi' }, { icon: '🧹', name: 'Дезинфекция' },
+            { icon: '👋', name: 'Встреча' }, { icon: '💬', name: 'Скрипты' },
+            { icon: '🎫', name: 'Бронирования' }, { icon: '🆕', name: 'Онбординг' },
+            { icon: '📜', name: 'Правила' }, { icon: '💰', name: 'Финансы' }
+        ];
+        var created = 0;
+        var skipped = 0;
+        showNotification('⏳ Создание категорий...', 'info');
+        for (var i = 0; i < presetCategories.length; i++) {
+            var cat = presetCategories[i];
+            var exists = knowledgeCategories.some(function(c) {
+                return c.name.toLowerCase() === cat.name.toLowerCase();
+            });
+            if (exists) {
+                skipped++;
+                continue;
+            }
+            var response = await apiCall('/knowledge/categories', 'POST', { name: cat.name, icon: cat.icon });
+            if (response?.success) created++;
+            await new Promise(function(r) { setTimeout(r, 20); });
+        }
+        showNotification('✅ Создано: ' + created + ', Пропущено: ' + skipped, created > 0 ? 'success' : 'info');
+        await loadKnowledgeData();
+        closePresets();
+    }
+
+    // ============================================
+    // Загрузка данных
+    // ============================================
+
+    async function loadKnowledgeData() {
+        if (isLoadingKnowledge) return;
+        isLoadingKnowledge = true;
+        var container = document.getElementById('knowledgeContainer');
+        if (container) container.innerHTML = '<div class="kb-loading"><div class="kb-spinner"></div><p>Загрузка базы знаний...</p></div>';
+
+        try {
+            var categoriesRes = await apiCall('/knowledge/categories');
+            var articlesRes = await apiCall('/knowledge/articles');
+
+            if (!categoriesRes.success || !articlesRes.success) {
+                throw new Error('API вернул ошибку');
+            }
+
+            knowledgeCategories = categoriesRes.data || [];
+            knowledgeArticles = articlesRes.data || [];
+
+            renderKnowledge();
+        } catch (err) {
+            console.error('❌ load error:', err);
+            if (container) {
+                container.innerHTML = '<div class="kb-empty-state">' +
+                    '<div class="kb-empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div>' +
+                    '<h3>Ошибка загрузки</h3>' +
+                    '<p>' + err.message + '</p>' +
+                    '<button class="btn-primary" onclick="loadKnowledgeData()">🔄 Повторить</button>' +
+                '</div>';
+            }
+            showNotification('❌ Ошибка загрузки базы знаний', 'error');
+        } finally {
+            isLoadingKnowledge = false;
+        }
+    }
+
+    // ============================================
+    // Рендер
+    // ============================================
+
+    function renderKnowledge() {
+        var container = document.getElementById('knowledgeContainer');
+        if (!container) return;
+
+        var filteredArticles = knowledgeArticles.slice();
+        if (knowledgeSearchQuery) {
+            filteredArticles = filteredArticles.filter(function(a) {
+                return (a.title && a.title.toLowerCase().indexOf(knowledgeSearchQuery) !== -1) ||
+                       (a.content && a.content.toLowerCase().indexOf(knowledgeSearchQuery) !== -1);
+            });
+        }
+
+        // Популярные статьи
+        var popularSection = document.getElementById('kbPopularSection');
+        var popularHtml = renderPopularArticles();
+        if (popularSection) {
+            popularSection.innerHTML = popularHtml;
+            popularSection.style.display = popularHtml ? 'block' : 'none';
+        }
+
+        var categoriesWithArticles = knowledgeCategories.map(function(cat) {
+            return {
+                id: cat.id,
+                name: cat.name,
+                icon: cat.icon,
+                color: cat.color,
+                articles: filteredArticles.filter(function(a) { return a.category_id === cat.id; })
+            };
+        });
+
+        var canEditCategories = canManageCategories();
+        var canEditArticles = canManageArticles();
+
+        // Кнопки действий
+        var actionBtns = document.getElementById('actionButtons');
+        if (actionBtns) {
+            if (canEditCategories) {
+                actionBtns.innerHTML = '' +
+                '<button class="btn-secondary" onclick="window.kbOpenCreateCategory()"><i class="fas fa-folder-plus"></i> Новая категория</button>' +
+                '<button class="btn-secondary" onclick="window.kbShowPresets()"><i class="fas fa-magic"></i> Готовые категории</button>';
+            } else if (canEditArticles) {
+                actionBtns.innerHTML = '<span style="font-size:12px;color:#64748b;"><i class="fas fa-info-circle"></i> Вы можете добавлять статьи</span>';
+            } else {
+                actionBtns.innerHTML = '';
+            }
+        }
+
+        // Пустое состояние
+        if (knowledgeCategories.length === 0) {
+            if (canEditCategories) {
+                container.innerHTML = '' +
+                '<div class="kb-empty-state">' +
+                    '<div class="kb-empty-state-icon">📂</div>' +
+                    '<h3>База знаний пуста</h3>' +
+                    '<p>Создайте первую категорию, чтобы начать</p>' +
+                    '<div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">' +
+                        '<button class="btn-secondary" onclick="window.kbOpenCreateCategory()"><i class="fas fa-folder-plus"></i> Новая категория</button>' +
+                        '<button class="btn-secondary" onclick="window.kbShowPresets()"><i class="fas fa-magic"></i> Готовые категории</button>' +
+                    '</div>' +
+                '</div>';
+            } else {
+                container.innerHTML = '<div class="kb-empty-state"><div class="kb-empty-state-icon"><i class="fas fa-folder-open"></i></div><h3>База знаний пуста</h3><p>Категории ещё не созданы. Обратитесь к руководителю.</p></div>';
+            }
+            return;
+        }
+
+        // Рендер категорий
+        var html = '';
+        for (var c = 0; c < categoriesWithArticles.length; c++) {
+            var cat = categoriesWithArticles[c];
+            var hasArticles = cat.articles.length > 0;
+
+            html += '' +
+            '<div class="kb-category-card" data-category-id="' + cat.id + '">' +
+                '<div class="kb-category-header" onclick="window.kbToggleCategory(' + cat.id + ')">' +
+                    '<div class="kb-category-title-group">' +
+                        '<div class="kb-category-icon-box">' + (cat.icon || '📁') + '</div>' +
+                        '<span class="kb-category-name">' + escapeHtml(cat.name) + '</span>' +
+                        '<span class="kb-category-count">' + cat.articles.length + '</span>' +
+                    '</div>' +
+                    '<div class="kb-category-actions-group">' +
+                        (canEditCategories ? '<button class="kb-category-edit-btn" onclick="event.stopPropagation();window.kbOpenEditCategory(' + cat.id + ',\'' + escapeHtml(cat.name) + '\',\'' + escapeHtml(cat.icon || '📁') + '\')" title="Редактировать"><i class="fas fa-edit"></i></button>' : '') +
+                        (canEditCategories ? '<button class="kb-category-delete-btn" onclick="event.stopPropagation();window.kbDeleteCategory(' + cat.id + ')" title="Удалить"><i class="fas fa-trash-alt"></i></button>' : '') +
+                        '<span class="kb-category-arrow"><i class="fas fa-chevron-down"></i></span>' +
+                    '</div>' +
+                '</div>' +
+                '<div class="kb-category-body">';
+
+            if (hasArticles) {
+                for (var a = 0; a < cat.articles.length; a++) {
+                    var article = cat.articles[a];
+                    html += '' +
+                    '<div class="kb-article-item" onclick="window.kbOpenArticle(' + article.id + ')">' +
+                        '<div class="kb-article-item-info">' +
+                            '<div class="kb-article-item-title"><i class="fas fa-file-alt"></i> ' + escapeHtml(article.title) + '</div>' +
+                            '<div class="kb-article-item-meta">' +
+                                '<span><i class="fas fa-eye"></i> ' + (article.views || 0) + '</span>' +
+                                '<span><i class="fas fa-calendar-alt"></i> ' + formatDate(article.created_at) + '</span>' +
+                            '</div>' +
+                        '</div>' +
+                        '<div class="kb-article-item-actions">' +
+                            (canEditArticles ? '<button class="kb-article-edit-btn" onclick="event.stopPropagation();window.kbEditArticle(' + article.id + ')"><i class="fas fa-edit"></i></button>' : '') +
+                            (canEditArticles ? '<button class="kb-article-delete-btn" onclick="event.stopPropagation();window.kbDeleteArticle(' + article.id + ')"><i class="fas fa-trash-alt"></i></button>' : '') +
+                        '</div>' +
+                    '</div>';
+                }
+            } else {
+                html += '<div style="padding:16px;text-align:center;color:#64748b;font-size:14px;"><i class="fas fa-info-circle"></i> В этой категории пока нет статей</div>';
+            }
+
+            if (canEditArticles) {
+                html += '<div style="margin-top:8px;"><button class="btn-secondary" onclick="event.stopPropagation();window.kbCreateArticle(' + cat.id + ')" style="padding:10px 18px;font-size:13px;width:100%;"><i class="fas fa-plus"></i> Добавить статью</button></div>';
+            }
+
+            html += '</div></div>';
+        }
+
+        container.innerHTML = html;
+
+        // Восстановление открытых категорий
+        try {
+            var openCategories = JSON.parse(localStorage.getItem('knowledgeOpenCategories') || '[]');
+            openCategories.forEach(function(catId) {
+                var card = document.querySelector('.kb-category-card[data-category-id="' + catId + '"]');
+                var body = card?.querySelector('.kb-category-body');
+                var arrow = card?.querySelector('.kb-category-arrow i');
+                if (body) body.style.display = 'flex';
+                if (arrow) arrow.style.transform = 'rotate(180deg)';
+            });
+        } catch(e) {}
+    }
+
+    function kbToggleCategory(categoryId) {
+        var card = document.querySelector('.kb-category-card[data-category-id="' + categoryId + '"]');
+        var body = card?.querySelector('.kb-category-body');
+        var arrow = card?.querySelector('.kb-category-arrow i');
+        if (!body) return;
+
+        var openCategories = [];
+        try { openCategories = JSON.parse(localStorage.getItem('knowledgeOpenCategories') || '[]'); } catch(e) {}
+
+        if (body.style.display === 'none' || body.style.display === '') {
+            body.style.display = 'flex';
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+            if (openCategories.indexOf(categoryId) === -1) openCategories.push(categoryId);
+        } else {
+            body.style.display = 'none';
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+            openCategories = openCategories.filter(function(id) { return id !== categoryId; });
+        }
+        localStorage.setItem('knowledgeOpenCategories', JSON.stringify(openCategories));
+    }
+
+    // ============================================
+    // Поиск
+    // ============================================
+
+    function setupSearch() {
+        var searchInput = document.getElementById('knowledgeSearch');
+        var clearBtn = document.getElementById('clearSearchBtn');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function(e) {
+                knowledgeSearchQuery = e.target.value.toLowerCase();
+                renderKnowledge();
+                if (clearBtn) {
+                    clearBtn.style.display = e.target.value ? 'block' : 'none';
+                }
+            });
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                if (searchInput) {
+                    searchInput.value = '';
+                    knowledgeSearchQuery = '';
+                    renderKnowledge();
+                    clearBtn.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    // ============================================
+    // Переключение вкладок
+    // ============================================
+
+    function setupTabs() {
+        var tabBtns = document.querySelectorAll('.kb-tab-btn');
+        var panels = {
+            articles: document.getElementById('kbPanelArticles'),
+            tools: document.getElementById('kbPanelTools')
+        };
+
+        tabBtns.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var tab = this.dataset.tab;
+                tabBtns.forEach(function(b) { b.classList.remove('active'); });
+                this.classList.add('active');
+                Object.keys(panels).forEach(function(key) {
+                    if (panels[key]) panels[key].style.display = key === tab ? 'block' : 'none';
+                });
+                if (tab === 'tools') {
+                    loadTools();
+                }
+            });
+        });
+    }
+
+    // ============================================
+    // Утилиты (заглушка)
+    // ============================================
+
+    function loadTools() {
+        var grid = document.getElementById('toolsGrid');
+        if (grid) {
+            grid.innerHTML = '<div class="kb-empty-state"><div class="kb-empty-state-icon"><i class="fas fa-wrench"></i></div><h3>Утилиты в разработке</h3><p>Функционал будет доступен в следующем обновлении</p></div>';
+        }
+    }
+
+    // ============================================
+    // Инициализация
+    // ============================================
+
+    function initKnowledge() {
+        if (knowledgeInitialized) {
+            console.log('📚 База знаний уже инициализирована');
+            return;
+        }
+        console.log('📚 Инициализация базы знаний');
+
+        setupSearch();
+        setupTabs();
+        loadKnowledgeData();
+
+        // Привязка событий модалок
+        document.getElementById('kbArticleCloseBtn')?.addEventListener('click', closeArticle);
+        document.getElementById('kbArticleCloseFooterBtn')?.addEventListener('click', closeArticle);
+        document.getElementById('kbEditorCloseBtn')?.addEventListener('click', closeEditor);
+        document.getElementById('kbEditorCancelBtn')?.addEventListener('click', closeEditor);
+        document.getElementById('kbEditorDeleteBtn')?.addEventListener('click', function() {
+            if (editingArticleId) kbDeleteArticleConfirm(editingArticleId);
+        });
+        document.getElementById('kbCategoryCloseBtn')?.addEventListener('click', closeCategoryModal);
+        document.getElementById('kbCategoryCancelBtn')?.addEventListener('click', closeCategoryModal);
+        document.getElementById('kbCategorySaveBtn')?.addEventListener('click', kbSaveCategory);
+        document.getElementById('kbPresetCloseBtn')?.addEventListener('click', closePresets);
+        document.getElementById('kbPresetCancelBtn')?.addEventListener('click', closePresets);
+        document.getElementById('kbPresetAddAllBtn')?.addEventListener('click', kbCreateAllPresets);
+
+        // Закрытие модалок по клику на фон
+        document.querySelectorAll('.kb-modal-overlay').forEach(function(overlay) {
+            overlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                    document.body.style.overflow = '';
+                }
+            });
+        });
+
+        knowledgeInitialized = true;
+    }
+
+    // ============================================
+    // Экспорт
+    // ============================================
+
+    window.initKnowledge = initKnowledge;
+    window.kbExec = kbExec;
+    window.kbInitEditor = kbInitEditor;
+    window.kbToggleEmoji = kbToggleEmoji;
+    window.kbInsertEmoji = kbInsertEmoji;
+    window.kbInsertLink = kbInsertLink;
+    window.kbInsertImage = kbInsertImage;
+    window.kbInsertVideo = kbInsertVideo;
+    window.kbInsertTable = kbInsertTable;
+    window.kbInsertDivider = kbInsertDivider;
+    window.kbInsertCallout = kbInsertCallout;
+    window.kbInsertCodeBlock = kbInsertCodeBlock;
+    window.kbInsertChecklist = kbInsertChecklist;
+    window.kbOpenArticle = openArticle;
+    window.kbCloseArticle = closeArticle;
+    window.kbToggleLike = toggleLike;
+    window.kbToggleCategory = kbToggleCategory;
+    window.kbCreateArticle = kbCreateArticle;
+    window.kbEditArticle = kbEditArticle;
+    window.kbCloseArticleEdit = closeEditor;
+    window.kbSaveArticle = kbSaveArticle;
+    window.kbDeleteArticle = kbDeleteArticle;
+    window.kbDeleteArticleConfirm = kbDeleteArticleConfirm;
+    window.kbOpenCreateCategory = kbOpenCreateCategory;
+    window.kbOpenEditCategory = kbOpenEditCategory;
+    window.kbSelectIcon = kbSelectIcon;
+    window.kbCloseCategory = closeCategoryModal;
+    window.kbSaveCategory = kbSaveCategory;
+    window.kbDeleteCategory = kbDeleteCategory;
+    window.kbShowPresets = kbShowPresets;
+    window.kbClosePresets = closePresets;
+    window.kbCreatePresetCategory = kbCreatePresetCategory;
+    window.kbCreateAllPresets = kbCreateAllPresets;
+    window.loadKnowledgeData = loadKnowledgeData;
+    window.renderKnowledge = renderKnowledge;
+
+    console.log('✅ knowledge.js v7.0 загружен');
+})();
+</script>
+
+</body>
+</html>
