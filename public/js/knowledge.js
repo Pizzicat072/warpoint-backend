@@ -1281,61 +1281,82 @@ function hello() {
     }
 
     async function kbUploadTool() {
-        let nameInput = getElement('toolName');
-        let descInput = getElement('toolDesc');
-        let typeSelect = getElement('toolType');
-        let fileInput = getElement('toolFileInput');
-        let urlInput = getElement('toolPath');
+    let nameInput = getElement('toolName');
+    let descInput = getElement('toolDesc');
+    let typeSelect = getElement('toolType');
+    let fileInput = getElement('toolFileInput');
+    let urlInput = getElement('toolPath');
 
-        let name = nameInput?.value.trim();
-        let desc = descInput?.value.trim();
-        let type = typeSelect?.value;
+    let name = nameInput?.value.trim();
+    let desc = descInput?.value.trim();
+    let type = typeSelect?.value;
 
-        if (!name) {
-            showNotification('❌ Введите название утилиты', 'error');
+    if (!name) {
+        showNotification('❌ Введите название утилиты', 'error');
+        return;
+    }
+
+    let formData = new FormData();
+    formData.append('name', name);
+    if (desc) formData.append('description', desc);
+    formData.append('type', type);
+
+    if (type === 'url') {
+        let url = urlInput?.value.trim();
+        if (!url || !url.startsWith('http')) {
+            showNotification('❌ Введите корректную ссылку', 'error');
             return;
         }
-
-        let formData = new FormData();
-        formData.append('name', name);
-        if (desc) formData.append('description', desc);
-        formData.append('type', type);
-
-        if (type === 'url') {
-            let url = urlInput?.value.trim();
-            if (!url || !url.startsWith('http')) {
-                showNotification('❌ Введите корректную ссылку', 'error');
-                return;
-            }
-            formData.append('url', url);
-        } else {
-            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                showNotification('❌ Выберите файл', 'error');
-                return;
-            }
-            formData.append('file', fileInput.files[0]);
+        formData.append('url', url);
+    } else {
+        if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+            showNotification('❌ Выберите файл', 'error');
+            return;
         }
+        // ✨ Ограничиваем размер файла до 5 МБ
+        if (fileInput.files[0].size > 5 * 1024 * 1024) {
+            showNotification('❌ Файл слишком большой (макс. 5 МБ)', 'error');
+            return;
+        }
+        formData.append('file', fileInput.files[0]);
+    }
 
-        let token = getToken();
-        try {
-            let response = await fetch('/api/tools/upload', {
-                method: 'POST',
-                headers: { 'Authorization': 'Bearer ' + token },
-                body: formData
-            });
-            let result = await response.json();
-            if (result.success) {
-                showNotification('✅ Утилита загружена', 'success');
-                closeUploadModal();
-                state.toolsLoaded = false;
-                await loadTools();
-            } else {
-                showNotification('❌ ' + (result.error || 'Ошибка'), 'error');
-            }
-        } catch (e) {
+    let token = getToken();
+    try {
+        // ✨ Добавляем таймаут и явный Content-Type
+        let response = await fetch('/api/tools/upload', {
+            method: 'POST',
+            headers: { 
+                'Authorization': 'Bearer ' + token
+                // НЕ указываем Content-Type — браузер сам добавит с boundary
+            },
+            body: formData,
+            signal: AbortSignal.timeout(30000) // 30 секунд таймаут
+        });
+        
+        if (!response.ok) {
+            let text = await response.text();
+            throw new Error(`HTTP ${response.status}: ${text.substring(0, 100)}`);
+        }
+        
+        let result = await response.json();
+        if (result.success) {
+            showNotification('✅ Утилита загружена', 'success');
+            closeUploadModal();
+            state.toolsLoaded = false;
+            await loadTools();
+        } else {
+            showNotification('❌ ' + (result.error || 'Ошибка'), 'error');
+        }
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            showNotification('❌ Таймаут загрузки. Попробуйте файл меньше 5 МБ.', 'error');
+        } else {
             showNotification('❌ Ошибка загрузки: ' + e.message, 'error');
         }
+        console.error('Upload error:', e);
     }
+}
 
     function setupToolsUpload() {
         let typeSelect = getElement('toolType');
