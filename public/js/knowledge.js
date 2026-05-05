@@ -1,13 +1,9 @@
 // ============================================
-// knowledge.js — WARPOINT KNOWLEDGE BASE v7.0
+// knowledge.js — WARPOINT KNOWLEDGE BASE v9.0
 // ============================================
 
 (function() {
     'use strict';
-    
-    // ============================================
-    // СОСТОЯНИЕ
-    // ============================================
     
     let state = {
         categories: [],
@@ -18,12 +14,23 @@
         isLoading: false,
         isInitialized: false,
         activeEditor: null,
-        likes: {}
+        likes: {},
+        tools: [],
+        toolsFilter: 'all',
+        toolsSearch: '',
+        toolsLoaded: false,
+        isSaving: false
     };
 
     // ============================================
     // HELPER FUNCTIONS
     // ============================================
+
+    function getElement(id) {
+        const el = document.getElementById(id);
+        if (!el) console.warn(`Element with ID "${id}" not found`);
+        return el;
+    }
 
     function canManageCategories() {
         let role = window.app?.currentUserRole;
@@ -33,6 +40,11 @@
     function canManageArticles() {
         let role = window.app?.currentUserRole;
         return role === 'director' || role === 'manager' || role === 'admin' || role === 'operator';
+    }
+
+    function canManageTools() {
+        let role = window.app?.currentUserRole;
+        return role === 'director' || role === 'manager';
     }
 
     function escapeHtml(str) {
@@ -52,7 +64,7 @@
         if (!dateStr) return '';
         let date = new Date(dateStr);
         let now = new Date();
-        let diff = Math.floor((now - date) / 1000);
+        let diff = Math.floor((now.getTime() - date.getTime()) / 1000);
         if (diff < 0) return 'только что';
         if (diff < 60) return 'только что';
         if (diff < 3600) return Math.floor(diff / 60) + ' мин назад';
@@ -71,25 +83,28 @@
         }
     }
 
-    // ============================================
-    // API
-    // ============================================
+    function getToken() {
+        return localStorage.getItem('token');
+    }
 
     async function apiCall(endpoint, method = 'GET', body = null) {
-        let token = localStorage.getItem('token');
+        let token = getToken();
         let options = {
             method: method,
             headers: { 'Content-Type': 'application/json' }
         };
         if (token) options.headers['Authorization'] = 'Bearer ' + token;
         if (body) options.body = JSON.stringify(body);
-        
         try {
             let response = await fetch('/api' + endpoint, options);
-            return await response.json();
+            let data = await response.json();
+            if (!response.ok) {
+                return { success: false, error: data.error || `HTTP ${response.status}` };
+            }
+            return data;
         } catch (e) {
             console.error('Fetch error:', e);
-            return { success: false, error: 'Ошибка соединения' };
+            return { success: false, error: 'Ошибка соединения с сервером' };
         }
     }
 
@@ -100,16 +115,13 @@
     function canCountView(articleId) {
         let currentUser = window.app?.currentUser;
         if (!currentUser) return false;
-        
         let key = 'kb_views_' + currentUser;
         let viewsData = {};
         try { viewsData = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) { viewsData = {}; }
-        
         let articleKey = 'article_' + articleId;
         let lastView = viewsData[articleKey] || 0;
         let now = Date.now();
         let fiveMinutes = 5 * 60 * 1000;
-        
         if (now - lastView > fiveMinutes) {
             viewsData[articleKey] = now;
             let oneHour = 60 * 60 * 1000;
@@ -128,9 +140,18 @@
             let response = await apiCall('/knowledge/articles/' + articleId + '/view', 'POST');
             if (response?.success) {
                 let article = state.articles.find(a => a.id === articleId);
-                if (article) article.views = (article.views || 0) + 1;
+                if (article) {
+                    article.views = (article.views || 0) + 1;
+                    // Обновить счётчик в списке
+                    let viewElement = document.querySelector(`.kb-article-item[data-article-id="${articleId}"] .kb-article-item-meta span:first-child`);
+                    if (viewElement) {
+                        viewElement.innerHTML = `<i class="fas fa-eye"></i> ${article.views}`;
+                    }
+                }
             }
-        } catch(e) { /* тихо */ }
+        } catch(e) {
+            console.error('Error tracking view:', e);
+        }
     }
 
     async function toggleLike(articleId) {
@@ -143,14 +164,25 @@
                 state.likes[articleId] = response.likes || 0;
                 renderKnowledge();
                 showNotification(liked ? '💔 Лайк убран' : '❤️ Статья понравилась!', 'success');
+                // Обновить кнопку лайка в модалке, если открыта
+                updateLikeButton(articleId);
             }
         } catch (e) {
-            showNotification('❌ Ошибка', 'error');
+            showNotification('❌ ' + (e.message || 'Ошибка'), 'error');
         }
     }
 
+    function updateLikeButton(articleId) {
+        let likeBtn = getElement('kbArticleLikeBtn');
+        if (!likeBtn) return;
+        let likes = state.likes[articleId] || 0;
+        let liked = localStorage.getItem('kb_like_' + articleId) === 'true';
+        likeBtn.className = 'kb-like-btn ' + (liked ? 'liked' : '');
+        likeBtn.innerHTML = (liked ? '❤️' : '🤍') + ' <span>' + (likes || 0) + '</span>';
+    }
+
     // ============================================
-    // РЕДАКТОР (WYSIWYG)
+    // РЕДАКТОР
     // ============================================
 
     function renderEditorToolbar() {
@@ -221,7 +253,7 @@
     }
 
     function kbExec(command, value = null) {
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         try {
@@ -232,6 +264,8 @@
     }
 
     function kbInitEditor(editorElement) {
+        if (!editorElement) editorElement = getElement('kbEditorContent');
+        if (!editorElement) return;
         state.activeEditor = editorElement;
         editorElement.setAttribute('data-placeholder', 'Начните писать здесь...');
         if (!editorElement.innerHTML.trim() || editorElement.innerHTML === '<br>') {
@@ -269,12 +303,12 @@
     }
 
     function kbToggleEmoji() {
-        let panel = document.getElementById('kbEmojiPanel');
+        let panel = getElement('kbEmojiPanel');
         if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     }
 
     function kbInsertEmoji(emoji) {
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         let sel = window.getSelection();
@@ -289,7 +323,7 @@
         } else {
             editor.innerHTML += emoji;
         }
-        let panel = document.getElementById('kbEmojiPanel');
+        let panel = getElement('kbEmojiPanel');
         if (panel) panel.style.display = 'none';
     }
 
@@ -297,7 +331,7 @@
         let url = prompt('🔗 Введите URL ссылки:', 'https://');
         if (!url?.trim()) return;
         let text = prompt('📝 Текст ссылки (необязательно):', '');
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         if (text?.trim()) {
@@ -313,7 +347,7 @@
     function kbInsertImage() {
         let url = prompt('🖼️ Введите URL изображения:', 'https://');
         if (!url?.trim()) return;
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         document.execCommand('insertHTML', false, `
@@ -342,7 +376,7 @@
             return;
         }
         let embedUrl = 'https://www.youtube.com/embed/' + escapeHtml(videoId);
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         document.execCommand('insertHTML', false, `
@@ -362,7 +396,7 @@
             showNotification('❌ Строк: 1-10, Столбцов: 1-8', 'error');
             return;
         }
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         let table = `<div style="overflow-x:auto;margin:24px 0;border-radius:16px;border:1px solid rgba(99,102,241,0.2);">
@@ -383,7 +417,7 @@
     }
 
     function kbInsertDivider() {
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         document.execCommand('insertHTML', false,
@@ -399,7 +433,7 @@
             error: { icon: '❌', color: '#ef4444', bg: 'rgba(239,68,68,0.08)', title: 'Ошибка' }
         };
         let c = config[type] || config.info;
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         document.execCommand('insertHTML', false, `
@@ -415,7 +449,7 @@
     }
 
     function kbInsertCodeBlock() {
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         document.execCommand('insertHTML', false, `
@@ -446,7 +480,7 @@ function hello() {
     }
 
     function kbInsertChecklist() {
-        let editor = document.getElementById('kbEditorContent');
+        let editor = getElement('kbEditorContent');
         if (!editor) return;
         editor.focus();
         document.execCommand('insertHTML', false, `
@@ -462,11 +496,17 @@ function hello() {
         let div = document.createElement('div');
         div.innerHTML = html;
         div.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+        // Удаляем только пустые span без содержимого
         div.querySelectorAll('span').forEach(el => {
-            if (!el.textContent.trim() && !el.querySelector('img')) el.remove();
+            if (!el.textContent.trim() && !el.querySelector('*')) {
+                el.remove();
+            }
         });
+        // Удаляем пустые блоки без содержимого
         div.querySelectorAll('p, div').forEach(el => {
-            if (!el.textContent.trim() && !el.querySelector('img, iframe, table, pre, hr, br')) el.remove();
+            if (!el.textContent.trim() && !el.querySelector('img, iframe, table, pre, hr, br')) {
+                el.remove();
+            }
         });
         return div.innerHTML;
     }
@@ -485,7 +525,6 @@ function hello() {
     function renderPopularArticles() {
         let popular = getPopularArticles(3);
         if (popular.length === 0) return '';
-
         return `
         <div class="kb-popular-header">
             <i class="fas fa-fire" style="color:#f59e0b;"></i>
@@ -524,46 +563,70 @@ function hello() {
             showNotification('❌ Статья не найдена', 'error');
             return;
         }
-
         await trackArticleView(articleId);
-
         let category = state.categories.find(c => c.id === article.category_id);
         let likes = state.likes[articleId] || article.likes || 0;
         let liked = localStorage.getItem('kb_like_' + articleId) === 'true';
         let canEdit = canManageArticles();
 
-        document.getElementById('kbArticleCategory').textContent = (category?.icon || '📁') + ' ' + (category?.name || 'Без категории');
-        document.getElementById('kbArticleTitle').textContent = article.title;
-        document.getElementById('kbArticleAuthor').innerHTML = '<i class="fas fa-user"></i> ' + escapeHtml(article.created_by || 'Неизвестный');
-        document.getElementById('kbArticleDate').innerHTML = '<i class="fas fa-calendar"></i> ' + formatDate(article.created_at);
-        document.getElementById('kbArticleTime').innerHTML = '<i class="fas fa-clock"></i> ' + formatTimeAgo(article.updated_at || article.created_at);
-        document.getElementById('kbArticleViews').innerHTML = '<i class="fas fa-eye"></i> ' + ((article.views || 0) + 1) + ' просмотров';
-        document.getElementById('kbArticleContent').innerHTML = article.content || '<p style="color:#64748b;text-align:center;padding:40px;">У этой статьи пока нет содержания</p>';
+        let categoryEl = getElement('kbArticleCategory');
+        let titleEl = getElement('kbArticleTitle');
+        let authorEl = getElement('kbArticleAuthor');
+        let dateEl = getElement('kbArticleDate');
+        let timeEl = getElement('kbArticleTime');
+        let viewsEl = getElement('kbArticleViews');
+        let contentEl = getElement('kbArticleContent');
+        let likeBtn = getElement('kbArticleLikeBtn');
+        let editBtn = getElement('kbArticleEditBtn');
 
-        let likeBtn = document.getElementById('kbArticleLikeBtn');
-        likeBtn.className = 'kb-like-btn ' + (liked ? 'liked' : '');
-        likeBtn.innerHTML = (liked ? '❤️' : '🤍') + ' <span>' + (likes || 0) + '</span>';
-        likeBtn.onclick = () => toggleLike(articleId);
+        if (categoryEl) categoryEl.textContent = (category?.icon || '📁') + ' ' + (category?.name || 'Без категории');
+        if (titleEl) titleEl.textContent = article.title;
+        if (authorEl) authorEl.innerHTML = '<i class="fas fa-user"></i> ' + escapeHtml(article.created_by || 'Неизвестный');
+        if (dateEl) dateEl.innerHTML = '<i class="fas fa-calendar"></i> ' + formatDate(article.created_at);
+        if (timeEl) timeEl.innerHTML = '<i class="fas fa-clock"></i> ' + formatTimeAgo(article.updated_at || article.created_at);
+        if (viewsEl) viewsEl.innerHTML = '<i class="fas fa-eye"></i> ' + ((article.views || 0) + 1) + ' просмотров';
+        if (contentEl) contentEl.innerHTML = article.content || '<p style="color:#64748b;text-align:center;padding:40px;">У этой статьи пока нет содержания</p>';
 
-        let editBtn = document.getElementById('kbArticleEditBtn');
-        editBtn.style.display = canEdit ? 'inline-flex' : 'none';
-        editBtn.onclick = () => { closeArticle(); kbEditArticle(articleId); };
+        if (likeBtn) {
+            likeBtn.className = 'kb-like-btn ' + (liked ? 'liked' : '');
+            likeBtn.innerHTML = (liked ? '❤️' : '🤍') + ' <span>' + (likes || 0) + '</span>';
+            likeBtn.onclick = () => toggleLike(articleId);
+        }
+        if (editBtn) {
+            editBtn.style.display = canEdit ? 'inline-flex' : 'none';
+            editBtn.onclick = () => { closeArticle(); kbEditArticle(articleId); };
+        }
 
-        document.getElementById('kbArticleModal').classList.add('active');
+        let modal = getElement('kbArticleModal');
+        if (modal) modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        document.addEventListener('keydown', function escHandler(e) {
-            if (e.key === 'Escape') { closeArticle(); document.removeEventListener('keydown', escHandler); }
-        });
+        // Обработчик Escape
+        let escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeArticle();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        // Сохраняем обработчик для удаления при закрытии
+        modal._escHandler = escHandler;
     }
 
     function closeArticle() {
-        document.getElementById('kbArticleModal').classList.remove('active');
+        let modal = getElement('kbArticleModal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+                delete modal._escHandler;
+            }
+            modal.classList.remove('active');
+        }
         document.body.style.overflow = '';
     }
 
     // ============================================
-    // СОЗДАНИЕ/РЕДАКТИРОВАНИЕ СТАТЬИ
+    // РЕДАКТОР СТАТЬИ
     // ============================================
 
     function kbCreateArticle(categoryId) {
@@ -584,52 +647,95 @@ function hello() {
     }
 
     function openEditor(categoryId, article) {
-        document.getElementById('kbEditorTitle').textContent = article ? '✏️ Редактировать статью' : '➕ Новая статья';
-        document.getElementById('kbEditorArticleTitle').value = article ? article.title : '';
-        document.getElementById('kbEditorContent').innerHTML = article?.content || '';
-        document.getElementById('kbEditorDeleteBtn').style.display = article ? 'inline-flex' : 'none';
-        document.getElementById('kbEditorSaveBtn').onclick = () => kbSaveArticle(categoryId);
+        let titleEl = getElement('kbEditorTitle');
+        let titleInput = getElement('kbEditorArticleTitle');
+        let contentEl = getElement('kbEditorContent');
+        let deleteBtn = getElement('kbEditorDeleteBtn');
+        let saveBtn = getElement('kbEditorSaveBtn');
 
-        document.getElementById('kbEditorModal').classList.add('active');
+        if (titleEl) titleEl.textContent = article ? '✏️ Редактировать статью' : '➕ Новая статья';
+        if (titleInput) titleInput.value = article ? article.title : '';
+        if (contentEl) contentEl.innerHTML = article?.content || '';
+        if (deleteBtn) deleteBtn.style.display = article ? 'inline-flex' : 'none';
+        if (saveBtn) {
+            saveBtn.onclick = () => kbSaveArticle(categoryId);
+        }
+
+        let modal = getElement('kbEditorModal');
+        if (modal) modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        setTimeout(() => kbInitEditor(document.getElementById('kbEditorContent')), 200);
+        setTimeout(() => kbInitEditor(contentEl), 200);
 
-        document.addEventListener('keydown', function escHandler(e) {
-            if (e.key === 'Escape') { closeEditor(); document.removeEventListener('keydown', escHandler); }
-        });
+        let escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeEditor();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        if (modal) modal._escHandler = escHandler;
     }
 
     function closeEditor() {
-        document.getElementById('kbEditorModal').classList.remove('active');
+        let modal = getElement('kbEditorModal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+                delete modal._escHandler;
+            }
+            modal.classList.remove('active');
+        }
         document.body.style.overflow = '';
         state.editingArticleId = null;
     }
 
     async function kbSaveArticle(categoryId) {
-        let title = document.getElementById('kbEditorArticleTitle')?.value.trim();
-        let content = document.getElementById('kbEditorContent')?.innerHTML || '';
+        if (state.isSaving) return;
+        let titleInput = getElement('kbEditorArticleTitle');
+        let contentEl = getElement('kbEditorContent');
+        let title = titleInput?.value.trim();
+        let content = contentEl?.innerHTML || '';
 
         if (!title) {
             showNotification('❌ Введите заголовок', 'error');
             return;
         }
-
         content = cleanHTML(content);
 
-        let response;
-        if (state.editingArticleId) {
-            response = await apiCall('/knowledge/articles/' + state.editingArticleId, 'PUT', { title, content });
-        } else {
-            response = await apiCall('/knowledge/articles', 'POST', { category_id: categoryId, title, content });
+        state.isSaving = true;
+        let saveBtn = getElement('kbEditorSaveBtn');
+        if (saveBtn) {
+            saveBtn.textContent = '⏳ Сохранение...';
+            saveBtn.disabled = true;
         }
 
-        if (response?.success) {
-            showNotification(state.editingArticleId ? '✅ Статья обновлена' : '✅ Статья создана', 'success');
-            closeEditor();
-            await loadKnowledgeData();
-        } else {
-            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+        try {
+            let response;
+            if (state.editingArticleId) {
+                response = await apiCall('/knowledge/articles/' + state.editingArticleId, 'PUT', { title, content });
+            } else {
+                if (!categoryId) {
+                    showNotification('❌ Выберите категорию', 'error');
+                    return;
+                }
+                response = await apiCall('/knowledge/articles', 'POST', { category_id: categoryId, title, content });
+            }
+            if (response?.success) {
+                showNotification(state.editingArticleId ? '✅ Статья обновлена' : '✅ Статья создана', 'success');
+                closeEditor();
+                await loadKnowledgeData();
+            } else {
+                showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+            }
+        } catch (e) {
+            showNotification('❌ ' + (e.message || 'Ошибка'), 'error');
+        } finally {
+            state.isSaving = false;
+            if (saveBtn) {
+                saveBtn.textContent = state.editingArticleId ? '💾 Сохранить' : '➕ Создать';
+                saveBtn.disabled = false;
+            }
         }
     }
 
@@ -646,7 +752,7 @@ function hello() {
             closeArticle();
             await loadKnowledgeData();
         } else {
-            showNotification('❌ Ошибка', 'error');
+            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
         }
     }
 
@@ -669,40 +775,62 @@ function hello() {
     }
 
     function openCategoryModal(name, icon) {
-        document.getElementById('kbCategoryModalTitle').textContent = state.editingCategoryId ? '✏️ Редактировать категорию' : '➕ Новая категория';
-        document.getElementById('kbCategoryName').value = name || '';
-        document.getElementById('kbCategoryIcon').value = icon || '📁';
+        let titleEl = getElement('kbCategoryModalTitle');
+        let nameInput = getElement('kbCategoryName');
+        let iconInput = getElement('kbCategoryIcon');
+        let picker = getElement('kbIconPicker');
+
+        if (titleEl) titleEl.textContent = state.editingCategoryId ? '✏️ Редактировать категорию' : '➕ Новая категория';
+        if (nameInput) nameInput.value = name || '';
+        if (iconInput) iconInput.value = icon || '📁';
 
         let iconList = ['📁','📖','📜','❓','💡','🔧','⚙️','🎮','🏆','⭐','🔥','✅','❌','⚠️','ℹ️','📅','🎧','📡','🧹','👋','💬','🎫','🆕','💰','📊','🌍','📢','🤝','🎯','🎂'];
-        let picker = document.getElementById('kbIconPicker');
-        picker.innerHTML = iconList.map(ic => `
-            <div class="kb-icon-option ${ic === (icon || '📁') ? 'selected' : ''}" data-icon="${ic}" onclick="window.kbSelectIcon('${ic}')">${ic}</div>
-        `).join('');
+        if (picker) {
+            picker.innerHTML = iconList.map(ic => `
+                <div class="kb-icon-option ${ic === (icon || '📁') ? 'selected' : ''}" data-icon="${ic}" onclick="window.kbSelectIcon('${ic}')">${ic}</div>
+            `).join('');
+        }
 
-        document.getElementById('kbCategoryModal').classList.add('active');
+        let modal = getElement('kbCategoryModal');
+        if (modal) modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        document.addEventListener('keydown', function escHandler(e) {
-            if (e.key === 'Escape') { closeCategoryModal(); document.removeEventListener('keydown', escHandler); }
-        });
+        let escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closeCategoryModal();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        if (modal) modal._escHandler = escHandler;
     }
 
     function closeCategoryModal() {
-        document.getElementById('kbCategoryModal').classList.remove('active');
+        let modal = getElement('kbCategoryModal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+                delete modal._escHandler;
+            }
+            modal.classList.remove('active');
+        }
         document.body.style.overflow = '';
         state.editingCategoryId = null;
     }
 
     function kbSelectIcon(icon) {
-        document.getElementById('kbCategoryIcon').value = icon;
+        let iconInput = getElement('kbCategoryIcon');
+        if (iconInput) iconInput.value = icon;
         document.querySelectorAll('.kb-icon-option').forEach(el => {
             el.classList.toggle('selected', el.dataset.icon === icon);
         });
     }
 
     async function kbSaveCategory() {
-        let name = document.getElementById('kbCategoryName')?.value.trim();
-        let icon = document.getElementById('kbCategoryIcon')?.value || '📁';
+        let nameInput = getElement('kbCategoryName');
+        let iconInput = getElement('kbCategoryIcon');
+        let name = nameInput?.value.trim();
+        let icon = iconInput?.value || '📁';
 
         if (!name) {
             showNotification('❌ Введите название', 'error');
@@ -736,7 +864,7 @@ function hello() {
             showNotification('🗑️ Категория удалена', 'warning');
             await loadKnowledgeData();
         } else {
-            showNotification('❌ Ошибка', 'error');
+            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
         }
     }
 
@@ -757,24 +885,39 @@ function hello() {
             { icon: '🎫', name: 'Бронирования' }, { icon: '🆕', name: 'Онбординг' },
             { icon: '📜', name: 'Правила' }, { icon: '💰', name: 'Финансы' }
         ];
+        let grid = getElement('kbPresetGrid');
+        if (grid) {
+            grid.innerHTML = presetCategories.map(cat => `
+                <div class="kb-preset-item" onclick="window.kbCreatePresetCategory('${escapeHtml(cat.name)}','${cat.icon}')">
+                    <div class="kb-preset-item-icon">${cat.icon}</div>
+                    <div class="kb-preset-item-name">${escapeHtml(cat.name)}</div>
+                </div>
+            `).join('');
+        }
 
-        document.getElementById('kbPresetGrid').innerHTML = presetCategories.map(cat => `
-            <div class="kb-preset-item" onclick="window.kbCreatePresetCategory('${escapeHtml(cat.name)}','${cat.icon}')">
-                <div class="kb-preset-item-icon">${cat.icon}</div>
-                <div class="kb-preset-item-name">${escapeHtml(cat.name)}</div>
-            </div>
-        `).join('');
-
-        document.getElementById('kbPresetModal').classList.add('active');
+        let modal = getElement('kbPresetModal');
+        if (modal) modal.classList.add('active');
         document.body.style.overflow = 'hidden';
 
-        document.addEventListener('keydown', function escHandler(e) {
-            if (e.key === 'Escape') { closePresets(); document.removeEventListener('keydown', escHandler); }
-        });
+        let escHandler = function(e) {
+            if (e.key === 'Escape') {
+                closePresets();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
+        if (modal) modal._escHandler = escHandler;
     }
 
     function closePresets() {
-        document.getElementById('kbPresetModal').classList.remove('active');
+        let modal = getElement('kbPresetModal');
+        if (modal) {
+            if (modal._escHandler) {
+                document.removeEventListener('keydown', modal._escHandler);
+                delete modal._escHandler;
+            }
+            modal.classList.remove('active');
+        }
         document.body.style.overflow = '';
     }
 
@@ -827,31 +970,34 @@ function hello() {
     async function loadKnowledgeData() {
         if (state.isLoading) return;
         state.isLoading = true;
-        let container = document.getElementById('knowledgeContainer');
-        container.innerHTML = '<div class="kb-loading"><div class="kb-spinner"></div><p>Загрузка базы знаний...</p></div>';
+        let container = getElement('knowledgeContainer');
+        if (container) {
+            container.innerHTML = '<div class="kb-loading"><div class="kb-spinner"></div><p>Загрузка базы знаний...</p></div>';
+        }
 
         try {
             let categoriesRes = await apiCall('/knowledge/categories');
             let articlesRes = await apiCall('/knowledge/articles');
 
             if (!categoriesRes.success || !articlesRes.success) {
-                throw new Error('API вернул ошибку');
+                throw new Error(categoriesRes.error || articlesRes.error || 'API вернул ошибку');
             }
 
             state.categories = categoriesRes.data || [];
             state.articles = articlesRes.data || [];
-
             renderKnowledge();
         } catch (err) {
             console.error('❌ load error:', err);
-            container.innerHTML = `
-                <div class="kb-empty-state">
-                    <div class="kb-empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div>
-                    <h3>Ошибка загрузки</h3>
-                    <p>${err.message}</p>
-                    <button class="btn-primary" onclick="loadKnowledgeData()">🔄 Повторить</button>
-                </div>
-            `;
+            if (container) {
+                container.innerHTML = `
+                    <div class="kb-empty-state">
+                        <div class="kb-empty-state-icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <h3>Ошибка загрузки</h3>
+                        <p>${err.message}</p>
+                        <button class="btn-primary" onclick="loadKnowledgeData()">🔄 Повторить</button>
+                    </div>
+                `;
+            }
             showNotification('❌ Ошибка загрузки базы знаний', 'error');
         } finally {
             state.isLoading = false;
@@ -863,7 +1009,7 @@ function hello() {
     // ============================================
 
     function renderKnowledge() {
-        let container = document.getElementById('knowledgeContainer');
+        let container = getElement('knowledgeContainer');
         if (!container) return;
 
         let filteredArticles = state.articles.slice();
@@ -874,34 +1020,34 @@ function hello() {
             );
         }
 
-        // Популярные статьи
         let popularHtml = renderPopularArticles();
-        let popularSection = document.getElementById('kbPopularSection');
-        popularSection.innerHTML = popularHtml;
-        popularSection.style.display = popularHtml ? 'block' : 'none';
+        let popularSection = getElement('kbPopularSection');
+        if (popularSection) {
+            popularSection.innerHTML = popularHtml;
+            popularSection.style.display = popularHtml ? 'block' : 'none';
+        }
 
         let categoriesWithArticles = state.categories.map(cat => ({
             ...cat,
             articles: filteredArticles.filter(a => a.category_id === cat.id)
         }));
-
         let canEditCategories = canManageCategories();
         let canEditArticles = canManageArticles();
 
-        // Кнопки действий
-        let actionBtns = document.getElementById('actionButtons');
-        if (canEditCategories) {
-            actionBtns.innerHTML = `
-                <button class="btn-secondary" onclick="window.kbOpenCreateCategory()"><i class="fas fa-folder-plus"></i> Новая категория</button>
-                <button class="btn-secondary" onclick="window.kbShowPresets()"><i class="fas fa-magic"></i> Готовые категории</button>
-            `;
-        } else if (canEditArticles) {
-            actionBtns.innerHTML = '<span style="font-size:12px;color:#64748b;"><i class="fas fa-info-circle"></i> Вы можете добавлять статьи</span>';
-        } else {
-            actionBtns.innerHTML = '';
+        let actionBtns = getElement('actionButtons');
+        if (actionBtns) {
+            if (canEditCategories) {
+                actionBtns.innerHTML = `
+                    <button class="btn-secondary" onclick="window.kbOpenCreateCategory()"><i class="fas fa-folder-plus"></i> Новая категория</button>
+                    <button class="btn-secondary" onclick="window.kbShowPresets()"><i class="fas fa-magic"></i> Готовые категории</button>
+                `;
+            } else if (canEditArticles) {
+                actionBtns.innerHTML = '<span style="font-size:12px;color:#64748b;"><i class="fas fa-info-circle"></i> Вы можете добавлять статьи</span>';
+            } else {
+                actionBtns.innerHTML = '';
+            }
         }
 
-        // Пустое состояние
         if (state.categories.length === 0) {
             if (canEditCategories) {
                 container.innerHTML = `
@@ -927,11 +1073,9 @@ function hello() {
             return;
         }
 
-        // Рендер категорий
         let html = '';
         for (let cat of categoriesWithArticles) {
             let hasArticles = cat.articles.length > 0;
-
             html += `
             <div class="kb-category-card" data-category-id="${cat.id}">
                 <div class="kb-category-header" onclick="window.kbToggleCategory(${cat.id})">
@@ -947,11 +1091,10 @@ function hello() {
                     </div>
                 </div>
                 <div class="kb-category-body">`;
-
             if (hasArticles) {
                 for (let article of cat.articles) {
                     html += `
-                    <div class="kb-article-item" onclick="window.kbOpenArticle(${article.id})">
+                    <div class="kb-article-item" data-article-id="${article.id}">
                         <div class="kb-article-item-info">
                             <div class="kb-article-item-title"><i class="fas fa-file-alt"></i> ${escapeHtml(article.title)}</div>
                             <div class="kb-article-item-meta">
@@ -969,17 +1112,13 @@ function hello() {
             } else {
                 html += '<div style="padding:16px;text-align:center;color:#64748b;font-size:14px;"><i class="fas fa-info-circle"></i> В этой категории пока нет статей</div>';
             }
-
             if (canEditArticles) {
                 html += `<div style="margin-top:8px;"><button class="btn-secondary" onclick="event.stopPropagation();window.kbCreateArticle(${cat.id})" style="padding:10px 18px;font-size:13px;width:100%;"><i class="fas fa-plus"></i> Добавить статью</button></div>`;
             }
-
             html += '</div></div>';
         }
-
         container.innerHTML = html;
 
-        // Восстановление открытых категорий
         try {
             let openCategories = JSON.parse(localStorage.getItem('knowledgeOpenCategories') || '[]');
             openCategories.forEach(catId => {
@@ -1013,25 +1152,327 @@ function hello() {
     }
 
     // ============================================
-    // ПОИСК
+    // УТИЛИТЫ
+    // ============================================
+
+    async function loadTools() {
+        if (state.toolsLoaded) {
+            renderTools();
+            return;
+        }
+        let grid = getElement('toolsGrid');
+        if (grid) {
+            grid.innerHTML = '<div class="kb-loading"><div class="kb-spinner"></div><p>Загрузка утилит...</p></div>';
+        }
+
+        try {
+            let response = await apiCall('/tools');
+            if (response?.success) {
+                state.tools = response.tools || [];
+                state.toolsLoaded = true;
+                renderTools();
+            } else {
+                throw new Error(response.error || 'Ошибка загрузки утилит');
+            }
+        } catch (err) {
+            if (grid) {
+                grid.innerHTML = `
+                    <div class="kb-empty-state">
+                        <div class="kb-empty-state-icon"><i class="fas fa-wrench"></i></div>
+                        <h3>Утилиты не загружены</h3>
+                        <p>${err.message}</p>
+                        <button class="btn-primary" onclick="loadTools()">🔄 Повторить</button>
+                    </div>
+                `;
+            }
+            showNotification('❌ ' + err.message, 'error');
+        }
+    }
+
+    function renderTools() {
+        let grid = getElement('toolsGrid');
+        if (!grid) return;
+
+        let filtered = state.tools;
+        if (state.toolsFilter !== 'all') {
+            filtered = filtered.filter(t => {
+                let ext = t.name.split('.').pop().toLowerCase();
+                if (state.toolsFilter === 'exe') return ext === 'exe';
+                if (state.toolsFilter === 'msi') return ext === 'msi';
+                if (state.toolsFilter === 'bat') return ext === 'bat' || ext === 'cmd';
+                if (state.toolsFilter === 'url') return t.path?.startsWith('http');
+                return true;
+            });
+        }
+        if (state.toolsSearch) {
+            filtered = filtered.filter(t => t.name.toLowerCase().includes(state.toolsSearch.toLowerCase()));
+        }
+
+        let countEl = getElement('toolsCount');
+        let sizeEl = getElement('toolsTotalSize');
+        if (countEl) countEl.textContent = filtered.length;
+        let totalSize = filtered.reduce((sum, t) => sum + (t.size || 0), 0);
+        if (sizeEl) sizeEl.textContent = totalSize > 0 ? (totalSize / 1024).toFixed(1) + ' KB' : '0 KB';
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `
+                <div class="kb-empty-state">
+                    <div class="kb-empty-state-icon"><i class="fas fa-search"></i></div>
+                    <h3>Утилиты не найдены</h3>
+                    <p>Попробуйте изменить фильтры или добавьте новую утилиту</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = filtered.map(tool => {
+            let icon = '📁';
+            let ext = tool.name.split('.').pop().toLowerCase();
+            let isLink = tool.path?.startsWith('http');
+            let badge = isLink ? 'badge-link' : 'badge-server';
+            let badgeText = isLink ? '🌐 Ссылка' : '💾 Файл';
+            let btnClass = isLink ? 'btn-launch-link' : 'btn-launch';
+            let btnText = isLink ? '🌐 Перейти' : '⬇️ Скачать';
+            let href = isLink ? tool.path : tool.path;
+            let download = isLink ? '' : 'download';
+
+            if (ext === 'exe') icon = '💻';
+            else if (ext === 'msi') icon = '📦';
+            else if (ext === 'bat' || ext === 'cmd') icon = '📜';
+            else if (isLink) icon = '🌐';
+            else if (ext === 'pdf') icon = '📄';
+            else if (ext === 'zip' || ext === 'rar' || ext === '7z') icon = '🗜️';
+            else if (['png','jpg','jpeg','gif','webp'].includes(ext)) icon = '🖼️';
+
+            return `
+            <div class="tool-card">
+                <div class="tool-card-icon">${icon}</div>
+                <div class="tool-badge ${badge}">${badgeText}</div>
+                <div class="tool-card-name">${escapeHtml(tool.name)}</div>
+                <div class="tool-card-meta">
+                    <span>📅 ${formatDate(tool.uploadedAt)}</span>
+                    ${tool.size ? `<span>📦 ${(tool.size / 1024).toFixed(1)} KB</span>` : ''}
+                </div>
+                <div class="tool-card-actions">
+                    <a href="${href}" ${download} target="_blank" class="btn-launch ${btnClass}">${btnText}</a>
+                    ${canManageTools() ? `<button class="btn-delete-tool" onclick="window.kbDeleteTool('${tool.name}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                </div>
+            </div>
+            `;
+        }).join('');
+
+        grid.innerHTML = html;
+    }
+
+    async function kbDeleteTool(filename) {
+        if (!canManageTools()) {
+            showNotification('❌ Нет прав', 'error');
+            return;
+        }
+        if (!confirm(`Удалить утилиту "${filename}"?`)) return;
+        let response = await apiCall('/tools/' + filename, 'DELETE');
+        if (response?.success) {
+            showNotification('🗑️ Утилита удалена', 'warning');
+            state.tools = state.tools.filter(t => t.name !== filename);
+            renderTools();
+        } else {
+            showNotification('❌ ' + (response?.error || 'Ошибка'), 'error');
+        }
+    }
+
+    async function kbUploadTool() {
+        let nameInput = getElement('toolName');
+        let descInput = getElement('toolDesc');
+        let typeSelect = getElement('toolType');
+        let fileInput = getElement('toolFileInput');
+        let urlInput = getElement('toolPath');
+
+        let name = nameInput?.value.trim();
+        let desc = descInput?.value.trim();
+        let type = typeSelect?.value;
+
+        if (!name) {
+            showNotification('❌ Введите название утилиты', 'error');
+            return;
+        }
+
+        let formData = new FormData();
+        formData.append('name', name);
+        if (desc) formData.append('description', desc);
+        formData.append('type', type);
+
+        if (type === 'url') {
+            let url = urlInput?.value.trim();
+            if (!url || !url.startsWith('http')) {
+                showNotification('❌ Введите корректную ссылку', 'error');
+                return;
+            }
+            formData.append('url', url);
+        } else {
+            if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                showNotification('❌ Выберите файл', 'error');
+                return;
+            }
+            formData.append('file', fileInput.files[0]);
+        }
+
+        let token = getToken();
+        try {
+            let response = await fetch('/api/tools/upload', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+            let result = await response.json();
+            if (result.success) {
+                showNotification('✅ Утилита загружена', 'success');
+                closeUploadModal();
+                state.toolsLoaded = false;
+                await loadTools();
+            } else {
+                showNotification('❌ ' + (result.error || 'Ошибка'), 'error');
+            }
+        } catch (e) {
+            showNotification('❌ Ошибка загрузки: ' + e.message, 'error');
+        }
+    }
+
+    function setupToolsUpload() {
+        let typeSelect = getElement('toolType');
+        let toolFileGroup = getElement('toolFileGroup');
+        let toolUrlGroup = getElement('toolUrlGroup');
+        let dropZone = getElement('toolDropZone');
+        let fileInput = getElement('toolFileInput');
+        let uploadBtn = getElement('uploadToolBtn');
+        let closeBtn = getElement('uploadToolCloseBtn');
+        let cancelBtn = getElement('uploadToolCancelBtn');
+        let saveBtn = getElement('uploadToolSaveBtn');
+
+        if (typeSelect) {
+            typeSelect.addEventListener('change', function() {
+                let isUrl = this.value === 'url';
+                if (toolFileGroup) toolFileGroup.style.display = isUrl ? 'none' : 'block';
+                if (toolUrlGroup) toolUrlGroup.style.display = isUrl ? 'block' : 'none';
+            });
+        }
+
+        if (dropZone && fileInput) {
+            dropZone.addEventListener('click', () => fileInput.click());
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = '#10b981';
+                dropZone.style.background = 'rgba(16,185,129,0.08)';
+            });
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.style.borderColor = 'rgba(99,102,241,0.25)';
+                dropZone.style.background = '';
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.style.borderColor = 'rgba(99,102,241,0.25)';
+                dropZone.style.background = '';
+                if (e.dataTransfer.files.length) {
+                    fileInput.files = e.dataTransfer.files;
+                    updateFileInfo();
+                }
+            });
+            fileInput.addEventListener('change', updateFileInfo);
+        }
+
+        function updateFileInfo() {
+            let file = fileInput?.files[0];
+            let info = getElement('toolFileInfo');
+            if (info) {
+                if (file) {
+                    info.style.display = 'block';
+                    info.textContent = `✅ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+                } else {
+                    info.style.display = 'none';
+                }
+            }
+        }
+
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', () => {
+                let modal = getElement('uploadToolModal');
+                if (modal) modal.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            });
+        }
+        if (closeBtn) closeBtn.addEventListener('click', closeUploadModal);
+        if (cancelBtn) cancelBtn.addEventListener('click', closeUploadModal);
+        if (saveBtn) saveBtn.addEventListener('click', kbUploadTool);
+    }
+
+    function closeUploadModal() {
+        let modal = getElement('uploadToolModal');
+        if (modal) modal.classList.remove('active');
+        document.body.style.overflow = '';
+        let nameInput = getElement('toolName');
+        let descInput = getElement('toolDesc');
+        let fileInput = getElement('toolFileInput');
+        let urlInput = getElement('toolPath');
+        let info = getElement('toolFileInfo');
+        if (nameInput) nameInput.value = '';
+        if (descInput) descInput.value = '';
+        if (fileInput) fileInput.value = '';
+        if (urlInput) urlInput.value = '';
+        if (info) info.style.display = 'none';
+    }
+
+    function setupToolsSearch() {
+        let searchInput = getElement('toolsSearch');
+        let filterSelect = getElement('toolsFilterType');
+
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(function() {
+                state.toolsSearch = this.value;
+                renderTools();
+            }, 300));
+        }
+        if (filterSelect) {
+            filterSelect.addEventListener('change', function() {
+                state.toolsFilter = this.value;
+                renderTools();
+            });
+        }
+    }
+
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+
+    // ============================================
+    // ПОИСК СТАТЕЙ
     // ============================================
 
     function setupSearch() {
-        let searchInput = document.getElementById('knowledgeSearch');
-        let clearBtn = document.getElementById('clearSearchBtn');
+        let searchInput = getElement('knowledgeSearch');
+        let clearBtn = getElement('clearSearchBtn');
 
-        searchInput.addEventListener('input', function(e) {
-            state.searchQuery = e.target.value.toLowerCase();
-            renderKnowledge();
-            clearBtn.style.display = e.target.value ? 'block' : 'none';
-        });
-
-        clearBtn.addEventListener('click', function() {
-            searchInput.value = '';
-            state.searchQuery = '';
-            renderKnowledge();
-            clearBtn.style.display = 'none';
-        });
+        if (searchInput) {
+            searchInput.addEventListener('input', debounce(function() {
+                state.searchQuery = this.value.toLowerCase();
+                renderKnowledge();
+                if (clearBtn) {
+                    clearBtn.style.display = this.value ? 'block' : 'none';
+                }
+            }, 300));
+        }
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+                if (searchInput) {
+                    searchInput.value = '';
+                    state.searchQuery = '';
+                    renderKnowledge();
+                    clearBtn.style.display = 'none';
+                }
+            });
+        }
     }
 
     // ============================================
@@ -1041,8 +1482,8 @@ function hello() {
     function setupTabs() {
         let tabBtns = document.querySelectorAll('.kb-tab-btn');
         let panels = {
-            articles: document.getElementById('kbPanelArticles'),
-            tools: document.getElementById('kbPanelTools')
+            articles: getElement('kbPanelArticles'),
+            tools: getElement('kbPanelTools')
         };
 
         tabBtns.forEach(btn => {
@@ -1051,25 +1492,13 @@ function hello() {
                 tabBtns.forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
                 Object.keys(panels).forEach(key => {
-                    panels[key].style.display = key === tab ? 'block' : 'none';
+                    if (panels[key]) {
+                        panels[key].style.display = key === tab ? 'block' : 'none';
+                    }
                 });
                 if (tab === 'tools') loadTools();
             });
         });
-    }
-
-    // ============================================
-    // УТИЛИТЫ (заглушка)
-    // ============================================
-
-    function loadTools() {
-        document.getElementById('toolsGrid').innerHTML = `
-            <div class="kb-empty-state">
-                <div class="kb-empty-state-icon"><i class="fas fa-wrench"></i></div>
-                <h3>Утилиты в разработке</h3>
-                <p>Функционал будет доступен в следующем обновлении</p>
-            </div>
-        `;
     }
 
     // ============================================
@@ -1082,29 +1511,42 @@ function hello() {
 
         setupSearch();
         setupTabs();
+        setupToolsSearch();
+        setupToolsUpload();
         loadKnowledgeData();
+        loadTools();
 
-        // Привязка событий модалок
-        document.getElementById('kbArticleCloseBtn')?.addEventListener('click', closeArticle);
-        document.getElementById('kbArticleCloseFooterBtn')?.addEventListener('click', closeArticle);
-        document.getElementById('kbEditorCloseBtn')?.addEventListener('click', closeEditor);
-        document.getElementById('kbEditorCancelBtn')?.addEventListener('click', closeEditor);
-        document.getElementById('kbEditorDeleteBtn')?.addEventListener('click', () => {
-            if (state.editingArticleId) kbDeleteArticleConfirm(state.editingArticleId);
+        let closeHandlers = [
+            { id: 'kbArticleCloseBtn', handler: closeArticle },
+            { id: 'kbArticleCloseFooterBtn', handler: closeArticle },
+            { id: 'kbEditorCloseBtn', handler: closeEditor },
+            { id: 'kbEditorCancelBtn', handler: closeEditor },
+            { id: 'kbEditorDeleteBtn', handler: () => {
+                if (state.editingArticleId) kbDeleteArticleConfirm(state.editingArticleId);
+            }},
+            { id: 'kbCategoryCloseBtn', handler: closeCategoryModal },
+            { id: 'kbCategoryCancelBtn', handler: closeCategoryModal },
+            { id: 'kbCategorySaveBtn', handler: kbSaveCategory },
+            { id: 'kbPresetCloseBtn', handler: closePresets },
+            { id: 'kbPresetCancelBtn', handler: closePresets },
+            { id: 'kbPresetAddAllBtn', handler: kbCreateAllPresets }
+        ];
+
+        closeHandlers.forEach(({ id, handler }) => {
+            let el = getElement(id);
+            if (el) el.addEventListener('click', handler);
         });
-        document.getElementById('kbCategoryCloseBtn')?.addEventListener('click', closeCategoryModal);
-        document.getElementById('kbCategoryCancelBtn')?.addEventListener('click', closeCategoryModal);
-        document.getElementById('kbCategorySaveBtn')?.addEventListener('click', kbSaveCategory);
-        document.getElementById('kbPresetCloseBtn')?.addEventListener('click', closePresets);
-        document.getElementById('kbPresetCancelBtn')?.addEventListener('click', closePresets);
-        document.getElementById('kbPresetAddAllBtn')?.addEventListener('click', kbCreateAllPresets);
 
-        // Закрытие модалок по клику на фон
         document.querySelectorAll('.kb-modal-overlay').forEach(overlay => {
             overlay.addEventListener('click', function(e) {
                 if (e.target === this) {
                     this.classList.remove('active');
                     document.body.style.overflow = '';
+                    // Удаляем обработчики Escape
+                    if (this._escHandler) {
+                        document.removeEventListener('keydown', this._escHandler);
+                        delete this._escHandler;
+                    }
                 }
             });
         });
@@ -1151,6 +1593,11 @@ function hello() {
     window.kbCreateAllPresets = kbCreateAllPresets;
     window.loadKnowledgeData = loadKnowledgeData;
     window.renderKnowledge = renderKnowledge;
+    window.loadTools = loadTools;
+    window.renderTools = renderTools;
+    window.kbDeleteTool = kbDeleteTool;
+    window.kbUploadTool = kbUploadTool;
+    window.closeUploadModal = closeUploadModal;
 
-    console.log('✅ knowledge.js v7.0 загружен');
+    console.log('✅ knowledge.js v9.0 загружен — все исправления учтены');
 })();

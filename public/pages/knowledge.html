@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ============================================ */
-        /* WARPOINT KNOWLEDGE BASE v7.1 — PREMIUM STYLES */
+        /* WARPOINT KNOWLEDGE BASE v8.0 — PREMIUM STYLES */
         /* ============================================ */
         :root {
             --kb-bg: #06080f;
@@ -490,7 +490,7 @@
         .kb-article-delete-btn:hover { color: var(--kb-danger); background: rgba(239,68,68,0.1); }
 
         /* ============================================ */
-        /* МОДАЛЬНЫЕ ОКНА */
+        /* МОДАЛЬНЫЕ ОКНА — ПОЛНОЭКРАННЫЕ */
         /* ============================================ */
         .kb-modal-overlay {
             display: none;
@@ -499,19 +499,207 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(4,6,12,0.94);
-            backdrop-filter: blur(28px);
+            background: rgba(4,6,12,0.95);
+            backdrop-filter: blur(32px);
             z-index: 10000;
             align-items: center;
             justify-content: center;
-            padding: 24px;
-            animation: kbFadeIn 0.25s ease;
+            padding: 20px;
+            animation: kbFadeIn 0.3s ease;
         }
         .kb-modal-overlay.active { display: flex; }
 
         @keyframes kbFadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .kb-modal-window {
+        /* ПОЛНОЭКРАННАЯ МОДАЛКА ПРОСМОТРА СТАТЬИ */
+        .kb-modal-article {
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100vh !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+            border: none !important;
+            background: linear-gradient(170deg, #0a0d1a, #06080f) !important;
+            animation: kbFullScreenIn 0.4s cubic-bezier(0.16,1,0.3,1) !important;
+            display: flex;
+            flex-direction: column;
+            box-shadow: none !important;
+        }
+
+        @keyframes kbFullScreenIn {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .kb-modal-article .kb-modal-header {
+            padding: 24px 40px;
+            background: rgba(10,13,26,0.8);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(99,102,241,0.1);
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .kb-modal-article .kb-modal-header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .kb-modal-article .kb-article-category-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 18px;
+            border-radius: 24px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid;
+            background: rgba(99,102,241,0.08);
+        }
+
+        .kb-modal-article .kb-modal-close-btn {
+            width: 48px;
+            height: 48px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 50%;
+            color: var(--kb-text-secondary);
+            font-size: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--kb-transition);
+        }
+        .kb-modal-article .kb-modal-close-btn:hover {
+            background: rgba(239,68,68,0.15);
+            border-color: rgba(239,68,68,0.3);
+            color: #f87171;
+            transform: rotate(90deg);
+        }
+
+        .kb-modal-article .kb-article-view-title {
+            font-size: 42px;
+            font-weight: 800;
+            color: #f8fafc;
+            margin: 8px 0 12px;
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .kb-modal-article .kb-article-meta-row {
+            display: flex;
+            gap: 28px;
+            flex-wrap: wrap;
+            font-size: 14px;
+            color: var(--kb-text-secondary);
+        }
+        .kb-modal-article .kb-article-meta-row span {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .kb-modal-article .kb-article-meta-row i {
+            color: var(--kb-accent-light);
+            opacity: 0.7;
+        }
+
+        .kb-modal-article .kb-modal-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 40px 60px;
+            max-height: none !important;
+        }
+
+        .kb-modal-article .kb-article-content {
+            max-width: 900px;
+            margin: 0 auto;
+            color: var(--kb-text);
+            line-height: 1.9;
+            font-size: 17px;
+        }
+
+        .kb-modal-article .kb-article-content h1 { font-size: 32px; color: #f1f5f9; margin: 40px 0 20px; font-weight: 700; }
+        .kb-modal-article .kb-article-content h2 { font-size: 28px; color: #f1f5f9; margin: 32px 0 16px; font-weight: 700; }
+        .kb-modal-article .kb-article-content h3 { font-size: 22px; color: #f1f5f9; margin: 24px 0 12px; font-weight: 600; }
+        .kb-modal-article .kb-article-content h4 { font-size: 18px; color: var(--kb-accent-light); margin: 20px 0 10px; font-weight: 600; }
+        .kb-modal-article .kb-article-content p { margin: 16px 0; }
+        .kb-modal-article .kb-article-content ul, .kb-modal-article .kb-article-content ol { padding-left: 28px; margin: 16px 0; }
+        .kb-modal-article .kb-article-content li { margin: 6px 0; }
+        .kb-modal-article .kb-article-content a { color: var(--kb-accent-light); text-decoration: underline; transition: color 0.2s; }
+        .kb-modal-article .kb-article-content a:hover { color: #c4b5fd; }
+        .kb-modal-article .kb-article-content code { background: rgba(99,102,241,0.12); padding: 3px 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 15px; color: #c4b5fd; }
+        .kb-modal-article .kb-article-content pre { background: #0a0d16; padding: 24px; border-radius: 16px; overflow-x: auto; margin: 24px 0; border: 1px solid rgba(99,102,241,0.15); }
+        .kb-modal-article .kb-article-content pre code { background: transparent; padding: 0; }
+        .kb-modal-article .kb-article-content blockquote { border-left: 4px solid var(--kb-accent-light); padding: 16px 24px; margin: 24px 0; background: rgba(99,102,241,0.04); border-radius: 0 14px 14px 0; font-style: italic; color: #cbd5e1; }
+        .kb-modal-article .kb-article-content table { width: 100%; border-collapse: collapse; margin: 24px 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(99,102,241,0.15); }
+        .kb-modal-article .kb-article-content th { background: rgba(99,102,241,0.15); padding: 14px 18px; font-weight: 600; color: var(--kb-accent-light); text-align: left; }
+        .kb-modal-article .kb-article-content td { padding: 14px 18px; border-bottom: 1px solid rgba(99,102,241,0.08); background: rgba(0,0,0,0.1); }
+        .kb-modal-article .kb-article-content img { max-width: 100%; border-radius: 18px; margin: 24px 0; box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
+        .kb-modal-article .kb-article-content hr { margin: 40px 0; border: none; height: 2px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.4), transparent); }
+        .kb-modal-article .kb-article-content iframe { border-radius: 18px; max-width: 100%; }
+
+        .kb-modal-article .kb-modal-footer {
+            padding: 20px 40px;
+            background: rgba(10,13,26,0.8);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(99,102,241,0.1);
+            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+            z-index: 10;
+        }
+
+        .kb-modal-article .kb-article-likes-area {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .kb-modal-article .kb-like-btn {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(239,68,68,0.2);
+            border-radius: 36px;
+            padding: 12px 28px;
+            color: #f87171;
+            font-size: 18px;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+            font-family: inherit;
+        }
+        .kb-modal-article .kb-like-btn:hover {
+            background: rgba(239,68,68,0.12);
+            border-color: rgba(239,68,68,0.4);
+            transform: translateY(-2px);
+        }
+        .kb-modal-article .kb-like-btn.liked {
+            background: rgba(239,68,68,0.18);
+            border-color: #ef4444;
+            color: #ef4444;
+            animation: kbHeartBeat 0.4s ease;
+        }
+        @keyframes kbHeartBeat {
+            0% { transform: scale(1); }
+            30% { transform: scale(1.2); }
+            60% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        .kb-modal-article .kb-article-actions-area {
+            display: flex;
+            gap: 12px;
+        }
+
+        /* Другие модалки (обычные) */
+        .kb-modal-window:not(.kb-modal-article) {
             background: linear-gradient(150deg, #191e30, #0f1324);
             border-radius: 28px;
             padding: 0;
@@ -527,10 +715,9 @@
             from { opacity: 0; transform: translateY(28px) scale(0.96); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
-        .kb-modal-article { max-width: 820px; }
         .kb-modal-editor { max-width: 920px; }
 
-        .kb-modal-header {
+        .kb-modal-header:not(.kb-modal-article .kb-modal-header) {
             display: flex;
             align-items: center;
             gap: 16px;
@@ -548,7 +735,7 @@
             font-weight: 700;
             color: #f1f5f9;
         }
-        .kb-modal-close-btn {
+        .kb-modal-close-btn:not(.kb-modal-article .kb-modal-close-btn) {
             width: 38px;
             height: 38px;
             background: rgba(255,255,255,0.03);
@@ -564,13 +751,13 @@
             flex-shrink: 0;
             margin-left: auto;
         }
-        .kb-modal-close-btn:hover {
+        .kb-modal-close-btn:not(.kb-modal-article .kb-modal-close-btn):hover {
             background: rgba(239,68,68,0.15);
             border-color: rgba(239,68,68,0.3);
             color: #f87171;
         }
-        .kb-modal-body { padding: 28px; }
-        .kb-modal-footer {
+        .kb-modal-body:not(.kb-modal-article .kb-modal-body) { padding: 28px; }
+        .kb-modal-footer:not(.kb-modal-article .kb-modal-footer) {
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -581,104 +768,6 @@
             bottom: 0;
             backdrop-filter: blur(12px);
         }
-
-        /* ============================================ */
-        /* ПРОСМОТР СТАТЬИ */
-        /* ============================================ */
-        .kb-article-category-tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 5px 14px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 500;
-            border: 1px solid;
-        }
-        .kb-article-view-title {
-            font-size: 30px;
-            font-weight: 800;
-            color: #f1f5f9;
-            margin: 14px 0;
-            line-height: 1.3;
-        }
-        .kb-article-meta-row {
-            display: flex;
-            gap: 24px;
-            flex-wrap: wrap;
-            font-size: 13px;
-            color: var(--kb-text-secondary);
-        }
-        .kb-article-meta-row span {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .kb-article-meta-row i { color: var(--kb-accent-light); opacity: 0.7; }
-
-        /* Контент статьи */
-        .kb-article-content {
-            color: var(--kb-text);
-            line-height: 1.9;
-            font-size: 16px;
-            word-break: break-word;
-        }
-        .kb-article-content h1 { font-size: 28px; color: #f1f5f9; margin: 32px 0 16px; font-weight: 700; border-bottom: 1px solid rgba(99,102,241,0.12); padding-bottom: 10px; }
-        .kb-article-content h2 { font-size: 24px; color: #f1f5f9; margin: 28px 0 12px; font-weight: 700; }
-        .kb-article-content h3 { font-size: 20px; color: #f1f5f9; margin: 24px 0 10px; font-weight: 600; }
-        .kb-article-content h4 { font-size: 18px; color: var(--kb-accent-light); margin: 20px 0 8px; font-weight: 600; }
-        .kb-article-content p { margin: 14px 0; }
-        .kb-article-content ul, .kb-article-content ol { padding-left: 26px; margin: 14px 0; }
-        .kb-article-content li { margin: 6px 0; }
-        .kb-article-content a { color: var(--kb-accent-light); text-decoration: underline; }
-        .kb-article-content code { background: rgba(99,102,241,0.12); padding: 2px 8px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; color: #c4b5fd; }
-        .kb-article-content pre { background: #0a0d16; padding: 20px; border-radius: 14px; overflow-x: auto; margin: 20px 0; border: 1px solid rgba(99,102,241,0.15); }
-        .kb-article-content pre code { background: transparent; padding: 0; }
-        .kb-article-content blockquote { border-left: 4px solid var(--kb-accent-light); padding: 14px 22px; margin: 22px 0; background: rgba(99,102,241,0.04); border-radius: 0 14px 14px 0; font-style: italic; color: #cbd5e1; }
-        .kb-article-content table { width: 100%; border-collapse: collapse; margin: 22px 0; border-radius: 14px; overflow: hidden; border: 1px solid rgba(99,102,241,0.15); }
-        .kb-article-content th { background: rgba(99,102,241,0.15); padding: 12px 16px; font-weight: 600; color: var(--kb-accent-light); text-align: left; }
-        .kb-article-content td { padding: 12px 16px; border-bottom: 1px solid rgba(99,102,241,0.08); background: rgba(0,0,0,0.1); }
-        .kb-article-content img { max-width: 100%; border-radius: 18px; margin: 20px 0; box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
-        .kb-article-content hr { margin: 32px 0; border: none; height: 2px; background: linear-gradient(90deg, transparent, rgba(167,139,250,0.35), transparent); }
-        .kb-article-content iframe { border-radius: 18px; max-width: 100%; }
-
-        /* ============================================ */
-        /* ЛАЙКИ */
-        /* ============================================ */
-        .kb-article-likes-area { display: flex; align-items: center; }
-        .kb-like-btn {
-            background: rgba(255,255,255,0.02);
-            border: 1px solid rgba(239,68,68,0.2);
-            border-radius: 36px;
-            padding: 12px 24px;
-            color: #f87171;
-            font-size: 17px;
-            cursor: pointer;
-            transition: var(--kb-transition);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-weight: 600;
-            font-family: inherit;
-        }
-        .kb-like-btn:hover {
-            background: rgba(239,68,68,0.12);
-            border-color: rgba(239,68,68,0.4);
-            transform: translateY(-2px);
-        }
-        .kb-like-btn.liked {
-            background: rgba(239,68,68,0.18);
-            border-color: #ef4444;
-            color: #ef4444;
-            animation: kbHeartBeat 0.4s ease;
-        }
-        @keyframes kbHeartBeat {
-            0% { transform: scale(1); }
-            30% { transform: scale(1.2); }
-            60% { transform: scale(0.95); }
-            100% { transform: scale(1); }
-        }
-        .kb-article-actions-area { display: flex; gap: 10px; }
 
         /* ============================================ */
         /* РЕДАКТОР */
@@ -809,6 +898,240 @@
         .form-textarea { resize: vertical; min-height: 80px; }
 
         /* ============================================ */
+        /* УТИЛИТЫ — ПОЛНОСТЬЮ РАБОЧИЕ */
+        /* ============================================ */
+        .tools-hero {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 28px 32px;
+            background: linear-gradient(160deg, rgba(16,185,129,0.06), rgba(5,150,105,0.02));
+            border-radius: var(--kb-radius);
+            border: 1px solid rgba(16,185,129,0.2);
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .tools-hero-info { display: flex; align-items: center; gap: 18px; }
+        .tools-hero-icon {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            color: white;
+            box-shadow: 0 8px 24px rgba(16,185,129,0.25);
+        }
+        .tools-hero h2 { font-size: 24px; font-weight: 700; color: #f1f5f9; margin: 0 0 6px; }
+        .tools-hero p { font-size: 14px; color: var(--kb-text-secondary); margin: 0; }
+        .tools-hero-stats { display: flex; gap: 28px; }
+        .tools-hero-stat { text-align: center; }
+        .tools-hero-stat-value { font-size: 28px; font-weight: 800; color: var(--kb-gold); display: block; line-height: 1; }
+        .tools-hero-stat-label { font-size: 11px; color: var(--kb-text-muted); text-transform: uppercase; margin-top: 6px; }
+
+        .tools-controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .tools-search-box {
+            flex: 1;
+            min-width: 220px;
+            position: relative;
+        }
+        .tools-search-box i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--kb-text-muted);
+            font-size: 14px;
+        }
+        .tools-search-box input {
+            width: 100%;
+            padding: 12px 16px 12px 44px;
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 40px;
+            color: var(--kb-text);
+            font-size: 14px;
+            outline: none;
+            transition: var(--kb-transition);
+        }
+        .tools-search-box input:focus { border-color: #10b981; }
+        .tools-filter-select {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(16,185,129,0.2);
+            border-radius: 40px;
+            color: var(--kb-text);
+            padding: 12px 20px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+        }
+        .tools-filter-select option { background: #1a1f2e; color: #e2e8f0; }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .tool-card {
+            background: var(--kb-surface);
+            backdrop-filter: blur(14px);
+            border-radius: 20px;
+            border: 1px solid var(--kb-border);
+            padding: 22px;
+            transition: var(--kb-transition);
+            position: relative;
+            overflow: hidden;
+        }
+        .tool-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981, #34d399);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tool-card:hover::before { opacity: 1; }
+        .tool-card:hover {
+            border-color: rgba(16,185,129,0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+        }
+        .tool-card-icon { font-size: 48px; margin-bottom: 12px; line-height: 1; }
+        .tool-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .badge-server { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+        .badge-link { background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .tool-card-name { font-size: 17px; font-weight: 600; color: #f1f5f9; margin-bottom: 6px; }
+        .tool-card-desc { font-size: 13px; color: var(--kb-text-secondary); margin-bottom: 10px; line-height: 1.5; }
+        .tool-card-meta { display: flex; gap: 10px; font-size: 11px; color: var(--kb-text-muted); margin-bottom: 16px; flex-wrap: wrap; }
+        .tool-card-actions { display: flex; gap: 10px; }
+        .btn-launch {
+            flex: 1;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            padding: 11px 18px;
+            border-radius: 24px;
+            color: white;
+            cursor: pointer;
+            font-weight: 500;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 13px;
+            transition: var(--kb-transition);
+        }
+        .btn-launch:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
+        .btn-launch-link { background: linear-gradient(135deg, #3b82f6, #2563eb); }
+        .btn-launch-link:hover { box-shadow: 0 4px 14px rgba(59,130,246,0.3); }
+        .btn-delete-tool {
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.25);
+            padding: 11px 16px;
+            border-radius: 24px;
+            color: #f87171;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            font-size: 14px;
+        }
+        .btn-delete-tool:hover { background: rgba(239,68,68,0.25); }
+
+        .tool-drop-zone {
+            border: 2px dashed rgba(99,102,241,0.25);
+            border-radius: 18px;
+            padding: 32px 24px;
+            text-align: center;
+            cursor: pointer;
+            transition: var(--kb-transition);
+        }
+        .tool-drop-zone:hover {
+            border-color: rgba(99,102,241,0.5);
+            background: rgba(99,102,241,0.04);
+        }
+        .tool-drop-zone i { font-size: 40px; color: var(--kb-text-muted); margin-bottom: 10px; display: block; }
+        .tool-drop-zone p { margin: 6px 0; color: var(--kb-text-secondary); }
+
+        /* ============================================ */
+        /* ПРЕСЕТЫ КАТЕГОРИЙ */
+        /* ============================================ */
+        .kb-preset-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+        .kb-preset-item {
+            background: var(--kb-surface);
+            border: 1px solid var(--kb-border);
+            border-radius: 16px;
+            padding: 14px 20px;
+            cursor: pointer;
+            transition: var(--kb-transition);
+            text-align: center;
+            min-width: 100px;
+        }
+        .kb-preset-item:hover {
+            background: rgba(99,102,241,0.15);
+            border-color: var(--kb-accent-light);
+            transform: translateY(-2px);
+        }
+        .kb-preset-item-icon { font-size: 32px; display: block; margin-bottom: 8px; }
+        .kb-preset-item-name { font-size: 12px; font-weight: 500; color: var(--kb-text); }
+
+        /* ============================================ */
+        /* ПУСТЫЕ СОСТОЯНИЯ */
+        /* ============================================ */
+        .kb-empty-state {
+            text-align: center;
+            padding: 70px 20px;
+            background: var(--kb-surface);
+            border-radius: var(--kb-radius);
+            border: 1px solid var(--kb-border);
+        }
+        .kb-empty-state-icon { font-size: 68px; margin-bottom: 16px; opacity: 0.35; }
+        .kb-empty-state h3 { font-size: 22px; color: var(--kb-text); margin-bottom: 10px; }
+        .kb-empty-state p { color: var(--kb-text-secondary); margin-bottom: 24px; }
+
+        /* ============================================ */
+        /* СКРОЛЛБАРЫ */
+        /* ============================================ */
+        .kb-editor-area::-webkit-scrollbar,
+        .kb-modal-window::-webkit-scrollbar,
+        .kb-icon-picker::-webkit-scrollbar {
+            width: 6px;
+        }
+        .kb-editor-area::-webkit-scrollbar-track,
+        .kb-modal-window::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.02);
+            border-radius: 10px;
+        }
+        .kb-editor-area::-webkit-scrollbar-thumb,
+        .kb-modal-window::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(99,102,241,0.5), rgba(139,92,246,0.5));
+            border-radius: 10px;
+        }
+
+        /* ============================================ */
         /* АДАПТИВ */
         /* ============================================ */
         @media (max-width: 900px) {
@@ -821,10 +1144,18 @@
             .kb-tab-btn span { display: none; }
             .kb-action-bar { flex-direction: column; align-items: stretch; }
             .kb-search-box { min-width: auto; }
-            .kb-modal-article { max-width: 100%; }
-            .kb-modal-editor { max-width: 100%; }
-            .kb-article-view-title { font-size: 22px; }
-            .kb-article-meta-row { gap: 14px; font-size: 12px; }
+            
+            .kb-modal-article .kb-modal-header { padding: 16px 20px; }
+            .kb-modal-article .kb-article-view-title { font-size: 26px; }
+            .kb-modal-article .kb-article-meta-row { gap: 14px; font-size: 12px; }
+            .kb-modal-article .kb-modal-body { padding: 20px 24px; }
+            .kb-modal-article .kb-article-content { font-size: 15px; }
+            .kb-modal-article .kb-modal-footer { padding: 16px 20px; flex-direction: column; gap: 12px; }
+            
+            .tools-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+            .tools-hero { flex-direction: column; align-items: flex-start; }
+            .tools-controls { flex-direction: column; }
+            
             .kb-editor-area { min-height: 300px; padding: 18px; }
             .kb-icon-picker { grid-template-columns: repeat(6, 1fr); }
         }
@@ -833,34 +1164,34 @@
             .knowledge-container { padding: 0 10px 32px; }
             .kb-header { padding: 28px 14px; }
             .kb-header-title { font-size: 22px; }
-            .kb-modal-window { border-radius: 20px; }
-            .kb-modal-body { padding: 20px; }
+            .kb-modal-window:not(.kb-modal-article) { border-radius: 20px; }
+            .kb-modal-body:not(.kb-modal-article .kb-modal-body) { padding: 20px; }
+            .kb-editor-area { min-height: 250px; }
         }
     </style>
 </head>
 <body>
 
 <div class="knowledge-container">
+    <!-- ХЕДЕР -->
     <div class="kb-header">
         <div class="kb-header-glow"></div>
-        <div class="kb-header-icon">
-            <i class="fas fa-database"></i>
-        </div>
+        <div class="kb-header-icon"><i class="fas fa-database"></i></div>
         <h1 class="kb-header-title">База знаний <span>WARPOINT</span></h1>
         <p class="kb-header-subtitle">Инструкции, правила и полезная информация для сотрудников</p>
     </div>
 
+    <!-- ПЕРЕКЛЮЧАТЕЛЬ ВКЛАДОК -->
     <div class="kb-tab-switch">
         <button class="kb-tab-btn active" data-tab="articles" id="kbTabArticles">
-            <i class="fas fa-book-open"></i>
-            <span>База знаний</span>
+            <i class="fas fa-book-open"></i><span>База знаний</span>
         </button>
         <button class="kb-tab-btn" data-tab="tools" id="kbTabTools">
-            <i class="fas fa-wrench"></i>
-            <span>Утилиты</span>
+            <i class="fas fa-wrench"></i><span>Утилиты</span>
         </button>
     </div>
 
+    <!-- ВКЛАДКА: СТАТЬИ -->
     <div id="kbPanelArticles" class="kb-panel active">
         <div class="kb-action-bar">
             <div class="kb-search-box">
@@ -870,9 +1201,7 @@
             </div>
             <div class="kb-action-btns" id="actionButtons"></div>
         </div>
-
         <div id="kbPopularSection" class="kb-popular-section" style="display:none;"></div>
-
         <div id="knowledgeContainer" class="kb-categories-list">
             <div class="kb-loading">
                 <div class="kb-spinner"></div>
@@ -881,27 +1210,18 @@
         </div>
     </div>
 
+    <!-- ВКЛАДКА: УТИЛИТЫ -->
     <div id="kbPanelTools" class="kb-panel" style="display:none;">
         <div class="tools-hero">
             <div class="tools-hero-info">
                 <div class="tools-hero-icon"><i class="fas fa-toolbox"></i></div>
-                <div>
-                    <h2>Утилиты WARPOINT</h2>
-                    <p>Программы, установщики и ссылки для работы</p>
-                </div>
+                <div><h2>Утилиты WARPOINT</h2><p>Программы, установщики и ссылки для работы</p></div>
             </div>
             <div class="tools-hero-stats">
-                <div class="tools-hero-stat">
-                    <span class="tools-hero-stat-value" id="toolsCount">0</span>
-                    <span class="tools-hero-stat-label">утилит</span>
-                </div>
-                <div class="tools-hero-stat">
-                    <span class="tools-hero-stat-value" id="toolsTotalSize">0 KB</span>
-                    <span class="tools-hero-stat-label">общий размер</span>
-                </div>
+                <div class="tools-hero-stat"><span class="tools-hero-stat-value" id="toolsCount">0</span><span class="tools-hero-stat-label">утилит</span></div>
+                <div class="tools-hero-stat"><span class="tools-hero-stat-value" id="toolsTotalSize">0 KB</span><span class="tools-hero-stat-label">общий размер</span></div>
             </div>
         </div>
-
         <div class="tools-controls">
             <div class="tools-search-box">
                 <i class="fas fa-search"></i>
@@ -915,22 +1235,16 @@
                 <option value="url">🌐 Ссылки</option>
                 <option value="other">📁 Другое</option>
             </select>
-            <button class="btn-primary" id="uploadToolBtn">
-                <i class="fas fa-plus-circle"></i> Добавить утилиту
-            </button>
+            <button class="btn-primary" id="uploadToolBtn"><i class="fas fa-plus-circle"></i> Добавить утилиту</button>
         </div>
-
         <div id="toolsGrid" class="tools-grid">
-            <div class="kb-loading">
-                <div class="kb-spinner"></div>
-                <p>Загрузка утилит...</p>
-            </div>
+            <div class="kb-loading"><div class="kb-spinner"></div><p>Загрузка утилит...</p></div>
         </div>
     </div>
 </div>
 
 <!-- ============================================ -->
-<!-- МОДАЛКА: ПРОСМОТР СТАТЬИ -->
+<!-- МОДАЛКА: ПРОСМОТР СТАТЬИ (ПОЛНОЭКРАННАЯ) -->
 <!-- ============================================ -->
 <div id="kbArticleModal" class="kb-modal-overlay">
     <div class="kb-modal-window kb-modal-article">
@@ -955,12 +1269,8 @@
                 <button id="kbArticleLikeBtn" class="kb-like-btn">🤍 <span>0</span></button>
             </div>
             <div class="kb-article-actions-area">
-                <button class="btn-secondary" id="kbArticleEditBtn" style="display:none;">
-                    <i class="fas fa-edit"></i> Редактировать
-                </button>
-                <button class="btn-secondary" id="kbArticleCloseFooterBtn">
-                    <i class="fas fa-times"></i> Закрыть
-                </button>
+                <button class="btn-secondary" id="kbArticleEditBtn" style="display:none;"><i class="fas fa-edit"></i> Редактировать</button>
+                <button class="btn-secondary" id="kbArticleCloseFooterBtn"><i class="fas fa-times"></i> Закрыть</button>
             </div>
         </div>
     </div>
@@ -984,19 +1294,14 @@
                 <label>Содержание</label>
                 <div class="kb-editor-wrapper">
                     <div class="kb-editor-toolbar" id="kbEditorToolbar"></div>
-                    <div id="kbEditorContent" class="kb-editor-area" contenteditable="true" 
-                         data-placeholder="Начните писать здесь... Используйте панель инструментов для форматирования."></div>
+                    <div id="kbEditorContent" class="kb-editor-area" contenteditable="true" data-placeholder="Начните писать здесь... Используйте панель инструментов для форматирования."></div>
                 </div>
             </div>
         </div>
         <div class="kb-modal-footer">
-            <button class="btn-danger" id="kbEditorDeleteBtn" style="display:none;">
-                <i class="fas fa-trash-alt"></i> Удалить
-            </button>
+            <button class="btn-danger" id="kbEditorDeleteBtn" style="display:none;"><i class="fas fa-trash-alt"></i> Удалить</button>
             <button class="btn-secondary" id="kbEditorCancelBtn">Отмена</button>
-            <button class="btn-primary" id="kbEditorSaveBtn">
-                <i class="fas fa-save"></i> Сохранить
-            </button>
+            <button class="btn-primary" id="kbEditorSaveBtn"><i class="fas fa-save"></i> Сохранить</button>
         </div>
     </div>
 </div>
@@ -1029,39 +1334,13 @@
 </div>
 
 <!-- ============================================ -->
-<!-- МОДАЛКА: ПРЕСЕТЫ КАТЕГОРИЙ -->
-<!-- ============================================ -->
-<div id="kbPresetModal" class="kb-modal-overlay">
-    <div class="kb-modal-window" style="max-width:700px;">
-        <div class="kb-modal-header">
-            <h3>🎨 Готовые категории</h3>
-            <button class="kb-modal-close-btn" id="kbPresetCloseBtn">&times;</button>
-        </div>
-        <div class="kb-modal-body">
-            <div class="kb-preset-grid" id="kbPresetGrid"></div>
-            <div style="text-align:center;margin-top:16px;">
-                <button class="btn-primary" id="kbPresetAddAllBtn">
-                    <i class="fas fa-plus-circle"></i> Добавить все категории
-                </button>
-            </div>
-        </div>
-        <div class="kb-modal-footer">
-            <button class="btn-secondary" id="kbPresetCancelBtn">Закрыть</button>
-        </div>
-    </div>
-</div>
-
-<!-- ============================================ -->
 <!-- МОДАЛКА: ДОБАВЛЕНИЕ УТИЛИТЫ -->
 <!-- ============================================ -->
 <div id="uploadToolModal" class="kb-modal-overlay">
     <div class="kb-modal-window" style="max-width:520px;">
         <div class="kb-modal-header">
             <div class="kb-modal-header-icon"><i class="fas fa-wrench"></i></div>
-            <div>
-                <h3>Добавить утилиту</h3>
-                <p style="font-size:12px;color:#94a3b8;">Загрузите файл на сервер или добавьте ссылку</p>
-            </div>
+            <div><h3>Добавить утилиту</h3><p style="font-size:12px;color:#94a3b8;">Загрузите файл на сервер или добавьте ссылку</p></div>
             <button class="kb-modal-close-btn" id="uploadToolCloseBtn">&times;</button>
         </div>
         <div class="kb-modal-body">
@@ -1079,8 +1358,8 @@
                     <option value="exe">💻 Программа (.exe)</option>
                     <option value="msi">📦 Установщик (.msi)</option>
                     <option value="bat">📜 Скрипт (.bat/.cmd)</option>
-                    <option value="other">📁 Другой файл</option>
                     <option value="url">🌐 Ссылка на сайт</option>
+                    <option value="other">📁 Другой файл</option>
                 </select>
             </div>
             <div class="form-group" id="toolFileGroup">
@@ -1100,16 +1379,35 @@
         </div>
         <div class="kb-modal-footer">
             <button class="btn-secondary" id="uploadToolCancelBtn">Отмена</button>
-            <button class="btn-primary" id="uploadToolSaveBtn">
-                <i class="fas fa-upload"></i> Загрузить
-            </button>
+            <button class="btn-primary" id="uploadToolSaveBtn"><i class="fas fa-upload"></i> Загрузить</button>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================ -->
+<!-- МОДАЛКА: ПРЕСЕТЫ КАТЕГОРИЙ -->
+<!-- ============================================ -->
+<div id="kbPresetModal" class="kb-modal-overlay">
+    <div class="kb-modal-window" style="max-width:700px;">
+        <div class="kb-modal-header">
+            <h3>🎨 Готовые категории</h3>
+            <button class="kb-modal-close-btn" id="kbPresetCloseBtn">&times;</button>
+        </div>
+        <div class="kb-modal-body">
+            <div class="kb-preset-grid" id="kbPresetGrid"></div>
+            <div style="text-align:center;margin-top:16px;">
+                <button class="btn-primary" id="kbPresetAddAllBtn"><i class="fas fa-plus-circle"></i> Добавить все категории</button>
+            </div>
+        </div>
+        <div class="kb-modal-footer">
+            <button class="btn-secondary" id="kbPresetCancelBtn">Закрыть</button>
         </div>
     </div>
 </div>
 
 <script>
 // ============================================
-// knowledge.js — WARPOINT KNOWLEDGE BASE v7.1
+// knowledge.js — WARPOINT KNOWLEDGE BASE v8.0
 // ============================================
 
 (function() {
@@ -1124,7 +1422,10 @@
         isLoading: false,
         isInitialized: false,
         activeEditor: null,
-        likes: {}
+        likes: {},
+        tools: [],
+        toolsFilter: 'all',
+        toolsSearch: ''
     };
 
     function canManageCategories() {
@@ -1135,6 +1436,11 @@
     function canManageArticles() {
         let role = window.app?.currentUserRole;
         return role === 'director' || role === 'manager' || role === 'admin' || role === 'operator';
+    }
+
+    function canManageTools() {
+        let role = window.app?.currentUserRole;
+        return role === 'director' || role === 'manager';
     }
 
     function escapeHtml(str) {
@@ -1189,6 +1495,10 @@
             return { success: false, error: 'Ошибка соединения' };
         }
     }
+
+    // ============================================
+    // СТАТЬИ
+    // ============================================
 
     function canCountView(articleId) {
         let currentUser = window.app?.currentUser;
@@ -2031,6 +2341,250 @@ function hello() {
         localStorage.setItem('knowledgeOpenCategories', JSON.stringify(openCategories));
     }
 
+    // ============================================
+    // УТИЛИТЫ
+    // ============================================
+
+    async function loadTools() {
+        let grid = document.getElementById('toolsGrid');
+        grid.innerHTML = '<div class="kb-loading"><div class="kb-spinner"></div><p>Загрузка утилит...</p></div>';
+        try {
+            let response = await apiCall('/tools');
+            if (response?.success) {
+                state.tools = response.tools || [];
+                renderTools();
+            } else {
+                throw new Error('Ошибка загрузки утилит');
+            }
+        } catch (err) {
+            grid.innerHTML = `
+                <div class="kb-empty-state">
+                    <div class="kb-empty-state-icon"><i class="fas fa-wrench"></i></div>
+                    <h3>Утилиты не загружены</h3>
+                    <p>${err.message}</p>
+                    <button class="btn-primary" onclick="loadTools()">🔄 Повторить</button>
+                </div>
+            `;
+        }
+    }
+
+    function renderTools() {
+        let grid = document.getElementById('toolsGrid');
+        let filtered = state.tools;
+        if (state.toolsFilter !== 'all') {
+            filtered = filtered.filter(t => {
+                let ext = t.name.split('.').pop().toLowerCase();
+                if (state.toolsFilter === 'exe') return ext === 'exe';
+                if (state.toolsFilter === 'msi') return ext === 'msi';
+                if (state.toolsFilter === 'bat') return ext === 'bat' || ext === 'cmd';
+                if (state.toolsFilter === 'url') return t.path?.startsWith('http');
+                return true;
+            });
+        }
+        if (state.toolsSearch) {
+            filtered = filtered.filter(t => t.name.toLowerCase().includes(state.toolsSearch.toLowerCase()));
+        }
+
+        document.getElementById('toolsCount').textContent = filtered.length;
+        let totalSize = filtered.reduce((sum, t) => sum + (t.size || 0), 0);
+        document.getElementById('toolsTotalSize').textContent = totalSize > 0 ? (totalSize / 1024).toFixed(1) + ' KB' : '0 KB';
+
+        if (filtered.length === 0) {
+            grid.innerHTML = `
+                <div class="kb-empty-state">
+                    <div class="kb-empty-state-icon"><i class="fas fa-search"></i></div>
+                    <h3>Утилиты не найдены</h3>
+                    <p>Попробуйте изменить фильтры или добавьте новую утилиту</p>
+                </div>
+            `;
+            return;
+        }
+
+        let html = filtered.map(tool => {
+            let icon = '📁';
+            let ext = tool.name.split('.').pop().toLowerCase();
+            let isLink = tool.path?.startsWith('http');
+            let badge = isLink ? 'badge-link' : 'badge-server';
+            let badgeText = isLink ? '🌐 Ссылка' : '💾 Файл';
+            let btnClass = isLink ? 'btn-launch-link' : 'btn-launch';
+            let btnText = isLink ? '🌐 Перейти' : '⬇️ Скачать';
+            let href = isLink ? tool.path : tool.path;
+            let download = isLink ? '' : 'download';
+
+            if (ext === 'exe') icon = '💻';
+            else if (ext === 'msi') icon = '📦';
+            else if (ext === 'bat' || ext === 'cmd') icon = '📜';
+            else if (isLink) icon = '🌐';
+            else if (ext === 'pdf') icon = '📄';
+            else if (ext === 'zip' || ext === 'rar' || ext === '7z') icon = '🗜️';
+            else if (['png','jpg','jpeg','gif','webp'].includes(ext)) icon = '🖼️';
+
+            return `
+            <div class="tool-card">
+                <div class="tool-card-icon">${icon}</div>
+                <div class="tool-badge ${badge}">${badgeText}</div>
+                <div class="tool-card-name">${escapeHtml(tool.name)}</div>
+                <div class="tool-card-meta">
+                    <span>📅 ${formatDate(tool.uploadedAt)}</span>
+                    ${tool.size ? `<span>📦 ${(tool.size / 1024).toFixed(1)} KB</span>` : ''}
+                </div>
+                <div class="tool-card-actions">
+                    <a href="${href}" ${download} target="_blank" class="btn-launch ${btnClass}">${btnText}</a>
+                    ${canManageTools() ? `<button class="btn-delete-tool" onclick="window.kbDeleteTool('${tool.name}')"><i class="fas fa-trash-alt"></i></button>` : ''}
+                </div>
+            </div>
+            `;
+        }).join('');
+
+        grid.innerHTML = html;
+    }
+
+    async function kbDeleteTool(filename) {
+        if (!canManageTools()) {
+            showNotification('❌ Нет прав', 'error');
+            return;
+        }
+        if (!confirm(`Удалить утилиту "${filename}"?`)) return;
+        let response = await apiCall('/tools/' + filename, 'DELETE');
+        if (response?.success) {
+            showNotification('🗑️ Утилита удалена', 'warning');
+            await loadTools();
+        } else {
+            showNotification('❌ Ошибка удаления', 'error');
+        }
+    }
+
+    async function kbUploadTool() {
+        let name = document.getElementById('toolName').value.trim();
+        let desc = document.getElementById('toolDesc').value.trim();
+        let type = document.getElementById('toolType').value;
+        let fileInput = document.getElementById('toolFileInput');
+        let urlInput = document.getElementById('toolPath').value.trim();
+
+        if (!name) {
+            showNotification('❌ Введите название утилиты', 'error');
+            return;
+        }
+
+        let formData = new FormData();
+        formData.append('name', name);
+        if (desc) formData.append('description', desc);
+        formData.append('type', type);
+
+        if (type === 'url') {
+            if (!urlInput || !urlInput.startsWith('http')) {
+                showNotification('❌ Введите корректную ссылку', 'error');
+                return;
+            }
+            formData.append('url', urlInput);
+        } else {
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showNotification('❌ Выберите файл', 'error');
+                return;
+            }
+            formData.append('file', fileInput.files[0]);
+        }
+
+        let token = localStorage.getItem('token');
+        try {
+            let response = await fetch('/api/tools/upload', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+            let result = await response.json();
+            if (result.success) {
+                showNotification('✅ Утилита загружена', 'success');
+                document.getElementById('uploadToolModal').classList.remove('active');
+                document.body.style.overflow = '';
+                await loadTools();
+            } else {
+                showNotification('❌ ' + (result.error || 'Ошибка'), 'error');
+            }
+        } catch (e) {
+            showNotification('❌ Ошибка загрузки', 'error');
+        }
+    }
+
+    function setupToolsUpload() {
+        // Переключение типа
+        document.getElementById('toolType').addEventListener('change', function() {
+            let isUrl = this.value === 'url';
+            document.getElementById('toolFileGroup').style.display = isUrl ? 'none' : 'block';
+            document.getElementById('toolUrlGroup').style.display = isUrl ? 'block' : 'none';
+        });
+
+        // Drag & drop
+        let dropZone = document.getElementById('toolDropZone');
+        let fileInput = document.getElementById('toolFileInput');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#10b981';
+            dropZone.style.background = 'rgba(16,185,129,0.08)';
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = 'rgba(99,102,241,0.25)';
+            dropZone.style.background = '';
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'rgba(99,102,241,0.25)';
+            dropZone.style.background = '';
+            if (e.dataTransfer.files.length) {
+                fileInput.files = e.dataTransfer.files;
+                updateFileInfo();
+            }
+        });
+        fileInput.addEventListener('change', updateFileInfo);
+
+        function updateFileInfo() {
+            let file = fileInput.files[0];
+            let info = document.getElementById('toolFileInfo');
+            if (file) {
+                info.style.display = 'block';
+                info.textContent = `✅ ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+            } else {
+                info.style.display = 'none';
+            }
+        }
+
+        document.getElementById('uploadToolBtn').addEventListener('click', () => {
+            document.getElementById('uploadToolModal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        });
+
+        document.getElementById('uploadToolCloseBtn').addEventListener('click', closeUploadModal);
+        document.getElementById('uploadToolCancelBtn').addEventListener('click', closeUploadModal);
+        document.getElementById('uploadToolSaveBtn').addEventListener('click', kbUploadTool);
+    }
+
+    function closeUploadModal() {
+        document.getElementById('uploadToolModal').classList.remove('active');
+        document.body.style.overflow = '';
+        document.getElementById('toolName').value = '';
+        document.getElementById('toolDesc').value = '';
+        document.getElementById('toolFileInput').value = '';
+        document.getElementById('toolPath').value = '';
+        document.getElementById('toolFileInfo').style.display = 'none';
+    }
+
+    function setupToolsSearch() {
+        document.getElementById('toolsSearch').addEventListener('input', function() {
+            state.toolsSearch = this.value;
+            renderTools();
+        });
+        document.getElementById('toolsFilterType').addEventListener('change', function() {
+            state.toolsFilter = this.value;
+            renderTools();
+        });
+    }
+
+    // ============================================
+    // ПОИСК СТАТЕЙ
+    // ============================================
+
     function setupSearch() {
         let searchInput = document.getElementById('knowledgeSearch');
         let clearBtn = document.getElementById('clearSearchBtn');
@@ -2046,6 +2600,10 @@ function hello() {
             clearBtn.style.display = 'none';
         });
     }
+
+    // ============================================
+    // ВКЛАДКИ
+    // ============================================
 
     function setupTabs() {
         let tabBtns = document.querySelectorAll('.kb-tab-btn');
@@ -2066,22 +2624,19 @@ function hello() {
         });
     }
 
-    function loadTools() {
-        document.getElementById('toolsGrid').innerHTML = `
-            <div class="kb-empty-state">
-                <div class="kb-empty-state-icon"><i class="fas fa-wrench"></i></div>
-                <h3>Утилиты в разработке</h3>
-                <p>Функционал будет доступен в следующем обновлении</p>
-            </div>
-        `;
-    }
+    // ============================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================
 
     function initKnowledge() {
         if (state.isInitialized) return;
         console.log('📚 Инициализация базы знаний');
         setupSearch();
         setupTabs();
+        setupToolsSearch();
+        setupToolsUpload();
         loadKnowledgeData();
+        loadTools();
 
         document.getElementById('kbArticleCloseBtn')?.addEventListener('click', closeArticle);
         document.getElementById('kbArticleCloseFooterBtn')?.addEventListener('click', closeArticle);
@@ -2144,8 +2699,13 @@ function hello() {
     window.kbCreateAllPresets = kbCreateAllPresets;
     window.loadKnowledgeData = loadKnowledgeData;
     window.renderKnowledge = renderKnowledge;
+    window.loadTools = loadTools;
+    window.renderTools = renderTools;
+    window.kbDeleteTool = kbDeleteTool;
+    window.kbUploadTool = kbUploadTool;
+    window.closeUploadModal = closeUploadModal;
 
-    console.log('✅ knowledge.js v7.1 загружен');
+    console.log('✅ knowledge.js v8.0 загружен (статьи + утилиты)');
 })();
 </script>
 
