@@ -71,13 +71,16 @@ const PUSHER_CONFIG = {
 };
 
 const upload = multer({
-    limits: { fileSize: 5 * 1024 * 1024 },
+    limits: { 
+        fileSize: 5 * 1024 * 1024, // 5 МБ
+        files: 1
+    },
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|webp/;
+        const allowedTypes = /jpeg|jpg|png|gif|webp|exe|msi|bat|cmd|pdf|zip|rar|7z/;
         const ext = path.extname(file.originalname).toLowerCase();
         const mime = file.mimetype;
-        if (allowedTypes.test(ext) && allowedTypes.test(mime)) cb(null, true);
-        else cb(new Error('Только изображения (JPEG, PNG, GIF, WEBP)'));
+        if (allowedTypes.test(ext) || allowedTypes.test(mime)) cb(null, true);
+        else cb(new Error('Недопустимый тип файла'));
     }
 });
 
@@ -2970,27 +2973,27 @@ const toolUpload = multer({
     limits: { fileSize: 100 * 1024 * 1024 } // до 100 МБ
 });
 
-// Загрузка файла утилиты
-app.post('/api/tools/upload', authMiddleware, toolUpload.single('file'), async (req, res) => {
+app.post('/api/tools/upload', authMiddleware, upload.single('file'), async (req, res) => {
     try {
-        if (!req.file) {
+        if (!req.file && req.body.type !== 'url') {
             return res.status(400).json({ success: false, error: 'Файл не загружен' });
         }
         
-        var fileName = req.file.filename;
-        var originalName = req.file.originalname;
-        var fileSize = req.file.size;
+        let fileName = req.file ? req.file.filename : req.body.url.split('/').pop() || 'link.txt';
+        let originalName = req.file ? req.file.originalname : req.body.url;
+        let fileSize = req.file ? req.file.size : 0;
         
         res.json({
             success: true,
             file: {
                 name: originalName,
-                path: '/tools/' + fileName,
+                path: req.file ? '/tools/' + fileName : req.body.url,
                 size: fileSize,
-                type: path.extname(originalName).toLowerCase()
+                type: req.file ? path.extname(originalName).toLowerCase() : 'url'
             }
         });
     } catch (err) {
+        logger.error('Upload error:', err);
         res.status(500).json({ success: false, error: err.message });
     }
 });
