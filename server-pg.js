@@ -72,16 +72,29 @@ const PUSHER_CONFIG = {
 
 const upload = multer({
     limits: { 
-        fileSize: 5 * 1024 * 1024, // 5 МБ
+        fileSize: 100 * 1024 * 1024, // 100 МБ
         files: 1
     },
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|webp|exe|msi|bat|cmd|pdf|zip|rar|7z/;
-        const ext = path.extname(file.originalname).toLowerCase();
-        const mime = file.mimetype;
-        if (allowedTypes.test(ext) || allowedTypes.test(mime)) cb(null, true);
-        else cb(new Error('Недопустимый тип файла'));
-    }
+        // Разрешаем любые типы файлов для утилит
+        cb(null, true);
+    },
+    // ✨ ВАЖНО: использовать diskStorage вместо memoryStorage для больших файлов
+    storage: multer.diskStorage({
+        destination: (req, file, cb) => {
+            const uploadDir = path.join(__dirname, 'public', 'tools');
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+            cb(null, uploadDir);
+        },
+        filename: (req, file, cb) => {
+            // Сохраняем оригинальное имя + таймштамп для уникальности
+            const ext = path.extname(file.originalname);
+            const name = path.basename(file.originalname, ext);
+            cb(null, name + '_' + Date.now() + ext);
+        }
+    })
 });
 
 const globalLimiter = rateLimit({
@@ -2979,49 +2992,66 @@ app.post('/api/tools/upload', authMiddleware, upload.single('file'), async (req,
             return res.status(400).json({ success: false, error: 'Файл не загружен' });
         }
         
-        let fileName = req.file ? req.file.filename : req.body.url.split('/').pop() || 'link.txt';
-        let originalName = req.file ? req.file.originalname : req.body.url;
+        let fileName = req.file ? req.file.filename : null;
+        let originalName = req.file ? req.file.originalname : null;
         let fileSize = req.file ? req.file.size : 0;
+        let filePath = req.file ? '/tools/' + fileName : null;
+        
+        // Если это ссылка
+        if (req.body.type === 'url') {
+            originalName = req.body.url.split('/').pop() || 'link.txt';
+            filePath = req.body.url;
+        }
+        
+        // Сохраняем в БД (если нужно)
+        // await query(...)
         
         res.json({
             success: true,
             file: {
                 name: originalName,
-                path: req.file ? '/tools/' + fileName : req.body.url,
+                path: filePath,
                 size: fileSize,
-                type: req.file ? path.extname(originalName).toLowerCase() : 'url'
+                type: req.file ? path.extname(originalName).toLowerCase() : 'url',
+                uploadedAt: new Date().toISOString()
             }
         });
     } catch (err) {
         logger.error('Upload error:', err);
-        res.status(500).json({ success: false, error: err.message });
+        res.status(500).json({ success: false, error: 'Ошибка при загрузке: ' + err.message });
     }
 });
 
 // Получить список загруженных утилит
 app.get('/api/tools', authMiddleware, async (req, res) => {
     try {
-        var files = fs.readdirSync(toolsDir);
-        var tools = files.map(function(f) {
-            var stats = fs.statSync(path.join(toolsDir, f));
+        const toolsDir = path.join(__dirname, 'public', 'tools');
+        if (!fs.existsSync(toolsDir)) {
+            return res.json({ success: true, tools: [] });
+        }
+        
+        const files = fs.readdirSync(toolsDir);
+        const tools = files.map(f => {
+            const stats = fs.statSync(path.join(toolsDir, f));
             return {
                 name: f,
                 size: stats.size,
-                uploadedAt: stats.mtime,
+                uploadedAt: stats.mtime.toISOString(),
                 path: '/tools/' + f
             };
         });
+        
         res.json({ success: true, tools: tools });
     } catch (err) {
+        logger.error('Error reading tools:', err);
         res.json({ success: true, tools: [] });
     }
 });
-
 // Удаление утилиты
 app.delete('/api/tools/:filename', authMiddleware, directorOnly, async (req, res) => {
     try {
-        var filename = req.params.filename;
-        var filePath = path.join(toolsDir, filename);
+        const filename = req.params.filename;
+        const filePath = path.join(__dirname, 'public', 'tools', filename);
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             res.json({ success: true });
